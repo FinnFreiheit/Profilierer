@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Profil-/Exportdateien (Arbeitsstände, nicht Teil des Tools)
+*.sch
+Beispiel*.xml
+Profil*.json
+
+# Lokale XSD-Kopien / Testdaten
+XJustiz_*_XSD/
+*.xlsx

@@ -1,0 +1,2469 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XJustiz Profilierer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --bg:#f4f5f7; --panel:#ffffff; --border:#dce0e6; --text:#1c2733; --muted:#6b7684;
+  --accent:#1a5fa8; --accent-soft:#e8f0fa;
+  --mono:ui-monospace,'SF Mono',Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);display:flex;flex-direction:column}
+
+#topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+#topbar h1{font-size:17px;margin:0;font-weight:650}
+#topbar h1 span{color:var(--accent)}
+.pill{font-size:12px;background:var(--accent-soft);color:var(--accent);border-radius:20px;padding:2px 10px}
+.spacer{flex:1}
+button{font:inherit;font-size:13px;padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);cursor:pointer}
+button:hover{background:#f0f3f7}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:#144d8a}
+button:disabled{opacity:.45;cursor:not-allowed}
+input[type=text],textarea,select{font:inherit;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;background:#fff;color:var(--text)}
+input[type=text]:focus,textarea:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+
+#toolbar{background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#msgBtn{max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#profilName{width:210px}
+.toolgroup{display:flex;align-items:center;gap:6px}
+.toolgroup label{font-size:12px;color:var(--muted)}
+#fortschritt{font-size:12px;color:var(--muted)}
+
+#msgPanel{position:absolute;z-index:40;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);width:640px;max-width:94vw;max-height:70vh;display:none;flex-direction:column;overflow:hidden}
+#msgPanel.open{display:flex}
+#msgPanel .head{padding:10px;border-bottom:1px solid var(--border)}
+#msgSearch{width:100%}
+#msgList{overflow:auto;flex:1;padding:6px 0}
+.msgGroup{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:8px 14px 2px}
+.msgItem{padding:6px 14px;cursor:pointer;border-left:3px solid transparent}
+.msgItem:hover{background:var(--accent-soft);border-left-color:var(--accent)}
+.msgItem .mn{font-family:var(--mono);font-size:12.5px}
+.msgItem .md{font-size:12px;color:var(--muted);margin-top:1px}
+
+#searchPanel{position:absolute;z-index:41;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);width:460px;max-width:92vw;max-height:55vh;overflow:auto;display:none;padding:4px 0}
+#searchPanel.open{display:block}
+.srItem{padding:6px 14px;cursor:pointer;border-left:3px solid transparent}
+.srItem:hover,.srItem.hot{background:var(--accent-soft);border-left-color:var(--accent)}
+.srItem .sl{font-size:13px;font-weight:600}
+.srItem .sc{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srItem .sd{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes flashSel{0%{box-shadow:0 0 0 7px rgba(26,95,168,.4)}100%{box-shadow:none}}
+.box.flash{animation:flashSel 1.3s ease-out}
+#autosaveInfo{font-size:11.5px;color:var(--muted)}
+#crumbs{display:none;background:var(--panel);border-bottom:1px solid var(--border);padding:5px 16px;font-size:12.5px;align-items:center;gap:4px;flex-wrap:wrap}
+.crumb{padding:2px 9px;border-radius:12px;cursor:pointer;color:var(--accent);background:var(--accent-soft);white-space:nowrap}
+.crumb:hover{background:#d7e5f5}
+.crumb.cur{background:var(--accent);color:#fff;cursor:default}
+.crumbSep{color:var(--muted)}
+#main{flex:1;display:flex;min-height:0}
+#colWrap{flex:1;overflow:auto;min-width:0;position:relative}
+#treeCanvas{position:relative;padding:14px 40px 40px 16px;min-width:max-content}
+#linkSvg{position:absolute;top:0;left:0;pointer-events:none;z-index:0}
+.ntree{display:flex;align-items:flex-start;position:relative;z-index:1}
+.nkids{display:flex;flex-direction:column;gap:7px;margin-left:44px;padding:0 0 4px}
+.ntree>.nkids{margin-top:0}
+.ntree+.ntree{margin-top:0}
+
+/* Kästen */
+.box{background:var(--panel);border:1.5px solid var(--border);border-radius:9px;padding:7px 10px;cursor:pointer;position:relative;flex:none;width:270px;margin-bottom:7px}
+.box:hover{border-color:#b8c2cf}
+.box.sel{border:2.5px solid var(--accent);padding:6px 9px}
+.box.parentBox{background:#f2f4f8}
+.box.leafBox{background:#fff}
+.box.mini{padding:3px 9px;margin-bottom:4px;opacity:.75}
+.box.mini:hover{opacity:1}
+.box.mini .bt{font-size:12px;font-weight:500;display:flex;gap:6px;align-items:center;padding-right:4px}
+.box.mini .bdoc,.box.mini .tags,.box.mini .tech,.box.mini .kard,.box.mini .togBtn,.box.mini .vrow{display:none}
+.box.mini.sel{opacity:1}
+.bname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv{margin-left:auto;font-family:var(--mono);font-size:11px;color:#1e7d3e;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none}
+.mv.ghost{color:#9aa7b4;font-style:italic}
+.box:not(.mini) .mv{display:none}
+.vrow{margin-top:5px}
+.vin{width:100%;font-family:var(--mono);font-size:12px;padding:3px 7px;border:1px solid #cfe0d3;border-radius:5px;background:#f6fbf7;color:#14532d}
+.vin::placeholder{color:#a3b8ab;font-style:italic}
+.box.excluded .vrow,.box.exclInherit .vrow{display:none}
+.box.excluded .mv,.box.exclInherit .mv{display:none}
+.box .bt{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;padding-right:16px}
+.hideBtn,.dupBtn{position:absolute;top:5px;display:none;border:none;background:#eef1f5;color:var(--muted);border-radius:5px;width:20px;height:20px;line-height:20px;padding:0;font-size:11px;text-align:center;z-index:2}
+.hideBtn{right:5px}
+.dupBtn{right:28px;font-size:12px}
+.hideBtn:hover,.dupBtn:hover{background:#dfe4ea;color:var(--text)}
+.delBtn:hover{background:#f9e9e9;color:#b23a3a}
+.box:hover .hideBtn,.box:hover .dupBtn{display:block}
+.box.excluded .hideBtn{display:block}
+.box.auspBox:hover .delBtn{display:block}
+.togBtn{margin-left:auto;flex:none;border:1px solid var(--border);background:#f5f7fa;color:var(--muted);border-radius:5px;width:20px;height:20px;line-height:18px;padding:0;font-size:12px;text-align:center}
+.togBtn:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.box .bt .arrow{margin-left:auto;color:var(--muted);font-size:11px}
+.box .tech{font-family:var(--mono);font-size:11px;color:var(--muted);word-break:break-all}
+.box .kard{font-size:11.5px;margin-top:2px}
+.box .bdoc{font-size:11.5px;color:var(--muted);margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.box .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:3px}
+.tag{font-size:10px;border-radius:4px;padding:0 5px;font-weight:600}
+.tag.t-choice{background:#f1eaf8;color:#7a4fa3}
+.tag.t-wert{background:#e5f4ea;color:#1e7d3e}
+.tag.t-ref{background:#fbeaf0;color:#993556}
+.tag.t-dent{background:#f9e9e9;color:#b23a3a}
+.tag.t-daend{background:#fdf3d7;color:#8a6d0b}
+.box.phantom{border:1.5px dashed #1D9E75;background:#f2faf5;cursor:default}
+.box.phantom .bt{color:#0F6E56}
+.tag.t-dsub{background:#fdf3d7;color:#8a6d0b}
+.box.mini.dfA .bname::after{content:' Δ';color:#8a6d0b;font-weight:700}
+.box.mini.dfR .bname::after{content:' Δ';color:#b23a3a;font-weight:700}
+.tag.t-code{background:#faf1e2;color:#b07018}
+.tag.t-rec{background:#ececec;color:#777}
+.tag.t-ausp{background:#e8f0fa;color:#1a5fa8}
+.tag.t-note{background:#e8f0fa;color:#1a5fa8}
+.box.excluded{opacity:.55;background:#fafafa}
+.box.excluded .bt{text-decoration:line-through}
+.box.exclInherit{opacity:.4}
+.box.exclInherit .bt{text-decoration:line-through}
+.box.auspBox .bt{font-style:normal}
+.box.addBox{border-style:dashed;color:var(--muted);text-align:center;font-size:12.5px;background:transparent}
+.box.addBox:hover{color:var(--accent);border-color:var(--accent)}
+.statusStrip{position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:9px 0 0 9px}
+
+#detail{width:400px;min-width:350px;border-left:1px solid var(--border);background:var(--panel);overflow-y:auto;padding:16px;display:none;flex:none}
+#detail.open{display:block}
+#detail h3{margin:0 0 2px;font-size:15px;word-break:break-word}
+#detail .sub{color:var(--muted);font-size:12px;margin-bottom:10px;font-family:var(--mono);word-break:break-all}
+.dsec{margin:14px 0}
+.dsec>label{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:5px;font-weight:600}
+.docbox{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px}
+.statusBtns{display:flex;gap:6px;flex-wrap:wrap}
+.statusBtns button{flex:1 1 40%;position:relative}
+.statusBtns button.active{color:#fff}
+.kardRow{display:flex;gap:8px;align-items:center}
+.kardRow input{width:70px;font-family:var(--mono)}
+textarea{width:100%;min-height:60px;resize:vertical}
+.clWrap{border:1px solid var(--border);border-radius:6px;max-height:240px;overflow:auto}
+.clRow{display:flex;gap:8px;padding:4px 8px;align-items:baseline;border-bottom:1px solid #f0f2f5;font-size:12.5px}
+.clRow:last-child{border-bottom:none}
+.clRow code{font-family:var(--mono);color:#b07018;flex:none;min-width:46px}
+.clTools{display:flex;gap:8px;margin:4px 0 6px;font-size:12px}
+.clTools a{color:var(--accent);cursor:pointer;text-decoration:none}
+.extern{font-size:12.5px;color:var(--muted);background:#faf1e2;border-radius:6px;padding:8px 10px}
+.auspRow{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.auspRow input{flex:1}
+.auspRow button{padding:4px 8px}
+
+#legend{border-top:1px solid var(--border);background:var(--panel);padding:6px 16px;display:flex;gap:16px;font-size:12px;color:var(--muted);flex-wrap:wrap;align-items:center}
+.legDot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+#empty{max-width:640px;margin:60px auto;text-align:center;color:var(--muted)}
+#empty .big{font-size:40px}
+#empty h2{color:var(--text)}
+#empty ol{text-align:left;display:inline-block;line-height:2}
+
+dialog{border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.2);max-width:560px;width:90vw}
+dialog::backdrop{background:rgba(0,0,0,.25)}
+.metaGrid{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center}
+.stRow{display:grid;grid-template-columns:1fr 110px 150px 34px;gap:6px;margin-bottom:6px;align-items:center}
+.stRow select{padding:5px 6px}
+.hidden{display:none !important}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2b3642;color:#fff;padding:8px 18px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:99}
+#toast.show{opacity:1}
+
+/* Druckansicht */
+#printDoc{display:none}
+@media print{
+  #topbar,#toolbar,#legend,#main,#msgPanel,#toast{display:none !important}
+  #printDoc{display:block;padding:6mm}
+  body{background:#fff}
+  #printDoc h1{font-size:18px;margin:0 0 4px}
+  #printDoc .phead{border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:12px;font-size:12px}
+  .prow{display:flex;gap:8px;font-size:11.5px;padding:2.5px 0;border-bottom:0.5px solid #e5e5e5;break-inside:avoid}
+  .prow .pl{flex:none}
+  .prow .pname{font-weight:600}
+  .prow .ptech{font-family:var(--mono);color:#777;font-size:10px}
+  .prow .pst{flex:none;font-weight:600;min-width:120px;text-align:right}
+  .prow .pk{flex:none;color:#555;min-width:80px}
+  .prow.pexcl{color:#999;text-decoration:line-through}
+  .pnote{font-size:10.5px;color:#333;background:#f4f4f4;padding:1px 6px;border-radius:3px}
+}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1><span>XJustiz</span> Profilierer</h1>
+  <span class="pill" id="verInfo">keine Schemata geladen</span>
+  <span class="spacer"></span>
+  <input type="file" id="xsdInput" webkitdirectory multiple class="hidden">
+  <input type="file" id="clInput" multiple accept=".xml,.zip" class="hidden">
+  <input type="file" id="profilInput" accept=".json" class="hidden">
+  <button id="btnLoadXsd" class="primary">XSD-Ordner laden</button>
+  <button id="btnXrep" title="Alle vom Standard genutzten Codelisten (inkl. Typ 3 in aktuell gültiger Version) über die XRepository-REST-Schnittstelle abrufen" disabled>Codelisten: XRepository</button>
+  <button id="btnLoadCl" title="Genericode-Dateien oder ZIP (XRepository-Download) aus Dateien laden">Codelisten: Datei…</button>
+  <input type="file" id="xsdBInput" webkitdirectory multiple class="hidden">
+  <button id="btnDiff" title="Zweiten XSD-Ordner (andere XJustiz-Version) laden und Unterschiede anzeigen" disabled>Version vergleichen…</button>
+  <button id="btnLoadProfil">Profil laden…</button>
+</div>
+
+<div id="toolbar">
+  <button id="msgBtn" disabled>Nachricht wählen ▾</button>
+  <div class="toolgroup">
+    <label for="profilName">Szenario:</label>
+    <input type="text" id="profilName" placeholder="Name des Kommunikationsszenarios">
+    <button id="btnMeta" title="Autor, Beschreibung, Datum">Details…</button>
+    <button id="btnStatusCfg" title="Statusstufen konfigurieren">Status…</button>
+  </div>
+  <span id="fortschritt"></span>
+  <span id="autosaveInfo"></span>
+  <span class="spacer"></span>
+  <div class="toolgroup">
+    <input type="text" id="searchInput" placeholder="Im Baum suchen…" style="width:160px" disabled>
+  </div>
+  <div class="toolgroup">
+    <label title="Versionsunterschiede im Baum markieren (nach Laden einer Vergleichsversion)"><input type="checkbox" id="chkDiff" disabled> Diff</label>
+    <label title="Aktiver Pfad und seine Kinder in voller Größe, alles andere als Kompakt-Chips"><input type="checkbox" id="chkFocus" checked> Fokus</label>
+    <label><input type="checkbox" id="chkTech"> Technik</label>
+    <label><input type="checkbox" id="chkRefs" checked> Verweise</label>
+    <label><input type="checkbox" id="chkOnlyProfile"> nur Profil</label>
+    <button id="btnExpand" disabled>Alles ausklappen</button>
+    <button id="btnCollapse" disabled>Zuklappen</button>
+  </div>
+  <div class="toolgroup">
+    <button id="btnSave" disabled>Speichern</button>
+    <button id="btnExcel" disabled>Excel</button>
+    <button id="btnSch" disabled>Schematron</button>
+    <button id="btnXml" disabled>Beispiel-XML</button>
+    <button id="btnPrint" disabled>Drucken</button>
+  </div>
+</div>
+
+<div id="crumbs"></div>
+<div id="searchPanel"></div>
+
+<div id="msgPanel">
+  <div class="head"><input type="text" id="msgSearch" placeholder="Nachricht suchen (Name oder Beschreibung)…"></div>
+  <div id="msgList"></div>
+</div>
+
+<div id="main">
+  <div id="colWrap">
+    <div id="empty">
+      <div class="big">§ ⇄ &lt;/&gt;</div>
+      <h2>XJustiz-Nachrichten visualisieren und profilieren</h2>
+      <p>Die Nachricht wird als Kasten-Kaskade von links nach rechts dargestellt —
+      jeder Schritt bleibt sichtbar. Für ein Kommunikationsszenario wird der Standard eingegrenzt:
+      Status je Element, Kardinalitäten, Codelisten-Werte, benannte Ausprägungen wiederholbarer
+      Elemente (z. B. mehrere Beteiligte mit unterschiedlichen Rollen), Anmerkungen und Beispielwerte.</p>
+      <ol>
+        <li><b>XSD-Ordner laden</b> — Ordner mit den XJustiz-Schemadateien wählen</li>
+        <li><b>Nachricht wählen</b> — z. B. <code>nachricht.enova.entscheidung.2900003</code></li>
+        <li><b>Profilieren</b> — Kästen anklicken, rechts entscheiden</li>
+        <li><b>Exportieren</b> — Profil, Excel, Schematron, Beispiel-XML, Druck</li>
+      </ol>
+    </div>
+  </div>
+  <div id="detail"></div>
+</div>
+
+<div id="legend"></div>
+<div id="printDoc"></div>
+
+<dialog id="diffDlg" style="max-width:760px;width:92vw">
+  <h3 style="margin-top:0">Versionsvergleich</h3>
+  <div id="diffHead"></div>
+  <div style="margin:8px 0 6px;display:flex;gap:14px;align-items:center">
+    <label style="font-size:12.5px"><input type="checkbox" id="diffOnlyProf"> nur Änderungen mit Profil-Bezug</label>
+    <span class="spacer" style="flex:1"></span>
+    <button id="diffOther">andere Version laden…</button>
+    <button id="diffClose" class="primary">Schließen</button>
+  </div>
+  <div id="diffList" style="max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:8px"></div>
+</dialog>
+
+<dialog id="metaDlg">
+  <h3 style="margin-top:0">Profil-Details</h3>
+  <div class="metaGrid">
+    <label>Name</label><input type="text" id="mName">
+    <label>Autor</label><input type="text" id="mAutor">
+    <label>Stand</label><input type="text" id="mDatum">
+    <label>Beschreibung</label><textarea id="mBeschr"></textarea>
+  </div>
+  <div style="text-align:right;margin-top:12px"><button id="mOk" class="primary">Übernehmen</button></div>
+</dialog>
+
+<dialog id="statusDlg">
+  <h3 style="margin-top:0">Statusstufen</h3>
+  <p style="font-size:12.5px;color:var(--muted);margin-top:0">Name und Farbe sind frei wählbar. Die <b>Wirkung</b> steuert Schematron und Beispiel-XML:
+  <i>Pflicht</i> = muss vorkommen · <i>optional</i> = darf vorkommen · <i>ausgeschlossen</i> = darf nicht vorkommen · <i>nur Markierung</i> = ohne technische Wirkung (z. B. „zu klären").</p>
+  <div id="stList"></div>
+  <button id="stAdd" style="margin-top:4px">+ Status</button>
+  <div style="text-align:right;margin-top:12px"><button id="stOk" class="primary">Übernehmen</button></div>
+</dialog>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+const XS='http://www.w3.org/2001/XMLSchema';
+const XJNS='http://www.xjustiz.de';
+const $=s=>document.querySelector(s);
+
+/* ================= Status-Definitionen ================= */
+const FARBEN={
+  'Grün':'#1D9E75','Bernstein':'#BA7517','Grau':'#888780','Rosa':'#D4537E',
+  'Blau':'#378ADD','Violett':'#7F77DD','Petrol':'#0F6E56','Rot':'#E24B4A'
+};
+function defaultStatuses(){return [
+  {id:'s1',name:'zwingend',farbe:'#1D9E75',wirkung:'pflicht'},
+  {id:'s2',name:'anzugeben, wenn vorhanden',farbe:'#BA7517',wirkung:'optional'},
+  {id:'s3',name:'nicht verwendet',farbe:'#888780',wirkung:'ausgeschlossen'},
+  {id:'s4',name:'zu klären',farbe:'#D4537E',wirkung:'markierung'}
+];}
+const WIRKUNGEN=[['pflicht','Pflicht'],['optional','optional'],['ausgeschlossen','ausgeschlossen'],['markierung','nur Markierung']];
+
+/* ================= State ================= */
+const S={
+  docs:[],idx:null,version:'',msgName:null,root:null,
+  profile:null, selItem:null, open:new Set(), codelists:{},
+  showTech:false, onlyProfile:false, showRefs:true, focusMode:true, pendingMsg:null
+};
+function newProfile(){return {meta:{},statuses:defaultStatuses(),elemente:{},auspraegungen:{}};}
+S.profile=newProfile();
+function statusById(id){return S.profile.statuses.find(s=>s.id===id)||null;}
+
+/* ================= XSD-Hilfen ================= */
+function kids(el,ln){const r=[];for(const c of el.children)if(c.namespaceURI===XS&&c.localName===ln)r.push(c);return r;}
+function kid(el,ln){for(const c of el.children)if(c.namespaceURI===XS&&c.localName===ln)return c;return null;}
+function local(n){return n?n.split(':').pop():null;}
+function docOf(el){
+  const a=kid(el,'annotation');if(!a)return '';
+  return kids(a,'documentation').map(d=>d.textContent.trim()).join('\n');
+}
+function appinfoOf(el){const a=kid(el,'annotation');return a?kid(a,'appinfo'):null;}
+
+/* ================= Index ================= */
+function buildIndexFrom(docs){
+  const idx={ct:{},st:{},el:{},messages:[]};
+  let version='',kennung='';
+  for(const {file,dom} of docs){
+    const schema=dom.documentElement;
+    if(!schema||schema.localName!=='schema')continue;
+    if(file.startsWith('xjustiz_0000')){
+      version=schema.getAttribute('version')||'';
+      const ai=appinfoOf(schema);
+      if(ai){const k=ai.getElementsByTagName('kennung')[0];if(k)kennung=k.textContent.trim();}
+    }
+    for(const c of schema.children){
+      if(c.namespaceURI!==XS)continue;
+      const n=c.getAttribute('name');
+      if(!n)continue;
+      if(c.localName==='complexType')idx.ct[n]=c;
+      else if(c.localName==='simpleType')idx.st[n]=c;
+      else if(c.localName==='element'){
+        idx.el[n]=c;
+        if(/^nachricht\./.test(n))idx.messages.push({name:n,doc:docOf(c),file});
+      }
+    }
+  }
+  idx.messages.sort((a,b)=>a.name.localeCompare(b.name));
+  return {idx,version,kennung};
+}
+function buildIndex(){
+  const r=buildIndexFrom(S.docs);
+  S.idx=r.idx;S.version=r.version;
+  if(r.kennung)S.standardKennung=r.kennung;
+}
+function withIdx(idx,fn){
+  const old=S.idx;S.idx=idx;
+  try{return fn();}finally{S.idx=old;}
+}
+
+/* ================= Typ-Auflösung ================= */
+function particlesOfCT(ct,seen){
+  seen=seen||new Set();
+  const out={model:'sequence',parts:[],simple:false};
+  const grab=holder=>{
+    for(const m of ['sequence','choice','all']){
+      const g=kid(holder,m);
+      if(g){out.model=m;out.parts.push(...[...g.children].filter(c=>c.namespaceURI===XS&&['element','choice','sequence','any'].includes(c.localName)));return true;}
+    }
+    return false;
+  };
+  const cc=kid(ct,'complexContent');
+  if(cc){
+    const ext=kid(cc,'extension'),res=kid(cc,'restriction');
+    const h=ext||res;
+    if(h){
+      const base=local(h.getAttribute('base'));
+      if(ext&&base&&S.idx.ct[base]&&!seen.has(base)){
+        seen.add(base);
+        const b=particlesOfCT(S.idx.ct[base],seen);
+        out.parts.push(...b.parts);
+        if(b.model==='choice'&&!kid(h,'sequence'))out.model='choice';
+      }
+      grab(h);
+      return out;
+    }
+  }
+  const sc=kid(ct,'simpleContent');
+  if(sc){out.simple=true;return out;}
+  grab(ct);
+  return out;
+}
+function enumsOfST(st,seen){
+  seen=seen||new Set();
+  if(!st)return null;
+  const r=kid(st,'restriction');
+  if(!r)return null;
+  const es=kids(r,'enumeration');
+  if(es.length){
+    return es.map(e=>{
+      let label='';
+      const ai=appinfoOf(e);
+      if(ai){const w=ai.getElementsByTagName('wert')[0];if(w)label=w.textContent.trim();}
+      if(!label)label=docOf(e);
+      return {value:e.getAttribute('value'),label};
+    });
+  }
+  const base=local(r.getAttribute('base'));
+  if(base&&S.idx.st[base]&&!seen.has(base)){seen.add(base);return enumsOfST(S.idx.st[base],seen);}
+  return null;
+}
+function codelistOf(typeName){
+  if(!typeName||!/^Code\./.test(typeName))return null;
+  const ct=S.idx.ct[typeName];
+  if(!ct)return null;
+  const info={typeName,nameLang:'',kennung:'',beschreibung:'',werte:null};
+  const ai=appinfoOf(ct);
+  if(ai){
+    const cl=ai.getElementsByTagName('codeliste')[0];
+    if(cl){
+      const g=t=>{const e=cl.getElementsByTagName(t)[0];return e?e.textContent.trim():'';};
+      info.nameLang=g('nameLang');info.kennung=g('kennung');info.beschreibung=g('beschreibung');
+    }
+  }
+  let codeEl=null;
+  const walk=e=>{for(const c of e.children){if(c.namespaceURI===XS&&c.localName==='element'&&c.getAttribute('name')==='code'){codeEl=c;return;}walk(c);}};
+  walk(ct);
+  if(codeEl){
+    const t=local(codeEl.getAttribute('type'));
+    if(t&&S.idx.st[t])info.werte=enumsOfST(S.idx.st[t]);
+    else{const ist=kid(codeEl,'simpleType');if(ist)info.werte=enumsOfST(ist);}
+  }
+  return info;
+}
+/* ================= Knoten-Modell ================= */
+let NODEID=0;
+function makeNode(o){
+  return Object.assign({
+    id:++NODEID,path:'',name:'',min:'1',max:'1',doc:'',typeName:null,
+    xsdEl:null,model:null,children:null,parent:null,depth:0,
+    synthetic:false,recursive:false,codelist:null,typeStack:[],inChoice:false
+  },o);
+}
+function buildRoot(msgName){
+  NODEID=0;S.ctxCache={};
+  const el=S.idx.el[msgName];
+  const n=makeNode({name:msgName,path:msgName,xsdEl:el,doc:docOf(el),depth:0,
+    typeName:local(el.getAttribute('type'))});
+  return n;
+}
+function expandNode(n){
+  if(n.children!==null)return;
+  n.children=[];
+  if(n.codelist)return;
+  let ct=null;
+  if(n.synthetic&&n.groupEl){
+    addParts(n,[...n.groupEl.children].filter(c=>c.namespaceURI===XS&&['element','choice','sequence','any'].includes(c.localName)),n.model==='choice');
+    return;
+  }
+  if(n.xsdEl){
+    ct=kid(n.xsdEl,'complexType');
+    if(!ct&&n.typeName&&S.idx.ct[n.typeName])ct=S.idx.ct[n.typeName];
+  }
+  if(!ct)return;
+  const cm=particlesOfCT(ct);
+  if(cm.simple)return;
+  n.model=cm.model;
+  addParts(n,cm.parts,cm.model==='choice');
+}
+function addParts(n,parts,parentIsChoice){
+  const nameCount={};
+  for(const p of parts){
+    if(p.localName==='element'){
+      const name=p.getAttribute('name')||local(p.getAttribute('ref'));
+      const dup=(nameCount[name]=(nameCount[name]||0)+1)-1;
+      const seg=dup>0?name+'#'+dup:name;
+      let el=p;
+      if(p.getAttribute('ref')&&S.idx.el[local(p.getAttribute('ref'))])el=S.idx.el[local(p.getAttribute('ref'))];
+      const tName=local(el.getAttribute('type'));
+      const child=makeNode({
+        name,path:n.path+'/'+seg,xsdEl:el,parent:n,depth:n.depth+1,
+        min:p.getAttribute('minOccurs')||'1',max:p.getAttribute('maxOccurs')||'1',
+        doc:docOf(p)||docOf(el),typeName:tName,inChoice:!!parentIsChoice,
+        typeStack:tName?[...n.typeStack,tName]:n.typeStack
+      });
+      if(tName){
+        child.codelist=codelistOf(tName);
+        if(n.typeStack.includes(tName))child.recursive=true;
+      }
+      n.children.push(child);
+    }else if(p.localName==='choice'||p.localName==='sequence'){
+      const label=p.localName==='choice'?'(Auswahl)':'(Gruppe)';
+      const dup=(nameCount[label]=(nameCount[label]||0)+1)-1;
+      const child=makeNode({
+        name:label,synthetic:true,groupEl:p,parent:n,depth:n.depth+1,
+        path:n.path+'/'+(p.localName==='choice'?'_auswahl':'_gruppe')+(dup>0?'#'+dup:''),
+        min:p.getAttribute('minOccurs')||'1',max:p.getAttribute('maxOccurs')||'1',
+        model:p.localName,typeStack:n.typeStack,inChoice:!!parentIsChoice
+      });
+      n.children.push(child);
+    }
+  }
+}
+function isLeaf(n){
+  if(n.codelist)return true;
+  if(n.children!==null)return n.children.length===0;
+  if(n.synthetic)return false;
+  if(n.xsdEl){
+    if(kid(n.xsdEl,'complexType'))return false;
+    const t=n.typeName;
+    if(t&&S.idx.ct[t]){
+      const cm=particlesOfCT(S.idx.ct[t]);
+      return cm.simple||cm.parts.length===0;
+    }
+    return true;
+  }
+  return true;
+}
+function isRepeatable(n){return n.max==='unbounded'||parseInt(n.max)>1;}
+// Kontext-Knoten für eine Ausprägung (eigener Pfad-Raum)
+function ctxNode(parentNode,auspId){
+  const key=parentNode.path+'@'+auspId;
+  if(S.ctxCache[key])return S.ctxCache[key];
+  const c=makeNode({
+    name:parentNode.name,path:key,xsdEl:parentNode.xsdEl,typeName:parentNode.typeName,
+    doc:parentNode.doc,min:'1',max:'1',depth:parentNode.depth,parent:parentNode.parent,
+    codelist:parentNode.codelist,typeStack:parentNode.typeStack,model:null
+  });
+  S.ctxCache[key]=c;
+  return c;
+}
+
+/* ================= Anzeige-Namen & Kardinalität ================= */
+function pretty(name){
+  if(/^nachricht\./.test(name)){
+    const p=name.split('.');return p.slice(1,-1).map(x=>x.charAt(0).toUpperCase()+x.slice(1)).join(' — ');
+  }
+  let s=name;
+  let prefix='';
+  if(s.startsWith('auswahl_')){prefix='Auswahl: ';s=s.slice(8);}
+  if(s.startsWith('ref.')){prefix='Verweis: ';s=s.slice(4);}
+  s=s.replace(/[._]/g,' ').replace(/([a-zäöüß0-9])([A-ZÄÖÜ])/g,'$1 $2').trim();
+  s=s.charAt(0).toUpperCase()+s.slice(1);
+  return prefix+s;
+}
+function kardText(min,max){
+  const mx=(max==='unbounded'||max==='*')?Infinity:parseInt(max);
+  const mn=parseInt(min);
+  if(mn===1&&mx===1)return 'genau 1';
+  if(mn===0&&mx===1)return '0 oder 1';
+  if(mn===0&&mx===Infinity)return 'beliebig viele';
+  if(mn===1&&mx===Infinity)return 'mindestens 1, mehrfach';
+  if(mn===mx)return 'genau '+mn;
+  return mn+' bis '+(mx===Infinity?'beliebig':mx);
+}
+function fmtKard(min,max){const mx=(max==='unbounded')?'*':max;return (min==='1'&&mx==='1')?'1':min+'..'+mx;}
+function valueKind(n){
+  if(n.codelist)return 'Code';
+  let t=n.typeName;
+  const map={date:'Datum',dateTime:'Datum + Zeit',time:'Uhrzeit',integer:'Zahl',int:'Zahl',
+    nonNegativeInteger:'Zahl',positiveInteger:'Zahl',long:'Zahl',decimal:'Zahl',boolean:'Ja/Nein',
+    gYear:'Jahr',gYearMonth:'Monat',anyURI:'Link',token:'Text',string:'Text',
+    normalizedString:'Text',base64Binary:'Datei'};
+  const seen=new Set();
+  while(t&&!seen.has(t)){
+    seen.add(t);
+    if(map[t])return map[t];
+    if(/^datatype/i.test(t))return 'Text';
+    const st=S.idx.st[t];
+    if(st){
+      const en=enumsOfST(st);
+      if(en&&en.length)return 'Auswahlwert';
+      const r=kid(st,'restriction');
+      t=r?local(r.getAttribute('base')):null;
+    }else if(S.idx.ct[t])return 'Text';
+    else t=null;
+  }
+  return 'Wert';
+}
+function exclStatus(){return S.profile.statuses.find(s=>s.wirkung==='ausgeschlossen')||null;}
+
+/* ================= Referenzen (Type.GDS.Ref.*) ================= */
+const REF_LABELS={Rollennummer:'Rolle/Beteiligung',SGO:'Dokument/Akte',Beteiligtennummer:'Beteiligter',
+  Bankverbindung:'Bankverbindung',FremdeNachrichtenID:'frühere Nachricht'};
+const REF_TARGETS={Rollennummer:['beteiligung'],Beteiligtennummer:['beteiligung','beteiligter'],
+  SGO:['dokument','akte','teilakte'],Bankverbindung:['bankverbindung']};
+function refKindOf(n){
+  const t=n.typeName||'';
+  if(t.startsWith('Type.GDS.Ref.'))return t.slice(13);
+  if(/^ref\./.test(n.name))return n.name.slice(4);
+  return null;
+}
+function refZielKandidaten(kind){
+  const names=REF_TARGETS[kind]||null;
+  const out=[];
+  for(const [path,list] of Object.entries(S.profile.auspraegungen)){
+    const elName=path.split('/').pop().split('#')[0].split('@')[0];
+    if(names&&!names.includes(elName))continue;
+    for(const a of list)out.push({path:path+'@'+a.id,label:pretty(elName)+' → '+a.name});
+  }
+  return out;
+}
+function auspNumber(auspPath){
+  const i=auspPath.lastIndexOf('@');
+  if(i<0)return null;
+  const list=auspsOf(auspPath.slice(0,i));
+  if(!list)return null;
+  const idx=list.findIndex(a=>a.id===auspPath.slice(i+1));
+  return idx>=0?idx+1:null;
+}
+function auspLabel(auspPath){
+  const i=auspPath.lastIndexOf('@');
+  if(i<0)return auspPath;
+  const a=(auspsOf(auspPath.slice(0,i))||[]).find(x=>x.id===auspPath.slice(i+1));
+  const elName=auspPath.slice(0,i).split('/').pop().split('#')[0];
+  return a?pretty(elName)+' „'+a.name+'"':'(gelöschtes Ziel)';
+}
+function openPathTo(path){
+  const segs=path.split('/');
+  let cur='';
+  for(const sg of segs){
+    cur=cur?cur+'/'+sg:sg;
+    const at=sg.indexOf('@');
+    if(at>=0)S.open.add(cur.slice(0,cur.length-(sg.length-at)));
+    S.open.add(cur);
+  }
+}
+function findItemByPath(path){
+  let it=rootItem();
+  if(itemPath(it)===path)return it;
+  let guard=0;
+  while(guard++<80){
+    const kids=childItems(it);
+    const next=kids.find(k=>{const kp=itemPath(k);
+      return path===kp||path.startsWith(kp+'/')||path.startsWith(kp+'@');});
+    if(!next)return null;
+    if(itemPath(next)===path)return next;
+    it=next;
+  }
+  return null;
+}
+// Schema-Ziel eines Verweises im Baum finden (erstes Element mit passendem Namen)
+function findTargetPathByNames(names){
+  if(!names||!names.length)return null;
+  const q=[[rootItem(),0]];
+  let steps=0;
+  while(q.length&&steps++<3000){
+    const [it,d]=q.shift();
+    if(d>12)continue;
+    for(const c of childItems(it)){
+      if(c.kind==='el'&&!c.node.synthetic&&names.includes(c.node.name.split('#')[0]))
+        return c.node.path;
+      if(c.kind==='el'&&c.node.recursive)continue;
+      q.push([c,d+1]);
+    }
+  }
+  return null;
+}
+function scrollToPath(path,inline){
+  requestAnimationFrame(()=>{
+    for(const b of document.querySelectorAll('#treeCanvas .box'))
+      if(b.dataset.path===path){
+        b.scrollIntoView({block:'center',inline:inline||'nearest',behavior:'smooth'});
+        b.classList.add('flash');
+        setTimeout(()=>b.classList.remove('flash'),1400);
+        break;
+      }
+  });
+}
+
+/* ================= Suche im Baum ================= */
+function buildSearchIndex(){
+  const out=[];
+  const rec=(it,depth,crumb)=>{
+    if(depth>20||out.length>8000)return;
+    for(const c of childItems(it)){
+      const label=c.kind==='ausp'?c.ausp.name:pretty(c.node.name);
+      out.push({path:itemPath(c),label,
+        tech:c.kind==='el'?c.node.name:'',
+        doc:c.kind==='el'?(c.node.doc||'').split('\n')[0]:'',
+        crumb});
+      if(c.kind==='el'&&c.node.recursive)continue;
+      rec(c,depth+1,crumb?crumb+' › '+label:label);
+    }
+  };
+  rec(rootItem(),0,'');
+  return out;
+}
+function runSearch(q){
+  const panel=$('#searchPanel');
+  q=q.trim().toLowerCase();
+  if(!q||!S.root){panel.classList.remove('open');return;}
+  const idx=buildSearchIndex();
+  const starts=[],contains=[];
+  for(const e of idx){
+    const hay=(e.label+' '+e.tech).toLowerCase();
+    if(hay.split(/[\s:›]+/).some(w=>w.startsWith(q)))starts.push(e);
+    else if(hay.includes(q)||e.doc.toLowerCase().includes(q))contains.push(e);
+    if(starts.length>40)break;
+  }
+  const hits=[...starts,...contains].slice(0,40);
+  const inp=$('#searchInput');
+  const r=inp.getBoundingClientRect();
+  panel.style.left=Math.max(8,Math.min(r.left,window.innerWidth-480))+'px';
+  panel.style.top=(r.bottom+4)+'px';
+  panel.innerHTML='';
+  if(!hits.length){panel.innerHTML='<div style="padding:12px 14px;color:var(--muted);font-size:12.5px">keine Treffer</div>';}
+  hits.forEach((e,i)=>{
+    const d=document.createElement('div');
+    d.className='srItem'+(i===0?' hot':'');
+    d.innerHTML=`<div class="sl">${esc(e.label)}${e.tech&&e.tech!==e.label?' <span style="font-weight:400;color:var(--muted);font-family:var(--mono);font-size:11px">'+esc(e.tech)+'</span>':''}</div>
+      ${e.crumb?`<div class="sc">${esc(e.crumb)}</div>`:''}
+      ${e.doc?`<div class="sd">${esc(e.doc)}</div>`:''}`;
+    d.onclick=()=>{closeSearch();jumpTo(e.path);};
+    panel.appendChild(d);
+  });
+  panel.dataset.first=hits.length?hits[0].path:'';
+  panel.classList.add('open');
+}
+function closeSearch(){$('#searchPanel').classList.remove('open');}
+function jumpTo(path){
+  openPathTo(path);
+  const t=findItemByPath(path);
+  if(t)S.selItem=t;
+  renderAll();
+  scrollToPath(path,'center');
+}
+// Kette Wurzel → Ziel (für Breadcrumb und Tastatur-Navigation)
+function findChainByPath(path){
+  const chain=[rootItem()];
+  if(itemPath(chain[0])===path)return chain;
+  let it=chain[0],guard=0;
+  while(guard++<100){
+    const kids=childItems(it);
+    const next=kids.find(k=>{const kp=itemPath(k);
+      return path===kp||path.startsWith(kp+'/')||path.startsWith(kp+'@');});
+    if(!next)return chain;
+    chain.push(next);
+    if(itemPath(next)===path)return chain;
+    it=next;
+  }
+  return chain;
+}
+function openAncestors(path){
+  const chain=findChainByPath(path);
+  for(let i=0;i<chain.length-1;i++)S.open.add(itemPath(chain[i]));
+}
+function selectItem(it){
+  S.selItem=it;
+  openAncestors(itemPath(it));
+  renderAll();
+  scrollToPath(itemPath(it));
+}
+function renderCrumbs(){
+  const c=$('#crumbs');
+  if(!c)return;
+  if(!S.root||!S.selItem){c.style.display='none';return;}
+  const chain=findChainByPath(itemPath(S.selItem));
+  c.style.display='flex';
+  c.innerHTML='';
+  chain.forEach((it,i)=>{
+    if(i){const sep=document.createElement('span');sep.className='crumbSep';sep.textContent='›';c.appendChild(sep);}
+    const chip=document.createElement('span');
+    chip.className='crumb'+(i===chain.length-1?' cur':'');
+    chip.textContent=it.kind==='ausp'?it.ausp.name:pretty(it.node.name);
+    chip.title=it.kind==='el'?it.node.name:'Ausprägung';
+    if(i<chain.length-1)chip.onclick=()=>selectItem(it);
+    c.appendChild(chip);
+  });
+}
+
+/* ================= Codelisten (Genericode) ================= */
+// S.codelists: kennung -> {name, version, werte:[{value,label}]}
+function clWerte(cl){
+  if(!cl)return null;
+  if(cl.werte&&cl.werte.length)return cl.werte;
+  const x=S.codelists[cl.kennung];
+  return x&&x.werte.length?x.werte:null;
+}
+function clVersion(cl){
+  if(!cl)return null;
+  const x=S.codelists[cl.kennung];
+  return x?x.version:null;
+}
+function parseGenericode(dom){
+  const root=dom.documentElement;
+  if(!root||root.localName!=='CodeList')return null;
+  const all=ln=>[...root.getElementsByTagName('*')].filter(e=>e.localName===ln);
+  const ident=all('Identification')[0];
+  if(!ident)return null;
+  const gv=ln=>{const e=[...ident.getElementsByTagName('*')].find(x=>x.localName===ln);return e?e.textContent.trim():'';};
+  const kennung=gv('CanonicalUri');
+  if(!kennung)return null;
+  const verUri=gv('CanonicalVersionUri');
+  let version='';
+  if(verUri&&verUri.startsWith(kennung+'_'))version=verUri.slice(kennung.length+1);
+  // Spalten bestimmen
+  const cols=all('Column').map(c=>c.getAttribute('Id')||'');
+  let codeCol=cols.find(c=>c.toLowerCase()==='code')||cols[0]||'code';
+  const labelPref=['wert','beschreibung','bezeichnung','name','kurzbezeichnung','gericht','wertebeschreibung'];
+  let labelCol=cols.find(c=>labelPref.includes(c.toLowerCase()))||cols.find(c=>c!==codeCol)||'';
+  const werte=[];
+  for(const row of all('Row')){
+    let code='',label='';
+    for(const v of [...row.getElementsByTagName('*')].filter(e=>e.localName==='Value')){
+      const ref=v.getAttribute('ColumnRef')||'';
+      const sv=[...v.getElementsByTagName('*')].find(e=>e.localName==='SimpleValue');
+      const txt=sv?sv.textContent.trim():'';
+      if(ref===codeCol)code=txt;
+      else if(ref===labelCol&&!label)label=txt;
+    }
+    if(code)werte.push({value:code,label});
+  }
+  return {kennung,name:gv('ShortName')||gv('LongName'),version,werte};
+}
+function mergeCodelist(cl){
+  const prev=S.codelists[cl.kennung];
+  if(!prev||String(cl.version).localeCompare(String(prev.version),undefined,{numeric:true})>=0)
+    S.codelists[cl.kennung]=cl;
+}
+async function importCodelistZip(buf){
+  if(typeof JSZip==='undefined')throw new Error('ZIP-Bibliothek nicht geladen (Internetverbindung nötig)');
+  const zip=await JSZip.loadAsync(buf);
+  const parser=new DOMParser();
+  let ok=0;
+  for(const name of Object.keys(zip.files)){
+    if(zip.files[name].dir||!name.toLowerCase().endsWith('.xml'))continue;
+    try{
+      const cl=parseGenericode(parser.parseFromString(await zip.files[name].async('string'),'application/xml'));
+      if(cl&&cl.werte.length){mergeCodelist(cl);ok++;}
+    }catch(e){}
+  }
+  return ok;
+}
+async function loadCodelistFiles(files){
+  const list=[...files];
+  const parser=new DOMParser();
+  let ok=0;
+  for(const f of list.filter(f=>f.name.toLowerCase().endsWith('.zip'))){
+    try{ok+=await importCodelistZip(await f.arrayBuffer());}
+    catch(e){toast('ZIP konnte nicht gelesen werden: '+e.message);}
+  }
+  for(const f of list.filter(f=>f.name.toLowerCase().endsWith('.xml'))){
+    try{
+      const cl=parseGenericode(parser.parseFromString(await f.text(),'application/xml'));
+      if(cl&&cl.werte.length){mergeCodelist(cl);ok++;}
+    }catch(e){/* keine Genericode-Datei */}
+  }
+  cacheCodelists();
+  updateVerInfo();
+  toast(ok?ok+' Codelisten geladen.':'Keine Genericode-Codelisten in den Dateien gefunden.');
+  renderAll();
+}
+
+/* ---- XRepository-REST (mit Cache gemäß Nutzungsbedingungen) ---- */
+const XREP='https://www.xrepository.de/api';
+// XRepository sendet keine CORS-Header — Direktabruf scheitert im Browser.
+// Fallback: öffentliche Weiterleitungsdienste, nur nach ausdrücklicher Zustimmung.
+const XREP_PROXIES=[
+  u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u),
+  u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
+  u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u)
+];
+function viaLocalProxy(url){
+  // Läuft das Tool über xrep-proxy.py (http://localhost…), gibt es einen Same-Origin-Proxy
+  if(location.protocol!=='http:'&&location.protocol!=='https:')return null;
+  return 'xrep-api/'+url.slice(XREP.length+1);
+}
+async function xrepFetch(url){
+  // 1) lokaler Helfer-Proxy (xrep-proxy.py) — zuverlässigster Weg
+  const lokal=viaLocalProxy(url);
+  if(lokal){
+    try{
+      const r=await fetch(lokal);
+      if(r.ok)return r;
+    }catch(e){}
+  }
+  // 2) Direktabruf (scheitert im Browser i. d. R. an fehlendem CORS-Header des XRepository)
+  let lastErr;
+  try{
+    const r=await fetch(url);
+    if(r.ok)return r;
+    lastErr=new Error('HTTP '+r.status);
+  }catch(e){lastErr=e;}
+  // 3) öffentliche Weiterleitungsdienste — nur mit Zustimmung
+  let allowed=false;
+  try{allowed=localStorage.getItem('xjp.corsproxy')==='ja';}catch(e){}
+  if(!allowed){
+    if(!confirm('Der Browser blockiert den Direktabruf vom XRepository (fehlende CORS-Freigabe des Servers).\n\nZuverlässigste Lösung: das Tool über den beiliegenden Start-Helfer öffnen — „python3 xrep-proxy.py" im Projektordner ausführen.\n\nAlternativ kann der Abruf jetzt über öffentliche Weiterleitungsdienste versucht werden (codetabs.com, corsproxy.io, allorigins.win — nicht immer verfügbar). Die Codelisten sind öffentliche Daten.\n\nWeiterleitungsdienste versuchen? (Zustimmung wird gemerkt)'))
+      throw new Error('Direktabruf blockiert (CORS) — ZIP über „Codelisten: Datei…" laden oder Tool per xrep-proxy.py starten');
+    try{localStorage.setItem('xjp.corsproxy','ja');}catch(e){}
+  }
+  for(const p of XREP_PROXIES){
+    try{
+      const r=await fetch(p(url));
+      if(r.ok)return r;
+      lastErr=new Error('HTTP '+r.status);
+    }catch(e){lastErr=e;}
+  }
+  throw new Error((lastErr&&lastErr.message||'Abruf fehlgeschlagen')+' — zuverlässig klappt es per „python3 xrep-proxy.py" oder ZIP-Download');
+}
+async function loadFromXRepository(){
+  if(!S.idx){toast('Bitte zuerst den XSD-Ordner laden.');return;}
+  const kennung=(S.standardKennung||'urn:xoev-de:blk-ag-it-standards:standard:xjustiz')+'_'+S.version;
+  const url=XREP+'/version_standard/'+encodeURIComponent(kennung)+'/genutzteAktuelleCodelisten';
+  const btn=$('#btnXrep');
+  btn.disabled=true;btn.textContent='XRepository lädt…';
+  toast('Rufe alle genutzten Codelisten ab (kann etwas dauern)…');
+  try{
+    const resp=await xrepFetch(url);
+    const n=await importCodelistZip(await resp.arrayBuffer());
+    cacheCodelists();
+    updateVerInfo();renderAll();
+    toast(n+' Codelisten aus dem XRepository geladen (inkl. Typ 3, aktuell gültige Versionen).');
+  }catch(e){
+    console.warn('XRepository:',e);
+    if(confirm('Direkter Abruf fehlgeschlagen ('+e.message+') — vermutlich Netzwerk- oder Browser-Beschränkung (CORS).\n\nAlternative: ZIP im Browser herunterladen und danach über „Codelisten: Datei…" einbinden.\n\nOK öffnet den Download-Link.')){
+      window.open(url,'_blank');
+    }
+  }finally{
+    btn.disabled=false;btn.textContent='Codelisten: XRepository';
+  }
+}
+function escapeRegExp(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+async function fetchSingleCodelist(kennung){
+  const r=await xrepFetch(XREP+'/codeliste/'+encodeURIComponent(kennung)+'/gueltigeVersion');
+  const m=(await r.text()).match(new RegExp(escapeRegExp(kennung)+'_[0-9][^<"\\s]*'));
+  if(!m)throw new Error('Versionskennung nicht ermittelbar');
+  const g=await xrepFetch(XREP+'/version_codeliste/'+encodeURIComponent(m[0])+'/genericode');
+  const cl=parseGenericode(new DOMParser().parseFromString(await g.text(),'application/xml'));
+  if(!cl||!cl.werte.length)throw new Error('Genericode nicht lesbar');
+  mergeCodelist(cl);
+  cacheCodelists();
+  return cl;
+}
+function cacheCodelists(){
+  if(!Object.keys(S.codelists).length)return;
+  try{
+    localStorage.setItem('xjp.clcache',JSON.stringify({t:Date.now(),cls:S.codelists}));
+  }catch(e){
+    try{localStorage.removeItem('xjp.clcache');}catch(e2){}
+    toast('Hinweis: Codelisten zu groß für den Browser-Cache — sie gelten nur für diese Sitzung.');
+  }
+}
+function loadCodelistCache(){
+  try{
+    const raw=localStorage.getItem('xjp.clcache');
+    if(!raw)return;
+    const c=JSON.parse(raw);
+    if(c&&c.cls&&typeof c.cls==='object'){
+      S.codelists=c.cls;
+      const d=new Date(c.t);
+      console.info('Codelisten-Cache vom',d.toLocaleString('de-DE'),'geladen:',Object.keys(c.cls).length,'Listen');
+    }
+  }catch(e){}
+}
+function updateVerInfo(){
+  if(!S.idx)return;
+  const ncl=Object.keys(S.codelists).length;
+  $('#verInfo').textContent=`XJustiz ${S.version||'?'} · ${S.docs.length} Schemata · ${S.idx.messages.length} Nachrichten${ncl?' · '+ncl+' Codelisten':''}`;
+}
+
+/* ================= Profil-Zugriff ================= */
+function pOf(path,create){
+  let p=S.profile.elemente[path];
+  if(!p&&create){p={};S.profile.elemente[path]=p;}
+  return p;
+}
+function pruneP(path){
+  const p=S.profile.elemente[path];
+  if(p&&!p.status&&!p.anmerkung&&!p.beispiel&&!p.min&&!p.max&&!p.refZiel&&!(p.werte&&p.werte.length))
+    delete S.profile.elemente[path];
+}
+function statusOf(path){const p=S.profile.elemente[path];return p&&p.status?statusById(p.status):null;}
+function wirkungOf(path){const s=statusOf(path);return s?s.wirkung:null;}
+function ancestorPaths(path){
+  const segs=path.split('/');const r=[];
+  for(let i=1;i<segs.length;i++)r.push(segs.slice(0,i).join('/'));
+  return r;
+}
+function inheritedExcluded(path){
+  return ancestorPaths(path).some(a=>wirkungOf(a)==='ausgeschlossen');
+}
+function effKard(n){
+  const p=S.profile.elemente[n.path]||{};
+  return {min:p.min||n.min,max:p.max||n.max,changed:!!(p.min||p.max)};
+}
+function hasNotes(path){
+  const p=S.profile.elemente[path];
+  return !!(p&&(p.anmerkung||p.beispiel||(p.werte&&p.werte.length)));
+}
+function auspsOf(path){return S.profile.auspraegungen[path]||null;}
+let AUSPN=0;
+function addAusp(path,name){
+  const list=S.profile.auspraegungen[path]||(S.profile.auspraegungen[path]=[]);
+  const id='a'+Date.now().toString(36)+(++AUSPN);
+  list.push({id,name:name||'Ausprägung '+(list.length+1)});
+  return id;
+}
+function removeAusp(path,id){
+  const list=S.profile.auspraegungen[path];
+  if(!list)return;
+  S.profile.auspraegungen[path]=list.filter(a=>a.id!==id);
+  if(!S.profile.auspraegungen[path].length)delete S.profile.auspraegungen[path];
+  const prefix=path+'@'+id;
+  for(const k of Object.keys(S.profile.elemente))
+    if(k===prefix||k.startsWith(prefix+'/'))delete S.profile.elemente[k];
+  for(const k of Object.keys(S.profile.auspraegungen))
+    if(k.startsWith(prefix+'/'))delete S.profile.auspraegungen[k];
+  if(S.selItem&&itemPath(S.selItem).startsWith(prefix))S.selItem=null;
+  for(const p of [...S.open])if(p.startsWith(prefix))S.open.delete(p);
+}
+
+/* ================= Baum-Rendering (mehrere offene Äste) ================= */
+// Item: {kind:'el',node} | {kind:'ausp',parentNode,ausp,path}
+function itemPath(it){return it.kind==='el'?it.node.path:it.path;}
+function rootItem(){return {kind:'el',node:S.root};}
+function childItems(it){
+  if(it.kind==='el'){
+    const n=it.node;
+    const ausps=auspsOf(n.path);
+    if(ausps&&ausps.length)
+      return ausps.map(a=>({kind:'ausp',parentNode:n,ausp:a,path:n.path+'@'+a.id}));
+    if(n.recursive||isLeaf(n))return [];
+    expandNode(n);
+    return n.children.map(c=>({kind:'el',node:c}));
+  }
+  const cn=ctxNode(it.parentNode,it.ausp.id);
+  if(cn.recursive||isLeaf(cn))return [];
+  expandNode(cn);
+  return cn.children.map(c=>({kind:'el',node:c}));
+}
+function itemHasKids(it){
+  if(it.kind==='el'){
+    const n=it.node;
+    const ausps=auspsOf(n.path);
+    if(ausps&&ausps.length)return true;
+    return !n.recursive&&!isLeaf(n);
+  }
+  const cn=ctxNode(it.parentNode,it.ausp.id);
+  return !cn.recursive&&!isLeaf(cn);
+}
+function renderColumns(){
+  const wrap=$('#colWrap');
+  if(!S.root)return;
+  wrap.innerHTML='';
+  const canvas=document.createElement('div');canvas.id='treeCanvas';
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.id='linkSvg';
+  canvas.appendChild(svg);
+  const rootSub=buildSub(rootItem());
+  if(rootSub)canvas.appendChild(rootSub);
+  wrap.appendChild(canvas);
+  requestAnimationFrame(redrawLines);
+  updateFortschritt();
+}
+function buildSub(it){
+  const box=renderBox(it);
+  if(!box)return null;
+  const cont=document.createElement('div');cont.className='ntree';
+  cont.appendChild(box);
+  const path=itemPath(it);
+  if(S.open.has(path)&&itemHasKids(it)){
+    const kidsEl=document.createElement('div');kidsEl.className='nkids';
+    for(const c of childItems(it)){
+      const sub=buildSub(c);
+      if(sub)kidsEl.appendChild(sub);
+    }
+    const ausps=it.kind==='el'?auspsOf(it.node.path):null;
+    if(ausps&&ausps.length){
+      const add=document.createElement('div');add.className='box addBox';add.textContent='+ Ausprägung';
+      add.onclick=()=>{addAusp(it.node.path);renderAll();};
+      kidsEl.appendChild(add);
+    }
+    // Phantom-Kästen: Elemente, die erst in der Vergleichsversion existieren
+    if(S.showDiff&&S.diffMap&&it.kind==='el'&&!(ausps&&ausps.length)){
+      const relParent=path.replace(/@[^/]+/g,'').slice(S.msgName.length);
+      for(const [rel,r] of S.diffMap){
+        if(r.art!=='neu'||!rel.startsWith(relParent+'/'))continue;
+        const rest=rel.slice(relParent.length+1);
+        if(rest.includes('/'))continue;
+        const b=document.createElement('div');
+        b.className='box phantom';
+        b.title='Dieses Element existiert erst in der Vergleichsversion.';
+        b.innerHTML=`<div class="bt"><span class="bname">${esc(pretty(rest.split('#')[0]))}</span></div>
+          <div class="tech">${esc(rest.split('#')[0])}${r.typ?' : '+esc(r.typ):''}</div>
+          <div class="kard" style="color:#0F6E56">neu in ${esc(S.idxB&&S.idxB.version||'?')}${r.info?' · '+esc(r.info):''}</div>`;
+        kidsEl.appendChild(b);
+      }
+    }
+    if(kidsEl.children.length)cont.appendChild(kidsEl);
+  }
+  return cont;
+}
+
+/* ================= Verbindungslinien ================= */
+function onSelPath(p){
+  if(!S.selItem)return false;
+  const sp=itemPath(S.selItem);
+  return sp===p||sp.startsWith(p+'/')||sp.startsWith(p+'@');
+}
+function redrawLines(){
+  const canvas=$('#treeCanvas'),svg=$('#linkSvg');
+  if(!canvas||!svg||!S.root)return;
+  const W=canvas.scrollWidth,H=canvas.scrollHeight;
+  svg.setAttribute('width',W);svg.setAttribute('height',H);
+  svg.style.width=W+'px';svg.style.height=H+'px';
+  const cr=canvas.getBoundingClientRect();
+  let paths='';
+  for(const t of canvas.querySelectorAll('.ntree')){
+    const from=t.children[0];
+    if(!from||!from.classList.contains('box'))continue;
+    const kids=t.querySelector(':scope > .nkids');
+    if(!kids)continue;
+    const fr=from.getBoundingClientRect();
+    const x1=fr.right-cr.left,y1=fr.top+Math.min(fr.height/2,22)-cr.top;
+    const targets=[...kids.querySelectorAll(':scope > .ntree > .box'),...kids.querySelectorAll(':scope > .box.addBox')];
+    for(const to of targets){
+      const tr=to.getBoundingClientRect();
+      const x2=tr.left-cr.left,y2=tr.top+Math.min(tr.height/2,22)-cr.top;
+      const onP=to.dataset.path&&onSelPath(to.dataset.path);
+      const excl=to.classList.contains('excluded')||to.classList.contains('exclInherit');
+      const mx=x1+(x2-x1)*0.5;
+      paths+=`<path d="M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" fill="none"
+        stroke="${onP?'var(--accent)':'#c3ccd8'}" stroke-width="${onP?'2.2':'1.4'}"
+        ${excl?'stroke-dasharray="4 4"':''}/>`;
+    }
+  }
+  // Verweislinien (Referenzen)
+  const byPath=new Map();
+  for(const b of canvas.querySelectorAll('.box'))if(b.dataset.path)byPath.set(b.dataset.path,b);
+  // Ziel-Kasten oder nächster sichtbarer Vorfahr
+  const nearestBox=(path)=>{
+    let p=path;
+    while(p){
+      const b=byPath.get(p);
+      if(b)return {box:b,exact:p===path};
+      const cut=Math.max(p.lastIndexOf('/'),p.lastIndexOf('@'));
+      if(cut<0)return null;
+      p=p.slice(0,cut);
+    }
+    return null;
+  };
+  const refCurve=(from,to,strong,exact)=>{
+    const fr=from.getBoundingClientRect(),tr=to.getBoundingClientRect();
+    const x1=fr.right-cr.left,y1=fr.top+fr.height/2-cr.top;
+    const x2=tr.right-cr.left,y2=tr.top+tr.height/2-cr.top;
+    const bulge=Math.max(x1,x2)+50+Math.min(130,Math.abs(y2-y1)/6);
+    const col=strong?'#d4537e':'#e8a8c0';
+    return `<path d="M ${x1} ${y1} C ${bulge} ${y1}, ${bulge} ${y2}, ${x2+6} ${y2}" fill="none"
+      stroke="${col}" stroke-width="${strong?'1.8':'1.2'}" stroke-dasharray="${strong?'6 4':'2 5'}"
+      ${exact?'':'opacity="0.6"'} marker-end="url(#${strong?'refArr':'refArrL'})"/>`;
+  };
+  const drawn=new Set();
+  // 1) zugeordnete Verweisziele (kräftig)
+  for(const [path,p] of Object.entries(S.profile.elemente)){
+    if(!p.refZiel)continue;
+    const from=byPath.get(path);
+    if(!from)continue;
+    const t=nearestBox(p.refZiel);
+    if(!t)continue;
+    paths+=refCurve(from,t.box,true,t.exact);
+    drawn.add(path);
+  }
+  // 2) Schema-Verweise ohne Zuordnung (dezent)
+  if(S.showRefs){
+    for(const [path,b] of byPath){
+      if(!b.dataset.refkind||b.dataset.refziel||drawn.has(path))continue;
+      const names=REF_TARGETS[b.dataset.refkind];
+      if(!names)continue;
+      for(const [tp,tb] of byPath){
+        const lastSeg=tp.split('/').pop();
+        if(lastSeg.includes('@'))continue;
+        if(!names.includes(lastSeg.split('#')[0]))continue;
+        paths+=refCurve(b,tb,false,true);
+      }
+    }
+  }
+  svg.innerHTML=`<defs>
+    <marker id="refArr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#d4537e"/></marker>
+    <marker id="refArrL" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#e8a8c0"/></marker>
+  </defs>`+paths;
+}
+function renderBox(it){
+  const path=itemPath(it);
+  const st=statusOf(path);
+  const inhExcl=inheritedExcluded(path);
+  if(S.onlyProfile&&((st&&st.wirkung==='ausgeschlossen')||inhExcl))return null;
+  const box=document.createElement('div');
+  box.className='box'+(it.kind==='ausp'?' auspBox':'');
+  box.dataset.path=path;
+  if(S.selItem&&itemPath(S.selItem)===path)box.classList.add('sel');
+  // Fokus-Modus: nur aktiver Pfad + direkte Kinder in voller Größe
+  if(S.focusMode&&S.selItem){
+    const sp=itemPath(S.selItem);
+    const onPath=sp===path||sp.startsWith(path+'/')||sp.startsWith(path+'@');
+    let isChild=false;
+    if(path.startsWith(sp)){
+      const rest=path.slice(sp.length);
+      isChild=(rest.startsWith('/')&&!rest.slice(1).includes('/')&&!rest.slice(1).includes('@'))
+            ||(rest.startsWith('@')&&!rest.includes('/'));
+    }
+    if(!onPath&&!isChild)box.classList.add('mini');
+  }
+  if(st&&st.wirkung==='ausgeschlossen')box.classList.add('excluded');
+  else if(inhExcl)box.classList.add('exclInherit');
+  if(st){
+    const strip=document.createElement('div');strip.className='statusStrip';
+    strip.style.background=st.farbe;box.appendChild(strip);
+  }
+  const n=it.kind==='el'?it.node:it.parentNode;
+  if(it.kind==='el')expandNodeSafe(n);
+  const title=it.kind==='ausp'?it.ausp.name:pretty(n.name);
+  const ausps=it.kind==='el'?auspsOf(path):null;
+  const hasNext=itemHasKids(it);
+  const isOpen=S.open.has(path);
+  const isValueBox=it.kind==='el'?(!n.synthetic&&isLeaf(n)):isLeaf(ctxNode(it.parentNode,it.ausp.id));
+  box.classList.add(isValueBox?'leafBox':'parentBox');
+  // Testwert: Anzeige im Chip (mini) + Eingabefeld (voll)
+  const pv=S.profile.elemente[path]||{};
+  let mv='',vrow='';
+  if(isValueBox){
+    const pseudo={name:n.name,path,typeName:n.typeName,codelist:n.codelist};
+    const auto=placeholderFor(pseudo);
+    mv=`<span class="mv${pv.beispiel?'':' ghost'}">${esc(pv.beispiel||auto)}</span>`;
+    let dl='';
+    const werte=n.codelist?(clWerte(n.codelist)||[]):null;
+    if(werte&&werte.length){
+      const allowed=pv.werte&&pv.werte.length?new Set(pv.werte):null;
+      dl=`<datalist id="dl${n.id}_${it.kind==='ausp'?it.ausp.id:'e'}">`+
+        werte.filter(w=>!allowed||allowed.has(w.value)).slice(0,300)
+          .map(w=>`<option value="${esc(w.value)}">${esc(w.label)}</option>`).join('')+`</datalist>`;
+    }
+    vrow=`<div class="vrow">${dl}<input class="vin" ${dl?`list="dl${n.id}_${it.kind==='ausp'?it.ausp.id:'e'}"`:''} value="${esc(pv.beispiel||'')}" placeholder="${esc(auto)}" title="Testwert für die Beispiel-XML — leer = automatischer Platzhalter"></div>`;
+  }
+  let h=`<div class="bt"><span class="bname">${esc(title)}</span>${mv}${hasNext?`<button class="togBtn" title="${isOpen?'Ast zuklappen':'Ast aufklappen'}">${isOpen?'−':'+'}</button>`:''}</div>`;
+  h+=vrow;
+  if(S.showTech&&it.kind==='el')
+    h+=`<div class="tech">${esc(n.name)}${n.typeName?' : '+esc(n.typeName):''}</div>`;
+  const k=effKard(it.kind==='el'?n:{path,min:'1',max:'1'});
+  const kt=it.kind==='el'?kardText(k.min,k.max):kardText((S.profile.elemente[path]||{}).min||'1',(S.profile.elemente[path]||{}).max||'1');
+  const stName=st?esc(st.name):'';
+  h+=`<div class="kard" style="color:${st?st.farbe:'var(--muted)'}">${stName?stName+' · ':''}${kt}${k.changed&&it.kind==='el'?' <span style="color:var(--muted)">(Standard: '+kardText(n.min,n.max)+')</span>':''}</div>`;
+  if(it.kind==='el'&&n.doc)h+=`<div class="bdoc">${esc(n.doc.split('\n')[0])}</div>`;
+  if(it.kind==='ausp'&&(S.profile.elemente[path]||{}).anmerkung)
+    h+=`<div class="bdoc">${esc(S.profile.elemente[path].anmerkung)}</div>`;
+  const tags=[];
+  const rk=refKindOf(n);
+  const pEntry=S.profile.elemente[path]||{};
+  if(rk){
+    box.dataset.refkind=rk;
+    if(pEntry.refZiel)box.dataset.refziel=pEntry.refZiel;
+    const rlbl=pEntry.refZiel?('Verweis: '+auspLabel(pEntry.refZiel)):('Verweis → '+(REF_LABELS[rk]||rk));
+    tags.push('<span class="tag t-ref" title="Zum Verweisziel springen">'+esc(rlbl)+' ↗</span>');
+  }
+  if(it.kind==='el'){
+    if(n.inChoice)tags.push('<span class="tag t-choice">Alternative</span>');
+    if(n.model==='choice')tags.push('<span class="tag t-choice">Auswahl</span>');
+    if(n.codelist)tags.push('<span class="tag t-code">Codeliste</span>');
+    else if(isValueBox&&!rk)tags.push('<span class="tag t-wert">Wert: '+esc(valueKind(n))+'</span>');
+    if(n.recursive)tags.push('<span class="tag t-rec">rekursiv</span>');
+    if(ausps&&ausps.length)tags.push('<span class="tag t-ausp">'+ausps.length+' Ausprägungen</span>');
+  }else if(isValueBox&&!rk){
+    tags.push(n.codelist?'<span class="tag t-code">Codeliste</span>':'<span class="tag t-wert">Wert: '+esc(valueKind(n))+'</span>');
+  }
+  if(hasNotes(path))tags.push('<span class="tag t-note">Notiz</span>');
+  if(S.showDiff&&S.diffMap&&it.kind==='el'){
+    const rel=path.replace(/@[^/]+/g,'').slice(S.msgName.length);
+    const vB=S.idxB&&S.idxB.version||'neu';
+    let ownArt=null;
+    if(!n.synthetic&&n!==S.root){
+      const dr=S.diffMap.get(rel);
+      if(dr){
+        ownArt=dr.art;
+        if(dr.art==='entfernt')tags.push(`<span class="tag t-dent" title="Element ist in Version ${esc(vB)} nicht mehr enthalten">entfällt in ${esc(vB)}</span>`);
+        else if(dr.art==='geändert')tags.push(`<span class="tag t-daend" title="${esc(dr.info)}">geändert in ${esc(vB)}</span>`);
+      }
+    }
+    const anc=S.diffAnc&&S.diffAnc.get(rel);
+    if(anc){
+      const total=anc.neu+anc.entfernt+anc['geändert'];
+      if(total){
+        const det=[anc.neu?anc.neu+' neu':'',anc.entfernt?anc.entfernt+' entfernt':'',anc['geändert']?anc['geändert']+' geändert':''].filter(Boolean).join(', ');
+        tags.push(`<span class="tag t-dsub" title="Unterschiede in untergeordneten Elementen: ${esc(det)}">Δ ${total}</span>`);
+      }
+    }
+    if(ownArt==='entfernt')box.classList.add('dfR');
+    else if(ownArt||anc)box.classList.add('dfA');
+  }
+  if(tags.length)h+=`<div class="tags">${tags.join('')}</div>`;
+  box.insertAdjacentHTML('beforeend',h);
+  const vin=box.querySelector('.vin');
+  if(vin){
+    vin.onclick=e=>e.stopPropagation();
+    vin.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter')vin.blur();};
+    vin.onchange=()=>{
+      const pp=pOf(path,true);
+      const v=vin.value.trim();
+      if(v)pp.beispiel=v;else delete pp.beispiel;
+      pruneP(path);scheduleAutosave();
+      renderColumns();if(S.selItem&&itemPath(S.selItem)===path)renderDetail();
+    };
+  }
+  const refTag=box.querySelector('.t-ref');
+  if(refTag)refTag.onclick=e=>{
+    e.stopPropagation();
+    const ziel=pEntry.refZiel||findTargetPathByNames(REF_TARGETS[rk]||null);
+    if(ziel)jumpTo(ziel);
+    else toast('Kein Verweisziel im Baum gefunden.');
+  };
+  const tog=box.querySelector('.togBtn');
+  if(tog)tog.onclick=e=>{
+    e.stopPropagation();
+    if(S.open.has(path))S.open.delete(path);else S.open.add(path);
+    renderColumns();
+  };
+  const isRoot=it.kind==='el'&&it.node===S.root;
+  if(!isRoot){
+    if(it.kind==='ausp'){
+      const del=document.createElement('button');
+      del.className='hideBtn delBtn';
+      del.textContent='✕';
+      del.title='Ausprägung löschen (samt Unter-Profilierung)';
+      del.onclick=e=>{
+        e.stopPropagation();
+        if(confirm('Ausprägung „'+it.ausp.name+'" samt Unter-Profilierung löschen?')){
+          removeAusp(it.parentNode.path,it.ausp.id);renderAll();
+        }
+      };
+      box.appendChild(del);
+    }else{
+      const isExcl=st&&st.wirkung==='ausgeschlossen';
+      const hb=document.createElement('button');
+      hb.className='hideBtn';
+      hb.textContent=isExcl?'↺':'✕';
+      hb.title=isExcl?'Wieder einblenden (Status entfernen)':'Ausblenden — Element wird im Szenario nicht angegeben';
+      hb.onclick=e=>{
+        e.stopPropagation();
+        const ex=exclStatus();
+        if(!ex){toast('Kein Status mit Wirkung „ausgeschlossen" konfiguriert (siehe „Status…").');return;}
+        const pp=pOf(path,true);
+        if(isExcl)delete pp.status;else pp.status=ex.id;
+        pruneP(path);renderAll();
+      };
+      box.appendChild(hb);
+    }
+    let dupTitle=null;
+    if(it.kind==='ausp')dupTitle='Ausprägung samt Unter-Profilierung kopieren';
+    else if(!n.synthetic&&isRepeatable(n))dupTitle='Duplizieren — Element als benannte Fälle (Ausprägungen) führen';
+    if(dupTitle){
+      const db=document.createElement('button');
+      db.className='dupBtn';db.textContent='⧉';db.title=dupTitle;
+      db.onclick=e=>{
+        e.stopPropagation();
+        if(it.kind==='ausp')copyAusp(it.parentNode.path,it.ausp.id);
+        else duplicateElement(path);
+        renderAll();
+      };
+      box.appendChild(db);
+    }
+  }
+  box.onclick=()=>{
+    S.selItem=it;
+    if(itemHasKids(it))S.open.add(path);
+    renderAll();
+  };
+  return box;
+}
+
+/* ================= Duplizieren ================= */
+function moveSubProfile(fromPrefix,toPrefix){
+  for(const k of Object.keys(S.profile.elemente)){
+    if(k.startsWith(fromPrefix)){
+      S.profile.elemente[toPrefix+k.slice(fromPrefix.length)]=S.profile.elemente[k];
+      delete S.profile.elemente[k];
+    }
+  }
+  for(const k of Object.keys(S.profile.auspraegungen)){
+    if(k.startsWith(fromPrefix)){
+      S.profile.auspraegungen[toPrefix+k.slice(fromPrefix.length)]=S.profile.auspraegungen[k];
+      delete S.profile.auspraegungen[k];
+    }
+  }
+}
+function copySubProfile(fromPrefix,toPrefix){
+  for(const [k,v] of Object.entries(S.profile.elemente))
+    if(k.startsWith(fromPrefix))
+      S.profile.elemente[toPrefix+k.slice(fromPrefix.length)]={...v,werte:v.werte?[...v.werte]:undefined};
+  for(const [k,v] of Object.entries(S.profile.auspraegungen))
+    if(k.startsWith(fromPrefix))
+      S.profile.auspraegungen[toPrefix+k.slice(fromPrefix.length)]=v.map(a=>({...a}));
+}
+function duplicateElement(path){
+  const ausps=auspsOf(path);
+  if(ausps&&ausps.length){addAusp(path,'Fall '+(ausps.length+1));S.open.add(path);return;}
+  const id1=addAusp(path,'Fall 1');
+  // vorhandene Unter-Profilierung wandert in Fall 1
+  moveSubProfile(path+'/',path+'@'+id1+'/');
+  addAusp(path,'Fall 2');
+  S.open.add(path);
+}
+function copyAusp(parentPath,auspId){
+  const list=auspsOf(parentPath)||[];
+  const src=list.find(a=>a.id===auspId);
+  if(!src)return;
+  const nid=addAusp(parentPath,src.name+' (Kopie)');
+  const from=parentPath+'@'+auspId,to=parentPath+'@'+nid;
+  if(S.profile.elemente[from])S.profile.elemente[to]={...S.profile.elemente[from]};
+  copySubProfile(from+'/',to+'/');
+  S.open.add(parentPath);
+}
+
+/* ================= Alles auf-/zuklappen ================= */
+function expandAllTree(){
+  let count=0;
+  const rec=(it,depth)=>{
+    if(depth>25||count>5000)return;
+    if(!itemHasKids(it))return;
+    S.open.add(itemPath(it));count++;
+    for(const c of childItems(it))rec(c,depth+1);
+  };
+  rec(rootItem(),0);
+  renderColumns();
+}
+function collapseTree(){
+  S.open=new Set([S.root.path]);
+  renderColumns();
+}
+function expandNodeSafe(n){if(!n.recursive&&!n.synthetic&&n.children===null&&!n.codelist)expandNode(n);else if(n.synthetic&&n.children===null)expandNode(n);}
+function updateFortschritt(){
+  const nStatus=Object.values(S.profile.elemente).filter(p=>p.status).length;
+  const nAusp=Object.values(S.profile.auspraegungen).reduce((s,l)=>s+l.length,0);
+  $('#fortschritt').textContent=nStatus?`${nStatus} Festlegungen${nAusp?' · '+nAusp+' Ausprägungen':''}`:'';
+}
+function renderLegend(){
+  const l=$('#legend');
+  l.innerHTML=S.profile.statuses.map(s=>
+    `<span><span class="legDot" style="background:${s.farbe}"></span>${esc(s.name)}</span>`).join('')
+    +'<span><span class="tag t-wert">Wert: Text</span> erhält einen Wert</span>'
+    +'<span><span class="legDot" style="background:#f2f4f8;border:1px solid var(--border)"></span>Elternelement</span>'
+    +'<span><span class="legDot" style="background:transparent;border-bottom:2px dashed #d4537e;border-radius:0;height:2px;width:16px;margin-bottom:3px"></span>Verweis</span>'
+    +'<span style="margin-left:auto">✕ ausblenden · ⧉ duplizieren · +/− Ast auf/zu · Pfeiltasten: ← Eltern, → Kind, ↑↓ Geschwister</span>';
+}
+function renderAll(){renderColumns();renderDetail();renderLegend();renderCrumbs();scheduleAutosave();}
+
+/* ================= Autosave ================= */
+let autosaveT=null;
+function scheduleAutosave(){clearTimeout(autosaveT);autosaveT=setTimeout(autosaveNow,800);}
+function autosaveNow(){
+  if(!S.msgName)return;
+  try{
+    localStorage.setItem('xjp.autosave',JSON.stringify({
+      t:Date.now(),msgName:S.msgName,version:S.version,
+      meta:S.profile.meta,statuses:S.profile.statuses,
+      elemente:S.profile.elemente,auspraegungen:S.profile.auspraegungen,
+      name:S.profile.meta.name||$('#profilName').value||''
+    }));
+    $('#autosaveInfo').textContent='automatisch gesichert '+new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){/* Speicher nicht verfügbar */}
+}
+function offerAutosaveRestore(){
+  try{
+    const raw=localStorage.getItem('xjp.autosave');
+    if(!raw)return false;
+    const a=JSON.parse(raw);
+    if(!a.msgName||!S.idx.el[a.msgName])return false;
+    if(!Object.keys(a.elemente||{}).length&&!Object.keys(a.auspraegungen||{}).length)return false;
+    const when=new Date(a.t).toLocaleString('de-DE');
+    if(confirm(`Automatisch gesicherter Arbeitsstand gefunden:\n„${a.name||'(ohne Namen)'}" — ${a.msgName}\nStand: ${when}\n\nWiederherstellen?`)){
+      S.profile={meta:a.meta||{},statuses:a.statuses||defaultStatuses(),
+        elemente:a.elemente||{},auspraegungen:a.auspraegungen||{}};
+      loadMessage(a.msgName,true);
+      applyMeta();
+      toast('Arbeitsstand wiederhergestellt.');
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+/* ================= Detail-Panel ================= */
+function selectedItem(){return S.selItem;}
+function renderDetail(){
+  const d=$('#detail');
+  const it=selectedItem();
+  if(!it){d.classList.remove('open');return;}
+  d.classList.add('open');
+  const path=itemPath(it);
+  const p=S.profile.elemente[path]||{};
+  const st=statusOf(path);
+  const isAusp=it.kind==='ausp';
+  const n=isAusp?it.parentNode:it.node;
+  let h='';
+  if(isAusp){
+    h+=`<div class="dsec"><label>Name der Ausprägung</label>
+      <input type="text" id="dAuspName" style="width:100%" value="${esc(it.ausp.name)}"></div>
+      <div class="sub">Ausprägung von ${esc(n.name)}</div>`;
+  }else{
+    h+=`<h3>${esc(pretty(n.name))}</h3>
+      <div class="sub">${esc(n.name)}${n.typeName?' : '+esc(n.typeName):''} · Standard: ${kardText(n.min,n.max)} <span style="color:#aaa">(${fmtKard(n.min,n.max)})</span></div>`;
+    if(n.doc)h+=`<div class="dsec"><label>Beschreibung (Standard)</label><div class="docbox">${esc(n.doc)}</div></div>`;
+  }
+
+  h+=`<div class="dsec"><label>Status im Szenario</label><div class="statusBtns">`;
+  h+=`<button data-s="" ${!st?'class="active" style="background:var(--accent);border-color:var(--accent)"':''}>wie Standard</button>`;
+  for(const s of S.profile.statuses){
+    const act=st&&st.id===s.id;
+    h+=`<button data-s="${s.id}" ${act?`class="active" style="background:${s.farbe};border-color:${s.farbe}"`:`style="color:${s.farbe};border-color:${s.farbe}66"`}>${esc(s.name)}</button>`;
+  }
+  h+=`</div></div>`;
+
+  const kmin=isAusp?'1':n.min, kmax=isAusp?'1':(n.max==='unbounded'?'*':n.max);
+  h+=`<div class="dsec"><label>Kardinalität im Szenario</label>
+    <div class="kardRow">
+      <input type="text" id="dMin" placeholder="${esc(kmin)}" value="${esc(p.min||'')}"> bis
+      <input type="text" id="dMax" placeholder="${esc(kmax)}" value="${esc(p.max||'')}">
+      <span style="color:var(--muted);font-size:12px">leer = ${isAusp?'genau 1':'Standard'}</span>
+    </div></div>`;
+
+  if(!isAusp&&isRepeatable(n)&&!n.synthetic){
+    const ausps=auspsOf(path)||[];
+    h+=`<div class="dsec"><label>Ausprägungen</label>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Benannte Fälle dieses Elements mit je eigener Profilierung — z. B. mehrere Beteiligte mit verschiedenen Rollen.</div>
+      <div id="auspList">`;
+    for(const a of ausps)
+      h+=`<div class="auspRow"><input type="text" data-aid="${a.id}" value="${esc(a.name)}"><button data-del="${a.id}" title="Ausprägung löschen">✕</button></div>`;
+    h+=`</div><button id="dAuspAdd">+ Ausprägung</button></div>`;
+  }
+
+  if(n.codelist&&(!isAusp||isLeaf(n))){
+    const cl=n.codelist;
+    const eff=clWerte(cl);
+    const geladen=!(cl.werte&&cl.werte.length)&&eff;
+    h+=`<div class="dsec"><label>Codeliste${cl.nameLang?': '+esc(cl.nameLang):''}${geladen?' <span style="color:#1e7d3e;text-transform:none">(geladen'+(clVersion(cl)?' · V '+esc(clVersion(cl)):'')+')</span>':''}</label>`;
+    if(cl.kennung)h+=`<div style="font-size:11.5px;color:var(--muted);margin-bottom:5px;font-family:var(--mono)">${esc(cl.kennung)}</div>`;
+    if(eff){
+      const allowed=new Set(p.werte||[]);
+      h+=`<div class="clTools"><a id="clAll">alle</a><a id="clNone">keine</a>
+        <span style="color:var(--muted)">${allowed.size?allowed.size+' von '+eff.length+' zugelassen':'keine Einschränkung'}</span></div>`;
+      if(eff.length>15)h+=`<input type="text" id="clFilter" placeholder="Werte filtern…" style="width:100%;margin-bottom:5px">`;
+      h+=`<div class="clWrap">`;
+      for(const w of eff){
+        h+=`<label class="clRow" data-search="${esc((w.value+' '+w.label).toLowerCase())}"><input type="checkbox" class="clv" value="${esc(w.value)}" ${(!p.werte||allowed.has(w.value))?'checked':''}>
+          <code>${esc(w.value)}</code><span>${esc(w.label)}</span></label>`;
+      }
+      h+=`</div>`;
+    }else{
+      h+=`<div class="extern">Werte extern gepflegt (Code-Typ 3, XRepository).</div>
+        <div style="margin:6px 0"><button id="dClFetch">Diese Liste aus dem XRepository laden</button></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Oder alle Listen auf einmal über „Codelisten: XRepository" in der Kopfzeile. Bis dahin: zulässige Werte als Text, ein Wert pro Zeile:</div>
+        <textarea id="dWerteText" placeholder="2001 — Genehmigung Grundstücksgeschäft">${esc((p.werte||[]).join('\n'))}</textarea>`;
+    }
+    h+=`</div>`;
+  }
+
+  const rkD=refKindOf(n);
+  if(rkD){
+    const kand=refZielKandidaten(rkD);
+    const cur=p.refZiel||'';
+    let opts=`<option value="">— kein Ziel festgelegt —</option>`;
+    let curFound=false;
+    for(const k of kand){
+      if(k.path===cur)curFound=true;
+      opts+=`<option value="${esc(k.path)}" ${k.path===cur?'selected':''}>${esc(k.label)}</option>`;
+    }
+    if(cur&&!curFound)opts+=`<option value="${esc(cur)}" selected>${esc(auspLabel(cur))}</option>`;
+    h+=`<div class="dsec"><label>Verweisziel im Szenario (${esc(REF_LABELS[rkD]||rkD)})</label>
+      <div style="display:flex;gap:6px">
+        <select id="dRefZiel" style="flex:1">${opts}</select>
+        ${cur?'<button id="dRefJump" title="Zum Ziel springen">→ Ziel</button>':''}
+      </div>
+      ${kand.length?'':'<div style="font-size:12px;color:var(--muted);margin-top:4px">Noch keine passenden Ausprägungen angelegt — erst das Zielelement (z. B. Beteiligung) duplizieren/benennen, dann hier zuordnen.</div>'}
+      </div>`;
+  }
+  h+=`<div class="dsec"><label>Fachliche Anmerkung</label>
+    <textarea id="dAnm" placeholder="Ausfüllhinweis, juristische Erläuterung, offene Frage…">${esc(p.anmerkung||'')}</textarea></div>`;
+  h+=`<div class="dsec"><label>Beispielwert</label>
+    <textarea id="dBsp" style="min-height:40px" placeholder="konkretes Beispiel — wird für die Beispiel-XML verwendet">${esc(p.beispiel||'')}</textarea></div>`;
+
+  d.innerHTML=h;
+
+  d.querySelectorAll('.statusBtns button').forEach(b=>b.onclick=()=>{
+    const pp=pOf(path,true);
+    if(b.dataset.s)pp.status=b.dataset.s;else delete pp.status;
+    pruneP(path);renderAll();
+  });
+  const bind=(id,key)=>{const e=d.querySelector(id);if(!e)return;
+    e.onchange=()=>{const v=e.value.trim();const pp=pOf(path,true);
+      if(v)pp[key]=v;else delete pp[key];pruneP(path);renderColumns();};};
+  bind('#dMin','min');bind('#dMax','max');bind('#dAnm','anmerkung');bind('#dBsp','beispiel');
+  const an=d.querySelector('#dAuspName');
+  if(an)an.onchange=()=>{it.ausp.name=an.value.trim()||it.ausp.name;renderColumns();};
+  const wt=d.querySelector('#dWerteText');
+  if(wt)wt.onchange=()=>{const lines=wt.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    const pp=pOf(path,true);if(lines.length)pp.werte=lines;else delete pp.werte;pruneP(path);renderColumns();};
+  const clf=d.querySelector('#dClFetch');
+  if(clf)clf.onclick=async()=>{
+    clf.disabled=true;clf.textContent='lädt…';
+    try{
+      const cl=await fetchSingleCodelist(n.codelist.kennung);
+      toast(`Codeliste „${cl.name||cl.kennung}" geladen (V ${cl.version}, ${cl.werte.length} Werte).`);
+      updateVerInfo();renderAll();
+    }catch(e){
+      clf.disabled=false;clf.textContent='Diese Liste aus dem XRepository laden';
+      toast('Abruf fehlgeschlagen: '+e.message+' — ggf. ZIP über „Codelisten: Datei…" laden.');
+    }
+  };
+  const rzSel=d.querySelector('#dRefZiel');
+  if(rzSel)rzSel.onchange=()=>{
+    const pp=pOf(path,true);
+    if(rzSel.value)pp.refZiel=rzSel.value;else delete pp.refZiel;
+    pruneP(path);renderAll();
+  };
+  const rzJump=d.querySelector('#dRefJump');
+  if(rzJump)rzJump.onclick=()=>{if(p.refZiel)jumpTo(p.refZiel);};
+  const cf=d.querySelector('#clFilter');
+  if(cf)cf.oninput=()=>{
+    const q=cf.value.toLowerCase();
+    d.querySelectorAll('.clRow').forEach(r=>{
+      r.style.display=(!q||(r.dataset.search||'').includes(q))?'':'none';
+    });
+  };
+  const updWerte=()=>{
+    const boxes=[...d.querySelectorAll('.clv')];
+    const sel=boxes.filter(b=>b.checked).map(b=>b.value);
+    const pp=pOf(path,true);
+    if(sel.length===boxes.length)delete pp.werte;else pp.werte=sel;
+    pruneP(path);renderColumns();renderDetail();
+  };
+  d.querySelectorAll('.clv').forEach(b=>b.onchange=updWerte);
+  const all=d.querySelector('#clAll'),none=d.querySelector('#clNone');
+  if(all)all.onclick=()=>{d.querySelectorAll('.clv').forEach(b=>b.checked=true);updWerte();};
+  if(none)none.onclick=()=>{d.querySelectorAll('.clv').forEach(b=>b.checked=false);updWerte();};
+  const aAdd=d.querySelector('#dAuspAdd');
+  if(aAdd)aAdd.onclick=()=>{addAusp(path);renderAll();};
+  d.querySelectorAll('[data-aid]').forEach(inp=>inp.onchange=()=>{
+    const a=(auspsOf(path)||[]).find(x=>x.id===inp.dataset.aid);
+    if(a){a.name=inp.value.trim()||a.name;renderColumns();}
+  });
+  d.querySelectorAll('[data-del]').forEach(btn=>btn.onclick=()=>{
+    if(confirm('Ausprägung samt Unter-Profilierung löschen?')){removeAusp(path,btn.dataset.del);renderAll();}
+  });
+}
+
+/* ================= Status-Konfiguration ================= */
+function openStatusDlg(){
+  const list=$('#stList');
+  const draw=()=>{
+    list.innerHTML='';
+    S.profile.statuses.forEach((s,i)=>{
+      const row=document.createElement('div');row.className='stRow';
+      const farbSel=Object.entries(FARBEN).map(([n,c])=>
+        `<option value="${c}" ${s.farbe===c?'selected':''}>${n}</option>`).join('');
+      const wirkSel=WIRKUNGEN.map(([v,n])=>
+        `<option value="${v}" ${s.wirkung===v?'selected':''}>${n}</option>`).join('');
+      row.innerHTML=`<input type="text" value="${esc(s.name)}">
+        <select>${farbSel}</select><select>${wirkSel}</select>
+        <button title="Status löschen">✕</button>`;
+      const [inp,fs,ws,del]=row.children;
+      inp.onchange=()=>{s.name=inp.value.trim()||s.name;};
+      fs.onchange=()=>{s.farbe=fs.value;};
+      ws.onchange=()=>{s.wirkung=ws.value;};
+      del.onclick=()=>{
+        const used=Object.values(S.profile.elemente).some(p=>p.status===s.id);
+        if(used&&!confirm('Dieser Status ist in Verwendung. Trotzdem löschen? Betroffene Elemente fallen auf „wie Standard" zurück.'))return;
+        if(used)for(const p of Object.values(S.profile.elemente))if(p.status===s.id)delete p.status;
+        S.profile.statuses.splice(i,1);draw();
+      };
+      list.appendChild(row);
+    });
+  };
+  draw();
+  $('#stAdd').onclick=()=>{
+    S.profile.statuses.push({id:'s'+Date.now().toString(36),name:'neuer Status',farbe:'#378ADD',wirkung:'markierung'});
+    draw();
+  };
+  $('#statusDlg').showModal();
+}
+
+/* ================= Nachricht-Auswahl ================= */
+function renderMsgList(filter){
+  const list=$('#msgList');list.innerHTML='';
+  const f=(filter||'').toLowerCase();
+  const groups={};
+  for(const m of S.idx.messages){
+    if(f&&!(m.name.toLowerCase().includes(f)||m.doc.toLowerCase().includes(f)))continue;
+    (groups[m.file]=groups[m.file]||[]).push(m);
+  }
+  for(const file of Object.keys(groups).sort()){
+    const g=document.createElement('div');g.className='msgGroup';g.textContent=file;list.appendChild(g);
+    for(const m of groups[file]){
+      const it=document.createElement('div');it.className='msgItem';
+      it.innerHTML=`<div class="mn">${esc(m.name)}</div>`+(m.doc?`<div class="md">${esc(m.doc.split('\n')[0])}</div>`:'');
+      it.onclick=()=>{closeMsgPanel();loadMessage(m.name);};
+      list.appendChild(it);
+    }
+  }
+  if(!list.children.length)list.innerHTML='<div style="padding:14px;color:var(--muted)">keine Treffer</div>';
+}
+function openMsgPanel(){
+  const p=$('#msgPanel'),b=$('#msgBtn');
+  const r=b.getBoundingClientRect();
+  p.style.left=r.left+'px';p.style.top=(r.bottom+4)+'px';
+  p.classList.add('open');
+  renderMsgList('');
+  $('#msgSearch').value='';$('#msgSearch').focus();
+}
+function closeMsgPanel(){$('#msgPanel').classList.remove('open');}
+function loadMessage(name,keepProfile){
+  S.msgName=name;
+  S.root=buildRoot(name);
+  if(!keepProfile){S.profile=newProfile();applyMeta();}
+  S.selItem={kind:'el',node:S.root};
+  S.open=new Set([S.root.path]);
+  if(S.idxB)computeDiffMap();
+  $('#msgBtn').textContent=name+' ▾';
+  ['btnSave','btnExcel','btnSch','btnXml','btnPrint','btnExpand','btnCollapse','searchInput'].forEach(id=>$('#'+id).disabled=false);
+  const e=$('#empty');if(e)e.remove();
+  renderAll();
+}
+
+/* ================= XSD laden ================= */
+async function loadXsdFiles(files){
+  const xsds=[...files].filter(f=>f.name.toLowerCase().endsWith('.xsd'));
+  if(!xsds.length){toast('Keine .xsd-Dateien im gewählten Ordner gefunden.');return;}
+  S.docs=[];
+  const parser=new DOMParser();
+  for(const f of xsds){
+    const text=await f.text();
+    const dom=parser.parseFromString(text,'application/xml');
+    if(dom.getElementsByTagName('parsererror').length){console.warn('Parse-Fehler in',f.name);continue;}
+    S.docs.push({file:f.name,dom});
+  }
+  buildIndex();
+  updateVerInfo();
+  $('#msgBtn').disabled=false;
+  $('#btnXrep').disabled=false;
+  $('#btnDiff').disabled=false;
+  toast(`${S.docs.length} Schemadateien geladen.`);
+  if(S.pendingMsg){const m=S.pendingMsg;S.pendingMsg=null;
+    if(S.idx.el[m.meta.nachricht]){S.profile=m;loadMessage(m.meta.nachricht,true);applyMeta();}
+    else toast('Nachricht aus dem Profil nicht in diesen Schemata gefunden: '+m.meta.nachricht);
+  }else if(!S.msgName){
+    offerAutosaveRestore();
+  }
+}
+
+/* ================= Profil speichern / laden ================= */
+function download(name,content,mime){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type:mime||'application/octet-stream'}));
+  a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+}
+function profilFilename(ext){
+  const n=(S.profile.meta.name||$('#profilName').value||'Profil').replace(/[^\wäöüÄÖÜß-]+/g,'_');
+  return `${n}_${(S.msgName||'').split('.').slice(1,-1).join('.')||'xjustiz'}.${ext}`;
+}
+function saveProfile(){
+  S.profile.meta.name=$('#profilName').value.trim();
+  S.profile.meta.nachricht=S.msgName;
+  S.profile.meta.xjustizVersion=S.version;
+  S.profile.meta.gespeichert=new Date().toISOString().slice(0,10);
+  const json=JSON.stringify({app:'xjustiz-profilierer',formatVersion:2,
+    meta:S.profile.meta,statuses:S.profile.statuses,
+    elemente:S.profile.elemente,auspraegungen:S.profile.auspraegungen},null,2);
+  download(profilFilename('profil.json'),json,'application/json');
+  toast('Profil gespeichert.');
+}
+function applyMeta(){$('#profilName').value=S.profile.meta.name||'';}
+function migrateV1(data){
+  // v1: status pflicht/ausgeschlossen, keine Ausprägungen
+  const st=defaultStatuses();
+  const map={'pflicht':'s1','ausgeschlossen':'s3'};
+  const elemente={};
+  for(const [k,v] of Object.entries(data.elemente||{})){
+    const e={...v};
+    if(e.status)e.status=map[e.status]||undefined;
+    elemente[k]=e;
+  }
+  return {meta:data.meta||{},statuses:st,elemente,auspraegungen:{}};
+}
+async function loadProfileFile(file){
+  try{
+    const data=JSON.parse(await file.text());
+    if(!data.elemente||!data.meta)throw new Error('kein Profilierer-Profil');
+    const prof=data.formatVersion>=2
+      ?{meta:data.meta,statuses:data.statuses||defaultStatuses(),elemente:data.elemente,auspraegungen:data.auspraegungen||{}}
+      :migrateV1(data);
+    if(!S.idx){S.pendingMsg=prof;toast('Profil geladen — bitte jetzt den XSD-Ordner laden.');return;}
+    if(prof.meta.nachricht&&S.idx.el[prof.meta.nachricht]){
+      S.profile=prof;
+      loadMessage(prof.meta.nachricht,true);
+      applyMeta();
+      if(prof.meta.xjustizVersion&&prof.meta.xjustizVersion!==S.version)
+        toast(`Hinweis: Profil mit XJustiz ${prof.meta.xjustizVersion} erstellt, geladen ist ${S.version}.`);
+      else toast('Profil geladen.');
+    }else toast('Nachricht aus dem Profil nicht gefunden: '+(prof.meta.nachricht||'?'));
+  }catch(e){toast('Profil konnte nicht gelesen werden: '+e.message);}
+}
+/* ================= Traversierung für Exporte ================= */
+// cb({kind:'el'|'ausp', path, node, ausp, depth, segs}) — segs = Instanz-Pfad (ohne synthetische Gruppen)
+function walkFull(cb,maxDepth){
+  maxDepth=maxDepth||30;
+  const rec=(n,depth,segs)=>{
+    const mySegs=n.synthetic?segs:[...segs,n.name];
+    cb({kind:'el',path:n.path,node:n,depth,segs:mySegs});
+    if(depth>=maxDepth||n.recursive)return;
+    const ausps=auspsOf(n.path);
+    if(ausps&&ausps.length){
+      for(const a of ausps){
+        const cn=ctxNode(n,a.id);
+        cb({kind:'ausp',path:cn.path,node:n,ausp:a,depth:depth+1,segs:mySegs});
+        if(!isLeaf(cn)){expandNode(cn);for(const c of cn.children)rec(c,depth+2,mySegs);}
+      }
+      return;
+    }
+    if(!isLeaf(n)){expandNode(n);for(const c of n.children)rec(c,depth+1,mySegs);}
+  };
+  rec(S.root,0,[]);
+}
+
+/* ================= Excel-Export ================= */
+function exportExcel(){
+  if(typeof XLSX==='undefined'){toast('Excel-Bibliothek nicht geladen (Internetverbindung nötig).');return;}
+  const rows=[['Ebene','Element / Ausprägung','Beschreibung','Technischer Name','Typ','Kardinalität (Standard)','Status im Szenario','Kardinalität (Szenario)','Zulässige Werte','Beispiel','Anmerkung']];
+  const clSheet=[['Element (Pfad)','Codeliste','Kennung','Zulässige Werte im Szenario']];
+  walkFull(x=>{
+    const p=S.profile.elemente[x.path]||{};
+    const st=statusOf(x.path);
+    const inh=inheritedExcluded(x.path);
+    let statusTxt=st?st.name:'';
+    if(!st&&inh)statusTxt='(entfällt — übergeordnet ausgeschlossen)';
+    let werte='';
+    if(p.werte&&p.werte.length){
+      const cl=x.node.codelist;
+      const effW=clWerte(cl);
+      if(effW){
+        const map=Object.fromEntries(effW.map(w=>[w.value,w.label]));
+        werte=p.werte.map(v=>v+(map[v]?' = '+map[v]:'')).join('\n');
+      }else werte=p.werte.join('\n');
+      clSheet.push([x.segs.join('/'),x.node.codelist?(x.node.codelist.nameLang||x.node.typeName):'',x.node.codelist?x.node.codelist.kennung:'',werte]);
+    }
+    const ind='    '.repeat(x.depth);
+    if(x.kind==='ausp'){
+      const kk={min:p.min||'1',max:p.max||'1'};
+      rows.push([x.depth,ind+'» '+x.ausp.name,p.anmerkung||'','(Ausprägung von '+x.node.name+')','','',
+        statusTxt,kardText(kk.min,kk.max),werte,p.beispiel||'',p.anmerkung||'']);
+    }else{
+      const n=x.node,k=effKard(n);
+      const anm=(p.anmerkung||'')+(p.refZiel?((p.anmerkung?'\n':'')+'Verweis auf: '+auspLabel(p.refZiel)):'');
+      rows.push([x.depth,ind+pretty(n.name),n.doc.split('\n')[0]||'',n.name,n.typeName||'',
+        kardText(n.min,n.max),statusTxt,k.changed?kardText(k.min,k.max):'',werte,p.beispiel||'',anm]);
+    }
+  });
+  const meta=[['XJustiz Profilierer'],[],
+    ['Szenario',S.profile.meta.name||$('#profilName').value||''],
+    ['Nachricht',S.msgName],
+    ['XJustiz-Version',S.version],
+    ['Autor',S.profile.meta.autor||''],
+    ['Beschreibung',S.profile.meta.beschreibung||''],
+    ['Stand',S.profile.meta.datum||new Date().toLocaleDateString('de-DE')],
+    [],
+    ['Statusstufen']];
+  for(const s of S.profile.statuses)
+    meta.push([s.name,({pflicht:'muss vorkommen',optional:'darf vorkommen',ausgeschlossen:'darf nicht vorkommen',markierung:'nur Markierung'})[s.wirkung]||'']);
+  const wb=XLSX.utils.book_new();
+  const wsM=XLSX.utils.aoa_to_sheet(meta);wsM['!cols']=[{wch:26},{wch:70}];
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:6},{wch:55},{wch:55},{wch:34},{wch:34},{wch:18},{wch:26},{wch:18},{wch:40},{wch:24},{wch:50}];
+  XLSX.utils.book_append_sheet(wb,wsM,'Szenario');
+  XLSX.utils.book_append_sheet(wb,ws,'Struktur');
+  if(clSheet.length>1){
+    const wsC=XLSX.utils.aoa_to_sheet(clSheet);
+    wsC['!cols']=[{wch:60},{wch:30},{wch:44},{wch:50}];
+    XLSX.utils.book_append_sheet(wb,wsC,'Codelisten');
+  }
+  XLSX.writeFile(wb,profilFilename('xlsx'));
+  toast('Excel exportiert.');
+}
+
+/* ================= Schematron-Export ================= */
+function exportSchematron(){
+  const rules=new Map();
+  const addAssert=(ctx,test,msg)=>{
+    if(!rules.has(ctx))rules.set(ctx,[]);
+    const arr=rules.get(ctx);
+    if(!arr.some(a=>a.test===test))arr.push({test,msg});
+  };
+  const xpath=segs=>'/'+segs.map(s=>'xj:'+s).join('/');
+  const auspMin=new Map(); // Instanz-Pfad -> Summe Mindest-Vorkommen aus Ausprägungen
+  walkFull(x=>{
+    if(x.node===S.root)return;
+    if(inheritedExcluded(x.path))return;
+    const p=S.profile.elemente[x.path];
+    if(x.kind==='ausp'){
+      if(p&&statusOf(x.path)&&statusOf(x.path).wirkung==='pflicht'){
+        const key=xpath(x.segs);
+        auspMin.set(key,(auspMin.get(key)||0)+parseInt((p.min||'1'),10));
+      }else if(!p||!statusOf(x.path)||statusOf(x.path).wirkung!=='ausgeschlossen'){
+        // optionale Ausprägung: kein Mindest-Beitrag
+      }
+      return;
+    }
+    if(x.node.synthetic)return;
+    if(!p)return;
+    if(x.path.includes('@'))return; // Regeln innerhalb einzelner Ausprägungen sind instanzspezifisch — nicht generisch prüfbar
+    const w=wirkungOf(x.path);
+    const parentCtx=xpath(x.segs.slice(0,-1));
+    const selfCtx=xpath(x.segs);
+    const nm='xj:'+x.node.name;
+    const label=x.segs.slice(1).join('/');
+    if(w==='ausgeschlossen'){
+      addAssert(parentCtx,`not(${nm})`,`Das Element "${label}" wird in diesem Szenario nicht verwendet.`);
+      return;
+    }
+    if(w==='pflicht')
+      addAssert(parentCtx,`${nm}`,`Das Element "${label}" ist in diesem Szenario verpflichtend.`);
+    if(p.min&&p.min!=='0')
+      addAssert(parentCtx,`count(${nm}) >= ${parseInt(p.min,10)}`,`"${label}": mindestens ${p.min}-mal erforderlich.`);
+    if(p.max&&p.max!=='*'&&p.max!=='unbounded')
+      addAssert(parentCtx,`count(${nm}) <= ${parseInt(p.max,10)}`,`"${label}": höchstens ${p.max}-mal zulässig.`);
+    if(p.werte&&p.werte.length){
+      const vals=p.werte.map(v=>String(v).split(/\s+[—–-]\s+|\t/)[0].trim()).filter(Boolean);
+      const seq=vals.map(v=>`'${v.replace(/'/g,"''")}'`).join(', ');
+      addAssert(selfCtx,x.node.codelist?`code = (${seq})`:`. = (${seq})`,
+        `"${label}": in diesem Szenario sind nur folgende Werte zulässig: ${vals.join(', ')}.`);
+    }
+  });
+  for(const [selfCtx,minSum] of auspMin){
+    const segs=selfCtx.split('/xj:');
+    const name=segs[segs.length-1];
+    const parentCtx=segs.slice(0,-1).join('/xj:')||'/';
+    addAssert(parentCtx,`count(xj:${name}) >= ${minSum}`,
+      `"${name}": laut Szenario sind mindestens ${minSum} Vorkommen vorgesehen (zwingende Ausprägungen).`);
+  }
+  const meta=S.profile.meta;
+  let sch=`<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Schematron-Profilierung für ${S.msgName}
+  Szenario: ${meta.name||$('#profilName').value||'(ohne Namen)'}
+  XJustiz-Version: ${S.version}
+  Erzeugt: ${new Date().toISOString().slice(0,10)} mit dem XJustiz Profilierer
+  Hinweis: Diese Regeln gelten ZUSÄTZLICH zur Validierung gegen das XJustiz-Schema (XSD).
+  Benannte Ausprägungen werden als Mindest-Anzahlen geprüft; ihre inhaltliche
+  Unterscheidung (z. B. Rollen) ist fachlich zu prüfen.
+-->
+<sch:schema xmlns:sch="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
+  <sch:title>Profilierung ${escX(meta.name||'')} — ${escX(S.msgName)}</sch:title>
+  <sch:ns prefix="xj" uri="${XJNS}"/>
+  <sch:pattern id="wurzel">
+    <sch:rule context="/">
+      <sch:assert test="xj:${S.msgName}">Erwartet wird eine Nachricht ${escX(S.msgName)}.</sch:assert>
+    </sch:rule>
+  </sch:pattern>
+  <sch:pattern id="profil">
+`;
+  for(const [ctx,asserts] of rules){
+    sch+=`    <sch:rule context="${escX(ctx)}">\n`;
+    for(const a of asserts)
+      sch+=`      <sch:assert test="${escX(a.test)}">${escX(a.msg)}</sch:assert>\n`;
+    sch+=`    </sch:rule>\n`;
+  }
+  sch+=`  </sch:pattern>
+</sch:schema>
+`;
+  download(profilFilename('sch'),sch,'application/xml');
+  const cnt=[...rules.values()].reduce((s,a)=>s+a.length,0);
+  toast(cnt?`Schematron exportiert (${cnt} Regeln).`:'Schematron exportiert (noch keine prüfbaren Festlegungen).');
+}
+function escX(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+/* ================= Beispiel-XML ================= */
+const XS_BUILTIN={date:'2026-01-01',dateTime:'2026-01-01T12:00:00',time:'12:00:00',
+  integer:'1',int:'1',nonNegativeInteger:'1',positiveInteger:'1',long:'1',decimal:'0.00',
+  boolean:'true',gYear:'2026',gYearMonth:'2026-01',anyURI:'https://beispiel.example',
+  token:'Beispieltext',string:'Beispieltext',normalizedString:'Beispieltext',base64Binary:'QmVpc3BpZWw='};
+function placeholderFor(n){
+  const p=S.profile.elemente[n.path]||{};
+  if(p.beispiel)return p.beispiel;
+  // Verweis-Blatt: Nummer der Ziel-Ausprägung
+  if(/^ref\./.test(n.name)){
+    const parentPath=n.path.slice(0,n.path.lastIndexOf('/'));
+    const rz=(S.profile.elemente[parentPath]||{}).refZiel||(p.refZiel||null);
+    if(rz){const num=auspNumber(rz);if(num!=null)return String(num);}
+  }
+  // Gegenstück: Nummer der eigenen Ausprägung
+  if(n.name==='rollennummer'||n.name==='beteiligtennummer'){
+    const lastAt=n.path.lastIndexOf('@');
+    if(lastAt>=0){
+      const end=n.path.indexOf('/',lastAt);
+      const auspPath=end<0?n.path:n.path.slice(0,end);
+      const num=auspNumber(auspPath);
+      if(num!=null)return String(num);
+    }
+  }
+  if(n.codelist){
+    if(p.werte&&p.werte.length)return String(p.werte[0]).split(/\s+[—–-]\s+|\t/)[0].trim();
+    const eff=clWerte(n.codelist);
+    if(eff&&eff.length)return eff[0].value;
+    return 'CODE';
+  }
+  let t=n.typeName;
+  const seen=new Set();
+  while(t&&!seen.has(t)){
+    seen.add(t);
+    if(XS_BUILTIN[t])return XS_BUILTIN[t];
+    const st=S.idx.st[t];
+    if(st){
+      const en=enumsOfST(st);
+      if(en&&en.length)return en[0].value;
+      const r=kid(st,'restriction');
+      t=r?local(r.getAttribute('base')):null;
+    }else t=null;
+  }
+  return 'Beispieltext';
+}
+function genBeispielXml(){
+  const IND='  ';
+  const lines=['<?xml version="1.0" encoding="UTF-8"?>',
+    `<!-- Beispielnachricht (Entwurf) für Szenario "${S.profile.meta.name||$('#profilName').value||''}" — generiert mit dem XJustiz Profilierer.`,
+    `     Platzhalterwerte und Codelisten-Angaben (listURI/listVersionID) sind fachlich zu prüfen. -->`];
+  const emitLeaf=(n,depth)=>{
+    const pad=IND.repeat(depth);
+    const v=escX(placeholderFor(n));
+    if(n.codelist){
+      const ver=clVersion(n.codelist)||'~';
+      const attrs=n.codelist.kennung?` listURI="${escX(n.codelist.kennung)}" listVersionID="${escX(ver)}"`:'';
+      lines.push(`${pad}<${n.name}${attrs}>`);
+      lines.push(`${pad}${IND}<code>${v}</code>`);
+      lines.push(`${pad}</${n.name}>`);
+    }else{
+      lines.push(`${pad}<${n.name}>${v}</${n.name}>`);
+    }
+  };
+  const hasProfilBelow=(path)=>{
+    const pre1=path+'/',pre2=path+'@';
+    for(const k of Object.keys(S.profile.elemente))if(k.startsWith(pre1)||k.startsWith(pre2))return true;
+    for(const k of Object.keys(S.profile.auspraegungen))if(k===path||k.startsWith(pre1)||k.startsWith(pre2))return true;
+    return false;
+  };
+  // Referenzierte Ausprägungen: Pfad zur Nummern-Angabe (rollennummer/beteiligtennummer) erzwingen
+  const forced=new Set();
+  {
+    const refZiele=new Set(Object.values(S.profile.elemente).filter(p=>p.refZiel).map(p=>p.refZiel));
+    for(const rz of refZiele){
+      const it=findItemByPath(rz);
+      if(!it||it.kind!=='ausp')continue;
+      const cn=ctxNode(it.parentNode,it.ausp.id);
+      const q=[[cn,[]]];let found=null,steps=0;
+      while(q.length&&steps++<400){
+        const [node,chain]=q.shift();
+        if(isLeaf(node))continue;
+        expandNode(node);
+        for(const c of node.children){
+          if((c.name==='rollennummer'||c.name==='beteiligtennummer')&&isLeaf(c)){found=[...chain,c];break;}
+          if(!c.recursive&&chain.length<4)q.push([c,[...chain,c]]);
+        }
+        if(found)break;
+      }
+      if(found)for(const nn of found)forced.add(nn.path);
+    }
+  }
+  const include=(n)=>{
+    if(forced.has(n.path))return true;
+    const w=wirkungOf(n.path);
+    if(w==='ausgeschlossen')return false;
+    if(w==='pflicht')return true;
+    const p=S.profile.elemente[n.path]||{};
+    const min=parseInt(p.min||n.min,10);
+    if(min>=1)return true;
+    if(p.beispiel||(p.werte&&p.werte.length))return true;
+    if(hasProfilBelow(n.path))return true;
+    return false;
+  };
+  const chooseBranch=(children)=>{
+    const decided=children.find(c=>{
+      const w=wirkungOf(c.path);
+      return w&&w!=='ausgeschlossen';
+    });
+    if(decided)return decided;
+    return children.find(c=>wirkungOf(c.path)!=='ausgeschlossen')||null;
+  };
+  const emit=(n,depth,asName)=>{
+    if(depth>28)return;
+    if(n.recursive){lines.push(IND.repeat(depth)+`<!-- ${n.name}: rekursive Struktur, hier gekürzt -->`);return;}
+    if(n.synthetic){
+      expandNode(n);
+      if(n.model==='choice'){
+        const b=chooseBranch(n.children);
+        if(b&&include(b))emit(b,depth);
+        else if(b)emit(b,depth);
+      }else{
+        for(const c of n.children)if(include(c))emit(c,depth);
+      }
+      return;
+    }
+    const name=asName||n.name;
+    const ausps=auspsOf(n.path);
+    if(ausps&&ausps.length){
+      for(const a of ausps){
+        const cn=ctxNode(n,a.id);
+        const w=wirkungOf(cn.path);
+        if(w==='ausgeschlossen')continue;
+        lines.push(IND.repeat(depth)+`<!-- Ausprägung: ${a.name} -->`);
+        emitInstance(cn,depth,name);
+      }
+      return;
+    }
+    emitInstance(n,depth,name);
+  };
+  const emitInstance=(n,depth,name)=>{
+    if(isLeaf(n)){emitLeaf({...n,name},depth);return;}
+    expandNode(n);
+    const pad=IND.repeat(depth);
+    lines.push(`${pad}<${name}>`);
+    if(n.model==='choice'){
+      const b=chooseBranch(n.children);
+      if(b)emit(b,depth+1);
+    }else{
+      for(const c of n.children){
+        if(c.synthetic){emit(c,depth+1);continue;}
+        if(include(c))emit(c,depth+1);
+      }
+    }
+    lines.push(`${pad}</${name}>`);
+  };
+  // Wurzel
+  expandNode(S.root);
+  lines.push(`<${S.msgName} xmlns="${XJNS}">`);
+  for(const c of S.root.children){
+    if(c.synthetic){emit(c,1);continue;}
+    if(include(c))emit(c,1);
+  }
+  lines.push(`</${S.msgName}>`);
+  download(profilFilename('beispiel.xml'),lines.join('\n'),'application/xml');
+  toast('Beispiel-XML erzeugt — Platzhalter fachlich prüfen.');
+}
+
+/* ================= Diff-Viewer (Versionsvergleich) ================= */
+function flattenSchema(msgName){
+  const el=S.idx.el[msgName];
+  if(!el)return null;
+  const root=makeNode({name:msgName,path:msgName,xsdEl:el,typeName:local(el.getAttribute('type'))});
+  const map=new Map();
+  const rec=(n,depth)=>{
+    if(depth>25||n.recursive)return;
+    if(!isLeaf(n)){
+      expandNode(n);
+      for(const c of n.children){
+        if(!c.synthetic)
+          map.set(c.path.slice(msgName.length),{
+            kard:fmtKard(c.min,c.max),typ:c.typeName||'',
+            cl:c.codelist?(c.codelist.kennung||c.codelist.typeName):''
+          });
+        rec(c,depth+1);
+      }
+    }
+  };
+  rec(root,0);
+  return map;
+}
+function profiledUnder(absPath){
+  if(S.profile.elemente[absPath])return true;
+  const p1=absPath+'/',p2=absPath+'@';
+  for(const k of Object.keys(S.profile.elemente))if(k.startsWith(p1)||k.startsWith(p2))return true;
+  for(const k of Object.keys(S.profile.auspraegungen))if(k===absPath||k.startsWith(p1)||k.startsWith(p2))return true;
+  return false;
+}
+function computeDiff(){
+  const res={msgOnlyA:[],msgOnlyB:[],rows:[],msgInB:true};
+  const namesA=new Set(S.idx.messages.map(m=>m.name));
+  const namesB=new Set(S.idxB.idx.messages.map(m=>m.name));
+  res.msgOnlyA=[...namesA].filter(n=>!namesB.has(n)).sort();
+  res.msgOnlyB=[...namesB].filter(n=>!namesA.has(n)).sort();
+  if(S.msgName){
+    if(!S.idxB.idx.el[S.msgName]){res.msgInB=false;return res;}
+    const A=withIdx(S.idx,()=>flattenSchema(S.msgName));
+    const B=withIdx(S.idxB.idx,()=>flattenSchema(S.msgName));
+    for(const [k,va] of A){
+      const vb=B.get(k);
+      const abs=S.msgName+k;
+      if(!vb)res.rows.push({art:'entfernt',rel:k,info:'',typ:va.typ,prof:profiledUnder(abs)});
+      else{
+        const ch=[];
+        if(va.kard!==vb.kard)ch.push('Kardinalität '+va.kard+' → '+vb.kard);
+        if(va.typ!==vb.typ)ch.push('Typ '+(va.typ||'—')+' → '+(vb.typ||'—'));
+        else if(va.cl!==vb.cl)ch.push('Codeliste '+(va.cl||'—')+' → '+(vb.cl||'—'));
+        if(ch.length)res.rows.push({art:'geändert',rel:k,info:ch.join(' · '),typ:vb.typ||va.typ,prof:profiledUnder(abs)});
+      }
+    }
+    for(const [k,vb] of B)
+      if(!A.has(k))res.rows.push({art:'neu',rel:k,
+        info:'Kardinalität '+vb.kard,typ:vb.typ,prof:false});
+    res.rows.sort((a,b)=>a.rel.localeCompare(b.rel));
+  }
+  return res;
+}
+function computeDiffMap(){
+  S.diffMap=null;S.diffAnc=null;
+  if(!S.idxB||!S.msgName)return;
+  const d=computeDiff();
+  S.diffMsgMissing=!d.msgInB;
+  S.diffMap=new Map(d.rows.map(r=>[r.rel,r]));
+  // Vorfahren-Zähler: welche Eltern haben Unterschiede in ihrem Teilbaum?
+  S.diffAnc=new Map();
+  const bump=(p,art)=>{
+    const e=S.diffAnc.get(p)||{neu:0,entfernt:0,'geändert':0};
+    e[art]++;S.diffAnc.set(p,e);
+  };
+  for(const r of d.rows){
+    bump('',r.art);
+    const segs=r.rel.split('/').filter(Boolean);
+    let p='';
+    for(let i=0;i<segs.length-1;i++){p+='/'+segs[i];bump(p,r.art);}
+  }
+}
+const DIFF_FARBEN={neu:'#1e7d3e','entfernt':'#b23a3a','geändert':'#8a6d0b'};
+const DIFF_SYM={neu:'+','entfernt':'−','geändert':'~'};
+function openDiffDlg(){
+  if(!S.idxB){toast('Bitte zuerst den Vergleichs-XSD-Ordner laden.');return;}
+  const d=computeDiff();
+  const head=$('#diffHead');
+  let h=`<div style="font-size:13px;margin-bottom:8px">Geladen: <b>${esc(S.version)}</b> (aktiv) ↔ <b>${esc(S.idxB.version||'?')}</b> (Vergleich)</div>`;
+  if(S.msgName){
+    if(!d.msgInB)h+=`<div style="color:#b23a3a;font-weight:600">Die Nachricht ${esc(S.msgName)} existiert in Version ${esc(S.idxB.version||'?')} nicht.</div>`;
+    else{
+      const nProf=d.rows.filter(r=>r.prof).length;
+      h+=`<div style="font-size:13px">Nachricht <code>${esc(S.msgName)}</code>: <b>${d.rows.length}</b> Unterschiede`
+        +(nProf?` — davon <b style="color:#b23a3a">${nProf} mit Bezug zur Profilierung</b>`:'')
+        +`</div>`;
+    }
+  }else h+=`<div style="color:var(--muted)">Keine Nachricht geladen — nur Nachrichten-Überblick.</div>`;
+  if(d.msgOnlyB.length||d.msgOnlyA.length){
+    h+=`<details style="margin-top:6px;font-size:12.5px"><summary>Nachrichten-Überblick: ${d.msgOnlyB.length} neu, ${d.msgOnlyA.length} entfallen</summary>`;
+    if(d.msgOnlyB.length)h+=`<div style="margin-top:4px"><b style="color:#1e7d3e">Neu in ${esc(S.idxB.version||'B')}:</b> ${d.msgOnlyB.slice(0,30).map(esc).join(', ')}${d.msgOnlyB.length>30?' …':''}</div>`;
+    if(d.msgOnlyA.length)h+=`<div style="margin-top:4px"><b style="color:#b23a3a">Nicht mehr enthalten:</b> ${d.msgOnlyA.slice(0,30).map(esc).join(', ')}${d.msgOnlyA.length>30?' …':''}</div>`;
+    h+=`</details>`;
+  }
+  head.innerHTML=h;
+  S.diffRows=d.rows;
+  renderDiffList();
+  $('#diffDlg').showModal();
+}
+function renderDiffList(){
+  const onlyProf=$('#diffOnlyProf').checked;
+  const list=$('#diffList');
+  const rows=(S.diffRows||[]).filter(r=>!onlyProf||r.prof);
+  if(!rows.length){list.innerHTML='<div style="padding:14px;color:var(--muted)">keine Unterschiede'+(onlyProf?' mit Profil-Bezug':'')+'</div>';return;}
+  let h='';
+  rows.slice(0,800).forEach((r,i)=>{
+    const segs=r.rel.split('/').filter(Boolean);
+    const name=(segs[segs.length-1]||'').split('#')[0];
+    h+=`<div class="diffRow" data-i="${i}" style="display:flex;gap:8px;padding:5px 8px;border-bottom:1px solid #f0f2f5;align-items:baseline;${r.art!=='neu'?'cursor:pointer':''}">
+      <span style="flex:none;width:16px;text-align:center;font-weight:700;color:${DIFF_FARBEN[r.art]}">${DIFF_SYM[r.art]}</span>
+      <span style="flex:none;min-width:66px;font-size:11px;color:${DIFF_FARBEN[r.art]};font-weight:600">${r.art}</span>
+      <span style="min-width:0;flex:1">
+        <code style="font-weight:700;font-size:12.5px">${esc(name)}</code>
+        ${r.typ?`<code style="font-size:11px;color:var(--muted)"> : ${esc(r.typ)}</code>`:''}
+        <span style="font-size:11.5px;color:var(--muted)"> — ${esc(pretty(name))}</span>
+        ${r.prof?'<span class="tag" style="background:#f9e9e9;color:#b23a3a">profiliert</span>':''}
+        <span style="display:block;font-family:var(--mono);font-size:10.5px;color:var(--muted);word-break:break-all">${esc(r.rel)}</span>
+        ${r.info?`<span style="display:block;font-size:12px;color:#8a6d0b">${esc(r.info)}</span>`:''}
+      </span>
+      <button class="diffCopy" data-i="${i}" title="Elementname und Pfad kopieren (für CRs/Abstimmungen)" style="flex:none;padding:2px 7px;font-size:11px">⎘</button>
+      </div>`;
+  });
+  if(rows.length>800)h+=`<div style="padding:10px;color:var(--muted)">… ${rows.length-800} weitere</div>`;
+  list.innerHTML=h;
+  list.querySelectorAll('.diffRow').forEach(el=>{
+    el.onclick=()=>{
+      const r=rows[+el.dataset.i];
+      if(r.art==='neu')return;
+      $('#diffDlg').close();
+      jumpTo(S.msgName+r.rel);
+    };
+  });
+  list.querySelectorAll('.diffCopy').forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      const r=rows[+btn.dataset.i];
+      const name=(r.rel.split('/').filter(Boolean).pop()||'').split('#')[0];
+      const text=`${name}${r.typ?' ('+r.typ+')':''} — ${S.msgName}${r.rel}${r.info?' — '+r.info:''}`;
+      (navigator.clipboard?navigator.clipboard.writeText(text):Promise.reject())
+        .then(()=>toast('Kopiert: '+name))
+        .catch(()=>{prompt('Zum Kopieren (Strg+C):',text);});
+    };
+  });
+}
+async function loadXsdB(files){
+  const xsds=[...files].filter(f=>f.name.toLowerCase().endsWith('.xsd'));
+  if(!xsds.length){toast('Keine .xsd-Dateien im gewählten Ordner gefunden.');return;}
+  const parser=new DOMParser();
+  const docs=[];
+  for(const f of xsds){
+    const dom=parser.parseFromString(await f.text(),'application/xml');
+    if(!dom.getElementsByTagName('parsererror').length)docs.push({file:f.name,dom});
+  }
+  const r=buildIndexFrom(docs);
+  S.idxB={idx:r.idx,version:r.version};
+  $('#btnDiff').textContent=`Diff ${S.version||'?'} ↔ ${r.version||'?'}`;
+  const cd=$('#chkDiff');
+  cd.disabled=false;cd.checked=true;S.showDiff=true;
+  computeDiffMap();
+  renderColumns();
+  toast(`Vergleichsversion ${r.version||'?'} geladen (${docs.length} Schemata).`);
+  openDiffDlg();
+}
+
+/* ================= Druckansicht ================= */
+function doPrint(){
+  const m=S.profile.meta;
+  const pd=$('#printDoc');
+  let h=`<h1>Profilierung: ${esc(m.name||$('#profilName').value||'(ohne Namen)')}</h1>
+    <div class="phead">Nachricht: <code>${esc(S.msgName)}</code> · XJustiz ${esc(S.version)} ·
+    Stand: ${esc(m.datum||new Date().toLocaleDateString('de-DE'))}${m.autor?' · '+esc(m.autor):''}
+    ${m.beschreibung?'<br>'+esc(m.beschreibung):''}</div>`;
+  walkFull(x=>{
+    const p=S.profile.elemente[x.path]||{};
+    const st=statusOf(x.path);
+    const inh=inheritedExcluded(x.path);
+    const excl=(st&&st.wirkung==='ausgeschlossen')||inh;
+    if(S.onlyProfile&&excl)return;
+    const ind=x.depth*14;
+    const name=x.kind==='ausp'?('» '+x.ausp.name):pretty(x.node.name);
+    const kt=x.kind==='ausp'?kardText(p.min||'1',p.max||'1'):kardText(effKard(x.node).min,effKard(x.node).max);
+    h+=`<div class="prow ${excl?'pexcl':''}" style="padding-left:${ind}px">
+      <span class="pl"></span>
+      <span><span class="pname">${esc(name)}</span>
+        ${x.kind==='el'?`<span class="ptech">${esc(x.node.name)}</span>`:''}
+        ${p.anmerkung?`<span class="pnote">${esc(p.anmerkung)}</span>`:''}
+        ${p.refZiel?`<span class="pnote">Verweis auf: ${esc(auspLabel(p.refZiel))}</span>`:''}
+        ${p.werte&&p.werte.length?`<span class="pnote">Werte: ${esc(p.werte.map(v=>String(v).split(/\s+[—–-]\s+/)[0]).join(', '))}</span>`:''}
+        ${p.beispiel?`<span class="pnote">Bsp.: ${esc(p.beispiel)}</span>`:''}</span>
+      <span class="spacer" style="flex:1"></span>
+      <span class="pk">${kt}</span>
+      <span class="pst" style="color:${st?st.farbe:'#999'}">${st?esc(st.name):(inh?'entfällt':'')}</span>
+    </div>`;
+  });
+  pd.innerHTML=h;
+  window.print();
+}
+
+/* ================= Toast & Wiring ================= */
+let toastT=null;
+function toast(msg){
+  const t=$('#toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),3500);
+}
+$('#btnLoadXsd').onclick=()=>$('#xsdInput').click();
+$('#xsdInput').onchange=e=>loadXsdFiles(e.target.files);
+$('#btnLoadCl').onclick=()=>$('#clInput').click();
+$('#clInput').onchange=e=>loadCodelistFiles(e.target.files);
+$('#btnXrep').onclick=loadFromXRepository;
+$('#btnDiff').onclick=()=>{S.idxB?openDiffDlg():$('#xsdBInput').click();};
+$('#xsdBInput').onchange=e=>loadXsdB(e.target.files);
+$('#diffOther').onclick=()=>{$('#diffDlg').close();$('#xsdBInput').click();};
+$('#diffClose').onclick=()=>$('#diffDlg').close();
+$('#diffOnlyProf').onchange=renderDiffList;
+loadCodelistCache();
+$('#btnExpand').onclick=expandAllTree;
+$('#btnCollapse').onclick=collapseTree;
+$('#btnLoadProfil').onclick=()=>$('#profilInput').click();
+$('#profilInput').onchange=e=>{if(e.target.files[0])loadProfileFile(e.target.files[0]);e.target.value='';};
+$('#msgBtn').onclick=e=>{e.stopPropagation();
+  $('#msgPanel').classList.contains('open')?closeMsgPanel():openMsgPanel();};
+document.addEventListener('click',e=>{if(!$('#msgPanel').contains(e.target)&&e.target!==$('#msgBtn'))closeMsgPanel();});
+$('#msgSearch').oninput=e=>renderMsgList(e.target.value);
+$('#chkOnlyProfile').onchange=e=>{S.onlyProfile=e.target.checked;renderColumns();};
+$('#chkTech').onchange=e=>{S.showTech=e.target.checked;renderColumns();};
+$('#chkFocus').onchange=e=>{S.focusMode=e.target.checked;renderColumns();};
+$('#chkDiff').onchange=e=>{S.showDiff=e.target.checked;renderColumns();};
+$('#chkRefs').onchange=e=>{S.showRefs=e.target.checked;requestAnimationFrame(redrawLines);};
+$('#btnSave').onclick=saveProfile;
+$('#btnExcel').onclick=exportExcel;
+$('#btnSch').onclick=exportSchematron;
+$('#btnXml').onclick=genBeispielXml;
+$('#btnPrint').onclick=doPrint;
+$('#btnStatusCfg').onclick=openStatusDlg;
+$('#stOk').onclick=()=>{$('#statusDlg').close();renderAll();};
+$('#profilName').onchange=e=>{S.profile.meta.name=e.target.value.trim();scheduleAutosave();};
+let searchT=null;
+$('#searchInput').oninput=e=>{clearTimeout(searchT);searchT=setTimeout(()=>runSearch(e.target.value),200);};
+$('#searchInput').onfocus=e=>{if(e.target.value.trim())runSearch(e.target.value);};
+$('#searchInput').onkeydown=e=>{
+  if(e.key==='Enter'){
+    const first=$('#searchPanel').dataset.first;
+    if(first){closeSearch();jumpTo(first);}
+  }else if(e.key==='Escape'){closeSearch();e.target.blur();}
+};
+document.addEventListener('click',e=>{
+  if(!$('#searchPanel').contains(e.target)&&e.target!==$('#searchInput'))closeSearch();
+});
+$('#btnMeta').onclick=()=>{
+  const m=S.profile.meta;
+  $('#mName').value=m.name||$('#profilName').value||'';
+  $('#mAutor').value=m.autor||'';
+  $('#mDatum').value=m.datum||new Date().toLocaleDateString('de-DE');
+  $('#mBeschr').value=m.beschreibung||'';
+  $('#metaDlg').showModal();
+};
+$('#mOk').onclick=()=>{
+  const m=S.profile.meta;
+  m.name=$('#mName').value.trim();m.autor=$('#mAutor').value.trim();
+  m.datum=$('#mDatum').value.trim();m.beschreibung=$('#mBeschr').value.trim();
+  $('#profilName').value=m.name;
+  $('#metaDlg').close();
+  scheduleAutosave();
+};
+document.body.addEventListener('dragover',e=>e.preventDefault());
+document.body.addEventListener('drop',e=>{
+  e.preventDefault();
+  if(e.dataTransfer.files.length){
+    const f=[...e.dataTransfer.files];
+    if(f.length===1&&f[0].name.endsWith('.json'))loadProfileFile(f[0]);
+    else if(f.some(x=>x.name.toLowerCase().endsWith('.xsd')))loadXsdFiles(f);
+    else if(f.some(x=>/\.(xml|zip)$/i.test(x.name)))loadCodelistFiles(f);
+  }
+});
+document.addEventListener('keydown',e=>{
+  if(!S.root||!S.selItem)return;
+  const t=e.target;
+  if(t&&['INPUT','TEXTAREA','SELECT'].includes(t.tagName))return;
+  if(document.querySelector('dialog[open]')||$('#msgPanel').classList.contains('open'))return;
+  const path=itemPath(S.selItem);
+  const chain=findChainByPath(path);
+  if(e.key==='ArrowLeft'){
+    if(chain.length>1){e.preventDefault();selectItem(chain[chain.length-2]);}
+  }else if(e.key==='ArrowRight'){
+    const kids=childItems(S.selItem);
+    if(kids.length){e.preventDefault();S.open.add(path);selectItem(kids[0]);}
+  }else if(e.key==='ArrowUp'||e.key==='ArrowDown'){
+    if(chain.length>1){
+      const sibs=childItems(chain[chain.length-2]);
+      const idx=sibs.findIndex(k=>itemPath(k)===path);
+      const ni=idx+(e.key==='ArrowDown'?1:-1);
+      if(idx>=0&&ni>=0&&ni<sibs.length){e.preventDefault();selectItem(sibs[ni]);}
+    }
+  }
+});
+window.addEventListener('resize',()=>requestAnimationFrame(redrawLines));
+if(window.ResizeObserver)new ResizeObserver(()=>requestAnimationFrame(redrawLines)).observe($('#colWrap'));
+renderLegend();
+</script>
+</body>
+</html>
