@@ -1,0 +1,112 @@
+@let v = vm();
+<div
+  class="box"
+  [class.auspBox]="v.auspBox"
+  [class.sel]="v.selected"
+  [class.mini]="v.mini"
+  [class.excluded]="v.excluded"
+  [class.exclInherit]="v.exclInherit"
+  [class.leafBox]="v.leafBox"
+  [class.parentBox]="v.parentBox"
+  [class.dfR]="v.dfR"
+  [class.dfA]="v.dfA"
+  [attr.data-path]="path()"
+  [attr.data-refkind]="v.refkind"
+  [attr.data-refziel]="v.refziel"
+  (click)="onSelect()"
+>
+  @if (v.statusStrip) {
+    <div class="statusStrip" [style.background]="v.statusStrip"></div>
+  }
+
+  <div class="bt">
+    <span class="bname">{{ v.title }}</span>
+    @if (v.mv; as mv) {
+      <span class="mv" [class.ghost]="mv.ghost">{{ mv.text }}</span>
+    }
+    @if (hasNext()) {
+      <button class="togBtn" [title]="isOpen() ? 'Ast zuklappen' : 'Ast aufklappen'" (click)="onToggle($event)">
+        {{ isOpen() ? '−' : '+' }}
+      </button>
+    }
+  </div>
+
+  @if (v.vin; as vin) {
+    <div class="vrow">
+      @if (v.datalist; as dl) {
+        <datalist [id]="dl.id">
+          @for (o of dl.options; track o.value) {
+            <option [value]="o.value">{{ o.label }}</option>
+          }
+        </datalist>
+      }
+      <input
+        class="vin"
+        [attr.list]="vin.listId"
+        [value]="vin.value"
+        [placeholder]="vin.placeholder"
+        title="Testwert für die Beispiel-XML — leer = automatischer Platzhalter"
+        (click)="stop($event)"
+        (keydown)="onValueKeydown($event)"
+        (change)="onValue($event)"
+      />
+    </div>
+  }
+
+  @if (v.showTech) {
+    <div class="tech">{{ v.techText }}</div>
+  }
+
+  <div class="kard" [style.color]="v.kardColor">
+    {{ v.statusName ? v.statusName + ' · ' : '' }}{{ v.kardText
+    }}@if (v.standardHint; as sh) {
+      <span style="color: var(--muted)"> (Standard: {{ sh }})</span>
+    }
+  </div>
+
+  @if (v.doc; as doc) {
+    <div class="bdoc">{{ doc }}</div>
+  }
+
+  @if (v.tags.length) {
+    <div class="tags">
+      @for (t of v.tags; track $index) {
+        <span class="tag {{ t.cls }}" [title]="t.title || ''" (click)="onTag(t, $event)">{{ t.text }}</span>
+      }
+    </div>
+  }
+
+  @if (v.showHide) {
+    <button
+      class="hideBtn"
+      [title]="v.hideIsExcl ? 'Wieder einblenden (Status entfernen)' : 'Ausblenden — Element wird im Szenario nicht angegeben'"
+      (click)="onHide($event)"
+    >
+      {{ v.hideIsExcl ? '↺' : '✕' }}
+    </button>
+  }
+  @if (v.showDelAusp) {
+    <button class="hideBtn delBtn" title="Ausprägung löschen (samt Unter-Profilierung)" (click)="onDelAusp($event)">✕</button>
+  }
+  @if (v.showDup) {
+    <button class="dupBtn" [title]="v.dupTitle" (click)="onDup($event)">⧉</button>
+  }
+</div>
+
+@if (isOpen() && hasNext()) {
+  <div class="nkids">
+    @for (child of children(); track keyOf(child)) {
+      <app-tree-node [item]="child"></app-tree-node>
+    }
+    @if (showAddAusp()) {
+      <div class="box addBox" (click)="onAddAusp()">+ Ausprägung</div>
+    }
+    @for (ph of phantoms(); track ph.tech) {
+      <div class="box phantom" title="Dieses Element existiert erst in der Vergleichsversion.">
+        <div class="bt"><span class="bname">{{ ph.name }}</span></div>
+        <div class="tech">{{ ph.tech }}</div>
+        <div class="kard" style="color: #0f6e56">{{ ph.kard }}</div>
+      </div>
+    }
+  </div>
+}

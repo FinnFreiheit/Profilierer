@@ -1,0 +1,10 @@
+<div id="crumbs" [class.open]="chain().length > 0">
+  @for (it of chain(); track keyOf(it); let i = $index; let last = $last) {
+    @if (i > 0) {
+      <span class="crumbSep">›</span>
+    }
+    <span class="crumb" [class.cur]="last" [title]="titleOf(it)" (click)="last ? null : pick(it)">
+      {{ label(it) }}
+    </span>
+  }
+</div>

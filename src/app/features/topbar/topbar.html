@@ -1,0 +1,29 @@
+<div id="topbar">
+  <h1><span>XJustiz</span> Profilierer</h1>
+  <span class="pill" id="verInfo">{{ verInfo() }}</span>
+  <span class="spacer"></span>
+
+  <input #xsdInput type="file" webkitdirectory multiple class="hidden" (change)="onXsd($event)" />
+  <input #clInput type="file" multiple accept=".xml,.zip" class="hidden" (change)="onCodelist($event)" />
+  <input #profilInput type="file" accept=".json" class="hidden" (change)="onProfile($event)" />
+
+  <button class="primary" (click)="pick(xsdInput)">XSD-Ordner laden</button>
+  <button
+    [disabled]="!hasIdx()"
+    title="Alle vom Standard genutzten Codelisten über die XRepository-REST-Schnittstelle abrufen"
+    (click)="xrepClick.emit()"
+  >
+    Codelisten: XRepository
+  </button>
+  <button title="Genericode-Dateien oder ZIP aus Dateien laden" (click)="pick(clInput)">
+    Codelisten: Datei…
+  </button>
+  <button
+    [disabled]="!hasIdx()"
+    title="Zweiten XSD-Ordner (andere XJustiz-Version) laden und Unterschiede anzeigen"
+    (click)="diffClick.emit()"
+  >
+    {{ diffLabel() }}
+  </button>
+  <button (click)="pick(profilInput)">Profil laden…</button>
+</div>

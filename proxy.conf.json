@@ -1,0 +1,9 @@
+{
+  "/xrep-api": {
+    "target": "https://www.xrepository.de/api",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": { "^/xrep-api": "" },
+    "headers": { "User-Agent": "XJustiz-Profilierer (Angular Dev-Proxy)" }
+  }
+}

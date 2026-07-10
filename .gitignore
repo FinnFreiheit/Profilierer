@@ -20,3 +20,12 @@ Profil*.json
 # Lokale XSD-Kopien / Testdaten
 XJustiz_*_XSD/
 *.xlsx
+
+# Angular / Node
+/node_modules
+/dist
+/out-tsc
+/.angular/cache
+/coverage
+npm-debug.log
+.sass-cache/

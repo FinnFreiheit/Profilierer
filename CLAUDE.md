@@ -4,7 +4,9 @@ Projekt-Handbuch für die Arbeit mit Claude Code im Terminal. Wird bei jeder Ses
 
 ## Was ist das
 
-Der **XJustiz Profilierer** ist ein Werkzeug zur Visualisierung von XJustiz-Nachrichten und zur Erstellung von Profilierungen (Kommunikationsszenarien) — auch für die gemeinsame Arbeit mit Nicht-Technikern. Kern ist eine **einzelne HTML-Datei** ohne Build-Schritt, die im Browser läuft. Fachliche Details zur Bedienung stehen im [README](README.md).
+Der **XJustiz Profilierer** ist ein Werkzeug zur Visualisierung von XJustiz-Nachrichten und zur Erstellung von Profilierungen (Kommunikationsszenarien) — auch für die gemeinsame Arbeit mit Nicht-Technikern. Fachliche Details zur Bedienung stehen im [README](README.md).
+
+Das Tool war ursprünglich eine einzelne HTML-Datei; es wurde zu einem **Angular-20-Projekt** migriert (standalone Components, Signals, OnPush). Die alte Single-File-Version liegt unter `legacy/Profilierer.html` als Referenz.
 
 ## Sprache und Stil
 
@@ -18,27 +20,51 @@ Der **XJustiz Profilierer** ist ein Werkzeug zur Visualisierung von XJustiz-Nach
 
 ```
 xjustiz-profilierer/
-├── Profilierer.html    Das gesamte Tool (Struktur, Logik, Styling in einer Datei)
-├── xrep-proxy.py       Start-Helfer: serviert die App und reicht XRepository-Aufrufe same-origin durch
-├── README.md           Fachliche Bedienungsanleitung
-└── CLAUDE.md           Dieses Handbuch
+├── src/app/
+│   ├── models/                Interfaces (node, profile, codelist, diff, xsd-index)
+│   ├── core/
+│   │   ├── services/          StateService (Signals-Store), XsdParserService, TreeService,
+│   │   │                      NavService, ValueService, CodelistService, ExportService,
+│   │   │                      DiffService, PersistenceService, DownloadService, ToastService,
+│   │   │                      SearchService
+│   │   ├── util/              xml.util, pretty.util
+│   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
+│   │   └── profile-defaults.ts
+│   ├── features/              Topbar, Toolbar, Crumbs, Search, MessagePicker, Tree (TreeCanvas +
+│   │                          rekursive TreeNode), Detail, Dialoge (Status/Meta/Diff), Legend, Print
+│   ├── shared/                Toast, FileDropDirective
+│   ├── app.ts / app.html      Shell (Komposition + Tastatur-Nav + Drop-Routing)
+│   └── styles.scss            globale Styles (aus der Single-File-Version portiert)
+├── proxy.conf.json            Dev-Proxy /xrep-api → xrepository.de (ersetzt legacy/xrep-proxy.py)
+├── scripts/test-headless.mjs  Headless-Testlauf (setzt CHROME_BIN via puppeteer)
+├── legacy/                    Profilierer.html + xrep-proxy.py (Referenz)
+├── README.md, CLAUDE.md
 ```
 
-`Profilierer.html` ist bewusst **eine einzige Datei** (kein Bundler, keine externen Module außer SheetJS via CDN für den Excel-Export). Änderungen an Logik, Styling und Markup erfolgen direkt in dieser Datei.
+Zentrale Idee der Architektur: `StateService` ist ein **Signals-Store** (ersetzt das alte globale `S`/`S.profile`). Die imperativen Render-Funktionen (`renderBox`/`renderDetail`/`redrawLines`) sind deklarative Komponenten; die SVG-Verbindungslinien werden im `TreeCanvas` aus DOM-Messungen berechnet.
 
 ## Starten / Entwickeln
 
-- **Einfach öffnen:** `Profilierer.html` per Doppelklick — alles läuft offline, außer dem Excel-Export (SheetJS via CDN).
-- **Mit XRepository-Anbindung:** `python3 xrep-proxy.py` im Projektordner. Serviert die App unter `http://localhost:8737/Profilierer.html` und reicht XRepository-REST-Aufrufe (`/xrep-api/…`) same-origin durch — löst das CORS-Problem. Nur Python-Standardbibliothek, öffnet den Browser automatisch. Beenden mit Strg+C.
-- Testdaten: XSD-Schemata liegen unter `/Users/finnfreiheit/code/XJustiz_3_6_2_XSD` (im Tool per „XSD-Ordner laden" wählen).
+Node ≥ 22.12 nötig (Angular 20). System-Node ist 22.11 — daher vor npm/ng-Befehlen Node 24 aktivieren:
+
+```
+export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use 24
+```
+
+- **Dev-Server:** `npm start` (`ng serve`, Port 4200) — inkl. Dev-Proxy für XRepository (`/xrep-api/…`).
+- **Build:** `npm run build` (Ausgabe nach `dist/`).
+- **Unit-Tests (headless):** `npm run test:ci` — nutzt das per puppeteer installierte Chrome-for-Testing (kein System-Chrome nötig). Einmalig: `npx puppeteer browsers install chrome`.
+- **E2E-Prüfung:** Puppeteer-Skript, das XSDs per Drag&Drop-Event lädt (`uploadFile` befüllt `webkitdirectory`-Inputs nicht).
+- Testdaten: `/Users/finnfreiheit/code/XJustiz_3_6_2_XSD` (3.6.2) und `/Users/finnfreiheit/code/XJustiz_4.0.0_Schemata` (Vergleichsversion für den Diff).
 
 ## Konventionen
 
-- **Kein Build-Tooling** ungefragt einführen (kein npm/bundler). Die Single-File-Architektur ist Absicht — Weitergabe per Doppelklick muss funktionieren.
-- Bestehenden Code-Stil in `Profilierer.html` beibehalten (Vanilla JS, deutschsprachige Bezeichner und Kommentare).
+- **Idiomatisches Angular 20:** standalone Components, `input()`/`output()`/`signal()`/`computed()`, `@if`/`@for`, `ChangeDetectionStrategy.OnPush`. Kein NgModule.
+- **Deutschsprachige Bezeichner und Kommentare** beibehalten. Zeilenverweise in Kommentaren beziehen sich auf `legacy/Profilierer.html`.
+- Store-Mutationen der pfad-indizierten Maps (`elemente`/`auspraegungen`) müssen neue Referenzen erzeugen; kaskadierende Operationen (`removeAusp`) sind im `StateService` gebündelt und unit-getestet.
 - **Keine ungefragten Refactors** über den Auftrag hinaus.
-- Vor Änderungen an XRepository-Logik `xrep-proxy.py` und den Proxy-Pfad (`/xrep-api/`) beachten.
+- Bei Änderungen an der XRepository-Logik `proxy.conf.json` und den Pfad `/xrep-api/` beachten (`CodelistService`).
 
 ## Git
 
-Repository ist mit `git init` angelegt. Commits knapp und auf Deutsch. Kein Remote gesetzt — bei Bedarf hinzufügen.
+Repository mit `git init` angelegt. Commits knapp und auf Deutsch. Kein Remote gesetzt — bei Bedarf hinzufügen.

@@ -1,0 +1,33 @@
+<div id="treeCanvas">
+  <svg
+    id="linkSvg"
+    [attr.width]="svgSize().w"
+    [attr.height]="svgSize().h"
+    [style.width.px]="svgSize().w"
+    [style.height.px]="svgSize().h"
+  >
+    <defs>
+      <marker id="refArr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 z" fill="#d4537e" />
+      </marker>
+      <marker id="refArrL" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 z" fill="#e8a8c0" />
+      </marker>
+    </defs>
+    @for (p of paths(); track $index) {
+      <path
+        [attr.d]="p.d"
+        fill="none"
+        [attr.stroke]="p.stroke"
+        [attr.stroke-width]="p.width"
+        [attr.stroke-dasharray]="p.dash"
+        [attr.opacity]="p.opacity"
+        [attr.marker-end]="p.markerEnd"
+      />
+    }
+  </svg>
+
+  @if (rootItem(); as r) {
+    <app-tree-node [item]="r"></app-tree-node>
+  }
+</div>

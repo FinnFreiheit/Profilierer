@@ -1,0 +1,16 @@
+<dialog #dlg id="metaDlg">
+  <h3 style="margin-top: 0">Profil-Details</h3>
+  <div class="metaGrid">
+    <label>Name</label>
+    <input type="text" [value]="mName()" (input)="mName.set($any($event.target).value)" />
+    <label>Autor</label>
+    <input type="text" [value]="mAutor()" (input)="mAutor.set($any($event.target).value)" />
+    <label>Stand</label>
+    <input type="text" [value]="mDatum()" (input)="mDatum.set($any($event.target).value)" />
+    <label>Beschreibung</label>
+    <textarea [value]="mBeschr()" (input)="mBeschr.set($any($event.target).value)"></textarea>
+  </div>
+  <div style="text-align: right; margin-top: 12px">
+    <button class="primary" (click)="submit()">Übernehmen</button>
+  </div>
+</dialog>

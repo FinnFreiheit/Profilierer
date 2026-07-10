@@ -1,0 +1,17 @@
+<div id="legend">
+  @for (s of statuses(); track s.id) {
+    <span><span class="legDot" [style.background]="s.farbe"></span>{{ s.name }}</span>
+  }
+  <span><span class="tag t-wert">Wert: Text</span> erhält einen Wert</span>
+  <span><span class="legDot" style="background: #f2f4f8; border: 1px solid var(--border)"></span>Elternelement</span>
+  <span>
+    <span
+      class="legDot"
+      style="background: transparent; border-bottom: 2px dashed #d4537e; border-radius: 0; height: 2px; width: 16px; margin-bottom: 3px"
+    ></span>
+    Verweis
+  </span>
+  <span style="margin-left: auto">
+    ✕ ausblenden · ⧉ duplizieren · +/− Ast auf/zu · Pfeiltasten: ← Eltern, → Kind, ↑↓ Geschwister
+  </span>
+</div>

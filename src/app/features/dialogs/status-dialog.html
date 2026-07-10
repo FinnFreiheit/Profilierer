@@ -1,0 +1,30 @@
+<dialog #dlg id="statusDlg">
+  <h3 style="margin-top: 0">Statusstufen</h3>
+  <p style="font-size: 12.5px; color: var(--muted); margin-top: 0">
+    Name und Farbe sind frei wählbar. Die <b>Wirkung</b> steuert Schematron und Beispiel-XML:
+    <i>Pflicht</i> = muss vorkommen · <i>optional</i> = darf vorkommen ·
+    <i>ausgeschlossen</i> = darf nicht vorkommen · <i>nur Markierung</i> = ohne technische Wirkung.
+  </p>
+  <div id="stList">
+    @for (s of state.statuses(); track s.id) {
+      <div class="stRow">
+        <input type="text" [value]="s.name" (change)="setName(s.id, $event)" />
+        <select (change)="setFarbe(s.id, $event)">
+          @for (f of farben; track f[1]) {
+            <option [value]="f[1]" [selected]="s.farbe === f[1]">{{ f[0] }}</option>
+          }
+        </select>
+        <select (change)="setWirkung(s.id, $event)">
+          @for (w of wirkungen; track w[0]) {
+            <option [value]="w[0]" [selected]="s.wirkung === w[0]">{{ w[1] }}</option>
+          }
+        </select>
+        <button title="Status löschen" (click)="del(s.id)">✕</button>
+      </div>
+    }
+  </div>
+  <button style="margin-top: 4px" (click)="add()">+ Status</button>
+  <div style="text-align: right; margin-top: 12px">
+    <button class="primary" (click)="close()">Übernehmen</button>
+  </div>
+</dialog>

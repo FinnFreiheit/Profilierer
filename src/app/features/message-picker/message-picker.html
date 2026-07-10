@@ -1,0 +1,36 @@
+<button id="msgBtn" [disabled]="!hasIdx()" (click)="toggle(btn); $event.stopPropagation()" #btn>
+  {{ label() }}
+</button>
+
+@if (open()) {
+  <div style="position: fixed; inset: 0; z-index: 39" (click)="close()"></div>
+  <div
+    id="msgPanel"
+    class="open"
+    style="position: fixed"
+    [style.left.px]="pos().left"
+    [style.top.px]="pos().top"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="head">
+      <input id="msgSearch" type="text" placeholder="Nachricht suchen (Name oder Beschreibung)…"
+        [value]="filter()" (input)="onFilter($event)" />
+    </div>
+    <div id="msgList">
+      @for (g of groups(); track g.file) {
+        <div class="msgGroup">{{ g.file }}</div>
+        @for (m of g.messages; track m.name) {
+          <div class="msgItem" (click)="select(m.name)">
+            <div class="mn">{{ m.name }}</div>
+            @if (m.doc) {
+              <div class="md">{{ firstLine(m.doc) }}</div>
+            }
+          </div>
+        }
+      }
+      @if (!groups().length) {
+        <div style="padding: 14px; color: var(--muted)">keine Treffer</div>
+      }
+    </div>
+  </div>
+}

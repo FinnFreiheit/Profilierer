@@ -1,0 +1,93 @@
+<dialog #dlg id="diffDlg" style="max-width: 760px; width: 92vw">
+  <h3 style="margin-top: 0">Versionsvergleich</h3>
+  @if (result(); as d) {
+    <div id="diffHead">
+      <div style="font-size: 13px; margin-bottom: 8px">
+        Geladen: <b>{{ versionA() }}</b> (aktiv) ↔ <b>{{ versionB() }}</b> (Vergleich)
+      </div>
+      @if (msgName()) {
+        @if (!d.msgInB) {
+          <div style="color: #b23a3a; font-weight: 600">
+            Die Nachricht {{ msgName() }} existiert in Version {{ versionB() }} nicht.
+          </div>
+        } @else {
+          <div style="font-size: 13px">
+            Nachricht <code>{{ msgName() }}</code
+            >: <b>{{ d.rows.length }}</b> Unterschiede
+            @if (nProf()) {
+              — davon <b style="color: #b23a3a">{{ nProf() }} mit Bezug zur Profilierung</b>
+            }
+          </div>
+        }
+      } @else {
+        <div style="color: var(--muted)">Keine Nachricht geladen — nur Nachrichten-Überblick.</div>
+      }
+      @if (d.msgOnlyB.length || d.msgOnlyA.length) {
+        <details style="margin-top: 6px; font-size: 12.5px">
+          <summary>Nachrichten-Überblick: {{ d.msgOnlyB.length }} neu, {{ d.msgOnlyA.length }} entfallen</summary>
+          @if (d.msgOnlyB.length) {
+            <div style="margin-top: 4px">
+              <b style="color: #1e7d3e">Neu in {{ versionB() }}:</b> {{ d.msgOnlyB.slice(0, 30).join(', ') }}{{ d.msgOnlyB.length > 30 ? ' …' : '' }}
+            </div>
+          }
+          @if (d.msgOnlyA.length) {
+            <div style="margin-top: 4px">
+              <b style="color: #b23a3a">Nicht mehr enthalten:</b> {{ d.msgOnlyA.slice(0, 30).join(', ') }}{{ d.msgOnlyA.length > 30 ? ' …' : '' }}
+            </div>
+          }
+        </details>
+      }
+    </div>
+  }
+
+  <div style="margin: 8px 0 6px; display: flex; gap: 14px; align-items: center">
+    <label style="font-size: 12.5px">
+      <input type="checkbox" [checked]="onlyProf()" (change)="onlyProf.set($any($event.target).checked)" />
+      nur Änderungen mit Profil-Bezug
+    </label>
+    <span class="spacer" style="flex: 1"></span>
+    <button (click)="loadOther.emit()">andere Version laden…</button>
+    <button class="primary" (click)="close()">Schließen</button>
+  </div>
+
+  <div id="diffList" style="max-height: 52vh; overflow: auto; border: 1px solid var(--border); border-radius: 8px">
+    @if (!rows().length) {
+      <div style="padding: 14px; color: var(--muted)">keine Unterschiede{{ onlyProf() ? ' mit Profil-Bezug' : '' }}</div>
+    }
+    @for (r of rows(); track $index) {
+      <div
+        class="diffRow"
+        style="display: flex; gap: 8px; padding: 5px 8px; border-bottom: 1px solid #f0f2f5; align-items: baseline"
+        [style.cursor]="r.art !== 'neu' ? 'pointer' : 'default'"
+        (click)="onRow(r)"
+      >
+        <span style="flex: none; width: 16px; text-align: center; font-weight: 700" [style.color]="farben[r.art]">{{ sym[r.art] }}</span>
+        <span style="flex: none; min-width: 66px; font-size: 11px; font-weight: 600" [style.color]="farben[r.art]">{{ r.art }}</span>
+        <span style="min-width: 0; flex: 1">
+          <code style="font-weight: 700; font-size: 12.5px">{{ r.name }}</code>
+          @if (r.typ) {
+            <code style="font-size: 11px; color: var(--muted)"> : {{ r.typ }}</code>
+          }
+          <span style="font-size: 11.5px; color: var(--muted)"> — {{ pretty(r.name) }}</span>
+          @if (r.prof) {
+            <span class="tag" style="background: #f9e9e9; color: #b23a3a">profiliert</span>
+          }
+          <span style="display: block; font-family: var(--mono); font-size: 10.5px; color: var(--muted); word-break: break-all">{{ r.rel }}</span>
+          @if (r.info) {
+            <span style="display: block; font-size: 12px; color: #8a6d0b">{{ r.info }}</span>
+          }
+        </span>
+        <button
+          title="Elementname und Pfad kopieren (für CRs/Abstimmungen)"
+          style="flex: none; padding: 2px 7px; font-size: 11px"
+          (click)="copy(r, $event)"
+        >
+          ⎘
+        </button>
+      </div>
+    }
+    @if (moreCount()) {
+      <div style="padding: 10px; color: var(--muted)">… {{ moreCount() }} weitere</div>
+    }
+  </div>
+</dialog>

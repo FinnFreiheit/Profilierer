@@ -1,0 +1,38 @@
+<div id="printDoc">
+  @if (header(); as h) {
+    <h1>Profilierung: {{ h.title }}</h1>
+    <div class="phead">
+      Nachricht: <code>{{ h.msgName }}</code> · XJustiz {{ h.version }} · Stand: {{ h.datum
+      }}{{ h.autor ? ' · ' + h.autor : '' }}
+      @if (h.beschreibung) {
+        <br />{{ h.beschreibung }}
+      }
+    </div>
+    @for (r of rows(); track $index) {
+      <div class="prow" [class.pexcl]="r.excl" [style.padding-left.px]="r.indent">
+        <span class="pl"></span>
+        <span>
+          <span class="pname">{{ r.name }}</span>
+          @if (r.tech) {
+            <span class="ptech">{{ r.tech }}</span>
+          }
+          @if (r.anmerkung) {
+            <span class="pnote">{{ r.anmerkung }}</span>
+          }
+          @if (r.refZiel) {
+            <span class="pnote">Verweis auf: {{ r.refZiel }}</span>
+          }
+          @if (r.werte) {
+            <span class="pnote">Werte: {{ r.werte }}</span>
+          }
+          @if (r.beispiel) {
+            <span class="pnote">Bsp.: {{ r.beispiel }}</span>
+          }
+        </span>
+        <span class="spacer" style="flex: 1"></span>
+        <span class="pk">{{ r.kardText }}</span>
+        <span class="pst" [style.color]="r.statusFarbe">{{ r.statusName }}</span>
+      </div>
+    }
+  }
+</div>
