@@ -43,6 +43,8 @@
     </label>
     <button [disabled]="!hasRoot()" (click)="expand()">Alles ausklappen</button>
     <button [disabled]="!hasRoot()" (click)="collapse()">Zuklappen</button>
+    <button [disabled]="!hasRoot()" title="Alle Pflichtelemente als „zwingend“ vorbelegen"
+      (click)="prefillMandatory()">Pflicht vorbelegen</button>
   </div>
 
   <div class="toolgroup">

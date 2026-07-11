@@ -27,6 +27,18 @@ export class NavService {
     // TODO(P7): if (this.state.idxB()) computeDiffMap();
   }
 
+  /**
+   * Belegt alle unbedingten Pflichtelemente der aktuellen Nachricht mit dem
+   * "zwingend"-Status (Wirkung `pflicht`) vor — nicht-destruktiv (bestehende
+   * Status bleiben). Gibt die Anzahl neu gesetzter Elemente zurueck.
+   */
+  prefillMandatoryStatus(): number {
+    const root = this.state.root();
+    const pflicht = this.state.pflichtStatus();
+    if (!root || !pflicht) return 0;
+    return this.state.prefillStatus(this.tree.collectMandatoryPaths(root), pflicht.id);
+  }
+
   /** expandAllTree (Z.1437-1447): alle Aeste aufklappen (mit Schutzgrenzen). */
   expandAllTree(): void {
     const next = new Set(this.state.open());

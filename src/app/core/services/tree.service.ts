@@ -251,6 +251,38 @@ export class TreeService {
     }
   }
 
+  /**
+   * Sammelt die Pfade aller *unbedingten* Pflichtelemente entlang des
+   * Pflicht-Rueckgrats — fuer die Zwingend-Vorbelegung beim Anlegen einer
+   * Profilierung. Ein Element zaehlt nur, wenn es selbst `min>=1` ist UND alle
+   * Vorfahren ebenfalls unbedingt Pflicht sind (keine optionalen Zwischeneltern,
+   * keine choice-Alternativen). Der Walk steigt daher nur in den Pflicht-Ast ab
+   * (kein Voll-Expandieren des Baums) und nutzt dieselben Schutzgrenzen wie
+   * `flattenSchema` (Tiefe, Rekursion). Der Wurzelknoten selbst wird ausgelassen.
+   */
+  collectMandatoryPaths(root: TreeNode): string[] {
+    const out: string[] = [];
+    const rec = (n: TreeNode, depth: number): void => {
+      if (depth > 25) return;
+      this.expandNode(n);
+      for (const c of n.children ?? []) {
+        if (c.synthetic) {
+          // Gruppen selbst nicht markieren. Eine choice bricht das Rueckgrat
+          // (Alternativen sind frei), eine optionale Gruppe (min=0) ebenso.
+          if (c.model === 'choice' || c.min === '0') continue;
+          rec(c, depth + 1);
+          continue;
+        }
+        // Nur unbedingte Pflichtelemente: min>=1 und nicht in einer Auswahl.
+        if (c.min === '0' || c.inChoice) continue;
+        out.push(c.path);
+        if (!c.recursive) rec(c, depth + 1);
+      }
+    };
+    rec(root, 0);
+    return out;
+  }
+
   /** itemHasKids (Z.1056-1065). */
   itemHasKids(it: TreeItem): boolean {
     if (it.kind === 'el') {

@@ -68,6 +68,8 @@ export class MessagePicker {
   protected select(name: string): void {
     this.close();
     this.nav.loadMessage(name);
+    // Neue Profilierung: Pflichtelemente sofort als "zwingend" vorbelegen.
+    this.nav.prefillMandatoryStatus();
   }
 
   protected firstLine(doc: string): string {

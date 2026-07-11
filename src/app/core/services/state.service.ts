@@ -111,6 +111,11 @@ export class StateService {
     return this.statuses().find((s) => s.wirkung === 'ausgeschlossen') ?? null;
   }
 
+  /** Die Statusstufe mit Wirkung "pflicht" (fuer die Zwingend-Vorbelegung). */
+  pflichtStatus(): Status | null {
+    return this.statuses().find((s) => s.wirkung === 'pflicht') ?? null;
+  }
+
   /** statusOf (Z.997). */
   statusOf(path: string): Status | null {
     const p = this.elemente()[path];
@@ -168,6 +173,26 @@ export class StateService {
       if (this.isEmptyProfile(merged)) delete next[path];
       return next;
     });
+  }
+
+  /**
+   * Belegt mehrere Pfade in einer einzigen Mutation mit `statusId` vor —
+   * nicht-destruktiv: Pfade mit bereits gesetztem Status bleiben unangetastet,
+   * vorhandene Felder werden erhalten. Gibt die Anzahl tatsaechlich gesetzter
+   * Elemente zurueck (fuer die Zwingend-Vorbelegung der Pflichtelemente).
+   */
+  prefillStatus(paths: string[], statusId: string): number {
+    let n = 0;
+    this.elemente.update((m) => {
+      const next = { ...m };
+      for (const path of paths) {
+        if (next[path]?.status) continue;
+        next[path] = { ...(next[path] ?? {}), status: statusId };
+        n++;
+      }
+      return n ? next : m;
+    });
+    return n;
   }
 
   /** pruneP-Kriterium (Z.994). */

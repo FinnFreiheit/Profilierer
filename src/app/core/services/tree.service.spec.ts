@@ -19,6 +19,31 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
   </xs:complexType>
 </xs:schema>`;
 
+/** Schema fuer die Pflicht-Rueckgrat-Erkennung: Pflichtkette, optionaler Ast, choice. */
+const XSD_MAND = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0001" type="Type.Test.Root"/>
+  <xs:complexType name="Type.Test.Root">
+    <xs:sequence>
+      <xs:element name="beteiligter" type="Type.Test.Bet"/>
+      <xs:element name="optionalBlock" type="Type.Test.Opt" minOccurs="0"/>
+      <xs:choice>
+        <xs:element name="varianteA" type="xs:string"/>
+        <xs:element name="varianteB" type="xs:string"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Type.Test.Bet">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="optionalFeld" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Type.Test.Opt">
+    <xs:sequence><xs:element name="pflichtImOptional" type="xs:string"/></xs:sequence>
+  </xs:complexType>
+</xs:schema>`;
+
 describe('TreeService', () => {
   let tree: TreeService;
   let state: StateService;
@@ -62,5 +87,27 @@ describe('TreeService', () => {
     // Innerhalb der Auspraegung wird der Kontextknoten expandiert.
     const inner = tree.childItems(items[0]!);
     expect(inner.map((k) => (k.kind === 'el' ? k.node.name : ''))).toEqual(['name']);
+  });
+
+  it('collectMandatoryPaths markiert nur das Pflicht-Rueckgrat', () => {
+    const parser = TestBed.inject(XsdParserService);
+    const dom = new DOMParser().parseFromString(XSD_MAND, 'application/xml');
+    const mandIdx = parser.buildIndexFrom([{ file: 'xjustiz_0000_mand.xsd', dom }]).idx;
+    const root = tree.buildRoot('nachricht.test.0001', mandIdx);
+
+    const paths = tree.collectMandatoryPaths(root);
+
+    // Pflichtkette wird markiert ...
+    expect(paths).toContain('nachricht.test.0001/beteiligter');
+    expect(paths).toContain('nachricht.test.0001/beteiligter/name');
+    // ... optionale Elemente/Aeste nicht ...
+    expect(paths).not.toContain('nachricht.test.0001/beteiligter/optionalFeld');
+    expect(paths).not.toContain('nachricht.test.0001/optionalBlock');
+    // ... darunterliegende min=1 unter optionalem Elternknoten werden abgeschnitten ...
+    expect(paths.some((p) => p.includes('pflichtImOptional'))).toBeFalse();
+    // ... und choice-Alternativen bleiben frei.
+    expect(paths.some((p) => p.includes('variante'))).toBeFalse();
+    // Der Wurzelknoten selbst ist nicht enthalten.
+    expect(paths).not.toContain('nachricht.test.0001');
   });
 });

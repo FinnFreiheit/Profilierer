@@ -116,6 +116,34 @@ describe('StateService', () => {
     });
   });
 
+  describe('Zwingend-Vorbelegung', () => {
+    it('pflichtStatus findet die Stufe mit Wirkung pflicht', () => {
+      expect(s.pflichtStatus()?.id).toBe('s1');
+      expect(s.pflichtStatus()?.wirkung).toBe('pflicht');
+    });
+
+    it('prefillStatus setzt nur Pfade ohne Status und meldet die Anzahl', () => {
+      s.setElementProfile('m/a', { status: 's3' }); // bereits gesetzt
+      s.setElementProfile('m/b', { anmerkung: 'nur Notiz' }); // Status frei
+
+      const n = s.prefillStatus(['m/a', 'm/b', 'm/c'], 's1');
+
+      expect(n).toBe(2);
+      expect(s.statusOf('m/a')?.id).toBe('s3'); // nicht ueberschrieben
+      expect(s.statusOf('m/b')?.id).toBe('s1');
+      expect(s.elemente()['m/b']?.anmerkung).toBe('nur Notiz'); // Feld erhalten
+      expect(s.statusOf('m/c')?.id).toBe('s1');
+    });
+
+    it('prefillStatus ist idempotent und feuert nur bei Aenderung', () => {
+      s.prefillStatus(['m/a'], 's1');
+      const before = s.elemente();
+      const n = s.prefillStatus(['m/a'], 's1');
+      expect(n).toBe(0);
+      expect(s.elemente()).toBe(before); // keine neue Referenz
+    });
+  });
+
   describe('fortschritt', () => {
     it('zaehlt Festlegungen und Ausprägungen', () => {
       s.setElementProfile('m/a', { status: 's1' });

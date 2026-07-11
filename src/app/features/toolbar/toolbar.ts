@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
+import { ToastService } from '../../core/services/toast.service';
 import { MessagePicker } from '../message-picker/message-picker';
 import { Search } from '../search/search';
 
@@ -18,6 +19,7 @@ import { Search } from '../search/search';
 export class Toolbar {
   protected readonly state = inject(StateService);
   private readonly nav = inject(NavService);
+  private readonly toast = inject(ToastService);
 
   readonly metaClick = output<void>();
   readonly statusClick = output<void>();
@@ -49,5 +51,12 @@ export class Toolbar {
 
   protected collapse(): void {
     this.nav.collapseTree();
+  }
+
+  protected prefillMandatory(): void {
+    const n = this.nav.prefillMandatoryStatus();
+    this.toast.show(
+      n ? n + ' Pflichtelemente vorbelegt' : 'Keine weiteren Pflichtelemente offen',
+    );
   }
 }
