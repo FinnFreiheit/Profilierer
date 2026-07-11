@@ -6,6 +6,7 @@
   <input #xsdInput type="file" webkitdirectory multiple class="hidden" (change)="onXsd($event)" />
   <input #clInput type="file" multiple accept=".xml,.zip" class="hidden" (change)="onCodelist($event)" />
   <input #profilInput type="file" accept=".json" class="hidden" (change)="onProfile($event)" />
+  <input #nachrichtInput type="file" accept=".xml" class="hidden" (change)="onInstance($event)" />
 
   <button class="primary" (click)="pick(xsdInput)">XSD-Ordner laden</button>
   <button
@@ -26,4 +27,11 @@
     {{ diffLabel() }}
   </button>
   <button (click)="pick(profilInput)">Profil laden…</button>
+  <button
+    [disabled]="!hasIdx()"
+    title="Bestehende XJustiz-Nachricht (XML) laden und als Testnachricht anzeigen"
+    (click)="pick(nachrichtInput)"
+  >
+    Nachricht laden…
+  </button>
 </div>

@@ -16,6 +16,7 @@ import { CodelistService } from './core/services/codelist.service';
 import { ExportService } from './core/services/export.service';
 import { DiffService } from './core/services/diff.service';
 import { NavService } from './core/services/nav.service';
+import { InstanceImportService } from './core/services/instance-import.service';
 import { ToastService } from './core/services/toast.service';
 import { StateService } from './core/services/state.service';
 
@@ -46,6 +47,7 @@ export class App {
   protected readonly exporter = inject(ExportService);
   protected readonly diff = inject(DiffService);
   private readonly nav = inject(NavService);
+  private readonly instanceImport = inject(InstanceImportService);
   private readonly toast = inject(ToastService);
   private readonly state = inject(StateService);
 
@@ -73,6 +75,19 @@ export class App {
     this.codelists.loadCodelistFiles(files);
   }
 
+  /** Bestehende XJustiz-Nachricht (XML-Instanz) laden und als Testnachricht anzeigen. */
+  async onInstanceFile(file: File): Promise<void> {
+    this.importInstanceText(await file.text());
+  }
+
+  private importInstanceText(text: string): void {
+    try {
+      this.instanceImport.importXml(text);
+    } catch (e) {
+      this.toast.show(e instanceof Error ? e.message : 'Nachricht konnte nicht geladen werden.');
+    }
+  }
+
   onXrep(): void {
     this.codelists.loadFromXRepository();
   }
@@ -92,11 +107,23 @@ export class App {
     input.value = '';
   }
 
-  /** Drag&Drop-Routing (Z.2436-2440). */
-  onDropped(files: File[]): void {
-    if (files.length === 1 && files[0]!.name.endsWith('.json'))
+  /** Drag&Drop-Routing (Z.2436-2440), erweitert um XJustiz-Nachrichten (XML). */
+  async onDropped(files: File[]): Promise<void> {
+    if (files.length === 1 && files[0]!.name.endsWith('.json')) {
       this.persistence.loadProfileFile(files[0]!);
-    else if (files.some((x) => x.name.toLowerCase().endsWith('.xsd'))) this.onXsdFiles(files);
-    else if (files.some((x) => /\.(xml|zip)$/i.test(x.name))) this.onCodelistFiles(files);
+      return;
+    }
+    if (files.some((x) => x.name.toLowerCase().endsWith('.xsd'))) {
+      this.onXsdFiles(files);
+      return;
+    }
+    // Einzelne .xml: XJustiz-Nachricht (nachricht.*) vs. Genericode-Codeliste unterscheiden.
+    if (files.length === 1 && /\.xml$/i.test(files[0]!.name)) {
+      const text = await files[0]!.text();
+      if (InstanceImportService.rootMessageName(text)) this.importInstanceText(text);
+      else this.onCodelistFiles(files);
+      return;
+    }
+    if (files.some((x) => /\.(xml|zip)$/i.test(x.name))) this.onCodelistFiles(files);
   }
 }

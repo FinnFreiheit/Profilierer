@@ -39,6 +39,10 @@ Der **Fokus-Modus** (Schalter „Fokus", standardmäßig an) hält den aktiven P
 
 Die **Suche** in der Werkzeugleiste findet Elemente nach Anzeigename, technischem Namen, Beschreibung und Ausprägungs-Namen; ein Klick (oder Enter für den ersten Treffer) klappt den Ast auf, springt hin und lässt den Kasten kurz aufblinken.
 
+## Bestehende Nachricht laden
+
+Über **„Nachricht laden…"** wird eine vorhandene XJustiz-Nachricht (XML-Instanz) eingelesen und im Baum als **Testnachricht** dargestellt: Blatt-Werte erscheinen als Testwerte, Codelisten-Werte werden übernommen, und mehrfach vorkommende Elemente werden als Ausprägungen („Vorkommen 1/2…") angelegt — genau so, als hätte man die Testnachricht von Hand aufgebaut. Voraussetzung ist der passende, zuvor geladene XSD-Ordner (das Wurzelelement bestimmt die Nachricht). Alternativ per Drag & Drop der XML-Datei; eine `nachricht.*`-Datei wird automatisch als Nachricht erkannt (Genericode-XML weiterhin als Codeliste).
+
 ## Autosave
 
 Der Arbeitsstand wird bei jeder Änderung automatisch im Browser gesichert (Anzeige „automatisch gesichert HH:MM" in der Werkzeugleiste). Nach dem nächsten Laden des XSD-Ordners bietet das Tool die Wiederherstellung an — Schutz gegen versehentliches Schließen oder Abstürze. Das ersetzt nicht das bewusste „Speichern" als Profil-Datei (JSON), die weitergegeben und archiviert werden kann.

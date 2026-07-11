@@ -17,6 +17,7 @@ export class Topbar {
   readonly xsdFiles = output<FileList>();
   readonly codelistFiles = output<FileList>();
   readonly profileFile = output<File>();
+  readonly instanceFile = output<File>();
   readonly xrepClick = output<void>();
   readonly diffClick = output<void>();
 
@@ -57,6 +58,13 @@ export class Topbar {
     const input = e.target as HTMLInputElement;
     const f = input.files?.[0];
     if (f) this.profileFile.emit(f);
+    input.value = '';
+  }
+
+  protected onInstance(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const f = input.files?.[0];
+    if (f) this.instanceFile.emit(f);
     input.value = '';
   }
 }
