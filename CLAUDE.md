@@ -25,8 +25,8 @@ xjustiz-profilierer/
 │   ├── core/
 │   │   ├── services/          StateService (Signals-Store), XsdParserService, TreeService,
 │   │   │                      NavService, ValueService, CodelistService, ExportService,
-│   │   │                      DiffService, PersistenceService, DownloadService, ToastService,
-│   │   │                      SearchService
+│   │   │                      DiffService, PersistenceService, InstanceImportService,
+│   │   │                      DownloadService, ToastService, SearchService
 │   │   ├── util/              xml.util, pretty.util
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
 │   │   └── profile-defaults.ts
@@ -42,6 +42,10 @@ xjustiz-profilierer/
 ```
 
 Zentrale Idee der Architektur: `StateService` ist ein **Signals-Store** (ersetzt das alte globale `S`/`S.profile`). Die imperativen Render-Funktionen (`renderBox`/`renderDetail`/`redrawLines`) sind deklarative Komponenten; die SVG-Verbindungslinien werden im `TreeCanvas` aus DOM-Messungen berechnet.
+
+## Dokumentation
+
+Ausführliche Entwickler-/Architekturdokumentation liegt unter [`docs/`](docs/README.md) — Einstieg ist die **Map of Content** ([docs/README.md](docs/README.md)). Von dort zu Architektur (inkl. Mermaid-Diagrammen), Service-/Modell-/Komponenten-Referenz, Glossar, Tests, Deployment und den [Architektur-Entscheidungen (ADRs)](docs/adr/README.md). Bei Fragen zum „Warum" zuerst dort nachsehen.
 
 ## Starten / Entwickeln
 
