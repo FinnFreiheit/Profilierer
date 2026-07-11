@@ -57,3 +57,11 @@ Die Interfaces (`src/app/models/`), die Zustands-Signale des `StateService` und 
 - **Aufräumen:** `pruneP` löscht Einträge ohne belegte Felder, damit `fortschritt` und Exporte sauber bleiben.
 
 Bei `noUncheckedIndexedAccess` (aktiv) liefert `elemente[path]` immer `T | undefined` — Zugriffe sind entsprechend abgesichert.
+
+## Persistenz der Bibliothek (Backend, SQLite)
+
+Profilierungen werden in einer SQLite-Datenbank des Backends (`server/`) gehalten — nicht mehr im `localStorage` ([ADR 0007](adr/0007-datenbank-backend.md)). Eine Tabelle `profiles`: das komplette `ProfileDoc` als JSON-Spalte `doc`, daneben die **abgeleiteten Index-Spalten** `name, nachricht, xjustiz_version, n_status, n_ausp, gespeichert, aktualisiert`. Aus diesen Spalten rendert `GET /api/profiles` die schlanke `LibraryEntry`-Liste fürs Dashboard, **ohne** die (potenziell großen) `doc`-Maps zu deserialisieren; das vollständige Dokument liefert `GET /api/profiles/:id`.
+
+- **`LibraryEntry`** = `{ id, name, nachricht?, xjustizVersion?, nStatus, nAusp, gespeichert?, aktualisiert }` — serverseitig aus dem Dokument abgeleitet (`server/fortschritt.js`, spiegelt `StateService.fortschritt`).
+- **Client:** `ProfileStoreService` spricht `/api` per nativem fetch an (async); das reaktive `entries`-Signal bleibt die Fassache fürs Dashboard und wird nach jedem Schreib-Call mit dem vom Server gelieferten `LibraryEntry` gepflegt. Der Autosave (`PersistenceService`, 800-ms-Debounce, In-Flight-Reschedule) schreibt in `PUT /api/profiles/:id`.
+- **Migration:** frühere localStorage-Bibliotheken (`xjp.library.index`/`xjp.library.doc.<id>`, Legacy `xjp.autosave`) werden einmalig via `MigrationService` → `POST /api/import` übernommen (id + `aktualisiert` bleiben erhalten).

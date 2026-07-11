@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { PersistenceService } from '../../core/services/persistence.service';
+import { ToastService } from '../../core/services/toast.service';
 import { LibraryEntry } from '../../models/profile.model';
 
 /**
@@ -26,34 +27,45 @@ import { LibraryEntry } from '../../models/profile.model';
 export class Dashboard {
   protected readonly store = inject(ProfileStoreService);
   private readonly persistence = inject(PersistenceService);
+  private readonly toast = inject(ToastService);
   private readonly renameDlg = viewChild.required<ElementRef<HTMLDialogElement>>('renameDlg');
+
+  /** Bibliotheksfehler (Backend nicht erreichbar) einheitlich melden. */
+  private fail(msg: string): (e: unknown) => void {
+    return () => this.toast.show(msg);
+  }
 
   protected readonly renId = signal<string | null>(null);
   protected readonly renName = signal('');
 
   protected open(id: string): void {
-    this.persistence.openFromLibrary(id);
+    void this.persistence.openFromLibrary(id);
   }
 
   protected createNew(): void {
-    this.persistence.createNew();
+    void this.persistence.createNew();
   }
 
   protected duplicate(id: string, e: Event): void {
     e.stopPropagation();
-    this.store.duplicate(id);
+    void this.store.duplicate(id).catch(this.fail('Duplizieren fehlgeschlagen — Backend nicht erreichbar.'));
   }
 
   protected remove(id: string, e: Event): void {
     e.stopPropagation();
     const entry = this.store.entries().find((x) => x.id === id);
-    if (confirm(`Profil „${entry?.name || '(ohne Namen)'}" wirklich löschen?`)) this.store.delete(id);
+    if (confirm(`Profil „${entry?.name || '(ohne Namen)'}" wirklich löschen?`))
+      void this.store.delete(id).catch(this.fail('Löschen fehlgeschlagen — Backend nicht erreichbar.'));
   }
 
-  protected exportEntry(id: string, e: Event): void {
+  protected async exportEntry(id: string, e: Event): Promise<void> {
     e.stopPropagation();
-    const doc = this.store.load(id);
-    if (doc) this.persistence.exportDoc(doc);
+    try {
+      const doc = await this.store.load(id);
+      if (doc) this.persistence.exportDoc(doc);
+    } catch {
+      this.toast.show('Export fehlgeschlagen — Backend nicht erreichbar.');
+    }
   }
 
   protected openRename(id: string, e: Event): void {
@@ -66,14 +78,15 @@ export class Dashboard {
 
   protected submitRename(): void {
     const id = this.renId();
-    if (id) this.store.rename(id, this.renName());
+    if (id)
+      void this.store.rename(id, this.renName()).catch(this.fail('Umbenennen fehlgeschlagen — Backend nicht erreichbar.'));
     this.renameDlg().nativeElement.close();
   }
 
   protected onImport(e: Event): void {
     const input = e.target as HTMLInputElement;
     const f = input.files?.[0];
-    if (f) this.persistence.loadProfileFile(f);
+    if (f) void this.persistence.loadProfileFile(f);
     input.value = '';
   }
 

@@ -1,102 +1,105 @@
 import { TestBed } from '@angular/core/testing';
 import { ProfileStoreService } from './profile-store.service';
-import { ProfileDoc } from '../../models/profile.model';
-import { defaultStatuses } from '../profile-defaults';
+import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
 
-function doc(over: Partial<ProfileDoc> = {}): ProfileDoc {
-  return {
-    meta: { name: 'Test', nachricht: 'nachricht.test.0001', xjustizVersion: '3.6.2' },
-    statuses: defaultStatuses(),
-    elemente: { 'nachricht.test.0001/datum': { status: 's1' } },
-    auspraegungen: { 'nachricht.test.0001/beteiligter': [{ id: 'a1', name: 'Kläger' }] },
-    ...over,
-  };
+/** Ein minimales ProfileDoc fuer die Tests. */
+function doc(name = 'P'): ProfileDoc {
+  return { meta: { name }, statuses: [], elemente: {}, auspraegungen: {} };
 }
 
-describe('ProfileStoreService', () => {
+/** Ein LibraryEntry-Stub. */
+function entry(id: string, over: Partial<LibraryEntry> = {}): LibraryEntry {
+  return { id, name: 'P', nStatus: 0, nAusp: 0, aktualisiert: 1000, ...over };
+}
+
+describe('ProfileStoreService (HTTP)', () => {
   let store: ProfileStoreService;
+  let handlers: Record<string, (init?: RequestInit) => Response>;
+
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
   beforeEach(() => {
-    localStorage.clear();
+    handlers = { 'GET /api/profiles': () => json([]) }; // Default: Constructor-refresh
+    spyOn(window, 'fetch').and.callFake((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : (input as Request).url ?? String(input);
+      const method = (init?.method || 'GET').toUpperCase();
+      const h = handlers[`${method} ${url}`];
+      return Promise.resolve(
+        h ? h(init) : new Response('not mocked: ' + method + ' ' + url, { status: 500 }),
+      );
+    });
     TestBed.configureTestingModule({});
     store = TestBed.inject(ProfileStoreService);
   });
 
-  afterEach(() => localStorage.clear());
-
-  it('create/load: legt ein Profil an und liest es zurück', () => {
-    const id = store.create(doc());
-    expect(id).toBeTruthy();
-    const back = store.load(id);
-    expect(back?.meta.name).toBe('Test');
-    expect(back?.elemente['nachricht.test.0001/datum']?.status).toBe('s1');
+  it('refresh laedt den Index und sortiert absteigend', async () => {
+    handlers['GET /api/profiles'] = () =>
+      json([entry('a', { aktualisiert: 100 }), entry('b', { aktualisiert: 200 })]);
+    await store.refresh();
+    expect(store.entries().map((e) => e.id)).toEqual(['b', 'a']);
   });
 
-  it('upsert: leitet den Fortschritt-Snapshot aus dem Dokument ab', () => {
-    const id = store.create(doc());
-    const e = store.entries().find((x) => x.id === id)!;
-    expect(e.nStatus).toBe(1);
-    expect(e.nAusp).toBe(1);
-    expect(e.nachricht).toBe('nachricht.test.0001');
-    expect(e.xjustizVersion).toBe('3.6.2');
+  it('create sendet POST und pflegt den neuen Eintrag ein', async () => {
+    handlers['POST /api/profiles'] = () =>
+      json({ id: 'neu', entry: entry('neu', { name: 'Neu', aktualisiert: 500 }) }, 201);
+    const id = await store.create(doc('Neu'));
+    expect(id).toBe('neu');
+    expect(store.entries()[0]).toEqual(entry('neu', { name: 'Neu', aktualisiert: 500 }));
   });
 
-  it('entries: reaktiv und nach letzter Schreibung absteigend', () => {
-    const id1 = store.create(doc({ meta: { name: 'A' } }));
-    const id2 = store.create(doc({ meta: { name: 'B' } }));
-    expect(store.entries().map((e) => e.id)).toEqual([id2, id1]);
-    store.upsert(id1, doc({ meta: { name: 'A2' } }));
-    expect(store.entries()[0]!.id).toBe(id1);
+  it('upsert aktualisiert den Eintrag ohne Duplikat', async () => {
+    handlers['GET /api/profiles'] = () => json([entry('x', { aktualisiert: 100 })]);
+    await store.refresh();
+    handlers['PUT /api/profiles/x'] = () =>
+      json({ entry: entry('x', { name: 'Geaendert', aktualisiert: 900 }) });
+    await store.upsert('x', doc('Geaendert'));
+    expect(store.entries().length).toBe(1);
+    expect(store.entries()[0]!.name).toBe('Geaendert');
   });
 
-  it('duplicate: neue id, Name mit "(Kopie)", eigenständiges Dokument', () => {
-    const id = store.create(doc({ meta: { name: 'Original' } }));
-    const copyId = store.duplicate(id)!;
-    expect(copyId).not.toBe(id);
-    expect(store.load(copyId)?.meta.name).toBe('Original (Kopie)');
-    expect(store.load(id)?.meta.name).toBe('Original');
+  it('load liefert das Dokument bzw. null bei 404', async () => {
+    handlers['GET /api/profiles/x'] = () => json(doc('Geladen'));
+    expect((await store.load('x'))?.meta.name).toBe('Geladen');
+    handlers['GET /api/profiles/fehlt'] = () => new Response(null, { status: 404 });
+    expect(await store.load('fehlt')).toBeNull();
   });
 
-  it('rename: ändert nur den Namen', () => {
-    const id = store.create(doc());
-    store.rename(id, '  Neuer Name  ');
-    expect(store.load(id)?.meta.name).toBe('Neuer Name');
-    expect(store.entries().find((e) => e.id === id)?.name).toBe('Neuer Name');
+  it('duplicate liefert neue id bzw. null bei 404', async () => {
+    handlers['POST /api/profiles/x/duplicate'] = () =>
+      json({ id: 'kopie', entry: entry('kopie', { name: 'P (Kopie)', aktualisiert: 700 }) }, 201);
+    expect(await store.duplicate('x')).toBe('kopie');
+    expect(store.entries()[0]!.id).toBe('kopie');
+    handlers['POST /api/profiles/fehlt/duplicate'] = () => new Response(null, { status: 404 });
+    expect(await store.duplicate('fehlt')).toBeNull();
   });
 
-  it('delete: entfernt Dokument und Indexeintrag', () => {
-    const id = store.create(doc());
-    store.delete(id);
-    expect(store.load(id)).toBeNull();
-    expect(store.entries().find((e) => e.id === id)).toBeUndefined();
+  it('rename patcht den Namen', async () => {
+    handlers['PATCH /api/profiles/x'] = () =>
+      json({ entry: entry('x', { name: 'Umbenannt', aktualisiert: 800 }) });
+    await store.rename('x', 'Umbenannt');
+    expect(store.entries()[0]).toEqual(entry('x', { name: 'Umbenannt', aktualisiert: 800 }));
   });
 
-  it('migrateLegacyAutosave: hebt einen alten Autosave-Slot in die Bibliothek', () => {
-    localStorage.setItem(
-      'xjp.autosave',
-      JSON.stringify({
-        t: 1,
-        msgName: 'nachricht.test.0001',
-        version: '3.6.2',
-        meta: { name: 'Altstand' },
-        statuses: defaultStatuses(),
-        elemente: { 'nachricht.test.0001/datum': { status: 's1' } },
-        auspraegungen: {},
-        name: 'Altstand',
-      }),
-    );
-    const id = store.migrateLegacyAutosave()!;
-    expect(id).toBeTruthy();
-    const migr = store.load(id)!;
-    expect(migr.meta.name).toBe('Altstand');
-    expect(migr.meta.nachricht).toBe('nachricht.test.0001');
-    expect(migr.meta.xjustizVersion).toBe('3.6.2');
-    expect(localStorage.getItem('xjp.autosave')).toBeNull();
+  it('delete entfernt den Eintrag (204)', async () => {
+    handlers['GET /api/profiles'] = () => json([entry('x'), entry('y')]);
+    await store.refresh();
+    handlers['DELETE /api/profiles/x'] = () => new Response(null, { status: 204 });
+    await store.delete('x');
+    expect(store.entries().map((e) => e.id)).toEqual(['y']);
   });
 
-  it('migrateLegacyAutosave: no-op bei bereits vorhandener Bibliothek', () => {
-    store.create(doc());
-    localStorage.setItem('xjp.autosave', JSON.stringify({ elemente: { x: { status: 's1' } } }));
-    expect(store.migrateLegacyAutosave()).toBeNull();
+  it('importAll meldet die Anzahl', async () => {
+    handlers['POST /api/import'] = () => json({ imported: 2 });
+    const n = await store.importAll([
+      { id: 'a', doc: doc(), aktualisiert: 1 },
+      { id: 'b', doc: doc(), aktualisiert: 2 },
+    ]);
+    expect(n).toBe(2);
+  });
+
+  it('wirft bei Fehlerstatus (nicht ok)', async () => {
+    handlers['PUT /api/profiles/x'] = () => new Response('boom', { status: 500 });
+    await expectAsync(store.upsert('x', doc())).toBeRejectedWithError(/500/);
   });
 });

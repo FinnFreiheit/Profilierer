@@ -5,5 +5,9 @@
     "changeOrigin": true,
     "pathRewrite": { "^/xrep-api": "" },
     "headers": { "User-Agent": "XJustiz-Profilierer (Angular Dev-Proxy)" }
+  },
+  "/api": {
+    "target": "http://localhost:3001",
+    "secure": false
   }
 }

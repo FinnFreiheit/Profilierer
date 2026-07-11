@@ -50,8 +50,10 @@ graph LR
   UI["Komponenten (Events)"] --> SVC["Services"]
   SVC -->|set / update| STORE["StateService (Signals)"]
   STORE -->|computed / signal read| UI
-  STORE -->|effect + Debounce| LS[("localStorage: Autosave, CL-Cache")]
-  SVC -->|fetch /xrep-api| PROXY["Dev-Proxy → XRepository"]
+  STORE -->|effect + Debounce| PSS["ProfileStoreService (async)"]
+  PSS -->|"fetch /api"| API[("Backend: Express + SQLite")]
+  SVC -->|"fetch /xrep-api"| PROXY["Proxy → XRepository"]
+  SVC -->|Cache| LS[("localStorage: CL-Cache")]
 ```
 
 Kein Two-Way-Binding: Aktionen laufen über Service-Methoden, die den Store mutieren; die Anzeige aktualisiert sich reaktiv. Mutationen der pfad-indizierten Maps erzeugen **neue Referenzen** (sonst feuert das Signal nicht) — siehe [Datenmodell](data-model.md).
@@ -72,7 +74,7 @@ sequenceDiagram
   U->>NV: Nachricht wählen
   NV->>ST: root / selItem / open setzen
   U->>ST: Status / Kardinalität / Ausprägung (Detail)
-  ST-->>ST: effect → Autosave (localStorage)
+  ST-->>PS: effect → Autosave → ProfileStoreService (PUT /api)
   U->>EX: Excel / Schematron / Beispiel-XML
   EX->>ST: Profil + Baum lesen
   EX-->>U: Datei-Download
@@ -83,13 +85,22 @@ sequenceDiagram
 ```mermaid
 graph TB
   subgraph Browser
-    APP["Angular-App"]
-    APP --- LS[("localStorage")]
+    APP["Angular-App (SPA)"]
+    APP --- LS[("localStorage: CL-Cache")]
   end
-  APP -->|"/xrep-api/ (nur ng serve)"| DP["Dev-Proxy"]
-  DP -->|REST| XREP["XRepository"]
+  subgraph Server["Backend (Node/Express, same-origin)"]
+    API["/api → SQLite"]
+    STAT["statische SPA"]
+    XP["/xrep-api → XRepository"]
+  end
+  APP -->|"/api (Profile)"| API
+  APP -->|"/xrep-api (Codelisten)"| XP
+  XP -->|REST| XREP["XRepository"]
+  STAT -.->|liefert| APP
   APP -.->|"Fallback (mit Zustimmung)"| CORS["öffentliche CORS-Weiterleiter"]
 ```
+
+Im Entwicklungsbetrieb übernimmt statt des Backends der `ng serve`-Dev-Proxy (`proxy.conf.json`) `/api` (→ localhost:3001) und `/xrep-api` (→ XRepository).
 
 Der Dev-Proxy (`proxy.conf.json`) reicht XRepository-Aufrufe im Entwicklungsbetrieb same-origin durch. Für den Produktivbetrieb ist das offen — siehe [Deployment](deployment.md) und [ADR 0004](adr/0004-dev-proxy-xrepository.md).
 

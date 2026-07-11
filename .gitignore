@@ -29,3 +29,7 @@ XJustiz_*_XSD/
 /coverage
 npm-debug.log
 .sass-cache/
+
+# Backend (Server + SQLite-Datenbank)
+/server/node_modules
+/server/data

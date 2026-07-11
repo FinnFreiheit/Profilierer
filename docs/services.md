@@ -16,7 +16,9 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `DiffService` | Versionsvergleich (flach), Diff-Karte, Vergleichsordner laden |
 | `BundledSchemaService` | Im Projekt hinterlegte Schemaversionen (public/schemas/) per fetch laden |
 | `InstanceImportService` | Bestehende XJustiz-Nachricht (XML) zurück ins Profil-Modell binden |
-| `PersistenceService` | XSD laden, Autosave, Profil speichern/laden, Migration |
+| `PersistenceService` | XSD laden, Autosave (async, Race-Schutz), Profil öffnen/anlegen, Datei-Import/-Export |
+| `ProfileStoreService` | Profil-Bibliothek: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal |
+| `MigrationService` | Einmalige Übernahme der localStorage-Bibliothek ins Backend |
 | `DownloadService` | Blob-Download + Profil-Dateinamen |
 | `SearchService` | Baum-Suchindex + Ranking |
 | `ToastService` | Kurzmeldungen (Signal) |
@@ -72,7 +74,15 @@ Lädt eine bestehende XJustiz-Nachricht (XML-Instanz) und bildet sie gegen das g
 
 ## PersistenceService
 
-`loadXsdFiles` (Z.1746, inkl. pendingMsg/Autosave-Wiederherstellung), Autosave-`effect` mit Debounce (Z.1471), `saveProfile` (v2-JSON), `loadProfileFile` + `migrateV1` (v1→v2), `offerAutosaveRestore`.
+`loadXsdFiles` (Z.1746, inkl. pendingMsg-Anwendung), Autosave-`effect` mit Debounce (800 ms) → `autosaveNow` (async `store.upsert`, In-Flight-Reschedule gegen Lost Updates, gedrosselter Fehler-Toast), `openFromLibrary`/`createNew` (async), `saveProfile`/`exportDoc` (v2-JSON-Datei), `loadProfileFile` + `migrateV1` (v1→v2). Alle Bibliotheks-Zugriffe laufen über den `ProfileStoreService`.
+
+## ProfileStoreService
+
+Einzige Persistenz-Kapsel der Profil-Bibliothek — spricht das Backend per nativem `fetch` an ([ADR 0007](adr/0007-datenbank-backend.md)). `entries` (Signal, reaktive Index-Fassade fürs Dashboard), `refresh` (GET `/api/profiles`), `load` (GET, 404→null), `upsert`/`create`/`duplicate`/`rename`/`delete` (async, pflegen `entries` mit dem vom Server gelieferten `LibraryEntry`), `importAll` (Migration). Getestet mit gemocktem `fetch` (`profile-store.service.spec.ts`).
+
+## MigrationService
+
+`runOnce()` — idempotente Einmal-Migration der früheren localStorage-Bibliothek (`xjp.library.*`, Legacy `xjp.autosave`) via `POST /api/import`; nur bei leerem Backend, Marker `xjp.migrated`, localStorage bleibt als Sicherheitskopie. Ausgelöst in `App.ngOnInit`.
 
 ## Kleinere Services & Utilities
 

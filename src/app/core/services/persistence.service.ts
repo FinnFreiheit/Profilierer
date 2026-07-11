@@ -25,18 +25,24 @@ export class PersistenceService {
   private readonly store = inject(ProfileStoreService);
 
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Verhindert parallele Upserts (Reihenfolge/Lost-Update-Schutz). */
+  private autosaveInFlight = false;
+  /** Waehrend eines laufenden Upserts eingegangene Aenderung → danach nachziehen. */
+  private autosavePending = false;
+  /** Fehler-Toast nur einmal pro Ausfall zeigen (nicht bei jedem 800-ms-Tick). */
+  private autosaveErrorShown = false;
 
   constructor() {
     // Autosave: bei jeder Profil-/Nachrichtenaenderung debounced in den aktiven
     // Bibliothekseintrag sichern (scheduleAutosave, Z.1471). Der Effekt liest
-    // nur — geschrieben wird ausserhalb der Effekt-Ausfuehrung in autosaveNow.
+    // nur — geschrieben (async) wird ausserhalb der Effekt-Ausfuehrung in autosaveNow.
     effect(() => {
       this.state.profileDoc();
       const msg = this.state.msgName();
       const id = this.state.activeProfileId();
       if (!msg || !id) return;
       if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
-      this.autosaveTimer = setTimeout(() => this.autosaveNow(), 800);
+      this.autosaveTimer = setTimeout(() => void this.autosaveNow(), 800);
     });
   }
 
@@ -85,31 +91,54 @@ export class PersistenceService {
    * Autosave-Effekt erneut ausloesen), damit der Bibliothekseintrag den
    * Nachrichtentyp anzeigt und ein Export vollstaendig bleibt.
    */
-  private autosaveNow(): void {
+  private async autosaveNow(): Promise<void> {
     const msg = this.state.msgName();
     const id = this.state.activeProfileId();
     if (!msg || !id) return;
+    // Laeuft noch ein Upsert, den naechsten nach dessen Abschluss nachziehen.
+    if (this.autosaveInFlight) {
+      this.autosavePending = true;
+      return;
+    }
+    this.autosaveInFlight = true;
     try {
       const doc = this.state.profileDoc();
       const merged: ProfileDoc = {
         ...doc,
         meta: { ...doc.meta, nachricht: msg, xjustizVersion: this.state.version() },
       };
-      this.store.upsert(id, merged);
+      await this.store.upsert(id, merged);
+      this.autosaveErrorShown = false;
       this.state.autosaveInfo.set(
         'automatisch gesichert ' +
           new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
       );
     } catch {
-      /* Speicher nicht verfuegbar */
+      if (!this.autosaveErrorShown) {
+        this.autosaveErrorShown = true;
+        this.toast.show('Automatische Sicherung fehlgeschlagen — Backend nicht erreichbar.');
+      }
+    } finally {
+      this.autosaveInFlight = false;
+      // Zwischenzeitliche Aenderung mit dem jeweils aktuellen Stand nachspeichern.
+      if (this.autosavePending) {
+        this.autosavePending = false;
+        void this.autosaveNow();
+      }
     }
   }
 
   // ── Bibliothek: Oeffnen / Neu / Import / Export ─────────────────────
 
   /** Ein Bibliotheksprofil oeffnen und in den Editor wechseln. */
-  openFromLibrary(id: string): void {
-    const doc = this.store.load(id);
+  async openFromLibrary(id: string): Promise<void> {
+    let doc: ProfileDoc | null;
+    try {
+      doc = await this.store.load(id);
+    } catch {
+      this.toast.show('Profil konnte nicht geladen werden — Backend nicht erreichbar.');
+      return;
+    }
     if (!doc) {
       this.toast.show('Profil nicht gefunden.');
       return;
@@ -141,8 +170,14 @@ export class PersistenceService {
   }
 
   /** Neues, leeres Profil anlegen und in den Editor wechseln. */
-  createNew(): void {
-    const id = this.store.create(newProfile());
+  async createNew(): Promise<void> {
+    let id: string;
+    try {
+      id = await this.store.create(newProfile());
+    } catch {
+      this.toast.show('Neues Profil konnte nicht angelegt werden — Backend nicht erreichbar.');
+      return;
+    }
     this.state.activeProfileId.set(id);
     this.state.resetProfile();
     this.state.msgName.set(null);
@@ -222,8 +257,8 @@ export class PersistenceService {
               auspraegungen: data.auspraegungen || {},
             }
           : this.migrateV1(data);
-      const id = this.store.create(prof);
-      this.openFromLibrary(id);
+      const id = await this.store.create(prof);
+      await this.openFromLibrary(id);
     } catch (e) {
       this.toast.show('Profil konnte nicht gelesen werden: ' + (e instanceof Error ? e.message : e));
     }

@@ -25,8 +25,8 @@ xjustiz-profilierer/
 │   ├── core/
 │   │   ├── services/          StateService (Signals-Store), XsdParserService, TreeService,
 │   │   │                      NavService, ValueService, CodelistService, ExportService,
-│   │   │                      DiffService, PersistenceService, InstanceImportService,
-│   │   │                      BundledSchemaService, DownloadService, ToastService, SearchService
+│   │   │                      DiffService, PersistenceService, ProfileStoreService, MigrationService,
+│   │   │                      InstanceImportService, BundledSchemaService, DownloadService, ToastService, SearchService
 │   │   ├── util/              xml.util, pretty.util
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
 │   │   └── profile-defaults.ts
@@ -36,7 +36,8 @@ xjustiz-profilierer/
 │   ├── app.ts / app.html      Shell (Komposition + Tastatur-Nav + Drop-Routing)
 │   └── styles.scss            globale Styles (aus der Single-File-Version portiert)
 ├── public/schemas/           Hinterlegte XJustiz-Schemata (3.6.2, 4.0.0) + index.json (Manifest)
-├── proxy.conf.json            Dev-Proxy /xrep-api → xrepository.de (ersetzt legacy/xrep-proxy.py)
+├── server/                    Backend (Node/Express + SQLite): Profil-API /api, liefert prod. SPA + /xrep-api
+├── proxy.conf.json            Dev-Proxy /xrep-api → xrepository.de, /api → localhost:3001 (Backend)
 ├── scripts/test-headless.mjs  Headless-Testlauf (setzt CHROME_BIN via puppeteer)
 ├── scripts/gen-schema-manifest.mjs  Erzeugt public/schemas/index.json aus den Versionsordnern
 ├── legacy/                    Profilierer.html + xrep-proxy.py (Referenz)
@@ -57,7 +58,8 @@ Node ≥ 22.12 nötig (Angular 20). System-Node ist 22.11 — daher vor npm/ng-B
 export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use 24
 ```
 
-- **Dev-Server:** `npm start` (`ng serve`, Port 4200) — inkl. Dev-Proxy für XRepository (`/xrep-api/…`).
+- **Dev-Server:** `npm start` (`ng serve`, Port 4200) — inkl. Dev-Proxy für XRepository (`/xrep-api/…`) und Profil-API (`/api` → Backend). Backend separat: `npm run server` (Port 3001) oder beides parallel: `npm run dev`. Einmalig `cd server && npm install`.
+- **Backend/DB:** Profilierungen liegen in SQLite (`server/`, Node/Express); der Store spricht `/api` per fetch an. Produktiv `npm run start:prod` (Server liefert SPA + `/api` + `/xrep-api` same-origin). Env `XJP_PORT`/`XJP_DB`. Siehe [ADR 0007](docs/adr/0007-datenbank-backend.md).
 - **Build:** `npm run build` (Ausgabe nach `dist/`).
 - **Unit-Tests (headless):** `npm run test:ci` — nutzt das per puppeteer installierte Chrome-for-Testing (kein System-Chrome nötig). Einmalig: `npx puppeteer browsers install chrome`.
 - **E2E-Prüfung:** Puppeteer-Skript, das XSDs per Drag&Drop-Event lädt (`uploadFile` befüllt `webkitdirectory`-Inputs nicht).

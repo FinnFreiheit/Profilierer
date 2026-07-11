@@ -1,0 +1,16 @@
+{
+  "name": "xjustiz-profilierer-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend (Express + SQLite) fuer die Profil-Bibliothek des XJustiz Profilierers.",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.21.2",
+    "http-proxy-middleware": "^3.0.3"
+  }
+}

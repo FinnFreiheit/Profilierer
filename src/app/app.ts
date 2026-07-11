@@ -21,7 +21,7 @@ import { InstanceImportService } from './core/services/instance-import.service';
 import { ToastService } from './core/services/toast.service';
 import { StateService } from './core/services/state.service';
 import { BundledSchemaService } from './core/services/bundled-schema.service';
-import { ProfileStoreService } from './core/services/profile-store.service';
+import { MigrationService } from './core/services/migration.service';
 
 @Component({
   selector: 'app-root',
@@ -55,7 +55,7 @@ export class App implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly state = inject(StateService);
   private readonly bundled = inject(BundledSchemaService);
-  private readonly store = inject(ProfileStoreService);
+  private readonly migration = inject(MigrationService);
 
   protected readonly hasRoot = computed(() => !!this.state.root());
   /** Dashboard (Bibliothek) vs. Baum-Editor. */
@@ -73,9 +73,9 @@ export class App implements OnInit {
    * frueh geladenen Autosave), wird nicht ueberschrieben.
    */
   async ngOnInit(): Promise<void> {
-    // Einmalige Migration eines alten anonymen Autosave-Slots in die Bibliothek,
-    // damit ein frueherer Arbeitsstand als Karte im Dashboard erscheint.
-    this.store.migrateLegacyAutosave();
+    // Einmalige Migration der frueher im localStorage gehaltenen Profil-Bibliothek
+    // ins DB-Backend (idempotent, nur bei leerem Backend).
+    await this.migration.runOnce();
     try {
       const versions = await this.bundled.manifest();
       this.state.bundledVersions.set(versions);
