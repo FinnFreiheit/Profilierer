@@ -14,6 +14,7 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `CodelistService` | Genericode-Parsing, ZIP-/Datei-Import, XRepository, Cache |
 | `ExportService` | Excel-, Schematron-, Beispiel-XML-Export, Druckzeilen |
 | `DiffService` | Versionsvergleich (flach), Diff-Karte, Vergleichsordner laden |
+| `BundledSchemaService` | Im Projekt hinterlegte Schemaversionen (public/schemas/) per fetch laden |
 | `InstanceImportService` | Bestehende XJustiz-Nachricht (XML) zurück ins Profil-Modell binden |
 | `PersistenceService` | XSD laden, Autosave, Profil speichern/laden, Migration |
 | `DownloadService` | Blob-Download + Profil-Dateinamen |
@@ -57,7 +58,13 @@ Baut den Element-Baum lazy. `expandNode` mutiert `node.children` (Cache-Baum, be
 
 ## DiffService
 
-`computeDiff` (Nachrichten- und Element-Ebene, Z.2193), `computeDiffMap` (Diff-Karte + Vorfahren-Zähler für die Baum-Markierung), `profiledUnder`, `loadXsdB` (Vergleichsordner laden, aktiviert Diff).
+`computeDiff` (Nachrichten- und Element-Ebene, Z.2193), `computeDiffMap` (Diff-Karte + Vorfahren-Zähler für die Baum-Markierung), `profiledUnder`, `loadXsdB` (Vergleichsschemata laden, aktiviert Diff).
+
+## BundledSchemaService
+
+Lädt die **im Projekt hinterlegten** XJustiz-Schemaversionen (`public/schemas/<version>/`), damit kein XSD-Ordner mehr hochgeladen werden muss. `manifest()` liest (und cacht) `public/schemas/index.json`; `files(v)` holt die XSDs der Version per `fetch` und verpackt sie als `File[]` — damit speisen sie die **bestehenden** Ladewege (`PersistenceService.loadXsdFiles` als Primärschema, `DiffService.loadXsdB` als Vergleich), ohne die Parser-Logik zu duplizieren.
+
+Verdrahtung: `App.ngOnInit` lädt das Manifest nach `StateService.bundledVersions` und aktiviert automatisch die als `default` markierte Version (3.6.2). Der Topbar-`<select>` (`.verSelect`) schaltet um (`App.loadBundled`), `StateService.activeBundle` merkt sich die aktive hinterlegte Version (null = eigener Ordner). Der Diff-Dialog bietet die hinterlegten Versionen als Vergleich an (die aktive Primärversion ausgeblendet). Das Manifest wird mit `npm run schemas:manifest` (`scripts/gen-schema-manifest.mjs`) aus den Ordnern erzeugt — nach jedem Hinzufügen/Austauschen von XSDs neu ausführen.
 
 ## InstanceImportService
 

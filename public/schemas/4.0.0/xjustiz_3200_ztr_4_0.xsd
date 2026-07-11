@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://www.xjustiz.de"
+           xmlns:din91379="urn:xoev-de:kosit:xoev:datentyp:din-91379_2022-08"
+           targetNamespace="http://www.xjustiz.de"
+           version="4.0.0"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+   <xs:annotation>
+      <xs:appinfo>
+         <standard>
+            <nameLang>Strukturierte Fachdaten für die Kommunikation im elektronischen Rechtsverkehr</nameLang>
+            <nameKurz>XJustiz</nameKurz>
+            <nameTechnisch>xjustiz</nameTechnisch>
+            <kennung>urn:xoev-de:blk-ag-it-standards:standard:xjustiz</kennung>
+            <beschreibung>XJustiz ist der bundesweit einheitliche Standard für den Austausch strukturierter elektronischer Informationen mit der Justiz.</beschreibung>
+         </standard>
+         <versionStandard>
+            <version>4.0.0</version>
+            <beschreibung>XJustiz beschreibt ein standardisiertes Datenaustauschformat für die elektronische Kommunikation innerhalb und mit der Justizverwaltung.</beschreibung>
+            <versionXOEVProfil>3.0.2</versionXOEVProfil>
+            <versionXOEVHandbuch>3.0.2</versionXOEVHandbuch>
+            <versionXGenerator>3.2.3</versionXGenerator>
+            <versionModellierungswerkzeug>2021x</versionModellierungswerkzeug>
+            <nameModellierungswerkzeug>MagicDraw</nameModellierungswerkzeug>
+         </versionStandard>
+      </xs:appinfo>
+   </xs:annotation>
+   <xs:include schemaLocation="xjustiz_0000_grunddatensatz_4_0.xsd"/>
+   <xs:include schemaLocation="xjustiz_3210_cl_ztr_0_1.xsd"/>
+   <xs:import schemaLocation="din-norm-91379-datatypes.xsd"
+              namespace="urn:xoev-de:kosit:xoev:datentyp:din-91379_2022-08"/>
+   <xs:element name="nachricht.ztr.sterbefall.input.3200001">
+      <xs:complexType>
+         <xs:sequence>
+            <xs:element name="nachrichtenkopf" type="tns:Type.GDS.Nachrichtenkopf"/>
+            <xs:element name="grunddaten" type="tns:Type.GDS.Grunddaten"/>
+            <xs:element name="schriftgutobjekte"
+                        minOccurs="0"
+                        type="tns:Type.GDS.Schriftgutobjekte"/>
+            <xs:element name="fachdaten">
+               <xs:complexType>
+                  <xs:sequence>
+                     <xs:element name="sterbefall_ID" type="xs:integer">
+                        <xs:annotation>
+                           <xs:documentation>Enthält die technische ID des Sterbefalls, die im ZTR vergeben wurde.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="nachlass" minOccurs="0">
+                        <xs:annotation>
+                           <xs:documentation>Zusätzliche Nachlassangaben, die vom Standesamt zur verstorbenen Person mitgeteilt worden sind.</xs:documentation>
+                        </xs:annotation>
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="zustaendigesNachlassgericht"
+                                          minOccurs="0"
+                                          type="tns:Code.GDS.Gerichte.Typ3">
+                                 <xs:annotation>
+                                    <xs:documentation>Die Registerbehörde ermittelt aus der Angabe des letzten Wohnsitzes der verstorbenen Person das zuständige Nachlassgericht.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="nachlassvermoegen" minOccurs="0" type="din91379:datatypeC">
+                                 <xs:annotation>
+                                    <xs:documentation>Das Standesamt teilt im Sterbefall ein etwa vorhandenes Nachlassvermögen der verstorbenen Person mit.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="nachlasssicherung" minOccurs="0" type="din91379:datatypeC">
+                                 <xs:annotation>
+                                    <xs:documentation>Das Standesamt teilt im Sterbefall etwaige Anhaltspunkte für die Erforderlichkeit von Maßnahmen zur Nachlasssicherung der verstorbenen Person mit.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="erbfolgerelevanteInformationen"
+                                 minOccurs="0"
+                                 maxOccurs="unbounded">
+                        <xs:annotation>
+                           <xs:documentation>1. Die Registerbehörde teilt dem Nachlassgericht die im ZTR enthaltenen Verwahrangaben mit und welche Verwahrstelle benachrichtigt worden ist. Ist neben der Verwahrangabe auch eine sog. weiße Karte vorhanden, werden auch diese Daten dem Nachlassgericht mitgeteilt. 2. Die Registerbehörde teilt der Verwahrstelle mit, welche erbfolgerelevante Urkunde betroffen ist und welches Nachlassgericht benachrichtigt wurde.</xs:documentation>
+                        </xs:annotation>
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="auswahl_anforderungsart">
+                                 <xs:complexType>
+                                    <xs:choice>
+                                       <xs:element name="beglaubigteAbschrift" fixed="true" type="xs:boolean"/>
+                                       <xs:element name="urschrift" fixed="true" type="xs:boolean"/>
+                                    </xs:choice>
+                                 </xs:complexType>
+                              </xs:element>
+                              <xs:element name="urkunde" type="tns:Type.GDS.Beurkundung">
+                                 <xs:annotation>
+                                    <xs:documentation>Es handelt sich um eine erbfolgerelevante Urkunde, die im ZTR registriert wurde.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="registernummerZTR" type="din91379:datatypeC">
+                                 <xs:annotation>
+                                    <xs:documentation>Die Registerbehörde fasst die übermittelten Verwahrangaben für jeden Erblasser unter einer Registernummer zu einem Datensatz (Verwahrdatensatz) zusammen.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="verwahrungUrkunde"
+                                          type="tns:Type.GDS.Verwahrung.ErbfolgerelevanteUrkunde"/>
+                              <xs:element name="verwahrung51" minOccurs="0" type="xs:boolean">
+                                 <xs:annotation>
+                                    <xs:documentation>Verwahrung nach §51 BNotO</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="uebereinstimmung" type="xs:positiveInteger">
+                                 <xs:annotation>
+                                    <xs:documentation>In diesem Element wird angegeben, in welchem Grad die Angaben des Erblassers mit den Angaben der verstorbenen Person übereinstimmen.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="weisseKarte"
+                                 minOccurs="0"
+                                 maxOccurs="unbounded"
+                                 type="tns:Type.GDS.Ref.SGO"/>
+                     <xs:element name="todeserklaerung" minOccurs="0">
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="beschlussAmtsgericht"
+                                          minOccurs="0"
+                                          type="tns:Code.GDS.Gerichte.Typ3"/>
+                              <xs:element name="beschlussdatum" minOccurs="0" type="xs:date"/>
+                              <xs:element name="aktenzeichen" minOccurs="0" type="din91379:datatypeC"/>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                  </xs:sequence>
+               </xs:complexType>
+            </xs:element>
+         </xs:sequence>
+      </xs:complexType>
+   </xs:element>
+</xs:schema>

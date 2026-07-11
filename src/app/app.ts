@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject } from '@angular/core';
 import { Topbar } from './features/topbar/topbar';
 import { Toolbar } from './features/toolbar/toolbar';
 import { Crumbs } from './features/crumbs/crumbs';
@@ -19,6 +19,7 @@ import { NavService } from './core/services/nav.service';
 import { InstanceImportService } from './core/services/instance-import.service';
 import { ToastService } from './core/services/toast.service';
 import { StateService } from './core/services/state.service';
+import { BundledSchemaService } from './core/services/bundled-schema.service';
 
 @Component({
   selector: 'app-root',
@@ -41,7 +42,7 @@ import { StateService } from './core/services/state.service';
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
-export class App {
+export class App implements OnInit {
   protected readonly persistence = inject(PersistenceService);
   protected readonly codelists = inject(CodelistService);
   protected readonly exporter = inject(ExportService);
@@ -50,8 +51,56 @@ export class App {
   private readonly instanceImport = inject(InstanceImportService);
   private readonly toast = inject(ToastService);
   private readonly state = inject(StateService);
+  private readonly bundled = inject(BundledSchemaService);
 
   protected readonly hasRoot = computed(() => !!this.state.root());
+
+  /**
+   * Beim Start das Manifest der hinterlegten Schemata laden und die
+   * Standardversion (3.6.2) automatisch aktivieren — kein XSD-Ordner-Upload
+   * mehr noetig. Ist bereits ein Schema geladen (z. B. durch einen sehr
+   * frueh geladenen Autosave), wird nicht ueberschrieben.
+   */
+  async ngOnInit(): Promise<void> {
+    try {
+      const versions = await this.bundled.manifest();
+      this.state.bundledVersions.set(versions);
+      if (!this.state.idx()) {
+        const def = versions.find((v) => v.default) ?? versions[0];
+        if (def) await this.loadBundled(def.dir);
+      }
+    } catch (e) {
+      this.toast.show(
+        'Hinterlegte Schemata konnten nicht geladen werden: ' +
+          (e instanceof Error ? e.message : e),
+      );
+    }
+  }
+
+  /**
+   * Eine hinterlegte Schemaversion als Primaerschema laden (Versions-Umschalter
+   * und Auto-Load beim Start). Eine bereits geladene Nachricht wird — sofern in
+   * der Zielversion vorhanden — unter dem neuen Schema neu aufgebaut.
+   */
+  async loadBundled(dir: string): Promise<void> {
+    const v = this.state.bundledVersions().find((x) => x.dir === dir);
+    if (!v) return;
+    const prevMsg = this.state.msgName();
+    try {
+      const files = await this.bundled.files(v);
+      await this.persistence.loadXsdFiles(files);
+      this.state.activeBundle.set(dir);
+      if (prevMsg) {
+        if (this.state.idx()?.el[prevMsg]) this.nav.loadMessage(prevMsg, true);
+        else this.toast.show(`Nachricht ${prevMsg} ist in XJustiz ${v.label} nicht enthalten.`);
+      }
+      this.toast.show(`XJustiz ${v.label} geladen (${files.length} Schemata).`);
+    } catch (e) {
+      this.toast.show(
+        `XJustiz ${v.label} konnte nicht geladen werden: ` + (e instanceof Error ? e.message : e),
+      );
+    }
+  }
 
   /** Pfeiltasten-Navigation im Baum (Z.2443-2463). */
   onKeydown(e: KeyboardEvent): void {
@@ -65,6 +114,7 @@ export class App {
   async onXsdFiles(files: FileList | File[]): Promise<void> {
     try {
       const n = await this.persistence.loadXsdFiles(files);
+      this.state.activeBundle.set(null);
       this.toast.show(`${n} Schemadateien geladen.`);
     } catch (e) {
       this.toast.show(e instanceof Error ? e.message : 'Laden fehlgeschlagen.');
@@ -92,10 +142,12 @@ export class App {
     this.codelists.loadFromXRepository();
   }
 
-  /** btnDiff (Z.2378): Dialog oeffnen oder Vergleichsordner waehlen. */
-  onDiff(diffDlg: DiffDialog, xsdBInput: HTMLInputElement): void {
-    if (this.state.idxB()) diffDlg.open();
-    else xsdBInput.click();
+  /**
+   * btnDiff (Z.2378): Dialog immer oeffnen — die Auswahl der Vergleichsversion
+   * (hinterlegte Version oder eigener Ordner) erfolgt im Dialog.
+   */
+  onDiff(diffDlg: DiffDialog, _xsdBInput: HTMLInputElement): void {
+    diffDlg.open();
   }
 
   async onXsdB(e: Event, diffDlg: DiffDialog): Promise<void> {

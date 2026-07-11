@@ -8,7 +8,25 @@
   <input #profilInput type="file" accept=".json" class="hidden" (change)="onProfile($event)" />
   <input #nachrichtInput type="file" accept=".xml" class="hidden" (change)="onInstance($event)" />
 
-  <button class="primary" (click)="pick(xsdInput)">XSD-Ordner laden</button>
+  @if (bundledVersions().length) {
+    <select
+      class="verSelect"
+      title="Im Projekt hinterlegte XJustiz-Version laden (kein Ordner-Upload nötig)"
+      (change)="onBundled($event)"
+    >
+      @if (!activeBundle()) {
+        <option value="" disabled selected>Version wählen…</option>
+      }
+      @for (v of bundledVersions(); track v.dir) {
+        <option [value]="v.dir" [selected]="v.dir === activeBundle()">
+          XJustiz {{ v.label }}{{ v.default ? ' (Standard)' : '' }}
+        </option>
+      }
+    </select>
+  }
+  <button (click)="pick(xsdInput)" title="Eigenen Ordner mit XJustiz-Schemadateien laden">
+    Eigener XSD-Ordner…
+  </button>
   <button
     [disabled]="!hasIdx()"
     title="Alle vom Standard genutzten Codelisten über die XRepository-REST-Schnittstelle abrufen"

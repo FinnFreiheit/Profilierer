@@ -1,6 +1,20 @@
 <dialog #dlg id="diffDlg" style="max-width: 760px; width: 92vw">
   <h3 style="margin-top: 0">Versionsvergleich</h3>
-  @if (result(); as d) {
+
+  <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px">
+    <span style="font-size: 12.5px; color: var(--muted)">Vergleichsversion:</span>
+    @for (v of bundledOptions(); track v.dir) {
+      <button (click)="pickBundled(v)">XJustiz {{ v.label }}</button>
+    }
+    <button (click)="loadOther.emit()">Ordner wählen…</button>
+  </div>
+  @if (!hasIdxB()) {
+    <div style="color: var(--muted); font-size: 13px">
+      Vergleichsversion wählen, um Unterschiede zur aktiven Version anzuzeigen.
+    </div>
+  }
+
+  @if (hasIdxB() && result(); as d) {
     <div id="diffHead">
       <div style="font-size: 13px; margin-bottom: 8px">
         Geladen: <b>{{ versionA() }}</b> (aktiv) ↔ <b>{{ versionB() }}</b> (Vergleich)
@@ -41,15 +55,17 @@
   }
 
   <div style="margin: 8px 0 6px; display: flex; gap: 14px; align-items: center">
-    <label style="font-size: 12.5px">
-      <input type="checkbox" [checked]="onlyProf()" (change)="onlyProf.set($any($event.target).checked)" />
-      nur Änderungen mit Profil-Bezug
-    </label>
+    @if (hasIdxB()) {
+      <label style="font-size: 12.5px">
+        <input type="checkbox" [checked]="onlyProf()" (change)="onlyProf.set($any($event.target).checked)" />
+        nur Änderungen mit Profil-Bezug
+      </label>
+    }
     <span class="spacer" style="flex: 1"></span>
-    <button (click)="loadOther.emit()">andere Version laden…</button>
     <button class="primary" (click)="close()">Schließen</button>
   </div>
 
+  @if (hasIdxB()) {
   <div id="diffList" style="max-height: 52vh; overflow: auto; border: 1px solid var(--border); border-radius: 8px">
     @if (!rows().length) {
       <div style="padding: 14px; color: var(--muted)">keine Unterschiede{{ onlyProf() ? ' mit Profil-Bezug' : '' }}</div>
@@ -90,4 +106,5 @@
       <div style="padding: 10px; color: var(--muted)">… {{ moreCount() }} weitere</div>
     }
   </div>
+  }
 </dialog>

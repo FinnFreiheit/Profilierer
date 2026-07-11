@@ -26,7 +26,7 @@ xjustiz-profilierer/
 │   │   ├── services/          StateService (Signals-Store), XsdParserService, TreeService,
 │   │   │                      NavService, ValueService, CodelistService, ExportService,
 │   │   │                      DiffService, PersistenceService, InstanceImportService,
-│   │   │                      DownloadService, ToastService, SearchService
+│   │   │                      BundledSchemaService, DownloadService, ToastService, SearchService
 │   │   ├── util/              xml.util, pretty.util
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
 │   │   └── profile-defaults.ts
@@ -35,8 +35,10 @@ xjustiz-profilierer/
 │   ├── shared/                Toast, FileDropDirective
 │   ├── app.ts / app.html      Shell (Komposition + Tastatur-Nav + Drop-Routing)
 │   └── styles.scss            globale Styles (aus der Single-File-Version portiert)
+├── public/schemas/           Hinterlegte XJustiz-Schemata (3.6.2, 4.0.0) + index.json (Manifest)
 ├── proxy.conf.json            Dev-Proxy /xrep-api → xrepository.de (ersetzt legacy/xrep-proxy.py)
 ├── scripts/test-headless.mjs  Headless-Testlauf (setzt CHROME_BIN via puppeteer)
+├── scripts/gen-schema-manifest.mjs  Erzeugt public/schemas/index.json aus den Versionsordnern
 ├── legacy/                    Profilierer.html + xrep-proxy.py (Referenz)
 ├── README.md, CLAUDE.md
 ```
@@ -59,7 +61,8 @@ export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use 24
 - **Build:** `npm run build` (Ausgabe nach `dist/`).
 - **Unit-Tests (headless):** `npm run test:ci` — nutzt das per puppeteer installierte Chrome-for-Testing (kein System-Chrome nötig). Einmalig: `npx puppeteer browsers install chrome`.
 - **E2E-Prüfung:** Puppeteer-Skript, das XSDs per Drag&Drop-Event lädt (`uploadFile` befüllt `webkitdirectory`-Inputs nicht).
-- Testdaten: `/Users/finnfreiheit/code/XJustiz_3_6_2_XSD` (3.6.2) und `/Users/finnfreiheit/code/XJustiz_4.0.0_Schemata` (Vergleichsversion für den Diff).
+- **Hinterlegte Schemata:** 3.6.2 und 4.0.0 liegen unter `public/schemas/<version>/`; die App lädt 3.6.2 automatisch beim Start (`BundledSchemaService`, Umschalter in der Topbar, Diff-Vergleich per Klick) — Ordner-Upload nur noch für Fremdschemata. Nach dem Ändern der XSDs `npm run schemas:manifest` ausführen.
+- Testdaten (Quellen der hinterlegten Kopien): `/Users/finnfreiheit/code/XJustiz_3_6_2_XSD` (3.6.2) und `/Users/finnfreiheit/code/XJustiz_4.0.0_Schemata` (4.0.0, Vergleichsversion für den Diff).
 
 ## Konventionen
 
@@ -68,6 +71,7 @@ export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use 24
 - Store-Mutationen der pfad-indizierten Maps (`elemente`/`auspraegungen`) müssen neue Referenzen erzeugen; kaskadierende Operationen (`removeAusp`) sind im `StateService` gebündelt und unit-getestet.
 - **Keine ungefragten Refactors** über den Auftrag hinaus.
 - Bei Änderungen an der XRepository-Logik `proxy.conf.json` und den Pfad `/xrep-api/` beachten (`CodelistService`).
+- Hinterlegte Schemata in `public/schemas/` nicht von Hand im Manifest pflegen — nach XSD-Änderungen `npm run schemas:manifest` laufen lassen (`scripts/gen-schema-manifest.mjs`).
 
 ## Git
 

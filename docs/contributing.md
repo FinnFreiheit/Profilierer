@@ -10,7 +10,14 @@ npm install
 npm start                           # ng serve (inkl. XRepository-Dev-Proxy)
 npm run test:ci                     # headless Unit-Tests
 npm run build                       # Produktions-Build
+npm run schemas:manifest            # public/schemas/index.json neu erzeugen
 ```
+
+## Hinterlegte Schemata
+
+Die XJustiz-Schemata beider Versionen liegen im Projekt unter `public/schemas/<version>/` (3.6.2, 4.0.0) und werden beim Start automatisch geladen — ein XSD-Ordner-Upload ist nur noch für Fremdschemata nötig (Details: [BundledSchemaService](services.md#bundledschemaservice)). Das Manifest `public/schemas/index.json` steuert Versionen, Anzeigenamen und die Standardversion.
+
+**Beim Hinzufügen/Austauschen von XSDs:** Dateien in den jeweiligen Ordner legen (neue Version = neuer Unterordner) und `npm run schemas:manifest` ausführen. Das Skript baut die Dateilisten neu auf und übernimmt vorhandene `label`/`default`/Reihenfolge; die Standardversion in `index.json` (`"default": true`) bei Bedarf von Hand umsetzen.
 
 ## Code-Konventionen
 

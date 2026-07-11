@@ -1,0 +1,417 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://www.xjustiz.de"
+           xmlns:din91379="urn:xoev-de:kosit:xoev:datentyp:din-91379_2022-08"
+           targetNamespace="http://www.xjustiz.de"
+           version="1.0.0"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+   <xs:annotation>
+      <xs:appinfo>
+         <standard>
+            <nameLang>Strukturierte Fachdaten für die Kommunikation im elektronischen Rechtsverkehr</nameLang>
+            <nameKurz>XJustiz</nameKurz>
+            <nameTechnisch>xjustiz</nameTechnisch>
+            <kennung>urn:xoev-de:blk-ag-it-standards:standard:xjustiz</kennung>
+            <beschreibung>XJustiz ist der bundesweit einheitliche Standard für den Austausch strukturierter elektronischer Informationen mit der Justiz.</beschreibung>
+         </standard>
+         <versionStandard>
+            <version>4.0.0</version>
+            <beschreibung>XJustiz beschreibt ein standardisiertes Datenaustauschformat für die elektronische Kommunikation innerhalb und mit der Justizverwaltung.</beschreibung>
+            <versionXOEVProfil>3.0.2</versionXOEVProfil>
+            <versionXOEVHandbuch>3.0.2</versionXOEVHandbuch>
+            <versionXGenerator>3.2.3</versionXGenerator>
+            <versionModellierungswerkzeug>2021x</versionModellierungswerkzeug>
+            <nameModellierungswerkzeug>MagicDraw</nameModellierungswerkzeug>
+         </versionStandard>
+      </xs:appinfo>
+   </xs:annotation>
+   <xs:include schemaLocation="xjustiz_0000_grunddatensatz_4_0.xsd"/>
+   <xs:import schemaLocation="din-norm-91379-datatypes.xsd"
+              namespace="urn:xoev-de:kosit:xoev:datentyp:din-91379_2022-08"/>
+   <xs:element name="nachricht.entsch.entscheidung.3800001">
+      <xs:complexType>
+         <xs:sequence>
+            <xs:element name="nachrichtenkopf" type="tns:Type.GDS.Nachrichtenkopf"/>
+            <xs:element name="grunddaten" type="tns:Type.GDS.Grunddaten"/>
+            <xs:element name="schriftgutobjekte"
+                        minOccurs="0"
+                        type="tns:Type.GDS.Schriftgutobjekte">
+               <xs:annotation>
+                  <xs:documentation>Dieses Element ist nur zu verwenden, wenn das Urteil als elektronisches Schriftgut im PDF-Format übermittelt werden soll.</xs:documentation>
+               </xs:annotation>
+            </xs:element>
+            <xs:element name="fachdaten">
+               <xs:complexType>
+                  <xs:sequence>
+                     <xs:element name="entscheidungsdatum" type="xs:date">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Feld wird das Datum der Entscheidung übermittelt. Dieses Datum wird auch für die Bildung des ECLI verwendet.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="verkuendungsdatum" minOccurs="0" type="xs:date">
+                        <xs:annotation>
+                           <xs:documentation>Sofern die Entscheidung verkündet wurde, kann in diesem Element das Datum der Verkündung der Entscheidung übermittelt werden.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="entscheidungsart" type="tns:Code.GDS.Entscheidungsart.Typ3">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Element wird die Art der Entscheidung übermittelt.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="besondersDokumentationswuerdig"
+                                 minOccurs="0"
+                                 type="xs:boolean">
+                        <xs:annotation>
+                           <xs:documentation>Dieses Element kann vom Gericht an Dokumentationsstellen übermittelt werden, falls die Entscheidung für besonders dokumentationswürdig gehalten wird.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="internetseitenGericht" minOccurs="0">
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="veroeffentlichungBeabsichtigt" fixed="true" type="xs:boolean">
+                                 <xs:annotation>
+                                    <xs:documentation>Dieses Element ist zu übermitteln, falls eine Veröffentlichung der Entscheidung auf den Internetseiten des Gerichts vorgesehen ist.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="erscheinungsdatumInternetSeiten" minOccurs="0" type="xs:date">
+                                 <xs:annotation>
+                                    <xs:documentation>In diesem Element kann übermittelt werden, ab wann die Entscheidung auf den Internet-Seiten des Gerichts abrufbar ist oder sein soll.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="revisionZugelassen" minOccurs="0" type="xs:boolean">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Element kann übermittelt werden, ob die Revision gegen ein Urteil vom Gericht nach der jeweiligen Verfahrensordnung zugelassen ist.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="gericht.StA" type="tns:Code.GDS.Gerichte.Typ3">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Element ist die einschlägige Dienststellen-ID des Gerichtes bzw. der Staatsanwaltschaft aus der Codeliste GDS.Gerichte zu übermitteln. Aus der Codeliste kann sowohl der Gerichtstyp als auch der Gerichtsort und der das Gericht beschreibende Teil des ECLI entnommen werden.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="ecliKollisionsnummer" minOccurs="0" type="din91379:datatypeC">
+                        <xs:annotation>
+                           <xs:documentation>Für die eindeutige Festlegung des ECLI wird immer dann eine Kollisionsnummer benötigt, wenn Entscheidungen desselben Gerichts unter gleichem Datum und Aktenzeichen ergehen (Beispiel: Verlängerung einstweilige Anordnung und Entscheidung in der Hauptsache unter identischem Datum und Aktenzeichen). Die Kollisionsnummer ist in diesem Fall zu übermitteln, um zu vermeiden, dass mehrdeutige ECLIs vergeben werden. Dabei ist eine einstellige Kollisionsnummer, fortlaufend von a-z, zu übermitteln. Vgl. https://e-justice.europa.eu/topics/legislation-and-case-law/european-case-law-identifier-ecli/de_de</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="ecliAbweichend" minOccurs="0" type="din91379:datatypeC">
+                        <xs:annotation>
+                           <xs:documentation>Grundsätzlich wird der ECLI für jede Entscheidung auf der Grundlage der Abbildungsvorschrift aus den Angaben dieser XJustiz-Nachricht gebildet. Wenn der ECLI der Entscheidung abweichend von der vorgegebenen Abbildungsvorschrift gebildet wurde, kann dieser hier vollständig übermittelt werden. Vgl. https://e-justice.europa.eu/topics/legislation-and-case-law/european-case-law-identifier-ecli/de_de</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="weitereAktenzeichen"
+                                 minOccurs="0"
+                                 maxOccurs="unbounded"
+                                 type="din91379:datatypeC">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Element können weitere Aktenzeichen der Entscheidung übermittelt werden.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="rechtszug" minOccurs="0" maxOccurs="unbounded">
+                        <xs:annotation>
+                           <xs:documentation>Mit dieser Sequenz können Informationen zu vor- oder nachgehenden Entscheidungen übermittelt werden.</xs:documentation>
+                        </xs:annotation>
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="ref.instanznummer" type="din91379:datatypeC">
+                                 <xs:annotation>
+                                    <xs:documentation>Hier wird die Instanznummer des Gerichtes bzw. der Staatsanwaltschaft, die in den Instanzdaten aufgeführt ist, angegeben.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="entscheidungsdatum" minOccurs="0" type="xs:date"/>
+                              <xs:element name="entscheidungsart"
+                                          minOccurs="0"
+                                          type="tns:Code.GDS.Entscheidungsart.Typ3"/>
+                              <xs:element name="zusatzinformationen" minOccurs="0" type="din91379:datatypeC">
+                                 <xs:annotation>
+                                    <xs:documentation>Hier können Zusatzinformationen zur Entscheidung angegeben werden.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="auswahl_normen" minOccurs="0" maxOccurs="unbounded">
+                        <xs:annotation>
+                           <xs:documentation>Mit diesem Element können die Rechtsvorschriften, auf denen die Entscheidung beruht, übermittelt werden. Dabei ist die Auswahl zu treffen, ob es sich um Strafnormen oder andere Normen handelt.</xs:documentation>
+                        </xs:annotation>
+                        <xs:complexType>
+                           <xs:choice>
+                              <xs:element name="straf" type="tns:Type.GDS.Straftatbestand"/>
+                              <xs:element name="andereNormen">
+                                 <xs:complexType>
+                                    <xs:sequence>
+                                       <xs:element name="normabkuerzung" type="din91379:datatypeC"/>
+                                       <xs:element name="paragraph.artikel" minOccurs="0" type="din91379:datatypeC"/>
+                                       <xs:element name="fassungsdatum" minOccurs="0" type="xs:date">
+                                          <xs:annotation>
+                                             <xs:documentation>In diesem Element kann, falls bekannt, das Fassungsdatum der Rechtsvorschrift angegeben werden.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                    </xs:sequence>
+                                 </xs:complexType>
+                              </xs:element>
+                           </xs:choice>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="hauptschlagwoerter"
+                                 minOccurs="0"
+                                 maxOccurs="unbounded"
+                                 type="din91379:datatypeC">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Element können prägnante, den Inhalt der Entscheidung besonders kennzeichnende Begriffe, übermittelt werden.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="weitereSachgebiete"
+                                 minOccurs="0"
+                                 maxOccurs="unbounded"
+                                 type="din91379:datatypeC">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Element können zusätzlich zu den in den Grunddaten für das erkennende Gericht angegeben Sachgebieten weitere Sachgebiete bzw. Zählkartenordnung angegeben werden.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="leitsatz" minOccurs="0">
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="titelzeile" minOccurs="0" type="din91379:datatypeC">
+                                 <xs:annotation>
+                                    <xs:documentation>In diesem Element kann die Titelzeile des Leitsatzes der Entscheidung übermittelt werden.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="amtlicherLeitsatz" minOccurs="0" type="din91379:datatypeC">
+                                 <xs:annotation>
+                                    <xs:documentation>In diesem Element kann der amtliche Leitsatz der Entscheidung übermittelt werden.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="kurztext" minOccurs="0">
+                        <xs:annotation>
+                           <xs:documentation>In dieser Sequenz können Angaben zu den nichtamtlichen Leitsätzen bzw. Orientierungssätzen und sonstigen gerichtsspezifischen Anmerkungen zur Entscheidung übermittelt werden.</xs:documentation>
+                        </xs:annotation>
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="nichtamtlicherLeitsatz"
+                                          minOccurs="0"
+                                          type="din91379:datatypeC">
+                                 <xs:annotation>
+                                    <xs:documentation>In diesem Element können die nichtamtlichen Leitsätze bzw. Orientierungssätze übermittelt werden.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="gerichtsspezifischeAnmerkungen"
+                                          minOccurs="0"
+                                          type="din91379:datatypeC">
+                                 <xs:annotation>
+                                    <xs:documentation>In diesem Element können sonstige gerichtsspezifische Anmerkungen übermittelt werden.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="zitate" minOccurs="0" maxOccurs="unbounded">
+                        <xs:annotation>
+                           <xs:documentation>In dieser Sequenz können die in Bezug genommenen Entscheidungen übermittelt werden.</xs:documentation>
+                        </xs:annotation>
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="art" type="tns:Code.GDS.Zitatart.Typ3">
+                                 <xs:annotation>
+                                    <xs:documentation>In diesem Element ist der Wert auszuwählen, der das Verhältnis der zitierten Entscheidung zu dieser Entscheidung beschreibt.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="auswahl_ecli.gericht">
+                                 <xs:annotation>
+                                    <xs:documentation>In diesem Element ist auszuwählen, ob für das Gericht, dessen Entscheidung zitiert werden soll, der ECLI verwendet werden soll oder die jeweiligen Angaben (Gericht/StA, Datum, Aktenzeichen) gesondert übermittelt werden sollen.</xs:documentation>
+                                 </xs:annotation>
+                                 <xs:complexType>
+                                    <xs:choice>
+                                       <xs:element name="ecli" type="din91379:datatypeC">
+                                          <xs:annotation>
+                                             <xs:documentation>In diesem Element ist der ECLI der zitierten Entscheidung zu übermitteln.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                       <xs:element name="gericht">
+                                          <xs:complexType>
+                                             <xs:sequence>
+                                                <xs:element name="gericht.StA" type="tns:Code.GDS.Gerichte.Typ3"/>
+                                                <xs:element name="datum" minOccurs="0" type="xs:date">
+                                                   <xs:annotation>
+                                                      <xs:documentation>In diesem Element kann, falls bekannt, das Datum der zitierenden Entscheidung angegeben werden.</xs:documentation>
+                                                   </xs:annotation>
+                                                </xs:element>
+                                                <xs:element name="aktenzeichen" minOccurs="0" type="din91379:datatypeC">
+                                                   <xs:annotation>
+                                                      <xs:documentation>In diesem Element kann das Aktenzeichen der zitierenden Entscheidung angegeben werden.</xs:documentation>
+                                                   </xs:annotation>
+                                                </xs:element>
+                                             </xs:sequence>
+                                          </xs:complexType>
+                                       </xs:element>
+                                    </xs:choice>
+                                 </xs:complexType>
+                              </xs:element>
+                              <xs:element name="fundstelle" minOccurs="0" type="tns:Type.GDS.Fundstelle">
+                                 <xs:annotation>
+                                    <xs:documentation>In dieser Sequenz kann die Fundstelle der zitierten Entscheidung übermittelt werden.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="veroeffentlichung" minOccurs="0" maxOccurs="unbounded">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Element kann angegeben werden, ob die Entscheidung veröffentlicht wurde oder werden soll.</xs:documentation>
+                        </xs:annotation>
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="auswahl_veroeffentlichung">
+                                 <xs:complexType>
+                                    <xs:choice>
+                                       <xs:element name="beabsichtigt" fixed="true" type="xs:boolean">
+                                          <xs:annotation>
+                                             <xs:documentation>In diesem Element ist der Wert "true" anzugeben, wenn die Veröffentlichung beabsichtigt ist.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                       <xs:element name="fundstelle" type="tns:Type.GDS.Fundstelle">
+                                          <xs:annotation>
+                                             <xs:documentation>Sofern die Veröffentlichung der Entscheidung erfolgt ist, ist in dieser Sequenz die Fundstelle zu übermitteln.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                    </xs:choice>
+                                 </xs:complexType>
+                              </xs:element>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="rechtskraeftig" minOccurs="0">
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="rechtskraeftig" fixed="true" type="xs:boolean">
+                                 <xs:annotation>
+                                    <xs:documentation>Mit diesem Element wird angegeben, dass die Entscheidung bereits rechtskräftig ist.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="zustelldatum" minOccurs="0" maxOccurs="unbounded">
+                                 <xs:complexType>
+                                    <xs:sequence>
+                                       <xs:element name="datum" type="xs:date"/>
+                                       <xs:element name="empfaenger" type="tns:Type.GDS.Ref.Rollennummer"/>
+                                    </xs:sequence>
+                                 </xs:complexType>
+                              </xs:element>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="parallelentscheidung" minOccurs="0" maxOccurs="unbounded">
+                        <xs:annotation>
+                           <xs:documentation>In dieser Sequenz kann angegeben werden, ob eine und welche parallele Entscheidung in einer anderen Rechtssache ergangen ist.</xs:documentation>
+                        </xs:annotation>
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="auswahl_vollstaendig.teilweise" minOccurs="0">
+                                 <xs:complexType>
+                                    <xs:choice>
+                                       <xs:element name="vollstaendigeParallelentscheidung"
+                                                   fixed="true"
+                                                   type="xs:boolean">
+                                          <xs:annotation>
+                                             <xs:documentation>Dieses Element ist auszuwählen, falls es sich um eine vollständige Parallelentscheidung handelt.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                       <xs:element name="teilweiseParallelentscheidung" fixed="true" type="xs:boolean">
+                                          <xs:annotation>
+                                             <xs:documentation>Dieses Element ist auszuwählen, falls es sich um eine teilweise Parallelentscheidung handelt.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                    </xs:choice>
+                                 </xs:complexType>
+                              </xs:element>
+                              <xs:element name="aktenzeichen" minOccurs="0" type="din91379:datatypeC">
+                                 <xs:annotation>
+                                    <xs:documentation>In diesem Element kann das Aktenzeichen der Parallelentscheidung angegeben werden.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="inhalt" minOccurs="0">
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="anonymisiert" minOccurs="0">
+                                 <xs:complexType>
+                                    <xs:sequence>
+                                       <xs:element name="anonymisiert" fixed="true" type="xs:boolean">
+                                          <xs:annotation>
+                                             <xs:documentation>In diesem Element ist der Wert 'true' anzugeben, wenn die Inhalte des Urteils anonymisiert wurden.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                       <xs:element name="anonymisiertWie" minOccurs="0" type="din91379:datatypeC">
+                                          <xs:annotation>
+                                             <xs:documentation>In diesem Element kann angegeben werden, wie die Inhalte des Urteils anonymisiert wurden.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                    </xs:sequence>
+                                 </xs:complexType>
+                              </xs:element>
+                              <xs:element name="pseudonymisiert" minOccurs="0">
+                                 <xs:complexType>
+                                    <xs:sequence>
+                                       <xs:element name="pseudonymisiert" fixed="true" type="xs:boolean">
+                                          <xs:annotation>
+                                             <xs:documentation>In diesem Element ist der Wert 'true' anzugeben, wenn die Inhalte des Urteils pseudonymisiert wurden.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                       <xs:element name="pseudonymisiertWie" minOccurs="0" type="din91379:datatypeC">
+                                          <xs:annotation>
+                                             <xs:documentation>In diesem Element kann angegeben werden, wie die Inhalte des Urteils pseudonymisiert wurden.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                    </xs:sequence>
+                                 </xs:complexType>
+                              </xs:element>
+                              <xs:element name="auswahl_inhalt">
+                                 <xs:complexType>
+                                    <xs:choice>
+                                       <xs:element name="schriftgut" type="tns:Type.GDS.Ref.SGO">
+                                          <xs:annotation>
+                                             <xs:documentation>Dieses Element ist zu verwenden, wenn das Urteil als elektronisches Schriftgut im PDF-Format übermittelt werden soll.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                       <xs:element name="strukturiert">
+                                          <xs:annotation>
+                                             <xs:documentation>Dieses Element ist zu verwenden, wenn das Urteil in strukturierter Form übermittelt werden soll.</xs:documentation>
+                                          </xs:annotation>
+                                          <xs:complexType>
+                                             <xs:sequence>
+                                                <xs:element name="tenor" type="din91379:datatypeC">
+                                                   <xs:annotation>
+                                                      <xs:documentation>In diesem Element ist der Tenor in Textform zu übermitteln.</xs:documentation>
+                                                   </xs:annotation>
+                                                </xs:element>
+                                                <xs:element name="tatbestand.gruende"
+                                                            minOccurs="0"
+                                                            maxOccurs="unbounded"
+                                                            type="tns:Type.GDS.Urteil.Inhalt">
+                                                   <xs:annotation>
+                                                      <xs:documentation>Dieses Element wird verwendet, um den Tatbestand und die Gründe in strukturierter Form zu übermitteln. Um den Tatbestand und die Gründe jeweils inhaltlich gliedern zu können, soll der Datentyp mehrfach verwendet werden. So sollen einzelne Textsegmente jeweils gesondert angegeben werden.</xs:documentation>
+                                                   </xs:annotation>
+                                                </xs:element>
+                                             </xs:sequence>
+                                          </xs:complexType>
+                                       </xs:element>
+                                    </xs:choice>
+                                 </xs:complexType>
+                              </xs:element>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                  </xs:sequence>
+               </xs:complexType>
+            </xs:element>
+         </xs:sequence>
+      </xs:complexType>
+   </xs:element>
+</xs:schema>

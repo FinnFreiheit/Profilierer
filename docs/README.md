@@ -7,7 +7,7 @@ Zentraler Einstieg in die Entwickler- und Architekturdokumentation. Der **XJusti
 | Dokument | Wann lesen? |
 |---|---|
 | [Architektur](architecture.md) | Big Picture: Schichten, Signals-Store, Komponentenbaum, Datenfluss (Mermaid) |
-| [Services](services.md) | Was macht welcher der 13 Services, welche Kernmethoden |
+| [Services](services.md) | Was macht welcher der 14 Services, welche Kernmethoden |
 | [Datenmodell](data-model.md) | Interfaces, Store-Signale, die pfad-indizierten Profil-Maps |
 | [Komponenten](components.md) | Feature-Komponenten mit Inputs/Outputs und Verantwortung |
 | [Glossar](glossary.md) | ERV-/XJustiz-Fachbegriffe (XJustiz, Codeliste, Schematron, Ausprägung …) |

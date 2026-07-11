@@ -20,8 +20,12 @@ export class Topbar {
   readonly instanceFile = output<File>();
   readonly xrepClick = output<void>();
   readonly diffClick = output<void>();
+  /** Wechsel auf eine hinterlegte Schemaversion (dir aus dem Manifest). */
+  readonly bundledPick = output<string>();
 
   protected readonly hasIdx = computed(() => !!this.state.idx());
+  protected readonly bundledVersions = computed(() => this.state.bundledVersions());
+  protected readonly activeBundle = computed(() => this.state.activeBundle());
   protected readonly diffLabel = computed(() => {
     const b = this.state.idxB();
     return b ? `Diff ${this.state.version() || '?'} ↔ ${b.version || '?'}` : 'Version vergleichen…';
@@ -40,6 +44,11 @@ export class Topbar {
 
   protected pick(input: HTMLInputElement): void {
     input.click();
+  }
+
+  protected onBundled(e: Event): void {
+    const dir = (e.target as HTMLSelectElement).value;
+    if (dir) this.bundledPick.emit(dir);
   }
 
   protected onXsd(e: Event): void {

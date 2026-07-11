@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://www.xjustiz.de"
+           xmlns:din91379="urn:xoev-de:kosit:xoev:datentyp:din-91379_2022-08"
+           targetNamespace="http://www.xjustiz.de"
+           version="1.0.0"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+   <xs:annotation>
+      <xs:appinfo>
+         <standard>
+            <nameLang>Strukturierte Fachdaten für die Kommunikation im elektronischen Rechtsverkehr</nameLang>
+            <nameKurz>XJustiz</nameKurz>
+            <nameTechnisch>xjustiz</nameTechnisch>
+            <kennung>urn:xoev-de:blk-ag-it-standards:standard:xjustiz</kennung>
+            <beschreibung>XJustiz ist der bundesweit einheitliche Standard für den Austausch strukturierter elektronischer Informationen mit der Justiz.</beschreibung>
+         </standard>
+         <versionStandard>
+            <version>4.0.0</version>
+            <beschreibung>XJustiz beschreibt ein standardisiertes Datenaustauschformat für die elektronische Kommunikation innerhalb und mit der Justizverwaltung.</beschreibung>
+            <versionXOEVProfil>3.0.2</versionXOEVProfil>
+            <versionXOEVHandbuch>3.0.2</versionXOEVHandbuch>
+            <versionXGenerator>3.2.3</versionXGenerator>
+            <versionModellierungswerkzeug>2021x</versionModellierungswerkzeug>
+            <nameModellierungswerkzeug>MagicDraw</nameModellierungswerkzeug>
+         </versionStandard>
+      </xs:appinfo>
+   </xs:annotation>
+   <xs:include schemaLocation="xjustiz_0000_grunddatensatz_4_0.xsd"/>
+   <xs:import schemaLocation="din-norm-91379-datatypes.xsd"
+              namespace="urn:xoev-de:kosit:xoev:datentyp:din-91379_2022-08"/>
+   <xs:element name="nachricht.nachlass.erbschein.3700001">
+      <xs:annotation>
+         <xs:documentation>Mit dieser Nachricht kann beim zuständigen Nachlassgericht ein Erbschein beantragt werden.</xs:documentation>
+      </xs:annotation>
+      <xs:complexType>
+         <xs:sequence>
+            <xs:element name="nachrichtenkopf" type="tns:Type.GDS.Nachrichtenkopf"/>
+            <xs:element name="grunddaten" type="tns:Type.GDS.Grunddaten"/>
+            <xs:element name="schriftgutobjekte"
+                        minOccurs="0"
+                        type="tns:Type.GDS.Schriftgutobjekte"/>
+            <xs:element name="fachdaten">
+               <xs:complexType>
+                  <xs:sequence>
+                     <xs:element name="antragsgrund" minOccurs="0" type="din91379:datatypeC">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Element kann angegeben werden, wofür der Erbschein benötigt wird.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="anzahlEheschliessungen"
+                                 minOccurs="0"
+                                 type="xs:positiveInteger">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Element kann die Anzahl der Eheschließungen des Erblassers übermittelt werden.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="letzteEhe" minOccurs="0">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Element können Angaben zur letzten Ehe des Erblasser übermittelt werden.</xs:documentation>
+                        </xs:annotation>
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="heirat.lebenspartnerschaft"
+                                          minOccurs="0"
+                                          type="tns:Type.GDS.Heirat.Lebenspartnerschaft"/>
+                              <xs:element name="eheaufloesung"
+                                          minOccurs="0"
+                                          type="tns:Type.GDS.Eheaufloesung"/>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="adoptiert"
+                                 minOccurs="0"
+                                 maxOccurs="unbounded"
+                                 type="tns:Type.GDS.Ref.Rollennummer">
+                        <xs:annotation>
+                           <xs:documentation>Sollten erbfolgerelevanen Personen adoptiert worden sein, soll dies in diesem Element übermittelt werden. Hierzu wird die Rollennummer der Personen, die in den Grunddaten vergeben wurde, angegeben.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="geburtErbeErwartet"
+                                 minOccurs="0"
+                                 maxOccurs="unbounded"
+                                 type="din91379:datatypeC">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Element ist anzugeben, ob die Geburt eines Kindes zu erwarten ist. In diesem Fall ist der Name der Mutter anzugeben.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="betreuungsverfahrenAnhaengig" minOccurs="0">
+                        <xs:annotation>
+                           <xs:documentation>Dieses Element ist anzugeben, wenn für den Erblasser ein Betreuungsverfahren anhängig ist. Dabei ist das Gericht, bei dem es anhängig ist und das Aktenzeichen des Verfahrens anzugeben.</xs:documentation>
+                        </xs:annotation>
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="amtsgericht" type="tns:Code.GDS.Gerichte.Typ3"/>
+                              <xs:element name="aktenzeichen" type="din91379:datatypeC"/>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="verfuegungVonTodesWegen" minOccurs="0">
+                        <xs:annotation>
+                           <xs:documentation>Sofern eine Verfügung von Todes wegen vorliegt, werden in diesem Element die Informationen hierzu übermittelt.</xs:documentation>
+                        </xs:annotation>
+                        <xs:complexType>
+                           <xs:sequence>
+                              <xs:element name="artDerVerfuegungVonTodesWegen"
+                                          type="tns:Code.GDS.ArtDerVerfuegungVonTodesWegen.Typ3">
+                                 <xs:annotation>
+                                    <xs:documentation>In diesem Element ist anzugeben, um welche Art der Verfügung von Todes wegen es sich handelt.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="liegenDemNachlassgerichtVor"
+                                          minOccurs="0"
+                                          fixed="true"
+                                          type="xs:boolean">
+                                 <xs:annotation>
+                                    <xs:documentation>In diesem Element ist anzugeben, ob die Verfügung von Todes dem Nachlassgericht vorliegt.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                              <xs:element name="sindBeigefuegt"
+                                          minOccurs="0"
+                                          fixed="true"
+                                          type="xs:boolean"/>
+                              <xs:element name="auswahl_verwahrung">
+                                 <xs:annotation>
+                                    <xs:documentation>Sollte eine erbfolgerelevante Urkunde vorliegen, wird in diesem Element mitgeteilt, ob sie persönlich oder als Urkunde verwahrt wird.</xs:documentation>
+                                 </xs:annotation>
+                                 <xs:complexType>
+                                    <xs:choice>
+                                       <xs:element name="verwahrungPersoenlich">
+                                          <xs:annotation>
+                                             <xs:documentation>Diese Auswahl ist zu verwenden, wenn die Verfügung von Todes wegen persönlich verwahrt wird.</xs:documentation>
+                                          </xs:annotation>
+                                          <xs:complexType>
+                                             <xs:sequence>
+                                                <xs:element name="ort" type="din91379:datatypeC">
+                                                   <xs:annotation>
+                                                      <xs:documentation>In diesem Element ist anzugeben, an welchem Ort die Verfügung von Todes wegen verwahrt ist.</xs:documentation>
+                                                   </xs:annotation>
+                                                </xs:element>
+                                                <xs:element name="datum" minOccurs="0" type="xs:date">
+                                                   <xs:annotation>
+                                                      <xs:documentation>In diesem Element ist anzugeben, zu welchem Zeitpunkt die Verfügung von Todes wegen verfasst wurde.</xs:documentation>
+                                                   </xs:annotation>
+                                                </xs:element>
+                                             </xs:sequence>
+                                          </xs:complexType>
+                                       </xs:element>
+                                       <xs:element name="verwahrungUrkunde"
+                                                   type="tns:Type.GDS.Verwahrung.ErbfolgerelevanteUrkunde"/>
+                                    </xs:choice>
+                                 </xs:complexType>
+                              </xs:element>
+                              <xs:element name="genanntePersonenInVerfuegung"
+                                          minOccurs="0"
+                                          maxOccurs="unbounded">
+                                 <xs:annotation>
+                                    <xs:documentation>Hiermit können die in der/ den Verfügung von Todes wegen genannten Personen (lebende und bereits verstorbene) aufgeführt werden.</xs:documentation>
+                                 </xs:annotation>
+                                 <xs:complexType>
+                                    <xs:sequence>
+                                       <xs:element name="ref.person" type="tns:Type.GDS.Ref.Rollennummer">
+                                          <xs:annotation>
+                                             <xs:documentation>In diesem Element wird auf eine Rollennummer der in den Grunddaten angegebenen Person referenziert, die in der Verfügung von Todes wegen genannt ist.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                       <xs:element name="erbanteil" minOccurs="0" type="din91379:datatypeC">
+                                          <xs:annotation>
+                                             <xs:documentation>In diesem Element kann der Erbanteil der Person angegeben werden.</xs:documentation>
+                                          </xs:annotation>
+                                       </xs:element>
+                                    </xs:sequence>
+                                 </xs:complexType>
+                              </xs:element>
+                              <xs:element name="bereitsEroeffnet"
+                                          minOccurs="0"
+                                          fixed="true"
+                                          type="xs:boolean">
+                                 <xs:annotation>
+                                    <xs:documentation>In diesem Element kann angegeben werden, ob die Verfügung von Todes wegen beim Nachlassgericht eröffnet wurde.</xs:documentation>
+                                 </xs:annotation>
+                              </xs:element>
+                           </xs:sequence>
+                        </xs:complexType>
+                     </xs:element>
+                     <xs:element name="rechtsstreitErbeAnhaengig"
+                                 minOccurs="0"
+                                 type="tns:Code.GDS.Gerichte.Typ3">
+                        <xs:annotation>
+                           <xs:documentation>Sofern ein Rechtsstreit in der Erbsache anhängig ist, ist hier das befasste Gericht anzugeben.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                     <xs:element name="sonstiges"
+                                 minOccurs="0"
+                                 maxOccurs="unbounded"
+                                 type="din91379:datatypeC">
+                        <xs:annotation>
+                           <xs:documentation>In diesem Element können weitere Angaben, jeweils auch gesondert, die im Rahmen der Antragsstellung relevant sind, angegeben werden, z.B. eine Vermögensübersicht.</xs:documentation>
+                        </xs:annotation>
+                     </xs:element>
+                  </xs:sequence>
+               </xs:complexType>
+            </xs:element>
+         </xs:sequence>
+      </xs:complexType>
+   </xs:element>
+</xs:schema>

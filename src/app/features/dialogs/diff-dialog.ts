@@ -3,7 +3,9 @@ import { StateService } from '../../core/services/state.service';
 import { DiffService } from '../../core/services/diff.service';
 import { NavService } from '../../core/services/nav.service';
 import { ToastService } from '../../core/services/toast.service';
+import { BundledSchemaService } from '../../core/services/bundled-schema.service';
 import { DiffEntry, DiffResult } from '../../models/diff.model';
+import { BundledVersion } from '../../models/schema-bundle.model';
 import { pretty } from '../../core/util/pretty.util';
 
 export const DIFF_FARBEN: Record<string, string> = { neu: '#1e7d3e', entfernt: '#b23a3a', 'geändert': '#8a6d0b' };
@@ -23,9 +25,16 @@ export class DiffDialog {
   private readonly diff = inject(DiffService);
   private readonly nav = inject(NavService);
   private readonly toast = inject(ToastService);
+  private readonly bundled = inject(BundledSchemaService);
   private readonly dlg = viewChild.required<ElementRef<HTMLDialogElement>>('dlg');
 
   readonly loadOther = output<void>();
+
+  protected readonly hasIdxB = computed(() => !!this.state.idxB());
+  /** Hinterlegte Versionen als Vergleich — ohne die aktuell aktive Primaerversion. */
+  protected readonly bundledOptions = computed(() =>
+    this.state.bundledVersions().filter((v) => v.dir !== this.state.activeBundle()),
+  );
 
   protected readonly farben = DIFF_FARBEN;
   protected readonly sym = DIFF_SYM;
@@ -57,11 +66,25 @@ export class DiffDialog {
 
   open(): void {
     this.result.set(this.diff.computeDiff());
-    this.dlg().nativeElement.showModal();
+    const d = this.dlg().nativeElement;
+    if (!d.open) d.showModal();
   }
 
   protected close(): void {
     this.dlg().nativeElement.close();
+  }
+
+  /** Hinterlegte Version als Vergleichsschema laden und Diff aktualisieren. */
+  protected async pickBundled(v: BundledVersion): Promise<void> {
+    try {
+      const files = await this.bundled.files(v);
+      const ok = await this.diff.loadXsdB(files);
+      if (ok) this.open();
+    } catch (e) {
+      this.toast.show(
+        `XJustiz ${v.label} konnte nicht geladen werden: ` + (e instanceof Error ? e.message : e),
+      );
+    }
   }
 
   protected pretty(name: string): string {

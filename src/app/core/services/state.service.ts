@@ -11,6 +11,7 @@ import { TreeItem, TreeNode, itemPath } from '../../models/node.model';
 import { Codelist } from '../../models/codelist.model';
 import { DiffAnc, DiffEntry } from '../../models/diff.model';
 import { XsdDoc, XsdIndex } from '../../models/xsd-index.model';
+import { BundledVersion } from '../../models/schema-bundle.model';
 import { newProfile } from '../profile-defaults';
 import { pretty } from '../util/pretty.util';
 import { REF_TARGETS } from '../refs';
@@ -33,6 +34,11 @@ export class StateService {
   readonly standardKennung = signal('');
   readonly msgName = signal<string | null>(null);
   readonly root = signal<TreeNode | null>(null);
+
+  /** Im Projekt hinterlegte Schemaversionen (public/schemas/, aus dem Manifest). */
+  readonly bundledVersions = signal<BundledVersion[]>([]);
+  /** dir der aktuell als Primaerschema geladenen hinterlegten Version (null = Ordner-Upload). */
+  readonly activeBundle = signal<string | null>(null);
 
   // ── Profil (frueher S.profile) ──────────────────────────────────────
   readonly meta = signal<ProfileMeta>({});
