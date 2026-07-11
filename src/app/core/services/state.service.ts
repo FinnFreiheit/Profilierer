@@ -46,6 +46,12 @@ export class StateService {
   readonly elemente = signal<Record<string, ElementProfile>>({});
   readonly auspraegungen = signal<Record<string, Auspraegung[]>>({});
 
+  // ── Ansicht / Bibliothek ────────────────────────────────────────────
+  /** Dashboard (Bibliothek) vs. Baum-Editor. Startseite ist das Dashboard. */
+  readonly view = signal<'dashboard' | 'editor'>('dashboard');
+  /** id des aktuell bearbeiteten Bibliothekseintrags (Ziel des Autosave). */
+  readonly activeProfileId = signal<string | null>(null);
+
   // ── UI-Zustand ──────────────────────────────────────────────────────
   readonly selItem = signal<TreeItem | null>(null);
   readonly open = signal<ReadonlySet<string>>(new Set());

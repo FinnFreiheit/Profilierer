@@ -1,59 +1,70 @@
-<!-- Shell. Legende folgt in P7. -->
-<input #xsdBInput type="file" webkitdirectory multiple class="hidden" (change)="onXsdB($event, diffDlg)" />
+<!-- Shell: Dashboard (Bibliothek) als Startseite, sonst der Baum-Editor. -->
+@if (view() === 'editor') {
+  <input
+    #xsdBInput
+    type="file"
+    webkitdirectory
+    multiple
+    class="hidden"
+    (change)="onXsdB($event, diffDlg)"
+  />
 
-<app-topbar
-  (xsdFiles)="onXsdFiles($event)"
-  (codelistFiles)="onCodelistFiles($event)"
-  (profileFile)="persistence.loadProfileFile($event)"
-  (instanceFile)="onInstanceFile($event)"
-  (xrepClick)="onXrep()"
-  (diffClick)="onDiff(diffDlg, xsdBInput)"
-  (bundledPick)="loadBundled($event)"
-></app-topbar>
+  <app-topbar
+    (homeClick)="goDashboard()"
+    (xsdFiles)="onXsdFiles($event)"
+    (codelistFiles)="onCodelistFiles($event)"
+    (profileFile)="persistence.loadProfileFile($event)"
+    (instanceFile)="onInstanceFile($event)"
+    (xrepClick)="onXrep()"
+    (diffClick)="onDiff(diffDlg, xsdBInput)"
+    (bundledPick)="loadBundled($event)"
+  ></app-topbar>
 
-<app-toolbar
-  (metaClick)="metaDlg.open()"
-  (statusClick)="statusDlg.open()"
-  (saveClick)="persistence.saveProfile()"
-  (excelClick)="exporter.exportExcel()"
-  (schClick)="exporter.exportSchematron()"
-  (xmlClick)="exporter.genBeispielXml()"
-  (printClick)="printDoc.print()"
-></app-toolbar>
+  <app-toolbar
+    (metaClick)="metaDlg.open()"
+    (statusClick)="statusDlg.open()"
+    (saveClick)="persistence.saveProfile()"
+    (excelClick)="exporter.exportExcel()"
+    (schClick)="exporter.exportSchematron()"
+    (xmlClick)="exporter.genBeispielXml()"
+    (printClick)="printDoc.print()"
+  ></app-toolbar>
 
-<app-crumbs></app-crumbs>
+  <app-crumbs></app-crumbs>
 
-<div id="main" appFileDrop (filesDropped)="onDropped($event)">
-  <div id="colWrap">
-    @if (hasRoot()) {
-      <app-tree-canvas></app-tree-canvas>
-    } @else {
-      <div id="empty">
-        <div class="big">§ ⇄ &lt;/&gt;</div>
-        <h2>XJustiz-Nachrichten visualisieren und profilieren</h2>
-        <p>
-          Die Nachricht wird als Kasten-Kaskade von links nach rechts dargestellt —
-          jeder Schritt bleibt sichtbar. Für ein Kommunikationsszenario wird der Standard eingegrenzt:
-          Status je Element, Kardinalitäten, Codelisten-Werte, benannte Ausprägungen wiederholbarer
-          Elemente (z. B. mehrere Beteiligte mit unterschiedlichen Rollen), Anmerkungen und Beispielwerte.
-        </p>
-        <ol>
-          <li><b>XSD-Ordner laden</b> — Ordner mit den XJustiz-Schemadateien wählen</li>
-          <li><b>Nachricht wählen</b> — z. B. <code>nachricht.enova.entscheidung.2900003</code></li>
-          <li><b>Profilieren</b> — Kästen anklicken, rechts entscheiden</li>
-          <li><b>Exportieren</b> — Profil, Excel, Schematron, Beispiel-XML, Druck</li>
-        </ol>
-      </div>
-    }
+  <div id="main" appFileDrop (filesDropped)="onDropped($event)">
+    <div id="colWrap">
+      @if (hasRoot()) {
+        <app-tree-canvas></app-tree-canvas>
+      } @else {
+        <div id="empty">
+          <div class="big">§ ⇄ &lt;/&gt;</div>
+          <h2>XJustiz-Nachrichten visualisieren und profilieren</h2>
+          <p>
+            Die Nachricht wird als Kasten-Kaskade von links nach rechts dargestellt —
+            jeder Schritt bleibt sichtbar. Für ein Kommunikationsszenario wird der Standard eingegrenzt:
+            Status je Element, Kardinalitäten, Codelisten-Werte, benannte Ausprägungen wiederholbarer
+            Elemente (z. B. mehrere Beteiligte mit unterschiedlichen Rollen), Anmerkungen und Beispielwerte.
+          </p>
+          <ol>
+            <li><b>Nachricht wählen</b> — z. B. <code>nachricht.enova.entscheidung.2900003</code></li>
+            <li><b>Profilieren</b> — Kästen anklicken, rechts entscheiden</li>
+            <li><b>Exportieren</b> — Profil, Excel, Schematron, Beispiel-XML, Druck</li>
+          </ol>
+        </div>
+      }
+    </div>
+    <app-detail-panel></app-detail-panel>
   </div>
-  <app-detail-panel></app-detail-panel>
-</div>
 
-<app-legend></app-legend>
-<app-print-doc #printDoc></app-print-doc>
+  <app-legend></app-legend>
+  <app-print-doc #printDoc></app-print-doc>
+
+  <app-status-dialog #statusDlg></app-status-dialog>
+  <app-meta-dialog #metaDlg></app-meta-dialog>
+  <app-diff-dialog #diffDlg (loadOther)="xsdBInput.click()"></app-diff-dialog>
+} @else {
+  <app-dashboard></app-dashboard>
+}
 
 <app-toast></app-toast>
-
-<app-status-dialog #statusDlg></app-status-dialog>
-<app-meta-dialog #metaDlg></app-meta-dialog>
-<app-diff-dialog #diffDlg (loadOther)="xsdBInput.click()"></app-diff-dialog>

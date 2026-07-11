@@ -14,10 +14,10 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('rendert die Kopfzeile', () => {
+  it('startet mit dem Dashboard und rendert dessen Kopfzeile', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('#topbar h1')?.textContent).toContain('Profilierer');
+    expect(compiled.querySelector('.dashHead h1')?.textContent).toContain('Profilierer');
   });
 });

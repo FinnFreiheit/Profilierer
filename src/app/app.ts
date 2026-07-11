@@ -11,6 +11,7 @@ import { Legend } from './features/legend/legend';
 import { PrintDoc } from './features/print/print-doc';
 import { Toast } from './shared/toast/toast';
 import { FileDropDirective } from './shared/file-drop.directive';
+import { Dashboard } from './features/dashboard/dashboard';
 import { PersistenceService } from './core/services/persistence.service';
 import { CodelistService } from './core/services/codelist.service';
 import { ExportService } from './core/services/export.service';
@@ -20,6 +21,7 @@ import { InstanceImportService } from './core/services/instance-import.service';
 import { ToastService } from './core/services/toast.service';
 import { StateService } from './core/services/state.service';
 import { BundledSchemaService } from './core/services/bundled-schema.service';
+import { ProfileStoreService } from './core/services/profile-store.service';
 
 @Component({
   selector: 'app-root',
@@ -38,6 +40,7 @@ import { BundledSchemaService } from './core/services/bundled-schema.service';
     PrintDoc,
     Toast,
     FileDropDirective,
+    Dashboard,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -52,8 +55,16 @@ export class App implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly state = inject(StateService);
   private readonly bundled = inject(BundledSchemaService);
+  private readonly store = inject(ProfileStoreService);
 
   protected readonly hasRoot = computed(() => !!this.state.root());
+  /** Dashboard (Bibliothek) vs. Baum-Editor. */
+  protected readonly view = computed(() => this.state.view());
+
+  /** Zurueck zur Uebersicht (Topbar-Button). */
+  protected goDashboard(): void {
+    this.state.view.set('dashboard');
+  }
 
   /**
    * Beim Start das Manifest der hinterlegten Schemata laden und die
@@ -62,6 +73,9 @@ export class App implements OnInit {
    * frueh geladenen Autosave), wird nicht ueberschrieben.
    */
   async ngOnInit(): Promise<void> {
+    // Einmalige Migration eines alten anonymen Autosave-Slots in die Bibliothek,
+    // damit ein frueherer Arbeitsstand als Karte im Dashboard erscheint.
+    this.store.migrateLegacyAutosave();
     try {
       const versions = await this.bundled.manifest();
       this.state.bundledVersions.set(versions);

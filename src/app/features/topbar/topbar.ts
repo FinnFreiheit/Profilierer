@@ -14,6 +14,8 @@ import { StateService } from '../../core/services/state.service';
 export class Topbar {
   private readonly state = inject(StateService);
 
+  /** Zurueck zur Dashboard-Uebersicht. */
+  readonly homeClick = output<void>();
   readonly xsdFiles = output<FileList>();
   readonly codelistFiles = output<FileList>();
   readonly profileFile = output<File>();

@@ -59,3 +59,24 @@ export interface ProfileDoc {
   elemente: Record<string, ElementProfile>;
   auspraegungen: Record<string, Auspraegung[]>;
 }
+
+/**
+ * Schlanke Zusammenfassung eines Profils fuer die Dashboard-Bibliothek
+ * (der Index `xjp.library.index`). Das komplette `ProfileDoc` liegt separat
+ * unter `xjp.library.doc.<id>` — so rendert das Dashboard ohne die
+ * (potenziell grossen) `elemente`-Maps zu deserialisieren.
+ */
+export interface LibraryEntry {
+  id: string;
+  name: string;
+  nachricht?: string | null;
+  xjustizVersion?: string;
+  /** Fortschritt-Snapshot: Elemente mit gesetztem Status. */
+  nStatus: number;
+  /** Fortschritt-Snapshot: Summe aller Auspraegungen. */
+  nAusp: number;
+  /** meta.gespeichert (fachliches Datum, YYYY-MM-DD). */
+  gespeichert?: string;
+  /** ms-Timestamp der letzten Schreibung (Sortierung im Dashboard). */
+  aktualisiert: number;
+}

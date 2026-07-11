@@ -161,6 +161,31 @@ textarea{width:100%;min-height:60px;resize:vertical}
 #empty h2{color:var(--text)}
 #empty ol{text-align:left;display:inline-block;line-height:2}
 
+/* Dashboard (Bibliothek der Profilierungen) */
+.homeBtn{font-size:12.5px}
+app-dashboard{flex:1;min-height:0;display:flex;flex-direction:column;overflow:auto}
+#dash{flex:1;padding:26px 28px}
+.dashHead{max-width:1120px;margin:0 auto 20px}
+.dashHead h1{font-size:20px;margin:0;font-weight:650}
+.dashHead h1 span{color:var(--accent)}
+.dashSub{color:var(--muted);margin:4px 0 14px}
+.dashActions{display:flex;gap:10px;flex-wrap:wrap}
+#dashGrid{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.dashCard{background:var(--panel);border:1.5px solid var(--border);border-radius:9px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;min-height:130px}
+.dashCard:hover{border-color:var(--accent);box-shadow:0 4px 14px rgba(0,0,0,.07)}
+.dcName{font-size:15px;font-weight:600;word-break:break-word}
+.dcMsg{font-family:var(--mono);font-size:12px;color:var(--muted);word-break:break-all}
+.dcMeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
+.dcProg{font-size:12px;color:var(--muted)}
+.dcFoot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:9px;border-top:1px solid var(--border)}
+.dcDate{font-size:11.5px;color:var(--muted);flex:none}
+.dcTools{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.dcTools button{padding:3px 7px;font-size:11.5px}
+.dcTools button.del:hover{background:#f9e9e9;color:#b23a3a;border-color:#e6c3c3}
+#dashEmpty{max-width:640px;margin:60px auto;text-align:center;color:var(--muted)}
+#dashEmpty .big{font-size:40px}
+#dashEmpty h2{color:var(--text)}
+
 dialog{border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.2);max-width:560px;width:90vw}
 dialog::backdrop{background:rgba(0,0,0,.25)}
 .metaGrid{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center}

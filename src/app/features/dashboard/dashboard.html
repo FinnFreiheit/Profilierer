@@ -1,0 +1,63 @@
+<div id="dash">
+  <div class="dashHead">
+    <h1><span>XJustiz</span> Profilierer</h1>
+    <p class="dashSub">Profilierungen — Kommunikationsszenarien für XJustiz-Nachrichten</p>
+    <div class="dashActions">
+      <button class="primary" (click)="createNew()">+ Neues Profil</button>
+      <input #imp type="file" accept=".json" class="hidden" (change)="onImport($event)" />
+      <button (click)="imp.click()">Profil aus Datei importieren…</button>
+    </div>
+  </div>
+
+  @if (store.entries().length) {
+    <div id="dashGrid">
+      @for (e of store.entries(); track e.id) {
+        <div class="dashCard" title="Öffnen und bearbeiten" (click)="open(e.id)">
+          <div class="dcName">{{ e.name || '(ohne Namen)' }}</div>
+          @if (e.nachricht) {
+            <div class="dcMsg">{{ e.nachricht }}</div>
+          }
+          <div class="dcMeta">
+            @if (e.xjustizVersion) {
+              <span class="pill">XJustiz {{ e.xjustizVersion }}</span>
+            }
+            <span class="dcProg">{{ fortschritt(e) }}</span>
+          </div>
+          <div class="dcFoot">
+            <span class="dcDate">{{ datum(e) }}</span>
+            <span class="dcTools">
+              <button title="Umbenennen" (click)="openRename(e.id, $event)">Umbenennen</button>
+              <button title="Als Kopie anlegen" (click)="duplicate(e.id, $event)">Kopie</button>
+              <button title="Als Datei exportieren" (click)="exportEntry(e.id, $event)">Export</button>
+              <button class="del" title="Löschen" (click)="remove(e.id, $event)">Löschen</button>
+            </span>
+          </div>
+        </div>
+      }
+    </div>
+  } @else {
+    <div id="dashEmpty">
+      <div class="big">§ ⇄ &lt;/&gt;</div>
+      <h2>Noch keine Profilierungen</h2>
+      <p>
+        Lege ein <b>neues Profil</b> an oder importiere eine bestehende
+        <code>.profil.json</code>-Datei.
+      </p>
+    </div>
+  }
+</div>
+
+<dialog #renameDlg id="renameDlg">
+  <h3 style="margin-top: 0">Profil umbenennen</h3>
+  <input
+    type="text"
+    style="width: 100%"
+    [value]="renName()"
+    (input)="renName.set($any($event.target).value)"
+    (keydown.enter)="submitRename()"
+  />
+  <div style="text-align: right; margin-top: 12px">
+    <button (click)="renameDlg.close()">Abbrechen</button>
+    <button class="primary" (click)="submitRename()">Übernehmen</button>
+  </div>
+</dialog>
