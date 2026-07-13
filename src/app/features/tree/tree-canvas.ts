@@ -12,6 +12,7 @@ import {
 import { TreeNode } from './tree-node';
 import { TreeService } from '../../core/services/tree.service';
 import { StateService } from '../../core/services/state.service';
+import { NavService } from '../../core/services/nav.service';
 import { itemPath } from '../../models/node.model';
 import { REF_TARGETS } from '../../core/refs';
 
@@ -24,13 +25,26 @@ interface PathSpec {
   markerEnd: string | null;
 }
 
+/** Herkunfts-Beschriftung auf einer langen Verbindungslinie (Name des Elternknotens). */
+interface LabelSpec {
+  x: number;
+  y: number;
+  text: string;
+  onP: boolean;
+  path: string;
+}
+
+/** Ab dieser horizontalen Linienlaenge (px) wird die Herkunft auf die Linie geschrieben. */
+const LABEL_MIN_LEN = 400;
+
 /**
  * Der scrollbare Baum-Bereich (#treeCanvas) mit dem SVG-Overlay der
  * Verbindungslinien. Deklarative Portierung von renderColumns/redrawLines
  * (Z.1066-1206): die Bezier-/Referenz-Geometrie wird nahezu unveraendert aus
  * DOM-Messungen berechnet und als PathSpec[] gerendert. Neuberechnung bei
  * Struktur-/Auswahl-/Profil-Aenderung (effect), bei Groessenaenderung
- * (ResizeObserver) und beim ersten Render (afterNextRender).
+ * (ResizeObserver) und beim ersten Render (afterNextRender). Zusaetzlich
+ * richtet `alignLeaves` alle Blaetter linksbuendig auf der tiefsten Spalte aus.
  */
 @Component({
   selector: 'app-tree-canvas',
@@ -41,10 +55,12 @@ interface PathSpec {
 export class TreeCanvas {
   private readonly tree = inject(TreeService);
   private readonly state = inject(StateService);
+  private readonly nav = inject(NavService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly rootItem = computed(() => this.tree.rootItem());
   protected readonly paths = signal<PathSpec[]>([]);
+  protected readonly labels = signal<LabelSpec[]>([]);
   protected readonly svgSize = signal<{ w: number; h: number }>({ w: 0, h: 0 });
 
   private rafId = 0;
@@ -102,12 +118,51 @@ export class TreeCanvas {
     return this.host.nativeElement.querySelector('#treeCanvas');
   }
 
+  /** Klick auf eine Herkunfts-Beschriftung: zum Elternknoten springen. */
+  protected onLabelClick(path: string, e: Event): void {
+    e.stopPropagation();
+    this.nav.jumpTo(path);
+  }
+
   private scheduleRedraw(): void {
     if (this.rafId) cancelAnimationFrame(this.rafId);
     this.rafId = requestAnimationFrame(() => {
       this.rafId = 0;
       this.redraw();
     });
+  }
+
+  /**
+   * Visuelle Anforderung: alle Blaetter auf dieselbe (tiefste) Spalte,
+   * linksbuendig. Echte Blaetter sind Boxen ohne Aufklapp-Button (`.togBtn`
+   * gibt es nur bei Knoten mit Kindern — eingeklappte Aeste zaehlen daher
+   * bewusst NICHT als Blatt). Jedes Blatt wird per `margin-left` bis zur
+   * linken Kante des am weitesten rechts liegenden Blatts geschoben; die
+   * Verbindungslinien folgen automatisch, da sie aus der DOM-Geometrie
+   * berechnet werden.
+   */
+  private alignLeaves(canvas: HTMLElement): void {
+    const boxes: HTMLElement[] = [];
+    for (const t of Array.from(canvas.querySelectorAll<HTMLElement>('.ntree'))) {
+      const box = t.children[0] as HTMLElement | undefined;
+      if (!box || !box.classList.contains('box')) continue;
+      box.style.marginLeft = ''; // vorherige Ausrichtung zuruecksetzen
+      boxes.push(box);
+    }
+    const leaves = boxes.filter((b) => !b.querySelector('.togBtn'));
+    if (leaves.length < 2) return;
+    // Natuerliche Positionen messen (nach dem Reset), dann buendig schieben.
+    let maxLeft = -Infinity;
+    const lefts = new Map<HTMLElement, number>();
+    for (const b of leaves) {
+      const l = b.getBoundingClientRect().left;
+      lefts.set(b, l);
+      if (l > maxLeft) maxLeft = l;
+    }
+    for (const b of leaves) {
+      const d = maxLeft - lefts.get(b)!;
+      if (d > 0.5) b.style.marginLeft = `${d}px`;
+    }
   }
 
   private onSelPath(p: string): boolean {
@@ -124,11 +179,15 @@ export class TreeCanvas {
       this.paths.set([]);
       return;
     }
+    // Blatt-Ausrichtung vor der Vermessung — schiebt Endknoten nach rechts,
+    // aendert damit scrollWidth und die Box-Geometrie der Verbindungslinien.
+    this.alignLeaves(canvas);
     const W = canvas.scrollWidth;
     const H = canvas.scrollHeight;
     this.svgSize.set({ w: W, h: H });
     const cr = canvas.getBoundingClientRect();
     const out: PathSpec[] = [];
+    const labelsOut: LabelSpec[] = [];
 
     // Eltern-Kind-Linien.
     for (const t of Array.from(canvas.querySelectorAll('.ntree'))) {
@@ -139,6 +198,7 @@ export class TreeCanvas {
       const fr = from.getBoundingClientRect();
       const x1 = fr.right - cr.left;
       const y1 = fr.top + Math.min(fr.height / 2, 22) - cr.top;
+      const fromName = (from.querySelector('.bname')?.textContent || '').trim();
       const targets = [
         ...Array.from(kids.querySelectorAll(':scope > .ntree > .box')),
         ...Array.from(kids.querySelectorAll(':scope > .box.addBox')),
@@ -149,15 +209,41 @@ export class TreeCanvas {
         const y2 = tr.top + Math.min(tr.height / 2, 22) - cr.top;
         const onP = !!to.dataset['path'] && this.onSelPath(to.dataset['path']!);
         const excl = to.classList.contains('excluded') || to.classList.contains('exclInherit');
-        const mx = x1 + (x2 - x1) * 0.5;
+        // Orthogonales Routing: gemeinsamer vertikaler "Bus" im Spalt hinter
+        // dem Elternknoten, dann gerade Horizontale auf Kindhoehe. Dadurch
+        // ueberlagern nach rechts ausgerichtete Blaetter keine anderen Boxen.
+        const busX = x1 + 20;
+        const dy = y2 - y1;
+        let d: string;
+        if (Math.abs(dy) < 0.5) {
+          d = `M ${x1} ${y1} H ${x2}`;
+        } else {
+          const s = Math.sign(dy);
+          const r = Math.min(8, Math.abs(dy) / 2, (x2 - busX) / 2);
+          d =
+            `M ${x1} ${y1} H ${busX - r} ` +
+            `Q ${busX} ${y1} ${busX} ${y1 + s * r} ` +
+            `V ${y2 - s * r} ` +
+            `Q ${busX} ${y2} ${busX + r} ${y2} ` +
+            `H ${x2}`;
+        }
         out.push({
-          d: `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`,
+          d,
           stroke: onP ? 'var(--accent)' : '#c3ccd8',
           width: onP ? '2.2' : '1.4',
           dash: excl ? '4 4' : null,
           opacity: null,
           markerEnd: null,
         });
+
+        // Herkunft auf lange Linien schreiben: bei weit nach rechts
+        // ausgerichteten Blaettern ist der Elternknoten sonst ausserhalb
+        // des Sichtfelds. Label knapp vor dem Blatt, auf der Linie.
+        const fromPath = from.dataset['path'];
+        if (fromName && fromPath && x2 - x1 > LABEL_MIN_LEN) {
+          const text = fromName.length > 30 ? fromName.slice(0, 29) + '…' : fromName;
+          labelsOut.push({ x: x2 - 10, y: y2, text: '‹ ' + text, onP, path: fromPath });
+        }
       }
     }
 
@@ -223,5 +309,6 @@ export class TreeCanvas {
     }
 
     this.paths.set(out);
+    this.labels.set(labelsOut);
   }
 }

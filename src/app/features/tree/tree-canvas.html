@@ -25,6 +25,20 @@
         [attr.marker-end]="p.markerEnd"
       />
     }
+    @for (l of labels(); track $index) {
+      <text
+        class="lineLabel"
+        [class.onPath]="l.onP"
+        [attr.x]="l.x"
+        [attr.y]="l.y"
+        text-anchor="end"
+        dominant-baseline="middle"
+        (click)="onLabelClick(l.path, $event)"
+      >
+        <title>Zu „{{ l.text.slice(2) }}" springen</title>
+        {{ l.text }}
+      </text>
+    }
   </svg>
 
   @if (rootItem(); as r) {
