@@ -62,7 +62,8 @@ input[type=text]:focus,textarea:focus{outline:2px solid var(--accent-soft);borde
 .crumbSep{color:var(--muted)}
 #main{flex:1;display:flex;min-height:0}
 #colWrap{flex:1;overflow:auto;min-width:0;position:relative}
-#treeCanvas{position:relative;padding:14px 40px 40px 16px;min-width:max-content}
+#treeCanvas{position:relative;padding:14px 40px 40px 16px;min-width:max-content;cursor:grab}
+#treeCanvas.panning{cursor:grabbing;user-select:none}
 #linkSvg{position:absolute;top:0;left:0;pointer-events:none;z-index:0}
 #linkSvg .lineLabel{font-size:10.5px;fill:var(--muted);paint-order:stroke;stroke:var(--bg);stroke-width:3.5px;stroke-linejoin:round;pointer-events:all;cursor:pointer}
 #linkSvg .lineLabel.onPath{fill:var(--accent);font-weight:600}

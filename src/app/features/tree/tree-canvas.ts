@@ -67,6 +67,7 @@ export class TreeCanvas {
 
   private rafId = 0;
   private ro?: ResizeObserver;
+  private teardownPan?: () => void;
 
   constructor() {
     // Struktur-/Auswahl-/Profil-/Ansichts-Aenderungen -> Neuberechnung.
@@ -90,12 +91,14 @@ export class TreeCanvas {
         this.ro = new ResizeObserver(() => this.scheduleRedraw());
         this.ro.observe(canvas);
       }
+      if (canvas) this.setupPan(canvas);
       this.scheduleRedraw();
     });
 
     inject(DestroyRef).onDestroy(() => {
       this.ro?.disconnect();
       if (this.rafId) cancelAnimationFrame(this.rafId);
+      this.teardownPan?.();
     });
 
     // Scroll-/Flash-Anforderung (scrollToPath, Z.682-691).
@@ -119,6 +122,60 @@ export class TreeCanvas {
 
   private canvas(): HTMLElement | null {
     return this.host.nativeElement.querySelector('#treeCanvas');
+  }
+
+  /**
+   * Drag-Navigation: Ziehen auf dem freien Canvas-Hintergrund verschiebt den
+   * Scroll-Bereich (#colWrap). Boxen, Beschriftungen und Bedienelemente behalten
+   * ihr Klick-/Auswahlverhalten — der Pan startet nur, wenn der Zeiger nicht auf
+   * einem interaktiven Element aufsetzt.
+   */
+  private setupPan(canvas: HTMLElement): void {
+    const scroller = canvas.closest<HTMLElement>('#colWrap') ?? canvas.parentElement;
+    if (!scroller) return;
+
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    let panning = false;
+
+    const onDown = (e: PointerEvent): void => {
+      // Nur primaere Maustaste bzw. Touch/Stift und nur auf dem Hintergrund.
+      if (e.button !== 0) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('.box, .lineLabel, button, a, input, select, textarea')) return;
+      panning = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = scroller.scrollLeft;
+      startTop = scroller.scrollTop;
+      canvas.classList.add('panning');
+      canvas.setPointerCapture(e.pointerId);
+    };
+    const onMove = (e: PointerEvent): void => {
+      if (!panning) return;
+      scroller.scrollLeft = startLeft - (e.clientX - startX);
+      scroller.scrollTop = startTop - (e.clientY - startY);
+    };
+    const onUp = (e: PointerEvent): void => {
+      if (!panning) return;
+      panning = false;
+      canvas.classList.remove('panning');
+      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+    };
+
+    canvas.addEventListener('pointerdown', onDown);
+    canvas.addEventListener('pointermove', onMove);
+    canvas.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointercancel', onUp);
+
+    this.teardownPan = () => {
+      canvas.removeEventListener('pointerdown', onDown);
+      canvas.removeEventListener('pointermove', onMove);
+      canvas.removeEventListener('pointerup', onUp);
+      canvas.removeEventListener('pointercancel', onUp);
+    };
   }
 
   /** Klick auf eine Herkunfts-Beschriftung: zum Elternknoten springen. */
