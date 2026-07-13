@@ -31,6 +31,20 @@ export function openDb(path) {
       aktualisiert INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_profiles_aktualisiert ON profiles(aktualisiert DESC);
+
+    CREATE TABLE IF NOT EXISTS testmessages (
+      id TEXT PRIMARY KEY,
+      xml TEXT NOT NULL,
+      name TEXT,             -- Dateiname/Anzeigename
+      nachricht TEXT,        -- voller Name, z. B. nachricht.dabag.antrag.2900001
+      fachmodul TEXT,        -- Cluster-Segment (z. B. dabag)
+      xjustiz_version TEXT,  -- best-effort aus dem XML, optional
+      groesse INTEGER,       -- Byte-Länge des XML
+      notiz TEXT,
+      hochgeladen INTEGER,
+      aktualisiert INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_testmessages_fachmodul ON testmessages(fachmodul);
   `);
 
   const stmt = {
@@ -53,7 +67,40 @@ export function openDb(path) {
          n_ausp = excluded.n_ausp, gespeichert = excluded.gespeichert,
          aktualisiert = excluded.aktualisiert`,
     ),
+
+    // ── Testnachrichten (zentraler Testdaten-Speicher) ──────────────────
+    tmList: db.prepare(
+      `SELECT id, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert
+       FROM testmessages ORDER BY aktualisiert DESC`,
+    ),
+    tmGetXml: db.prepare('SELECT xml FROM testmessages WHERE id = ?'),
+    tmGet: db.prepare('SELECT * FROM testmessages WHERE id = ?'),
+    tmInsert: db.prepare(
+      `INSERT INTO testmessages
+         (id, xml, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert)
+       VALUES
+         (@id, @xml, @name, @nachricht, @fachmodul, @xjustizVersion, @groesse, @notiz, @ts, @ts)`,
+    ),
+    tmUpdate: db.prepare(
+      'UPDATE testmessages SET notiz = @notiz, name = @name, aktualisiert = @aktualisiert WHERE id = @id',
+    ),
+    tmDel: db.prepare('DELETE FROM testmessages WHERE id = ?'),
   };
+
+  /** Baut die schlanke Index-Zeile (ohne xml) aus einer DB-Zeile. */
+  function tmEntry(r) {
+    return {
+      id: r.id,
+      name: r.name,
+      nachricht: r.nachricht ?? undefined,
+      fachmodul: r.fachmodul ?? undefined,
+      xjustizVersion: r.xjustiz_version ?? undefined,
+      groesse: r.groesse,
+      notiz: r.notiz ?? undefined,
+      hochgeladen: r.hochgeladen,
+      aktualisiert: r.aktualisiert,
+    };
+  }
 
   /** Schreibt Dokument + abgeleitete Index-Spalten; gibt den LibraryEntry zurueck. */
   function upsert(id, doc, aktualisiert) {
@@ -146,6 +193,55 @@ export function openDb(path) {
         return n;
       });
       return tx(items ?? []);
+    },
+
+    // ── Testnachrichten ─────────────────────────────────────────────────
+
+    /** Index-Liste (ohne xml), absteigend nach aktualisiert. */
+    tmList() {
+      return stmt.tmList.all().map(tmEntry);
+    },
+
+    /** Roh-XML zu einer id oder null. */
+    tmLoadXml(id) {
+      const row = stmt.tmGetXml.get(id);
+      return row ? row.xml : null;
+    },
+
+    /** Neue Testnachricht; id serverseitig vergeben. Gibt { id, entry }. */
+    tmCreate({ name, xml, nachricht, fachmodul, xjustizVersion, groesse }, ts) {
+      const id = randomUUID();
+      const stamp = ts ?? Date.now();
+      stmt.tmInsert.run({
+        id,
+        xml: String(xml ?? ''),
+        name: name ?? null,
+        nachricht: nachricht ?? null,
+        fachmodul: fachmodul ?? null,
+        xjustizVersion: xjustizVersion ?? null,
+        groesse: groesse ?? (xml ? String(xml).length : 0),
+        notiz: null,
+        ts: stamp,
+      });
+      return { id, entry: tmEntry(stmt.tmGet.get(id)) };
+    },
+
+    /** Notiz und/oder Name ändern; aktualisiert-Zeitstempel setzen. Gibt entry oder null. */
+    tmUpdate(id, { notiz, name }, ts) {
+      const row = stmt.tmGet.get(id);
+      if (!row) return null;
+      const next = {
+        notiz: notiz !== undefined ? (notiz || null) : row.notiz,
+        name: name !== undefined ? (name || null) : row.name,
+        aktualisiert: ts ?? Date.now(),
+      };
+      stmt.tmUpdate.run({ id, ...next });
+      return tmEntry(stmt.tmGet.get(id));
+    },
+
+    /** Löschen. Gibt true, wenn eine Zeile entfernt wurde. */
+    tmDelete(id) {
+      return stmt.tmDel.run(id).changes > 0;
     },
 
     close() {

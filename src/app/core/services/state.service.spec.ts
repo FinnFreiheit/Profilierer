@@ -152,4 +152,30 @@ describe('StateService', () => {
       expect(s.fortschritt()).toEqual({ nStatus: 1, nAusp: 1 });
     });
   });
+
+  describe('boxHidden (nur Werte)', () => {
+    it('zeigt ohne onlyValues alles', () => {
+      expect(s.boxHidden('m/a/b')).toBe(false);
+    });
+
+    it('blendet im onlyValues-Modus Wertlose aus, Werte + Vorfahren bleiben', () => {
+      s.setElementProfile('m/gds/kopf/az', { beispiel: '12345' });
+      s.onlyValues.set(true);
+      // Blatt mit Wert und alle Vorfahren sichtbar.
+      expect(s.boxHidden('m/gds/kopf/az')).toBe(false);
+      expect(s.boxHidden('m/gds/kopf')).toBe(false);
+      expect(s.boxHidden('m/gds')).toBe(false);
+      // Geschwister ohne Wert ausgeblendet.
+      expect(s.boxHidden('m/gds/kopf/leer')).toBe(true);
+      expect(s.boxHidden('m/anderer')).toBe(true);
+    });
+
+    it('zaehlt auch Anmerkung/Codelisten-Werte als Inhalt', () => {
+      s.setElementProfile('m/note', { anmerkung: 'x' });
+      s.setElementProfile('m/code', { werte: ['1'] });
+      s.onlyValues.set(true);
+      expect(s.boxHidden('m/note')).toBe(false);
+      expect(s.boxHidden('m/code')).toBe(false);
+    });
+  });
 });

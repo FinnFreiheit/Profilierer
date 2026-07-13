@@ -12,6 +12,7 @@ import { PrintDoc } from './features/print/print-doc';
 import { Toast } from './shared/toast/toast';
 import { FileDropDirective } from './shared/file-drop.directive';
 import { Dashboard } from './features/dashboard/dashboard';
+import { Testdaten } from './features/testdaten/testdaten';
 import { PersistenceService } from './core/services/persistence.service';
 import { CodelistService } from './core/services/codelist.service';
 import { ExportService } from './core/services/export.service';
@@ -41,6 +42,7 @@ import { MigrationService } from './core/services/migration.service';
     Toast,
     FileDropDirective,
     Dashboard,
+    Testdaten,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',

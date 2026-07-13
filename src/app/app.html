@@ -63,6 +63,8 @@
   <app-status-dialog #statusDlg></app-status-dialog>
   <app-meta-dialog #metaDlg></app-meta-dialog>
   <app-diff-dialog #diffDlg (loadOther)="xsdBInput.click()"></app-diff-dialog>
+} @else if (view() === 'testdaten') {
+  <app-testdaten></app-testdaten>
 } @else {
   <app-dashboard></app-dashboard>
 }

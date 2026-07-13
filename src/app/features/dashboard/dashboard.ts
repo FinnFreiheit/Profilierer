@@ -9,6 +9,7 @@ import {
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { PersistenceService } from '../../core/services/persistence.service';
 import { ToastService } from '../../core/services/toast.service';
+import { StateService } from '../../core/services/state.service';
 import { LibraryEntry } from '../../models/profile.model';
 
 /**
@@ -28,7 +29,13 @@ export class Dashboard {
   protected readonly store = inject(ProfileStoreService);
   private readonly persistence = inject(PersistenceService);
   private readonly toast = inject(ToastService);
+  private readonly state = inject(StateService);
   private readonly renameDlg = viewChild.required<ElementRef<HTMLDialogElement>>('renameDlg');
+
+  /** Zum Testdaten-Speicher wechseln. */
+  protected goTestdaten(): void {
+    this.state.view.set('testdaten');
+  }
 
   /** Bibliotheksfehler (Backend nicht erreichbar) einheitlich melden. */
   private fail(msg: string): (e: unknown) => void {

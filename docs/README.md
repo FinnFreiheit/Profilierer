@@ -10,7 +10,7 @@ Zentraler Einstieg in die Entwickler- und Architekturdokumentation. Der **XJusti
 | [Services](services.md) | Was macht welcher der 14 Services, welche Kernmethoden |
 | [Datenmodell](data-model.md) | Interfaces, Store-Signale, die pfad-indizierten Profil-Maps |
 | [Komponenten](components.md) | Feature-Komponenten mit Inputs/Outputs und Verantwortung |
-| [Glossar](glossary.md) | ERV-/XJustiz-Fachbegriffe (XJustiz, Codeliste, Schematron, Ausprägung …) |
+| [Glossar](glossary.md) | Baum-/Darstellungsbegriffe (Knoten, Kante, Blatt, Wurzel, Wert …) und ERV-/XJustiz-Fachbegriffe (XJustiz, Codeliste, Schematron, Ausprägung …) |
 | [Tests](testing.md) | Unit-Tests headless fahren, E2E-Muster, Testdaten |
 | [Betrieb / Deployment](deployment.md) | Build, Hosting, die offene Prod-Proxy-Frage |
 | [Beitragen](contributing.md) | Setup, Konventionen, Commit-/Branch-Stil |

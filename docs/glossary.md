@@ -1,6 +1,24 @@
 # Glossar (ERV / XJustiz)
 
-Fachbegriffe des elektronischen Rechtsverkehrs und des XJustiz-Standards, jeweils mit Bezug zur App. Alphabetisch.
+Begriffe rund um die App und den XJustiz-Standard, jeweils mit Bezug zur App. Zwei Teile: zuerst die **Baum- und Darstellungsbegriffe** (wie die App eine Nachricht abbildet und benennt), danach die **ERV-/XJustiz-Fachbegriffe** (alphabetisch).
+
+## Baum- und Darstellungsbegriffe (App)
+
+Diese Begriffe beschreiben die Struktur (Datenmodell) und die Darstellung des Baums — verbindlich, um Missverständnisse zu vermeiden. Siehe [Architektur](architecture.md), [Datenmodell](data-model.md) und das Modell `TreeNode` (`src/app/models/node.model.ts`).
+
+- **Element-Baum (Baum)** — Die aus dem XSD aufgelöste Baumstruktur einer Nachricht: alle Elemente mit ihren Über-/Unterordnungen. Wird bei Bedarf aufgebaut (`TreeService`).
+- **Kaskade (Kasten-Kaskade)** — Die Darstellungsform des Baums von links nach rechts; jeder aufgeklappte Schritt bleibt als Spalte sichtbar. Jeder Knoten erscheint dabei als **Kasten** (Box).
+- **Knoten** — Ein einzelner Punkt im Baum (`TreeNode`), in der Darstellung ein **Kasten**. Trägt Name, Typ, Kardinalität, Kinder und Profil-Angaben. „Knoten" und „Kasten" meinen dasselbe — Ersteres im Datenmodell, Letzteres in der Darstellung.
+- **Element** — Ein im XSD deklariertes XJustiz-Element (z. B. `nachrichtenkopf`, `aktenzeichen`). Aus jedem Element wird beim Aufbau ein **Knoten**; „Element" betont die Schema-Herkunft, „Knoten" die Position im Baum.
+- **Wurzel (Wurzelknoten)** — Der oberste Knoten des Baums; entspricht der **Nachricht** (`nachricht.<modul>.<name>.<nummer>`) und ist der Ausgangspunkt jeder Profilierung (`StateService.root()`).
+- **Blatt (Blattknoten)** — Ein Knoten ohne strukturelle Kinder, der einen **Wert** aufnimmt (`TreeService.isLeaf`). Nur Blätter tragen Testwerte bzw. Codelisten-Werte.
+- **Kante (Verbindungslinie)** — Die Linie, die einen Knoten mit seinen Kind-Knoten verbindet. Sie wird als SVG-Overlay aus der DOM-Geometrie berechnet (siehe [ADR 0003](adr/0003-svg-verbindungslinien.md)). Verweise (`Type.GDS.Ref.*`) erscheinen als eigene rosa **Verweislinien**.
+- **Wert / Testwert (Beispielwert)** — Der an einem Blatt hinterlegte Beispielinhalt (`ElementProfile.beispiel`), aus dem die Beispiel-XML entsteht. Bei Codelisten zusätzlich die eingeschränkten zulässigen Werte (`ElementProfile.werte`). Der Toolbar-Schalter „nur Werte" blendet alle Knoten ohne Wert aus.
+- **Synthetischer Knoten** — Ein Hilfsknoten für eine `choice`-/`sequence`-Gruppe (Beschriftung „Auswahl"/„Alternative"). Er hat kein eigenes XSD-Element und trägt keinen Wert (`TreeNode.synthetic`).
+- **Pfad** — Die eindeutige Kennung eines Knotens als Slash-getrennter String (z. B. `nachricht.…/absender/aktenzeichen`), innerhalb einer Ausprägung mit `…@auspId`-Segment. Schlüssel der Profil-Maps `elemente`/`auspraegungen` (siehe [Datenmodell](data-model.md)).
+- **Profilierung** — Siehe unten (Fachbegriffe); das Kernartefakt, das den Baum auf einen Anwendungsfall eingrenzt.
+
+## ERV- und XJustiz-Fachbegriffe
 
 - **Ausprägung** — Ein benannter Fall eines wiederholbaren Elements mit eigener Unter-Profilierung (z. B. `beteiligung` → „Notar/in" / „Betroffene Person"). Technisch ein eigener Pfad-Raum `…@auspId` (siehe [Datenmodell](data-model.md)).
 - **BLK** — Bund-Länder-Kommission für Informationstechnik in der Justiz; Herausgeberin des XJustiz-Standards.

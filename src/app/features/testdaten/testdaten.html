@@ -1,0 +1,109 @@
+<div id="dash">
+  <div class="dashHead">
+    <div class="viewToggle">
+      <button (click)="goDashboard()">Profile</button>
+      <button class="active" disabled>Testdaten</button>
+    </div>
+    <h1><span>Testdaten</span>-Speicher</h1>
+    <p class="dashSub">Zentraler Ablageort für XJustiz-Testnachrichten — nach Fachmodul geordnet</p>
+    <div class="dashActions">
+      <button class="primary" (click)="openUpload()">Testnachrichten hochladen…</button>
+      <input
+        class="tdSearch"
+        type="search"
+        placeholder="Suchen (Name, Nachricht, Fachmodul, Notiz)…"
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+      />
+    </div>
+  </div>
+
+  @if (store.entries().length) {
+    @for (g of gruppen(); track g.fachmodul) {
+      <div class="tdGroup">
+        <div class="tdGroupHead">
+          <span class="pill">{{ g.fachmodul }}</span>
+          <span class="tdGroupCount">{{ g.items.length }}</span>
+        </div>
+        <div id="dashGrid">
+          @for (e of g.items; track e.id) {
+            <div class="dashCard" title="Im Baum öffnen" (click)="openInTree(e)">
+              <div class="dcName">{{ e.name }}</div>
+              @if (e.nachricht) {
+                <div class="dcMsg">{{ e.nachricht }}</div>
+              }
+              <div class="dcMeta">
+                @if (e.xjustizVersion) {
+                  <span class="pill">XJustiz {{ e.xjustizVersion }}</span>
+                } @else {
+                  <span class="pill pillMuted">Version unbekannt</span>
+                }
+                <span class="dcProg">{{ groesse(e) }}</span>
+              </div>
+              @if (e.notiz) {
+                <div class="tdNote">{{ e.notiz }}</div>
+              }
+              <div class="dcFoot">
+                <span class="dcDate">{{ datum(e) }}</span>
+                <span class="dcTools">
+                  <button title="Nachricht ansehen" (click)="openView(e, $event)">Ansehen</button>
+                  <button title="Notiz bearbeiten" (click)="openNote(e, $event)">Notiz</button>
+                  <button title="XML herunterladen" (click)="download(e, $event)">Download</button>
+                  <button class="del" title="Löschen" (click)="remove(e, $event)">Löschen</button>
+                </span>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    } @empty {
+      <div id="dashEmpty">
+        <div class="big">🔍</div>
+        <h2>Keine Treffer</h2>
+        <p>Kein Eintrag passt zur Suche „{{ search() }}".</p>
+      </div>
+    }
+  } @else {
+    <div id="dashEmpty">
+      <div class="big">§ ⇄ &lt;/&gt;</div>
+      <h2>Noch keine Testnachrichten</h2>
+      <p>
+        Lade bestehende <b>XJustiz-Nachrichten</b> (<code>.xml</code>, Root
+        <code>nachricht.*</code>) hoch. Sie werden automatisch nach Fachmodul geordnet.
+      </p>
+    </div>
+  }
+</div>
+
+<dialog #uploadDlg id="uploadDlg">
+  <h3 style="margin-top: 0">Testnachrichten hochladen</h3>
+  <p class="dashSub" style="margin-top: 0">
+    Nur XJustiz-Instanzen (Wurzelelement <code>nachricht.*</code>). Nachrichtenname
+    und Fachmodul werden automatisch erkannt; andere Dateien werden abgelehnt.
+  </p>
+  <input type="file" accept=".xml" multiple (change)="onFiles($event)" />
+  <div style="text-align: right; margin-top: 12px">
+    <button class="primary" (click)="uploadDlg.close()">Fertig</button>
+  </div>
+</dialog>
+
+<dialog #viewDlg id="viewDlg">
+  <div class="viewHead">
+    <h3 style="margin: 0">{{ viewTitle() }}</h3>
+    <button (click)="viewDlg.close()">Schließen</button>
+  </div>
+  <pre class="xmlView">{{ viewXml() }}</pre>
+</dialog>
+
+<dialog #noteDlg id="noteDlg">
+  <h3 style="margin-top: 0">Notiz</h3>
+  <textarea
+    style="width: 100%; min-height: 120px"
+    [value]="noteText()"
+    (input)="noteText.set($any($event.target).value)"
+  ></textarea>
+  <div style="text-align: right; margin-top: 12px">
+    <button (click)="noteDlg.close()">Abbrechen</button>
+    <button class="primary" (click)="submitNote()">Übernehmen</button>
+  </div>
+</dialog>

@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { openDb } from './db.js';
 import { profilesRouter } from './routes/profiles.js';
+import { testmessagesRouter } from './routes/testmessages.js';
 
 /**
  * Same-origin-Vollstack-Server: liefert die gebaute SPA, die REST-API unter
@@ -25,6 +26,9 @@ app.use(express.json({ limit: '25mb' }));
 
 // Profil-API.
 app.use('/api', profilesRouter(db));
+
+// Testdaten-API (zentraler Testnachrichten-Speicher).
+app.use('/api', testmessagesRouter(db));
 
 // XRepository-Proxy (same-origin, loest den Produktions-Proxy-Bedarf).
 app.use(

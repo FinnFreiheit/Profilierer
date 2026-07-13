@@ -47,8 +47,8 @@ export class StateService {
   readonly auspraegungen = signal<Record<string, Auspraegung[]>>({});
 
   // ── Ansicht / Bibliothek ────────────────────────────────────────────
-  /** Dashboard (Bibliothek) vs. Baum-Editor. Startseite ist das Dashboard. */
-  readonly view = signal<'dashboard' | 'editor'>('dashboard');
+  /** Dashboard (Bibliothek) vs. Baum-Editor vs. Testdaten-Speicher. Startseite ist das Dashboard. */
+  readonly view = signal<'dashboard' | 'editor' | 'testdaten'>('dashboard');
   /** id des aktuell bearbeiteten Bibliothekseintrags (Ziel des Autosave). */
   readonly activeProfileId = signal<string | null>(null);
 
@@ -58,6 +58,8 @@ export class StateService {
   readonly codelists = signal<Record<string, Codelist>>({});
   readonly showTech = signal(false);
   readonly onlyProfile = signal(false);
+  /** Nur Elemente mit Wert/Inhalt zeigen (Testnachricht statt ganzem Standard). */
+  readonly onlyValues = signal(false);
   readonly showRefs = signal(true);
   readonly focusMode = signal(true);
   /** Profil, das vor dem XSD-Ordner geladen wurde (loadProfileFile, Z.1813). */
@@ -146,8 +148,24 @@ export class StateService {
     return !!(p && (p.anmerkung || p.beispiel || (p.werte && p.werte.length)));
   }
 
-  /** "nur Profil" blendet Ausgeschlossenes aus (renderBox Z.1211). */
+  /**
+   * Pfade, die im "nur Werte"-Modus sichtbar bleiben: jedes Element mit Inhalt
+   * (Beispielwert, Anmerkung, Codelisten-Werte) samt seiner Vorfahren, damit der
+   * Weg von der Wurzel zu jedem Wert erhalten bleibt.
+   */
+  private readonly valuePaths = computed<ReadonlySet<string>>(() => {
+    const set = new Set<string>();
+    for (const [path, p] of Object.entries(this.elemente())) {
+      if (!p || !(p.beispiel || p.anmerkung || (p.werte && p.werte.length))) continue;
+      set.add(path);
+      for (const a of this.ancestorPaths(path)) set.add(a);
+    }
+    return set;
+  });
+
+  /** "nur Profil" blendet Ausgeschlossenes aus (renderBox Z.1211), "nur Werte" alles Wertlose. */
   boxHidden(path: string): boolean {
+    if (this.onlyValues() && !this.valuePaths().has(path)) return true;
     if (!this.onlyProfile()) return false;
     const st = this.statusOf(path);
     return st?.wirkung === 'ausgeschlossen' || this.inheritedExcluded(path);

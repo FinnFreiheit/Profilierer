@@ -41,6 +41,10 @@
       <input type="checkbox" [checked]="state.onlyProfile()"
         (change)="state.onlyProfile.set(checked($event))" /> nur Profil
     </label>
+    <label title="Nur Elemente mit Wert/Inhalt zeigen statt des gesamten Standards">
+      <input type="checkbox" [checked]="state.onlyValues()"
+        (change)="state.onlyValues.set(checked($event))" /> nur Werte
+    </label>
     <button [disabled]="!hasRoot()" (click)="expand()">Alles ausklappen</button>
     <button [disabled]="!hasRoot()" (click)="collapse()">Zuklappen</button>
     <button [disabled]="!hasRoot()" title="Alle Pflichtelemente als „zwingend“ vorbelegen"
