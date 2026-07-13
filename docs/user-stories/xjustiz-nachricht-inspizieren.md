@@ -1,6 +1,6 @@
 # US-Epic: XJustiz-Nachricht inspizieren
 
-Status: verfeinert (Refinement 26.07.13) · Typ: Epic mit drei schneidbaren Stories
+Status: verfeinert (Refinement 26.07.13) · Typ: Epic mit vier schneidbaren Stories
 
 ## Ausgangslage
 
@@ -45,9 +45,9 @@ Kernlücken für reines Inspizieren:
 > **damit ich** mir schnell und ohne Gefahr des versehentlichen Änderns einen verlässlichen
 > Überblick über Aufbau und Inhalt verschaffe.
 
-Warum als Epic: Read-Only-Modus, Nur-Werte-Auto-Expand, Persona-Umschaltung und
-Inhaltssuche sind zusammen zu groß für eine INVEST-taugliche Story (verletzt „Small").
-Daher drei einzeln schneidbare Stories plus ein querliegendes Kriterium.
+Warum als Epic: Read-Only-Modus, Nur-Werte-Auto-Expand, Code-Auflösung,
+Persona-Umschaltung und Inhaltssuche sind zusammen zu groß für eine INVEST-taugliche Story
+(verletzt „Small"). Daher vier einzeln schneidbare Stories plus ein querliegendes Kriterium.
 
 ---
 
@@ -102,6 +102,39 @@ Akzeptanzkriterien:
 - Nicht-funktional: Suchindex wird memoisiert statt bei jedem Tastendruck neu über bis zu
   ~8000 Knoten aufgebaut.
 
+## Story 4 — Codes zu Klartext auflösen (Codelisten-Werte anzeigen)
+
+> **Als** Anwender **möchte ich** hinter einem belegten Code sofort den dahinterliegenden
+> Klartext-Wert sehen, **damit** ich die Nachricht verstehe, ohne Codes manuell im
+> XRepository nachzuschlagen.
+
+Hintergrund: Belegte Code-Felder (Typname `Code.*`) zeigen im Betrachtungsmodus heute nur
+den rohen Code (`beispiel`). Die Bedeutung (z. B. `12` → „Amtsgericht") ist für viele Codes
+nicht selbsterklärend. Für zahlreiche Codelisten sind die Werte extern im XRepository
+gepflegt (Code-Typ 3) und im Schema gar nicht enthalten — sie müssen erst geladen werden.
+
+Akzeptanzkriterien:
+
+- Ein belegter Code wird nicht nur roh, sondern **aufgelöst** dargestellt: `{code} — {label}`
+  (Klartext-Bezeichnung aus der zugehörigen Codeliste).
+- Die Auflösung wirkt an **beiden Anzeigeorten**: im Baum-Blatt (Wertespalte, auch in
+  „nur Werte") und im Detailpanel (Beispielwert-Zeile).
+- Die dafür nötigen Codelisten werden beim Import **automatisch** geladen — vorzugsweise
+  gebündelt über „genutzte aktuelle Codelisten" des Standards, statt pro Liste einen
+  manuellen Klick zu erfordern.
+- Bereits geladene Codelisten werden **gecacht** (localStorage), sodass wiederholtes
+  Inspizieren dieselbe Nachricht nicht erneut herunterlädt.
+- Lässt sich ein Code **nicht auflösen** (Liste offline/nicht verfügbar, Wert nicht in der
+  Liste), wird der rohe Code mit dezentem Hinweis gezeigt — kein Fehler, kein blockiertes
+  Betrachten.
+- Nicht-funktional: Das Laden läuft asynchron mit Ladeindikator; die Baum-Ansicht ist sofort
+  benutzbar und ergänzt die Labels, sobald die Listen da sind. CORS-/Proxy-Weg wie bisher
+  (Dev-Proxy `xrep-api`, öffentliche Weiterleiter nur nach Zustimmung).
+
+Akzeptierte Einschränkung: Versions-/Gültigkeitsauflösung eines Codes zu einem konkreten
+Nachrichten-Stichtag ist außen vor — es wird die aktuell geladene Codelisten-Version
+gemappt.
+
 ## Querliegend — Persona-Umschaltung
 
 Der bestehende **„Technik"-Schalter** (Elementname + Typ ein/aus) erfüllt „beide
@@ -119,15 +152,23 @@ umschaltbar, der gewählte Zustand bleibt beim Navigieren erhalten.
 
 1. **Einstieg:** Sichtbarer Einstieg von der Dashboard-/Testdaten-Kachel („Nachricht
    ansehen") oder implizit beim `openInTree`?
-2. **Detailpanel im Read-Only:** komplett read-only, oder Codelisten-Auflösung/Verweisziel
-   weiterhin anklickbar zum Navigieren (nur nicht editierbar)?
+2. **Detailpanel im Read-Only:** Codelisten-Werte werden aufgelöst angezeigt (Story 4);
+   offen bleibt, ob Verweisziele weiterhin anklickbar zum Navigieren sind (nur nicht
+   editierbar).
+4. **Code-Auflösung — Ladezeitpunkt:** alle genutzten Codelisten gebündelt beim Import
+   vorab laden (schneller sichtbar, mehr Netz/Startlast) oder pro sichtbarem Code lazy
+   nachladen?
 3. **Werte-Highlight im Baum:** Suchtreffer nur anspringen oder dauerhaft im Baum markieren
    (Filter „nur Treffer")?
 
 ## Betroffene Bausteine (Orientierung, kein Auftrag)
 
 - Baum: `src/app/features/tree/tree-canvas.ts`, `tree-node.ts`, `tree-node.html`
-- Detail: `src/app/features/detail/detail-panel.ts`
+- Detail: `src/app/features/detail/detail-panel.ts`, `detail-panel.html`
+- Codelisten/Code-Auflösung: `src/app/core/services/codelist.service.ts`
+  (`loadFromXRepository` = alle genutzten Codelisten / `fetchSingleCodelist`),
+  `src/app/core/services/value.service.ts`
+  (`clWerte`, neuer `labelFor`), `src/app/models/codelist.model.ts`
 - Suche: `src/app/features/search/search.ts`, `src/app/core/services/search.service.ts`
 - Import: `src/app/core/services/instance-import.service.ts` (Voll-Expansion via `opened`)
 - Zustand/Filter: `src/app/core/services/state.service.ts` (`onlyValues`, `focusMode`,

@@ -63,7 +63,7 @@ export class DetailPanel {
       kennung: string;
       geladen: boolean;
       version: string | null;
-      eff: { value: string; label: string; checked: boolean; search: string }[] | null;
+      eff: { value: string; label: string; checked: boolean; belegt: boolean; search: string }[] | null;
       allowedCount: number;
       total: number;
       showFilter: boolean;
@@ -74,6 +74,7 @@ export class DetailPanel {
       const eff = this.values.clWerte(cl);
       const geladen = !(cl.werte && cl.werte.length) && !!eff;
       const allowed = new Set(p.werte ?? []);
+      const belegterCode = p.beispiel ?? '';
       codelist = {
         nameLang: cl.nameLang,
         kennung: cl.kennung,
@@ -84,6 +85,7 @@ export class DetailPanel {
               value: w.value,
               label: w.label,
               checked: !p.werte || allowed.has(w.value),
+              belegt: !!belegterCode && w.value === belegterCode,
               search: (w.value + ' ' + w.label).toLowerCase(),
             }))
           : null,
@@ -137,6 +139,9 @@ export class DetailPanel {
       ref,
       anmerkung: p.anmerkung ?? '',
       beispiel: p.beispiel ?? '',
+      // Klartext hinter dem belegten Code (Story 4) — null, wenn kein Code-Feld
+      // oder Liste (noch) nicht geladen.
+      beispielLabel: n.codelist ? this.values.labelFor(n.codelist, p.beispiel) : null,
       curStatusName: st?.name ?? 'wie Standard',
     };
   });

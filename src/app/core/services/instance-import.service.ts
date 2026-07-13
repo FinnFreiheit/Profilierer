@@ -4,6 +4,7 @@ import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
 import { ToastService } from './toast.service';
+import { CodelistService } from './codelist.service';
 
 /**
  * Importiert eine bestehende XJustiz-Nachricht (XML-Instanz) und bildet sie
@@ -24,6 +25,7 @@ export class InstanceImportService {
   private readonly tree = inject(TreeService);
   private readonly nav = inject(NavService);
   private readonly toast = inject(ToastService);
+  private readonly codelists = inject(CodelistService);
 
   /** Prüft, ob ein XML-Text eine XJustiz-Nachricht (kein Genericode o. ä.) ist. */
   static rootMessageName(xmlText: string): string | null {
@@ -55,6 +57,9 @@ export class InstanceImportService {
     this.state.readOnly.set(true);
     this.state.onlyValues.set(true);
     this.toast.show(`Nachricht ${msgName} geladen.`);
+    // Codelisten im Hintergrund nachladen, damit belegte Codes zu Klartext
+    // aufgelöst werden (Story 4). Best-effort, blockiert das Betrachten nicht.
+    void this.codelists.ensureUsedCodelists();
   }
 
   private byName(el: Element, name: string): Element[] {

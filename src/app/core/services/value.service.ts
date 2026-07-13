@@ -39,6 +39,19 @@ export class ValueService {
     return x && x.werte.length ? x.werte : null;
   }
 
+  /**
+   * labelFor: Klartext-Bezeichnung hinter einem konkret belegten Code.
+   * Liefert null, wenn keine (geladene) Codeliste vorliegt oder der Code dort
+   * nicht enthalten ist — der rohe Code bleibt dann die einzige Darstellung.
+   */
+  labelFor(cl: CodelistInfo | null, code: string | null | undefined): string | null {
+    if (!cl || !code) return null;
+    const eff = this.clWerte(cl);
+    if (!eff) return null;
+    const hit = eff.find((w) => w.value === code);
+    return hit && hit.label ? hit.label : null;
+  }
+
   /** clVersion (Z.803-807): Version einer geladenen Codeliste. */
   clVersion(cl: CodelistInfo | null): string | null {
     if (!cl) return null;

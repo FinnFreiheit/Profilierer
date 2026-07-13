@@ -155,10 +155,18 @@ export class TreeNode {
       }
       vin = { value: pe.beispiel || '', placeholder: auto, listId: datalist ? listId : null };
     }
-    // Betrachtungsmodus: Wert nur anzeigen (mv), kein editierbares Eingabefeld.
+    // Betrachtungsmodus: Wert nur anzeigen, kein editierbares Eingabefeld.
+    // Belegte Blätter bekommen eine read-only Wertezeile; Codes werden dabei
+    // zu ihrem Klartext aufgelöst (Story 4).
+    let roVal: { value: string; label: string | null } | null = null;
     if (readOnly) {
       vin = null;
       datalist = null;
+      if (isValueBox && pe.beispiel)
+        roVal = {
+          value: pe.beispiel,
+          label: n.codelist ? this.values.labelFor(n.codelist, pe.beispiel) : null,
+        };
     }
 
     // Kardinalitaet (Z.1263-1266).
@@ -251,6 +259,7 @@ export class TreeNode {
       refziel: pe.refZiel ?? null,
       mv,
       vin,
+      roVal,
       datalist,
       showTech: this.state.showTech() && it.kind === 'el',
       techText: it.kind === 'el' ? n.name + (n.typeName ? ' : ' + n.typeName : '') : '',

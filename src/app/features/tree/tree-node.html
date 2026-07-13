@@ -31,6 +31,15 @@
     }
   </div>
 
+  @if (v.roVal; as rv) {
+    <div class="roval" title="Belegter Wert">
+      <code>{{ rv.value }}</code>
+      @if (rv.label; as lbl) {
+        <span class="rolabel">{{ lbl }}</span>
+      }
+    </div>
+  }
+
   @if (v.vin; as vin) {
     <div class="vrow">
       @if (v.datalist; as dl) {

@@ -55,4 +55,20 @@ describe('CodelistService', () => {
     svc.mergeCodelist({ kennung: 'k', version: '3', werte: [{ value: 'Z', label: 'z' }] });
     expect(state.codelists()['k']!.version).toBe('3');
   });
+
+  it('ensureUsedCodelists ueberspringt den Netzabruf, wenn schon Listen vorhanden sind', async () => {
+    state.idx.set({} as never);
+    const spy = spyOn(svc, 'loadFromXRepository').and.resolveTo();
+    svc.mergeCodelist({ kennung: 'k', version: '1', werte: [{ value: 'A', label: 'a' }] });
+    await svc.ensureUsedCodelists();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('ensureUsedCodelists laedt hoechstens einmal pro Standard-Version', async () => {
+    state.idx.set({} as never);
+    const spy = spyOn(svc, 'loadFromXRepository').and.resolveTo();
+    await svc.ensureUsedCodelists();
+    await svc.ensureUsedCodelists();
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
 });

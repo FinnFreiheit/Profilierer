@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { InstanceImportService } from './instance-import.service';
 import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
+import { CodelistService } from './codelist.service';
 import { XsdDoc } from '../../models/xsd-index.model';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
@@ -38,7 +39,12 @@ describe('InstanceImportService', () => {
   const M = 'nachricht.test.0001';
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({
+      // Kein Netz im Test: den automatischen Codelisten-Vorabruf stillstellen.
+      providers: [
+        { provide: CodelistService, useValue: { ensureUsedCodelists: () => Promise.resolve() } },
+      ],
+    });
     svc = TestBed.inject(InstanceImportService);
     state = TestBed.inject(StateService);
     const parser = TestBed.inject(XsdParserService);

@@ -135,8 +135,12 @@ export class CodelistService {
     return 'xrep-api/' + url.slice(XREP.length + 1);
   }
 
-  /** xrepFetch (Z.892-924): Dev-Proxy → Direktabruf → CORS-Weiterleitung. */
-  private async xrepFetch(url: string): Promise<Response> {
+  /**
+   * xrepFetch (Z.892-924): Dev-Proxy → Direktabruf → CORS-Weiterleitung.
+   * `quiet`: kein CORS-Zustimmungsdialog — scheitert im Zweifel still (für das
+   * automatische Vorab-Laden beim Import, das den Betrachter nicht blockieren darf).
+   */
+  private async xrepFetch(url: string, quiet = false): Promise<Response> {
     const lokal = this.viaLocalProxy(url);
     if (lokal) {
       try {
@@ -161,6 +165,8 @@ export class CodelistService {
       /* ignore */
     }
     if (!allowed) {
+      if (quiet)
+        throw new Error('Direktabruf blockiert (CORS) — im Auto-Modus ohne Nachfrage übersprungen');
       if (
         !confirm(
           'Der Browser blockiert den Direktabruf vom XRepository (fehlende CORS-Freigabe des Servers).\n\n' +
@@ -192,10 +198,44 @@ export class CodelistService {
     );
   }
 
-  /** loadFromXRepository (Z.925-946): alle genutzten Codelisten des Standards. */
-  async loadFromXRepository(): Promise<void> {
+  /** Standard-Kennungen, für die in dieser Sitzung schon vorab geladen wurde. */
+  private readonly autoLoaded = new Set<string>();
+
+  private standardVersionKey(): string {
+    return (
+      (this.state.standardKennung() || 'urn:xoev-de:blk-ag-it-standards:standard:xjustiz') +
+      '_' +
+      this.state.version()
+    );
+  }
+
+  /**
+   * Lädt die genutzten Codelisten einmalig automatisch beim Import einer
+   * Nachricht — damit belegte Codes im Betrachtungsmodus zu Klartext aufgelöst
+   * werden (Story 4). Still und best-effort: bereits (aus dem Cache) geladene
+   * Listen werden nicht erneut aus dem Netz geholt, Fehler blockieren nicht.
+   */
+  async ensureUsedCodelists(): Promise<void> {
+    if (!this.state.idx()) return;
+    const key = this.standardVersionKey();
+    if (this.autoLoaded.has(key)) return;
+    // Bereits geladene/aus dem Cache stammende Listen: kein erneuter Netzabruf.
+    if (Object.keys(this.state.codelists()).length) {
+      this.autoLoaded.add(key);
+      return;
+    }
+    this.autoLoaded.add(key);
+    await this.loadFromXRepository(true);
+  }
+
+  /**
+   * loadFromXRepository (Z.925-946): alle genutzten Codelisten des Standards.
+   * `auto`: stiller Vorab-Abruf beim Import — ohne Fortschritts-Toast und ohne
+   * Fehler-/Download-Dialoge (Codes bleiben dann eben roh).
+   */
+  async loadFromXRepository(auto = false): Promise<void> {
     if (!this.state.idx()) {
-      this.toast.show('Bitte zuerst den XSD-Ordner laden.');
+      if (!auto) this.toast.show('Bitte zuerst den XSD-Ordner laden.');
       return;
     }
     const kennung =
@@ -203,14 +243,20 @@ export class CodelistService {
       '_' +
       this.state.version();
     const url = XREP + '/version_standard/' + encodeURIComponent(kennung) + '/genutzteAktuelleCodelisten';
-    this.toast.show('Rufe alle genutzten Codelisten ab (kann etwas dauern)…');
+    if (!auto) this.toast.show('Rufe alle genutzten Codelisten ab (kann etwas dauern)…');
     try {
-      const resp = await this.xrepFetch(url);
+      const resp = await this.xrepFetch(url, auto);
       const n = await this.importCodelistZip(await resp.arrayBuffer());
       this.cacheCodelists();
-      this.toast.show(n + ' Codelisten aus dem XRepository geladen (inkl. Typ 3, aktuell gültige Versionen).');
+      this.toast.show(
+        auto
+          ? `${n} Codelisten geladen — belegte Codes werden jetzt aufgelöst.`
+          : n + ' Codelisten aus dem XRepository geladen (inkl. Typ 3, aktuell gültige Versionen).',
+      );
     } catch (e) {
       console.warn('XRepository:', e);
+      // Auto-Modus: still scheitern, Betrachten bleibt möglich (Codes roh).
+      if (auto) return;
       const msg = e instanceof Error ? e.message : String(e);
       if (
         confirm(

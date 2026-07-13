@@ -106,9 +106,11 @@
           <div class="clWrap">
             @for (w of filteredEff(); track w.value) {
               @if (ro()) {
-                <div class="clRow"><code>{{ w.value }}</code><span>{{ w.label }}</span></div>
+                <div class="clRow" [class.belegt]="w.belegt" [title]="w.belegt ? 'In dieser Nachricht belegter Wert' : ''">
+                  <code>{{ w.value }}</code><span>{{ w.label }}</span>
+                </div>
               } @else {
-                <label class="clRow">
+                <label class="clRow" [class.belegt]="w.belegt">
                   <input type="checkbox" class="clv" [checked]="w.checked" (change)="toggleWert(w.value)" />
                   <code>{{ w.value }}</code><span>{{ w.label }}</span>
                 </label>
@@ -174,7 +176,16 @@
         <div class="dsec"><label>Fachliche Anmerkung</label><div class="docbox">{{ v.anmerkung }}</div></div>
       }
       @if (v.beispiel) {
-        <div class="dsec"><label>Beispielwert</label><div class="docbox">{{ v.beispiel }}</div></div>
+        <div class="dsec">
+          <label>Beispielwert</label>
+          <div class="docbox">
+            @if (v.beispielLabel) {
+              <code class="codeval">{{ v.beispiel }}</code> <span style="color: var(--muted)">{{ v.beispielLabel }}</span>
+            } @else {
+              {{ v.beispiel }}
+            }
+          </div>
+        </div>
       }
     }
   }

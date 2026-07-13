@@ -88,6 +88,11 @@ input[type=text]:focus,textarea:focus{outline:2px solid var(--accent-soft);borde
 .mv{margin-left:auto;font-family:var(--mono);font-size:11px;color:#1e7d3e;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none}
 .mv.ghost{color:#9aa7b4;font-style:italic}
 .box:not(.mini) .mv{display:none}
+.roval{margin-top:5px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.roval code{font-family:var(--mono);font-size:12px;color:#14532d;flex:none}
+.roval .rolabel{font-size:12px;color:var(--muted)}
+.box.mini .roval{display:none}
+.box.excluded .roval,.box.exclInherit .roval{display:none}
 .vrow{margin-top:5px}
 .vin{width:100%;font-family:var(--mono);font-size:12px;padding:3px 7px;border:1px solid #cfe0d3;border-radius:5px;background:#f6fbf7;color:#14532d}
 .vin::placeholder{color:#a3b8ab;font-style:italic}
@@ -150,6 +155,9 @@ textarea{width:100%;min-height:60px;resize:vertical}
 .clRow{display:flex;gap:8px;padding:4px 8px;align-items:baseline;border-bottom:1px solid #f0f2f5;font-size:12.5px}
 .clRow:last-child{border-bottom:none}
 .clRow code{font-family:var(--mono);color:#b07018;flex:none;min-width:46px}
+.clRow.belegt{background:#eefaf0}
+.clRow.belegt code{color:#14532d;font-weight:600}
+.codeval{font-family:var(--mono);color:#b07018}
 .clTools{display:flex;gap:8px;margin:4px 0 6px;font-size:12px}
 .clTools a{color:var(--accent);cursor:pointer;text-decoration:none}
 .extern{font-size:12.5px;color:var(--muted);background:#faf1e2;border-radius:6px;padding:8px 10px}
