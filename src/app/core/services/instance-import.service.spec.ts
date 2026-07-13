@@ -71,4 +71,10 @@ describe('InstanceImportService', () => {
     state.idx.set(null);
     expect(() => svc.importXml(INSTANCE)).toThrowError(/XSD-Ordner laden/);
   });
+
+  it('startet die importierte Nachricht im Betrachtungsmodus mit nur-Werte', () => {
+    svc.importXml(INSTANCE);
+    expect(state.readOnly()).toBeTrue();
+    expect(state.onlyValues()).toBeTrue();
+  });
 });

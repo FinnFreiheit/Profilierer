@@ -62,6 +62,10 @@ export class StateService {
   readonly onlyValues = signal(false);
   readonly showRefs = signal(true);
   readonly focusMode = signal(true);
+  /** Blaetter linksbuendig auf die tiefste Spalte ausrichten (bündige Wertespalte). */
+  readonly alignLeaves = signal(false);
+  /** Betrachtungsmodus: gesperrte Ansicht ohne Profilier-Bedienelemente (Nachricht inspizieren). */
+  readonly readOnly = signal(false);
   /** Profil, das vor dem XSD-Ordner geladen wurde (loadProfileFile, Z.1813). */
   readonly pendingMsg = signal<ProfileDoc | null>(null);
   /** Anzeige "automatisch gesichert HH:MM" (autosaveNow, Z.1481). */
@@ -303,6 +307,21 @@ export class StateService {
     });
   }
 
+  /**
+   * Klappt alle Äste auf, die im "nur Werte"-Modus sichtbar bleiben (jeder Wert
+   * samt seiner Vorfahren). Sonst wirkt der Filter nur innerhalb bereits
+   * geöffneter Äste; so wird die belegte Nachricht in einem Schritt aufgedeckt.
+   */
+  expandValueBranches(): void {
+    const paths = this.valuePaths();
+    if (!paths.size) return;
+    this.open.update((s) => {
+      const next = new Set(s);
+      for (const p of paths) next.add(p);
+      return next;
+    });
+  }
+
   // ── Status-Konfiguration & Profil-Lebenszyklus ──────────────────────
 
   setStatuses(statuses: Status[]): void {
@@ -321,6 +340,10 @@ export class StateService {
     this.auspraegungen.set(doc.auspraegungen ?? {});
     this.selItem.set(null);
     this.open.set(new Set());
+    // Jeder Profil-Einstieg ist editierbar und zeigt den vollen Standard; der
+    // Betrachtungsmodus wird nur beim Nachrichten-Import (importXml) eingeschaltet.
+    this.readOnly.set(false);
+    this.onlyValues.set(false);
   }
 
   /** Frisches, leeres Profil (newProfile). */

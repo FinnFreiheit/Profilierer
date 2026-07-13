@@ -29,6 +29,9 @@ export class DetailPanel {
 
   protected readonly clFilter = signal('');
 
+  /** Betrachtungsmodus: Editier-Controls werden im Template ausgeblendet. */
+  protected readonly ro = computed(() => this.state.readOnly());
+
   protected readonly vm = computed(() => {
     const it = this.state.selItem();
     if (!it) return null;
@@ -96,6 +99,7 @@ export class DetailPanel {
       label: string;
       options: { path: string; label: string; selected: boolean }[];
       cur: string;
+      curLabel: string;
     } = null;
     const rk = refKindOf(n);
     if (rk) {
@@ -109,7 +113,8 @@ export class DetailPanel {
       }
       if (cur && !curFound)
         options.push({ path: cur, label: this.state.auspLabel(cur), selected: true });
-      ref = { label: REF_LABELS[rk] || rk, options, cur };
+      const curLabel = options.find((o) => o.selected)?.label ?? '— kein Ziel festgelegt —';
+      ref = { label: REF_LABELS[rk] || rk, options, cur, curLabel };
     }
 
     return {
@@ -132,6 +137,7 @@ export class DetailPanel {
       ref,
       anmerkung: p.anmerkung ?? '',
       beispiel: p.beispiel ?? '',
+      curStatusName: st?.name ?? 'wie Standard',
     };
   });
 

@@ -15,6 +15,7 @@ Zentraler Einstieg in die Entwickler- und Architekturdokumentation. Der **XJusti
 | [Betrieb / Deployment](deployment.md) | Build, Hosting, die offene Prod-Proxy-Frage |
 | [Beitragen](contributing.md) | Setup, Konventionen, Commit-/Branch-Stil |
 | [Architektur-Entscheidungen (ADRs)](adr/README.md) | Warum wurde etwas so entschieden (Migration, Store, SVG-Linien, Proxy …) |
+| [User Stories](user-stories/xjustiz-nachricht-inspizieren.md) | Verfeinerte Anforderungen / Refinement-Ergebnisse (z. B. Nachricht inspizieren) |
 
 ## Für Claude / KI-Assistenz
 

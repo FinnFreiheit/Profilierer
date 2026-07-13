@@ -43,8 +43,10 @@ const LABEL_MIN_LEN = 400;
  * (Z.1066-1206): die Bezier-/Referenz-Geometrie wird nahezu unveraendert aus
  * DOM-Messungen berechnet und als PathSpec[] gerendert. Neuberechnung bei
  * Struktur-/Auswahl-/Profil-Aenderung (effect), bei Groessenaenderung
- * (ResizeObserver) und beim ersten Render (afterNextRender). Zusaetzlich
- * richtet `alignLeaves` alle Blaetter linksbuendig auf der tiefsten Spalte aus.
+ * (ResizeObserver) und beim ersten Render (afterNextRender). Optional richtet
+ * `alignLeaves` (Schalter „Blätter ausrichten") alle Blaetter linksbuendig auf
+ * der tiefsten Spalte aus; ohne den Schalter sitzt jedes Blatt direkt neben
+ * seinem Elternknoten (kurze Wege, klare Herkunft).
  */
 @Component({
   selector: 'app-tree-canvas',
@@ -78,6 +80,7 @@ export class TreeCanvas {
       this.state.showDiff();
       this.state.showTech();
       this.state.focusMode();
+      this.state.alignLeaves();
       this.scheduleRedraw();
     });
 
@@ -132,14 +135,22 @@ export class TreeCanvas {
     });
   }
 
+  /** Setzt eine zuvor angewandte Blatt-Ausrichtung zurueck (Blatt wieder direkt am Elternknoten). */
+  private resetLeafMargins(canvas: HTMLElement): void {
+    for (const t of Array.from(canvas.querySelectorAll<HTMLElement>('.ntree'))) {
+      const box = t.children[0] as HTMLElement | undefined;
+      if (box && box.classList.contains('box')) box.style.marginLeft = '';
+    }
+  }
+
   /**
-   * Visuelle Anforderung: alle Blaetter auf dieselbe (tiefste) Spalte,
-   * linksbuendig. Echte Blaetter sind Boxen ohne Aufklapp-Button (`.togBtn`
-   * gibt es nur bei Knoten mit Kindern — eingeklappte Aeste zaehlen daher
-   * bewusst NICHT als Blatt). Jedes Blatt wird per `margin-left` bis zur
-   * linken Kante des am weitesten rechts liegenden Blatts geschoben; die
-   * Verbindungslinien folgen automatisch, da sie aus der DOM-Geometrie
-   * berechnet werden.
+   * Visuelle Anforderung (optional, Schalter „Blätter ausrichten"): alle
+   * Blaetter auf dieselbe (tiefste) Spalte, linksbuendig. Echte Blaetter sind
+   * Boxen ohne Aufklapp-Button (`.togBtn` gibt es nur bei Knoten mit Kindern —
+   * eingeklappte Aeste zaehlen daher bewusst NICHT als Blatt). Jedes Blatt wird
+   * per `margin-left` bis zur linken Kante des am weitesten rechts liegenden
+   * Blatts geschoben; die Verbindungslinien folgen automatisch, da sie aus der
+   * DOM-Geometrie berechnet werden.
    */
   private alignLeaves(canvas: HTMLElement): void {
     const boxes: HTMLElement[] = [];
@@ -179,9 +190,11 @@ export class TreeCanvas {
       this.paths.set([]);
       return;
     }
-    // Blatt-Ausrichtung vor der Vermessung — schiebt Endknoten nach rechts,
-    // aendert damit scrollWidth und die Box-Geometrie der Verbindungslinien.
-    this.alignLeaves(canvas);
+    // Blatt-Ausrichtung (optional) vor der Vermessung — schiebt Endknoten nach
+    // rechts, aendert damit scrollWidth und die Box-Geometrie der Linien. Ohne
+    // Ausrichtung sitzt jedes Blatt direkt neben seinem Elternknoten (kurze Wege).
+    if (this.state.alignLeaves()) this.alignLeaves(canvas);
+    else this.resetLeafMargins(canvas);
     const W = canvas.scrollWidth;
     const H = canvas.scrollHeight;
     this.svgSize.set({ w: W, h: H });

@@ -23,6 +23,9 @@
           @if (h.crumb) {
             <div class="sc">{{ h.crumb }}</div>
           }
+          @if (h.value) {
+            <div class="sd" style="color: var(--accent)">Wert: {{ h.value }}</div>
+          }
           @if (h.doc) {
             <div class="sd">{{ h.doc }}</div>
           }

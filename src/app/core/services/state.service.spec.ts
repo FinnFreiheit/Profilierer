@@ -178,4 +178,33 @@ describe('StateService', () => {
       expect(s.boxHidden('m/code')).toBe(false);
     });
   });
+
+  describe('expandValueBranches', () => {
+    it('klappt jeden Wert samt seiner Vorfahren auf', () => {
+      s.setElementProfile('m/gds/kopf/az', { beispiel: '12345' });
+      s.expandValueBranches();
+      expect(s.isOpen('m/gds/kopf/az')).toBeTrue();
+      expect(s.isOpen('m/gds/kopf')).toBeTrue();
+      expect(s.isOpen('m/gds')).toBeTrue();
+      expect(s.isOpen('m')).toBeTrue();
+    });
+
+    it('laesst bereits offene Aeste stehen und macht ohne Werte nichts', () => {
+      s.setOpen('m/x', true);
+      const before = s.open();
+      s.expandValueBranches(); // keine Werte
+      expect(s.open()).toBe(before);
+      expect(s.isOpen('m/x')).toBeTrue();
+    });
+  });
+
+  describe('loadProfile / Betrachtungsmodus', () => {
+    it('setzt readOnly und onlyValues beim Laden eines Profils zurueck', () => {
+      s.readOnly.set(true);
+      s.onlyValues.set(true);
+      s.loadProfile({ meta: {}, statuses: [], elemente: {}, auspraegungen: {} });
+      expect(s.readOnly()).toBeFalse();
+      expect(s.onlyValues()).toBeFalse();
+    });
+  });
 });

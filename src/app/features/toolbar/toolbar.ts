@@ -53,6 +53,15 @@ export class Toolbar {
     this.nav.collapseTree();
   }
 
+  /**
+   * "nur Werte" umschalten; beim Aktivieren zusätzlich die belegten Äste
+   * aufklappen, sonst wirkt der Filter nur in bereits geöffneten Ästen.
+   */
+  protected toggleOnlyValues(on: boolean): void {
+    this.state.onlyValues.set(on);
+    if (on) this.state.expandValueBranches();
+  }
+
   protected prefillMandatory(): void {
     const n = this.nav.prefillMandatoryStatus();
     this.toast.show(

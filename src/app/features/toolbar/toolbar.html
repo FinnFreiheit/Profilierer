@@ -1,18 +1,20 @@
 <div id="toolbar">
   <app-message-picker></app-message-picker>
 
-  <div class="toolgroup">
-    <label for="profilName">Szenario:</label>
-    <input
-      type="text"
-      id="profilName"
-      placeholder="Name des Kommunikationsszenarios"
-      [value]="state.meta().name || ''"
-      (change)="onName($event)"
-    />
-    <button title="Autor, Beschreibung, Datum" (click)="metaClick.emit()">Details…</button>
-    <button title="Statusstufen konfigurieren" (click)="statusClick.emit()">Status…</button>
-  </div>
+  @if (!state.readOnly()) {
+    <div class="toolgroup">
+      <label for="profilName">Szenario:</label>
+      <input
+        type="text"
+        id="profilName"
+        placeholder="Name des Kommunikationsszenarios"
+        [value]="state.meta().name || ''"
+        (change)="onName($event)"
+      />
+      <button title="Autor, Beschreibung, Datum" (click)="metaClick.emit()">Details…</button>
+      <button title="Statusstufen konfigurieren" (click)="statusClick.emit()">Status…</button>
+    </div>
+  }
 
   <span id="fortschritt">{{ fortschrittText() }}</span>
   <span id="autosaveInfo">{{ state.autosaveInfo() }}</span>
@@ -21,6 +23,10 @@
   <app-search></app-search>
 
   <div class="toolgroup">
+    <label title="Nachricht nur betrachten — ohne Profilier-Bedienelemente, Werte gesperrt">
+      <input type="checkbox" [disabled]="!hasRoot()" [checked]="state.readOnly()"
+        (change)="state.readOnly.set(checked($event))" /> Nur betrachten
+    </label>
     <label title="Versionsunterschiede im Baum markieren">
       <input type="checkbox" [disabled]="!hasIdxB()" [checked]="state.showDiff()"
         (change)="state.showDiff.set(checked($event))" /> Diff
@@ -37,25 +43,33 @@
       <input type="checkbox" [checked]="state.showRefs()"
         (change)="state.showRefs.set(checked($event))" /> Verweise
     </label>
+    <label title="Blätter auf eine bündige Wertespalte ausrichten (aus: Blatt direkt am Elternknoten, kurze Wege)">
+      <input type="checkbox" [checked]="state.alignLeaves()"
+        (change)="state.alignLeaves.set(checked($event))" /> Blätter ausrichten
+    </label>
     <label>
       <input type="checkbox" [checked]="state.onlyProfile()"
         (change)="state.onlyProfile.set(checked($event))" /> nur Profil
     </label>
     <label title="Nur Elemente mit Wert/Inhalt zeigen statt des gesamten Standards">
       <input type="checkbox" [checked]="state.onlyValues()"
-        (change)="state.onlyValues.set(checked($event))" /> nur Werte
+        (change)="toggleOnlyValues(checked($event))" /> nur Werte
     </label>
     <button [disabled]="!hasRoot()" (click)="expand()">Alles ausklappen</button>
     <button [disabled]="!hasRoot()" (click)="collapse()">Zuklappen</button>
-    <button [disabled]="!hasRoot()" title="Alle Pflichtelemente als „zwingend“ vorbelegen"
-      (click)="prefillMandatory()">Pflicht vorbelegen</button>
+    @if (!state.readOnly()) {
+      <button [disabled]="!hasRoot()" title="Alle Pflichtelemente als „zwingend“ vorbelegen"
+        (click)="prefillMandatory()">Pflicht vorbelegen</button>
+    }
   </div>
 
   <div class="toolgroup">
-    <button [disabled]="!hasRoot()" (click)="saveClick.emit()">Speichern</button>
-    <button [disabled]="!hasRoot()" (click)="excelClick.emit()">Excel</button>
-    <button [disabled]="!hasRoot()" (click)="schClick.emit()">Schematron</button>
-    <button [disabled]="!hasRoot()" (click)="xmlClick.emit()">Beispiel-XML</button>
+    @if (!state.readOnly()) {
+      <button [disabled]="!hasRoot()" (click)="saveClick.emit()">Speichern</button>
+      <button [disabled]="!hasRoot()" (click)="excelClick.emit()">Excel</button>
+      <button [disabled]="!hasRoot()" (click)="schClick.emit()">Schematron</button>
+      <button [disabled]="!hasRoot()" (click)="xmlClick.emit()">Beispiel-XML</button>
+    }
     <button [disabled]="!hasRoot()" (click)="printClick.emit()">Drucken</button>
   </div>
 </div>

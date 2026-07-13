@@ -65,6 +65,7 @@ export class TreeNode {
   protected readonly isOpen = computed(() => this.state.isOpen(this.path()));
 
   protected readonly showAddAusp = computed(() => {
+    if (this.state.readOnly()) return false;
     const it = this.item();
     if (it.kind !== 'el') return false;
     const a = this.state.auspsOf(it.node.path);
@@ -102,6 +103,7 @@ export class TreeNode {
     const it = this.item();
     const n = this.node();
     const path = this.path();
+    const readOnly = this.state.readOnly();
     const st = this.state.statusOf(path);
     const inhExcl = this.state.inheritedExcluded(path);
     const excluded = st?.wirkung === 'ausgeschlossen';
@@ -152,6 +154,11 @@ export class TreeNode {
         };
       }
       vin = { value: pe.beispiel || '', placeholder: auto, listId: datalist ? listId : null };
+    }
+    // Betrachtungsmodus: Wert nur anzeigen (mv), kein editierbares Eingabefeld.
+    if (readOnly) {
+      vin = null;
+      datalist = null;
     }
 
     // Kardinalitaet (Z.1263-1266).
@@ -259,11 +266,12 @@ export class TreeNode {
           : pe.anmerkung || null,
       tags,
       isValueBox,
-      // Buttons.
-      showHide: !this.isRoot() && it.kind === 'el',
+      // Buttons (im Betrachtungsmodus ausgeblendet).
+      showHide: !readOnly && !this.isRoot() && it.kind === 'el',
       hideIsExcl: isExcl,
-      showDelAusp: !this.isRoot() && it.kind === 'ausp',
+      showDelAusp: !readOnly && !this.isRoot() && it.kind === 'ausp',
       showDup:
+        !readOnly &&
         !this.isRoot() &&
         (it.kind === 'ausp' || (!n.synthetic && this.tree.isRepeatable(n))),
       dupTitle:

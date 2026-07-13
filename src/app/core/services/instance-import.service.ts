@@ -44,12 +44,16 @@ export class InstanceImportService {
     if (!idx) throw new Error('Bitte zuerst den passenden XSD-Ordner laden.');
     if (!idx.el[msgName]) throw new Error(`Kein passendes Schema für <${msgName}> geladen.`);
 
-    this.nav.loadMessage(msgName); // setzt Profil zurück, baut den Baum
+    this.nav.loadMessage(msgName); // setzt Profil zurück (readOnly/onlyValues aus), baut den Baum
     const root = this.state.root()!;
     const opened = new Set<string>([root.path]);
     this.bindChildren(root, rootEl, opened, 0);
     this.state.open.set(opened);
     this.state.selItem.set({ kind: 'el', node: root });
+    // Nachricht inspizieren: gesperrte Ansicht, die sofort nur den belegten
+    // Inhalt zeigt. Nach dem Reset in loadMessage setzen, damit die Flags stehen.
+    this.state.readOnly.set(true);
+    this.state.onlyValues.set(true);
     this.toast.show(`Nachricht ${msgName} geladen.`);
   }
 

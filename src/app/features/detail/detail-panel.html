@@ -4,7 +4,11 @@
     @if (v.isAusp) {
       <div class="dsec">
         <label>Name der Ausprägung</label>
-        <input type="text" style="width: 100%" [value]="v.auspName" (change)="onAuspNameSelf($event)" />
+        @if (ro()) {
+          <div class="docbox">{{ v.auspName }}</div>
+        } @else {
+          <input type="text" style="width: 100%" [value]="v.auspName" (change)="onAuspNameSelf($event)" />
+        }
       </div>
       <div class="sub">Ausprägung von {{ v.parentName }}</div>
     } @else {
@@ -15,48 +19,58 @@
       }
     }
 
-    <div class="dsec">
-      <label>Status im Szenario</label>
-      <div class="statusBtns">
-        @for (b of v.statusButtons; track b.id) {
-          <button
-            [class.active]="b.active"
-            [style.background]="b.active ? b.farbe : null"
-            [style.border-color]="b.active ? b.farbe : b.id ? b.farbe + '66' : null"
-            [style.color]="b.active ? '#fff' : b.id ? b.farbe : null"
-            (click)="setStatus(b.id)"
-          >
-            {{ b.name }}
-          </button>
-        }
-      </div>
-    </div>
-
-    <div class="dsec">
-      <label>Kardinalität im Szenario</label>
-      <div class="kardRow">
-        <input type="text" [placeholder]="v.kminPlaceholder" [value]="v.minValue" (change)="setField('min', $event)" />
-        bis
-        <input type="text" [placeholder]="v.kmaxPlaceholder" [value]="v.maxValue" (change)="setField('max', $event)" />
-        <span style="color: var(--muted); font-size: 12px">leer = {{ v.kardHint }}</span>
-      </div>
-    </div>
-
-    @if (v.showAusps) {
+    @if (!ro()) {
       <div class="dsec">
-        <label>Ausprägungen</label>
-        <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
-          Benannte Fälle dieses Elements mit je eigener Profilierung — z. B. mehrere Beteiligte mit verschiedenen Rollen.
-        </div>
-        <div id="auspList">
-          @for (a of v.auspList; track a.id) {
-            <div class="auspRow">
-              <input type="text" [value]="a.name" (change)="renameAuspRow(a.id, $event)" />
-              <button title="Ausprägung löschen" (click)="delAuspRow(a.id)">✕</button>
-            </div>
+        <label>Status im Szenario</label>
+        <div class="statusBtns">
+          @for (b of v.statusButtons; track b.id) {
+            <button
+              [class.active]="b.active"
+              [style.background]="b.active ? b.farbe : null"
+              [style.border-color]="b.active ? b.farbe : b.id ? b.farbe + '66' : null"
+              [style.color]="b.active ? '#fff' : b.id ? b.farbe : null"
+              (click)="setStatus(b.id)"
+            >
+              {{ b.name }}
+            </button>
           }
         </div>
-        <button (click)="addAusp()">+ Ausprägung</button>
+      </div>
+
+      <div class="dsec">
+        <label>Kardinalität im Szenario</label>
+        <div class="kardRow">
+          <input type="text" [placeholder]="v.kminPlaceholder" [value]="v.minValue" (change)="setField('min', $event)" />
+          bis
+          <input type="text" [placeholder]="v.kmaxPlaceholder" [value]="v.maxValue" (change)="setField('max', $event)" />
+          <span style="color: var(--muted); font-size: 12px">leer = {{ v.kardHint }}</span>
+        </div>
+      </div>
+    }
+
+    @if (v.showAusps && v.auspList.length) {
+      <div class="dsec">
+        <label>Ausprägungen</label>
+        @if (ro()) {
+          <div id="auspList">
+            @for (a of v.auspList; track a.id) {
+              <div class="docbox">{{ a.name }}</div>
+            }
+          </div>
+        } @else {
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
+            Benannte Fälle dieses Elements mit je eigener Profilierung — z. B. mehrere Beteiligte mit verschiedenen Rollen.
+          </div>
+          <div id="auspList">
+            @for (a of v.auspList; track a.id) {
+              <div class="auspRow">
+                <input type="text" [value]="a.name" (change)="renameAuspRow(a.id, $event)" />
+                <button title="Ausprägung löschen" (click)="delAuspRow(a.id)">✕</button>
+              </div>
+            }
+          </div>
+          <button (click)="addAusp()">+ Ausprägung</button>
+        }
       </div>
     }
 
@@ -76,33 +90,41 @@
           </div>
         }
         @if (cl.eff) {
-          <div class="clTools">
-            <a (click)="clAll()">alle</a>
-            <a (click)="clNone()">keine</a>
-            <span style="color: var(--muted)">
-              {{ cl.allowedCount ? cl.allowedCount + ' von ' + cl.total + ' zugelassen' : 'keine Einschränkung' }}
-            </span>
-          </div>
+          @if (!ro()) {
+            <div class="clTools">
+              <a (click)="clAll()">alle</a>
+              <a (click)="clNone()">keine</a>
+              <span style="color: var(--muted)">
+                {{ cl.allowedCount ? cl.allowedCount + ' von ' + cl.total + ' zugelassen' : 'keine Einschränkung' }}
+              </span>
+            </div>
+          }
           @if (cl.showFilter) {
             <input type="text" placeholder="Werte filtern…" style="width: 100%; margin-bottom: 5px"
               [value]="clFilter()" (input)="onClFilter($event)" />
           }
           <div class="clWrap">
             @for (w of filteredEff(); track w.value) {
-              <label class="clRow">
-                <input type="checkbox" class="clv" [checked]="w.checked" (change)="toggleWert(w.value)" />
-                <code>{{ w.value }}</code><span>{{ w.label }}</span>
-              </label>
+              @if (ro()) {
+                <div class="clRow"><code>{{ w.value }}</code><span>{{ w.label }}</span></div>
+              } @else {
+                <label class="clRow">
+                  <input type="checkbox" class="clv" [checked]="w.checked" (change)="toggleWert(w.value)" />
+                  <code>{{ w.value }}</code><span>{{ w.label }}</span>
+                </label>
+              }
             }
           </div>
         } @else {
           <div class="extern">Werte extern gepflegt (Code-Typ 3, XRepository).</div>
-          <div style="margin: 6px 0"><button (click)="fetchSingle()">Diese Liste aus dem XRepository laden</button></div>
-          <div style="font-size: 12px; color: var(--muted); margin-bottom: 4px">
-            Oder alle Listen auf einmal über „Codelisten: XRepository" in der Kopfzeile. Bis dahin: zulässige Werte als
-            Text, ein Wert pro Zeile:
-          </div>
-          <textarea placeholder="2001 — Genehmigung Grundstücksgeschäft" [value]="cl.manualText" (change)="onManualWerte($event)"></textarea>
+          @if (!ro()) {
+            <div style="margin: 6px 0"><button (click)="fetchSingle()">Diese Liste aus dem XRepository laden</button></div>
+            <div style="font-size: 12px; color: var(--muted); margin-bottom: 4px">
+              Oder alle Listen auf einmal über „Codelisten: XRepository" in der Kopfzeile. Bis dahin: zulässige Werte als
+              Text, ein Wert pro Zeile:
+            </div>
+            <textarea placeholder="2001 — Genehmigung Grundstücksgeschäft" [value]="cl.manualText" (change)="onManualWerte($event)"></textarea>
+          }
         }
       </div>
     }
@@ -110,32 +132,50 @@
     @if (v.ref; as ref) {
       <div class="dsec">
         <label>Verweisziel im Szenario ({{ ref.label }})</label>
-        <div style="display: flex; gap: 6px">
-          <select style="flex: 1" (change)="setRefZiel($event)">
-            @for (o of ref.options; track o.path) {
-              <option [value]="o.path" [selected]="o.selected">{{ o.label }}</option>
+        @if (ro()) {
+          <div style="display: flex; gap: 6px; align-items: center">
+            <span class="docbox" style="flex: 1">{{ ref.curLabel }}</span>
+            @if (ref.cur) {
+              <button title="Zum Ziel springen" (click)="refJump()">→ Ziel</button>
             }
-          </select>
-          @if (ref.cur) {
-            <button title="Zum Ziel springen" (click)="refJump()">→ Ziel</button>
-          }
-        </div>
-        @if (!ref.options.length || ref.options.length === 1) {
-          <div style="font-size: 12px; color: var(--muted); margin-top: 4px">
-            Noch keine passenden Ausprägungen angelegt — erst das Zielelement (z. B. Beteiligung) duplizieren/benennen,
-            dann hier zuordnen.
           </div>
+        } @else {
+          <div style="display: flex; gap: 6px">
+            <select style="flex: 1" (change)="setRefZiel($event)">
+              @for (o of ref.options; track o.path) {
+                <option [value]="o.path" [selected]="o.selected">{{ o.label }}</option>
+              }
+            </select>
+            @if (ref.cur) {
+              <button title="Zum Ziel springen" (click)="refJump()">→ Ziel</button>
+            }
+          </div>
+          @if (!ref.options.length || ref.options.length === 1) {
+            <div style="font-size: 12px; color: var(--muted); margin-top: 4px">
+              Noch keine passenden Ausprägungen angelegt — erst das Zielelement (z. B. Beteiligung) duplizieren/benennen,
+              dann hier zuordnen.
+            </div>
+          }
         }
       </div>
     }
 
-    <div class="dsec">
-      <label>Fachliche Anmerkung</label>
-      <textarea placeholder="Ausfüllhinweis, juristische Erläuterung, offene Frage…" [value]="v.anmerkung" (change)="setField('anmerkung', $event)"></textarea>
-    </div>
-    <div class="dsec">
-      <label>Beispielwert</label>
-      <textarea style="min-height: 40px" placeholder="konkretes Beispiel — wird für die Beispiel-XML verwendet" [value]="v.beispiel" (change)="setField('beispiel', $event)"></textarea>
-    </div>
+    @if (!ro()) {
+      <div class="dsec">
+        <label>Fachliche Anmerkung</label>
+        <textarea placeholder="Ausfüllhinweis, juristische Erläuterung, offene Frage…" [value]="v.anmerkung" (change)="setField('anmerkung', $event)"></textarea>
+      </div>
+      <div class="dsec">
+        <label>Beispielwert</label>
+        <textarea style="min-height: 40px" placeholder="konkretes Beispiel — wird für die Beispiel-XML verwendet" [value]="v.beispiel" (change)="setField('beispiel', $event)"></textarea>
+      </div>
+    } @else {
+      @if (v.anmerkung) {
+        <div class="dsec"><label>Fachliche Anmerkung</label><div class="docbox">{{ v.anmerkung }}</div></div>
+      }
+      @if (v.beispiel) {
+        <div class="dsec"><label>Beispielwert</label><div class="docbox">{{ v.beispiel }}</div></div>
+      }
+    }
   }
 </div>
