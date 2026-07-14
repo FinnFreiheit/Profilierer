@@ -95,7 +95,7 @@
               <a (click)="clAll()">alle</a>
               <a (click)="clNone()">keine</a>
               <span style="color: var(--muted)">
-                {{ cl.allowedCount ? cl.allowedCount + ' von ' + cl.total + ' zugelassen' : 'keine Einschränkung' }}
+                {{ cl.restricted ? cl.allowedCount + ' von ' + cl.total + ' zugelassen' : 'keine Einschränkung' }}
               </span>
             </div>
           }

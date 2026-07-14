@@ -147,7 +147,7 @@ export class TreeNode {
       const listId = 'dl' + n.id + '_' + (it.kind === 'ausp' ? it.ausp.id : 'e');
       const werte = n.codelist ? this.values.clWerte(n.codelist) || [] : [];
       if (werte.length) {
-        const allowed = pe.werte && pe.werte.length ? new Set(pe.werte) : null;
+        const allowed = pe.werte ? new Set(pe.werte) : null;
         datalist = {
           id: listId,
           options: werte.filter((w) => !allowed || allowed.has(w.value)).slice(0, 300),

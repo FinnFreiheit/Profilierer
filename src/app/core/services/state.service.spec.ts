@@ -31,10 +31,16 @@ describe('StateService', () => {
       expect(s.elemente()['m/a']).toBeUndefined();
     });
 
-    it('behaelt Eintrag mit nicht-leeren werte', () => {
+    it('behaelt Eintrag mit werte — auch ein leeres Array („keine Werte zugelassen")', () => {
       s.setElementProfile('m/a', { werte: ['1'] });
       expect(s.elemente()['m/a']).toBeDefined();
       s.setElementProfile('m/a', { werte: [] });
+      expect(s.elemente()['m/a']).toEqual({ werte: [] });
+    });
+
+    it('raeumt Eintrag erst weg, wenn werte auf undefined gesetzt wird', () => {
+      s.setElementProfile('m/a', { werte: [] });
+      s.setElementProfile('m/a', { werte: undefined });
       expect(s.elemente()['m/a']).toBeUndefined();
     });
 

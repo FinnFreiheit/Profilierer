@@ -64,6 +64,7 @@ export class DetailPanel {
       geladen: boolean;
       version: string | null;
       eff: { value: string; label: string; checked: boolean; belegt: boolean; search: string }[] | null;
+      restricted: boolean;
       allowedCount: number;
       total: number;
       showFilter: boolean;
@@ -89,6 +90,7 @@ export class DetailPanel {
               search: (w.value + ' ' + w.label).toLowerCase(),
             }))
           : null,
+        restricted: !!p.werte,
         allowedCount: allowed.size,
         total: eff ? eff.length : 0,
         showFilter: !!eff && eff.length > 15,
@@ -199,7 +201,9 @@ export class DetailPanel {
     if (!cl?.eff) return;
     const all = cl.eff.map((w) => w.value);
     const p = this.state.elemente()[this.path()] ?? {};
-    const cur = p.werte && p.werte.length ? new Set(p.werte) : new Set(all);
+    // Kein `werte`-Feld = keine Einschraenkung = alle zugelassen; ein leeres
+    // Array (nach „keine") ist dagegen der Startpunkt fuer Einzel-Zulassungen.
+    const cur = p.werte ? new Set(p.werte) : new Set(all);
     if (cur.has(value)) cur.delete(value);
     else cur.add(value);
     const sel = all.filter((v) => cur.has(v));

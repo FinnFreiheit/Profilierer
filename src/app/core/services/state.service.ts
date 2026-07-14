@@ -217,11 +217,14 @@ export class StateService {
     return n;
   }
 
-  /** pruneP-Kriterium (Z.994). */
+  /**
+   * pruneP-Kriterium (Z.994). Ein leeres `werte`-Array ist eine explizite
+   * Einschraenkung („keine Werte zugelassen") und macht das Profil nicht leer —
+   * aufgehoben wird die Einschraenkung mit `werte: undefined`.
+   */
   private isEmptyProfile(p: ElementProfile): boolean {
     return (
-      !p.status && !p.anmerkung && !p.beispiel && !p.min && !p.max && !p.refZiel &&
-      !(p.werte && p.werte.length)
+      !p.status && !p.anmerkung && !p.beispiel && !p.min && !p.max && !p.refZiel && !p.werte
     );
   }
 
