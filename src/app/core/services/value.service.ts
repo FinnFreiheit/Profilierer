@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { CodelistInfo, EnumWert } from '../../models/codelist.model';
-import { kid, local } from '../util/xml.util';
+import { kid, kids, local } from '../util/xml.util';
+import { konformerBeispielwert } from '../util/pattern-sample.util';
 import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
 
@@ -8,9 +9,13 @@ import { XsdParserService } from './xsd-parser.service';
 const XS_BUILTIN: Record<string, string> = {
   date: '2026-01-01', dateTime: '2026-01-01T12:00:00', time: '12:00:00',
   integer: '1', int: '1', nonNegativeInteger: '1', positiveInteger: '1', long: '1', decimal: '0.00',
-  boolean: 'true', gYear: '2026', gYearMonth: '2026-01', anyURI: 'https://beispiel.example',
+  double: '0.0', float: '0.0', short: '1', byte: '1',
+  unsignedLong: '1', unsignedInt: '1', unsignedShort: '1', unsignedByte: '1',
+  negativeInteger: '-1', nonPositiveInteger: '0', duration: 'P1D',
+  boolean: 'true', gYear: '2026', gYearMonth: '2026-01', gMonthDay: '--01-01',
+  gDay: '---01', gMonth: '--01', anyURI: 'https://beispiel.example', language: 'de',
   token: 'Beispieltext', string: 'Beispieltext', normalizedString: 'Beispieltext',
-  base64Binary: 'QmVpc3BpZWw=',
+  base64Binary: 'QmVpc3BpZWw=', hexBinary: '0F',
 };
 
 /** Ein Blatt-Knoten fuer die Platzhalter-Berechnung (Teilmenge von TreeNode). */
@@ -93,18 +98,34 @@ export class ValueService {
     let t: string | null = n.typeName;
     const idx = this.state.idx();
     const seen = new Set<string>();
+    // Erste Pattern-Facette der Restriktions-Kette (spezifischster Typ zuerst);
+    // mehrere xs:pattern im selben Schritt sind XSD-seitig Alternativen.
+    let patterns: string[] | null = null;
+    let sample = 'Beispieltext';
     while (t && !seen.has(t)) {
       seen.add(t);
       const builtin = XS_BUILTIN[t];
-      if (builtin) return builtin;
+      if (builtin) {
+        sample = builtin;
+        break;
+      }
       const st = idx ? idx.st[t] : undefined;
       if (st) {
         const en = this.parser.enumsOfST(st, idx!);
         if (en && en.length) return en[0]!.value;
         const r = kid(st, 'restriction');
+        if (r && !patterns) {
+          const ps = kids(r, 'pattern')
+            .map((p) => p.getAttribute('value'))
+            .filter((v): v is string => !!v);
+          if (ps.length) patterns = ps;
+        }
         t = r ? local(r.getAttribute('base')) : null;
       } else t = null;
     }
-    return 'Beispieltext';
+    // Datentyp-Facette einhalten: Wert an der Pattern-Restriktion ausrichten
+    // (z. B. Type.GDS.Datumsangabe, UUID-Typen).
+    if (patterns) return konformerBeispielwert(patterns, Object.values(XS_BUILTIN), sample);
+    return sample;
   }
 }
