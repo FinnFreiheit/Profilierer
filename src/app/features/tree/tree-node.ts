@@ -134,7 +134,7 @@ export class TreeNode {
 
     // Testwert (Z.1243-1257).
     let mv: { text: string; ghost: boolean } | null = null;
-    let vin: { value: string; placeholder: string; listId: string | null } | null = null;
+    let vin: { value: string; placeholder: string; listId: string | null; problem: string | null } | null = null;
     let datalist: { id: string; options: { value: string; label: string }[] } | null = null;
     if (isValueBox) {
       const auto = this.values.placeholderFor({
@@ -153,7 +153,14 @@ export class TreeNode {
           options: werte.filter((w) => !allowed || allowed.has(w.value)).slice(0, 300),
         };
       }
-      vin = { value: pe.beispiel || '', placeholder: auto, listId: datalist ? listId : null };
+      // Typwidrige Testwerte sichtbar machen (Pattern-/Builtin-/Codelisten-Pruefung).
+      const problem = pe.beispiel
+        ? this.values.wertProblem(
+            { name: n.name, path, typeName: n.typeName, codelist: n.codelist },
+            pe.beispiel,
+          )
+        : null;
+      vin = { value: pe.beispiel || '', placeholder: auto, listId: datalist ? listId : null, problem };
     }
     // Betrachtungsmodus: Wert nur anzeigen, kein editierbares Eingabefeld.
     // Belegte Blätter bekommen eine read-only Wertezeile; Codes werden dabei

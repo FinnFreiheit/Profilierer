@@ -144,6 +144,13 @@ export class DetailPanel {
       // Klartext hinter dem belegten Code (Story 4) — null, wenn kein Code-Feld
       // oder Liste (noch) nicht geladen.
       beispielLabel: n.codelist ? this.values.labelFor(n.codelist, p.beispiel) : null,
+      // Typwidrige Beispielwerte sichtbar machen (Pattern-/Builtin-/Codelisten-Pruefung).
+      beispielProblem: p.beispiel
+        ? this.values.wertProblem(
+            { name: n.name, path, typeName: n.typeName, codelist: n.codelist },
+            p.beispiel,
+          )
+        : null,
       curStatusName: st?.name ?? 'wie Standard',
     };
   });

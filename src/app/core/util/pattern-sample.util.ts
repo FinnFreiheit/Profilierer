@@ -11,7 +11,7 @@
  * DIN-91379-Zeichenrepertoire-Patterns sind mehrere KB gross.
  */
 const compiled = new Map<string, RegExp | null>();
-function compilePattern(pattern: string): RegExp | null {
+export function compileXsdPattern(pattern: string): RegExp | null {
   if (compiled.has(pattern)) return compiled.get(pattern)!;
   let rx: RegExp | null = null;
   for (const flags of ['u', ''] as const) {
@@ -34,7 +34,7 @@ function compilePattern(pattern: string): RegExp | null {
  * Fallback unveraendert. Nicht kompilierbare Patterns werden ignoriert.
  */
 export function konformerBeispielwert(patterns: string[], kandidaten: string[], fallback: string): string {
-  const rx = patterns.map(compilePattern).filter((r): r is RegExp => !!r);
+  const rx = patterns.map(compileXsdPattern).filter((r): r is RegExp => !!r);
   if (!rx.length) return fallback;
   const passt = (s: string) => rx.some((r) => r.test(s));
   if (passt(fallback)) return fallback;

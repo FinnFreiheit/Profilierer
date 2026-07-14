@@ -169,7 +169,11 @@
       </div>
       <div class="dsec">
         <label>Beispielwert</label>
-        <textarea style="min-height: 40px" placeholder="konkretes Beispiel — wird für die Beispiel-XML verwendet" [value]="v.beispiel" (change)="setField('beispiel', $event)"></textarea>
+        <textarea style="min-height: 40px" placeholder="konkretes Beispiel — wird für die Beispiel-XML verwendet"
+          [class.invalid]="v.beispielProblem" [value]="v.beispiel" (change)="setField('beispiel', $event)"></textarea>
+        @if (v.beispielProblem) {
+          <div class="feldProblem">{{ v.beispielProblem }}</div>
+        }
       </div>
     } @else {
       @if (v.anmerkung) {

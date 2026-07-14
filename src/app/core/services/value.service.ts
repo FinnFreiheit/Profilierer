@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { CodelistInfo, EnumWert } from '../../models/codelist.model';
 import { kid, kids, local } from '../util/xml.util';
-import { konformerBeispielwert } from '../util/pattern-sample.util';
+import { compileXsdPattern, konformerBeispielwert } from '../util/pattern-sample.util';
 import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
 
@@ -16,6 +16,25 @@ const XS_BUILTIN: Record<string, string> = {
   gDay: '---01', gMonth: '--01', anyURI: 'https://beispiel.example', language: 'de',
   token: 'Beispieltext', string: 'Beispieltext', normalizedString: 'Beispieltext',
   base64Binary: 'QmVpc3BpZWw=', hexBinary: '0F',
+};
+
+/** Format-Pruefungen fuer eingegebene Werte der gaengigen Builtins (lexikalischer Raum, vereinfacht). */
+const XS_CHECK: Record<string, RegExp> = {
+  date: /^-?\d{4,}-\d{2}-\d{2}(Z|[+-]\d{2}:\d{2})?$/,
+  dateTime: /^-?\d{4,}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/,
+  time: /^\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/,
+  integer: /^[+-]?\d+$/, int: /^[+-]?\d+$/, long: /^[+-]?\d+$/, short: /^[+-]?\d+$/, byte: /^[+-]?\d+$/,
+  nonNegativeInteger: /^\+?\d+$/, positiveInteger: /^\+?0*[1-9]\d*$/,
+  negativeInteger: /^-0*[1-9]\d*$/, nonPositiveInteger: /^(-\d+|\+?0+)$/,
+  unsignedLong: /^\+?\d+$/, unsignedInt: /^\+?\d+$/, unsignedShort: /^\+?\d+$/, unsignedByte: /^\+?\d+$/,
+  decimal: /^[+-]?(\d+(\.\d*)?|\.\d+)$/,
+  double: /^([+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?|-?INF|NaN)$/,
+  float: /^([+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?|-?INF|NaN)$/,
+  boolean: /^(true|false|0|1)$/,
+  gYear: /^-?\d{4,}$/, gYearMonth: /^-?\d{4,}-\d{2}$/,
+  gMonthDay: /^--\d{2}-\d{2}$/, gDay: /^---\d{2}$/, gMonth: /^--\d{2}$/,
+  duration: /^-?P(?=.)(\d+Y)?(\d+M)?(\d+D)?(T(?=.)(\d+H)?(\d+M)?(\d+(\.\d+)?S)?)?$/,
+  hexBinary: /^([0-9A-Fa-f]{2})*$/,
 };
 
 /** Ein Blatt-Knoten fuer die Platzhalter-Berechnung (Teilmenge von TreeNode). */
@@ -95,37 +114,78 @@ export class ValueService {
       if (eff && eff.length) return eff[0]!.value;
       return 'CODE';
     }
-    let t: string | null = n.typeName;
-    const idx = this.state.idx();
-    const seen = new Set<string>();
-    // Erste Pattern-Facette der Restriktions-Kette (spezifischster Typ zuerst);
-    // mehrere xs:pattern im selben Schritt sind XSD-seitig Alternativen.
-    let patterns: string[] | null = null;
-    let sample = 'Beispieltext';
-    while (t && !seen.has(t)) {
-      seen.add(t);
-      const builtin = XS_BUILTIN[t];
-      if (builtin) {
-        sample = builtin;
-        break;
-      }
-      const st = idx ? idx.st[t] : undefined;
-      if (st) {
-        const en = this.parser.enumsOfST(st, idx!);
-        if (en && en.length) return en[0]!.value;
-        const r = kid(st, 'restriction');
-        if (r && !patterns) {
-          const ps = kids(r, 'pattern')
-            .map((p) => p.getAttribute('value'))
-            .filter((v): v is string => !!v);
-          if (ps.length) patterns = ps;
-        }
-        t = r ? local(r.getAttribute('base')) : null;
-      } else t = null;
-    }
+    const res = this.resolveType(n.typeName);
+    if (res.enumWerte && res.enumWerte.length) return res.enumWerte[0]!.value;
+    const sample = res.builtin ? XS_BUILTIN[res.builtin]! : 'Beispieltext';
     // Datentyp-Facette einhalten: Wert an der Pattern-Restriktion ausrichten
     // (z. B. Type.GDS.Datumsangabe, UUID-Typen).
-    if (patterns) return konformerBeispielwert(patterns, Object.values(XS_BUILTIN), sample);
+    if (res.patterns) return konformerBeispielwert(res.patterns, Object.values(XS_BUILTIN), sample);
     return sample;
+  }
+
+  /**
+   * Typ-Verstoss eines konkret eingegebenen Beispielwerts — null, wenn der Wert
+   * konform ist oder der Typ nicht geprueft werden kann. Prueft Codelisten,
+   * Enumerationen, xs:pattern-Facetten und die gaengigen Builtin-Formate.
+   */
+  wertProblem(n: PlaceholderNode, wert: string | null | undefined): string | null {
+    const w = (wert ?? '').trim();
+    if (!w) return null;
+    if (n.codelist) {
+      const eff = this.clWerte(n.codelist);
+      if (eff && eff.length && !eff.some((x) => x.value === w))
+        return `„${w}" ist kein Wert der Codeliste${n.codelist.nameLang ? ' ' + n.codelist.nameLang : ''}`;
+      return null;
+    }
+    const res = this.resolveType(n.typeName);
+    const tn = n.typeName ?? 'des Feldes';
+    if (res.enumWerte && res.enumWerte.length)
+      return res.enumWerte.some((e) => e.value === w) ? null : `„${w}" ist kein zulässiger Wert von ${tn}`;
+    if (res.patterns) {
+      const rxs = res.patterns.map(compileXsdPattern).filter((r): r is RegExp => !!r);
+      if (rxs.length && !rxs.some((r) => r.test(w)))
+        return `Entspricht nicht dem Datentyp ${tn} — erwartet z. B. „${konformerBeispielwert(
+          res.patterns, Object.values(XS_BUILTIN), XS_BUILTIN[res.builtin ?? ''] ?? 'Beispieltext')}"`;
+      return null;
+    }
+    if (res.builtin) {
+      const check = XS_CHECK[res.builtin];
+      if (check && !check.test(w))
+        return `Entspricht nicht dem Datentyp xs:${res.builtin} — erwartet z. B. „${XS_BUILTIN[res.builtin]}"`;
+    }
+    return null;
+  }
+
+  /**
+   * Aufloesung der simpleType-Kette: terminaler Builtin, Enumerationswerte
+   * oder die Pattern-Facette des spezifischsten Typs (mehrere xs:pattern im
+   * selben Restriktions-Schritt sind XSD-seitig Alternativen).
+   */
+  private resolveType(typeName: string | null): {
+    builtin: string | null;
+    enumWerte: EnumWert[] | null;
+    patterns: string[] | null;
+  } {
+    const idx = this.state.idx();
+    const seen = new Set<string>();
+    let patterns: string[] | null = null;
+    let t = typeName;
+    while (t && !seen.has(t)) {
+      seen.add(t);
+      if (XS_BUILTIN[t] !== undefined) return { builtin: t, enumWerte: null, patterns };
+      const st = idx ? idx.st[t] : undefined;
+      if (!st) break;
+      const en = this.parser.enumsOfST(st, idx!);
+      if (en && en.length) return { builtin: null, enumWerte: en, patterns };
+      const r = kid(st, 'restriction');
+      if (r && !patterns) {
+        const ps = kids(r, 'pattern')
+          .map((p) => p.getAttribute('value'))
+          .filter((v): v is string => !!v);
+        if (ps.length) patterns = ps;
+      }
+      t = r ? local(r.getAttribute('base')) : null;
+    }
+    return { builtin: null, enumWerte: null, patterns };
   }
 }

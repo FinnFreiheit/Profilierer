@@ -96,6 +96,9 @@ input[type=text]:focus,textarea:focus{outline:2px solid var(--accent-soft);borde
 .vrow{margin-top:5px}
 .vin{width:100%;font-family:var(--mono);font-size:12px;padding:3px 7px;border:1px solid #cfe0d3;border-radius:5px;background:#f6fbf7;color:#14532d}
 .vin::placeholder{color:#a3b8ab;font-style:italic}
+/* Typwidrige Beispiel-/Testwerte (ValueService.wertProblem) */
+.vin.invalid,#detail textarea.invalid{border-color:#c62828;background:#fdf3f3;color:#8e1c1c}
+.feldProblem{color:#c62828;font-size:11.5px;margin-top:3px}
 .box.excluded .vrow,.box.exclInherit .vrow{display:none}
 .box.excluded .mv,.box.exclInherit .mv{display:none}
 .box .bt{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;padding-right:16px}

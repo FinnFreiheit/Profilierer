@@ -51,10 +51,11 @@
       }
       <input
         class="vin"
+        [class.invalid]="vin.problem"
         [attr.list]="vin.listId"
         [value]="vin.value"
         [placeholder]="vin.placeholder"
-        title="Testwert für die Beispiel-XML — leer = automatischer Platzhalter"
+        [title]="vin.problem || 'Testwert für die Beispiel-XML — leer = automatischer Platzhalter'"
         (click)="stop($event)"
         (keydown)="onValueKeydown($event)"
         (change)="onValue($event)"

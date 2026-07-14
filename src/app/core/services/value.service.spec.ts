@@ -120,4 +120,42 @@ describe('ValueService.placeholderFor', () => {
     state.setElementProfile('m/geburtsdatum', { beispiel: '1980-05-12' });
     expect(svc.placeholderFor(leaf('geburtsdatum', 'Type.GDS.Datumsangabe'))).toBe('1980-05-12');
   });
+
+  describe('wertProblem', () => {
+    it('meldet typwidrige Datumsformate (deutsches Format statt ISO)', () => {
+      const problem = svc.wertProblem(leaf('geburtsdatum', 'Type.GDS.Datumsangabe'), '18.08.72');
+      expect(problem).toContain('Type.GDS.Datumsangabe');
+      expect(problem).toContain('2026-01-01');
+    });
+
+    it('akzeptiert pattern-konforme Werte inkl. Teildatum (yyyy, yyyy-mm)', () => {
+      for (const w of ['1972-08-18', '1972-08', '1972']) {
+        expect(svc.wertProblem(leaf('geburtsdatum', 'Type.GDS.Datumsangabe'), w)).toBeNull();
+      }
+    });
+
+    it('prueft Builtin-Formate (xs:date, xs:int, xs:boolean)', () => {
+      expect(svc.wertProblem(leaf('datum', 'date'), '18.08.1972')).toContain('xs:date');
+      expect(svc.wertProblem(leaf('datum', 'date'), '1972-08-18')).toBeNull();
+      expect(svc.wertProblem(leaf('anzahl', 'int'), 'drei')).toContain('xs:int');
+      expect(svc.wertProblem(leaf('anzahl', 'int'), '3')).toBeNull();
+      expect(svc.wertProblem(leaf('flag', 'boolean'), 'ja')).toContain('xs:boolean');
+      expect(svc.wertProblem(leaf('flag', 'boolean'), 'true')).toBeNull();
+    });
+
+    it('prueft Codelisten-Werte gegen die geladene Liste', () => {
+      const cl: CodelistInfo = {
+        typeName: 'Code.Test', nameLang: 'Teststaaten', kennung: 'urn:test:staaten',
+        beschreibung: '', werte: [{ value: 'DE', label: 'Deutschland' }],
+      };
+      const node = { name: 'staat', path: 'm/staat', typeName: 'Code.Test', codelist: cl };
+      expect(svc.wertProblem(node, 'DE')).toBeNull();
+      expect(svc.wertProblem(node, 'XX')).toContain('kein Wert der Codeliste');
+    });
+
+    it('leere Werte und unbekannte Typen sind kein Problem', () => {
+      expect(svc.wertProblem(leaf('geburtsdatum', 'Type.GDS.Datumsangabe'), '')).toBeNull();
+      expect(svc.wertProblem(leaf('freitext', 'Type.Unbekannt'), 'irgendwas')).toBeNull();
+    });
+  });
 });
