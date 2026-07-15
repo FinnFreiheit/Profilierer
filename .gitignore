@@ -33,3 +33,6 @@ npm-debug.log
 # Backend (Server + SQLite-Datenbank)
 /server/node_modules
 /server/data
+
+# Claude Code (persoenliche Einstellungen)
+.claude/settings.local.json

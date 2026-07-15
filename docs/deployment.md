@@ -24,11 +24,17 @@ cd .. && npm run start:prod     # baut die SPA und startet den Server
 # oder getrennt: npm run build  &&  npm run server
 ```
 
-- **Env:** `XJP_PORT` (Default 3001), `XJP_DB` (Default `server/data/profiles.db`, WAL-Modus).
+- **Env:** `XJP_PORT` (Default 3001), `XJP_HOST` (Bind-Adresse, Default alle Interfaces — hinter Reverse-Proxy `127.0.0.1` setzen), `XJP_DB` (Default `server/data/profiles.db`, WAL-Modus).
 - **Entwicklung:** `npm run dev` startet `ng serve` (Port 4200) und das Backend (3001) parallel; `proxy.conf.json` reicht `/api` und `/xrep-api` an ihre Ziele weiter.
 - **Absicherung:** Einzelnutzer ohne Auth — vor die App gehört ein Reverse-Proxy/internes Netz (TLS, Zugriffsschutz). Alternativ bleiben für Codelisten der CORS-Fallback in `CodelistService.xrepFetch` (mit Nutzer-Zustimmung) und der Datei-Import („Codelisten: Datei…") ohne Netzabruf.
 
 Die frühere Python-Variante liegt als Referenz unter `legacy/xrep-proxy.py`.
+
+## Raspberry Pi (xjw.freiheits.de/profilierer)
+
+Produktiv läuft der Profilierer auf dem Raspberry Pi neben den XJustiz-Tools (XJW): eigener systemd-Service (`xjustiz-profilierer`, Node auf `127.0.0.1:3001`), eingebunden als Unterpfad `/profilierer` in den bestehenden nginx-vhost `xjw.freiheits.de` (Snippet-Include; TLS vom vorhandenen certbot-Zertifikat). Die SPA wird dafür mit `--base-href /profilierer/` gebaut; nginx strippt den Präfix, der Server läuft intern an der Wurzel. Die API-Aufrufe der Stores sind deshalb **relativ** (`api/…` statt `/api/…`).
+
+Ablauf, Skripte und Rollback: [`deploy/README.md`](../deploy/README.md) (`deploy/deploy.sh` → rsync auf den Pi → `sudo bash pi/02-install-app.sh`). Die DB liegt auf dem Pi unter `/var/lib/xjustiz-profilierer/profiles.db`; Deploys fassen sie nie an. **Achtung:** bewusst ohne Zugriffsschutz — die Profil-API ist öffentlich les- und schreibbar.
 
 ## Datenhaltung
 

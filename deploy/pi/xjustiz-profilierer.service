@@ -1,0 +1,36 @@
+[Unit]
+Description=XJustiz Profilierer (SPA + Profil-API + XRepository-Proxy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=xjp
+Group=xjp
+WorkingDirectory=/opt/xjustiz-profilierer
+Environment=NODE_ENV=production
+Environment=XJP_PORT=3001
+# Nur nginx (Unterpfad /profilierer auf dem xjw-vhost) darf den Prozess erreichen.
+Environment=XJP_HOST=127.0.0.1
+Environment=XJP_DB=/var/lib/xjustiz-profilierer/profiles.db
+ExecStart=/usr/bin/node /opt/xjustiz-profilierer/server/index.js
+Restart=always
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+
+# Hardening (Muster: xjustiz-tools.service)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/lib/xjustiz-profilierer
+
+[Install]
+WantedBy=multi-user.target
