@@ -317,6 +317,16 @@ export class ExportService {
     ws.getRow(3).height = 52;
     ws.views = [{ state: 'frozen', ySplit: 3 }];
 
+    // Zeilenhoehe aus der Textlaenge: gemergte Zellen passt Excel nicht
+    // automatisch an, daher Zeilen (~Zeichen je Zeilenbreite) selbst schaetzen.
+    const breiteAb = (von: number): number => {
+      let w = 44 + 10 + 14; // Typ + Anzahl + letzte Einrueckspalte
+      for (let c = von; c < einrueck; c++) w += 4.8;
+      return w;
+    };
+    const zeilenbedarf = (t: string | undefined, breite: number): number =>
+      !t ? 1 : t.split('\n').reduce((s, p) => s + Math.max(1, Math.ceil(p.length / breite)), 0);
+
     let r = 4;
     for (const z of zeilen) {
       const cName = z.tiefe + 1;
@@ -325,18 +335,28 @@ export class ExportService {
         if (z.typ) zelle(r, colTyp, z.typ);
         if (z.anzahl) zelle(r, colAnzahl, z.anzahl);
       } else {
-        // Beschreibungszeilen ohne Merge — der Text laeuft ueber die leeren
-        // Nachbarzellen (wie in der Referenz), Streifen bleiben zellgenau.
+        // Beschreibungszeile: bis zur Anzahl-Spalte gemergt, mit Umbruch.
         zelle(r, cName, z.text);
+        ws.mergeCells(r, cName, r, colAnzahl);
+        ws.getCell(r, cName).alignment = { wrapText: true, vertical: 'top' };
       }
       if (z.status) {
         zelle(r, colStatus, z.status);
         ws.getCell(r, colStatus).alignment = { wrapText: true, vertical: 'top' };
       }
-      if (z.testdaten) zelle(r, colTest, z.testdaten);
+      if (z.testdaten) {
+        zelle(r, colTest, z.testdaten);
+        ws.getCell(r, colTest).alignment = { wrapText: true, vertical: 'top' };
+      }
       if (z.anzahl && z.anzahl.includes('\n'))
         ws.getCell(r, colAnzahl).alignment = { wrapText: true, vertical: 'top' };
-      ws.getRow(r).height = 25;
+      const zeilenzahl = Math.max(
+        z.art === 'desc' ? zeilenbedarf(z.text, breiteAb(cName)) : 1,
+        zeilenbedarf(z.status, 40),
+        zeilenbedarf(z.testdaten, 40),
+        zeilenbedarf(z.anzahl, 10),
+      );
+      ws.getRow(r).height = Math.max(25, 13 * zeilenzahl + 4);
       r++;
     }
     // Gliederungsfaerbung: jedes Elternelement (mit eingerueckten Kindzeilen)
@@ -393,6 +413,8 @@ export class ExportService {
       ws.getCell(r, 1).font = XL_FONT;
       ws.getCell(r, 2).value = w.label;
       ws.getCell(r, 2).font = XL_FONT;
+      // Nicht gemergte Zellen mit Umbruch passt Excel selbst in der Hoehe an.
+      ws.getCell(r, 2).alignment = { wrapText: true, vertical: 'top' };
       r++;
     }
   }
@@ -428,6 +450,7 @@ export class ExportService {
       if (b) {
         ws.getCell(r, 2).value = b;
         ws.getCell(r, 2).font = XL_FONT;
+        ws.getCell(r, 2).alignment = { wrapText: true, vertical: 'top' };
       }
       r++;
     }
