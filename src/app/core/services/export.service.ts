@@ -40,8 +40,9 @@ interface ExcelZeile {
 const XL_HEADER = 'FFFFC000';
 const XL_SZENARIO = 'FFC6E0B4';
 const XL_TESTDATEN = 'FFBDD7EE';
-const XL_CHOICE = 'FFDCE6F1';
-const XL_FONT = { name: 'Calibri', size: 10 };
+/** Choice-Farbstreifen, alternierend nach Verschachtelungstiefe. */
+const XL_CHOICE = ['FFDCE6F1', 'FFE4DFEC'];
+const XL_FONT = { name: 'Arial', size: 10 };
 
 /** Kompakte Kardinalitaet im Referenz-Stil ("1", "0..1", "1..n"). */
 function kurzKard(min: string, max: string): string {
@@ -313,18 +314,32 @@ export class ExportService {
     zelle(3, colTest, 'Testdaten\n' + profilName, true);
     ws.getCell(3, colTest).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_TESTDATEN } };
     for (const c of [colStatus, colTest]) ws.getCell(3, c).alignment = { wrapText: true, vertical: 'top' };
+    ws.getRow(3).height = 52;
     ws.views = [{ state: 'frozen', ySplit: 3 }];
 
+    // Choice-Farbstreifen wie in der Referenz: die Einrueckspalte des Blocks
+    // wird vertikal ueber alle Blockzeilen gefaerbt (Farbe alterniert je
+    // Verschachtelung); dazu Typ/Anzahl der Kopfzeile.
+    const offen: { col: number; start: number; farbe: string }[] = [];
+    const streifen = (bis: number): void => {
+      const b = offen.pop()!;
+      for (let rr = b.start; rr <= bis; rr++)
+        ws.getCell(rr, b.col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: b.farbe } };
+    };
     let r = 4;
     for (const z of zeilen) {
       const cName = z.tiefe + 1;
       if (z.art === 'el') {
+        while (offen.length && cName <= offen[offen.length - 1]!.col) streifen(r - 1);
         zelle(r, cName, z.text, true);
         if (z.typ) zelle(r, colTyp, z.typ);
         if (z.anzahl) zelle(r, colAnzahl, z.anzahl);
-        if (z.choice)
-          for (let c = cName; c <= colAnzahl; c++)
-            ws.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_CHOICE } };
+        if (z.choice) {
+          const farbe = XL_CHOICE[offen.length % XL_CHOICE.length]!;
+          offen.push({ col: cName, start: r, farbe });
+          for (const c of [colTyp, colAnzahl])
+            ws.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: farbe } };
+        }
       } else {
         zelle(r, cName, z.text);
         if (cName < colAnzahl) ws.mergeCells(r, cName, r, colAnzahl);
@@ -336,8 +351,13 @@ export class ExportService {
       if (z.testdaten) zelle(r, colTest, z.testdaten);
       if (z.anzahl && z.anzahl.includes('\n'))
         ws.getCell(r, colAnzahl).alignment = { wrapText: true, vertical: 'top' };
+      ws.getRow(r).height = 25;
       r++;
     }
+    while (offen.length) streifen(r - 1);
+    // Die Szenariospalte ist in der Referenz durchgaengig gefuellt.
+    for (let rr = 4; rr < r; rr++)
+      ws.getCell(rr, colStatus).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_SZENARIO } };
   }
 
   /** Ein Codelisten-Sheet: Titelzeile, Header code|wert, vollstaendige Werte. */
