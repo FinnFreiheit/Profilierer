@@ -8,6 +8,8 @@
     <p class="dashSub">Zentraler Ablageort für XJustiz-Testnachrichten — nach Fachmodul geordnet</p>
     <div class="dashActions">
       <button class="primary" (click)="openUpload()">Testnachrichten hochladen…</button>
+      <button (click)="openCreate()">Neue Testnachricht erstellen…</button>
+      <button (click)="openGenerate()">Aus Profilierung erzeugen…</button>
       <input
         class="tdSearch"
         type="search"
@@ -27,16 +29,24 @@
         </div>
         <div id="dashGrid">
           @for (e of g.items; track e.id) {
-            <div class="dashCard" title="Im Baum öffnen" (click)="openInTree(e)">
+            <div class="dashCard" [title]="e.gefuehrt ? 'Geführt fortsetzen' : 'Im Baum öffnen'" (click)="openEntry(e)">
               <div class="dcName">{{ e.name }}</div>
               @if (e.nachricht) {
                 <div class="dcMsg">{{ e.nachricht }}</div>
               }
               <div class="dcMeta">
+                @if (e.entwurf) {
+                  <span class="pill pillDraft" title="Es sind noch Pflicht-Punkte offen — die Nachricht ist unvollständig">
+                    Entwurf — unvollständig
+                  </span>
+                }
                 @if (e.xjustizVersion) {
                   <span class="pill">XJustiz {{ e.xjustizVersion }}</span>
                 } @else {
                   <span class="pill pillMuted">Version unbekannt</span>
+                }
+                @if (e.fortschritt) {
+                  <span class="dcProg">{{ e.fortschritt.x }} von {{ e.fortschritt.y }} entschieden</span>
                 }
                 <span class="dcProg">{{ groesse(e) }}</span>
               </div>
@@ -46,8 +56,7 @@
               <div class="dcFoot">
                 <span class="dcDate">{{ datum(e) }}</span>
                 <span class="dcTools">
-                  <button title="Nachricht ansehen" (click)="openView(e, $event)">Ansehen</button>
-                  <button title="Notiz bearbeiten" (click)="openNote(e, $event)">Notiz</button>
+                  <button title="Name und Beschreibung bearbeiten" (click)="openEdit(e, $event)">Bearbeiten</button>
                   <button title="XML herunterladen" (click)="download(e, $event)">Download</button>
                   <button class="del" title="Löschen" (click)="remove(e, $event)">Löschen</button>
                 </span>
@@ -87,23 +96,119 @@
   </div>
 </dialog>
 
-<dialog #viewDlg id="viewDlg">
-  <div class="viewHead">
-    <h3 style="margin: 0">{{ viewTitle() }}</h3>
-    <button (click)="viewDlg.close()">Schließen</button>
+<dialog #createDlg id="createDlg">
+  <h3 style="margin-top: 0">Neue Testnachricht erstellen</h3>
+  @if (!createVersion()) {
+    <p class="dashSub" style="margin-top: 0">
+      Schritt 1 von 2: XJustiz-Version wählen. Anschließend wird die Nachricht im
+      Baum-Editor <b>geführt</b> befüllt — Pflichtfelder, Auswahlen und optionale
+      Elemente Schritt für Schritt.
+    </p>
+    @if (versionOptionen().length) {
+      @for (v of versionOptionen(); track v.id) {
+        <button
+          style="display: block; width: 100%; text-align: left; margin-bottom: 6px"
+          [disabled]="createLoading()"
+          (click)="chooseVersion(v.id)"
+        >
+          <b>{{ v.label }}</b>
+          @if (createLoading()) {
+            <span>… wird geladen</span>
+          }
+        </button>
+      }
+    } @else {
+      <p>Keine Schemaversion verfügbar.</p>
+    }
+  } @else {
+    <p class="dashSub" style="margin-top: 0">
+      Schritt 2 von 2: Nachricht wählen (XJustiz {{ createVersion() }}).
+    </p>
+    <input
+      type="search"
+      style="width: 100%; box-sizing: border-box; margin-bottom: 6px"
+      placeholder="Nachrichten filtern…"
+      [value]="msgFilter()"
+      (input)="msgFilter.set($any($event.target).value)"
+    />
+    <div style="max-height: 50vh; overflow: auto">
+      @for (m of createMessages(); track m.name) {
+        <button
+          style="display: block; width: 100%; text-align: left; margin-bottom: 4px"
+          [disabled]="createLoading()"
+          (click)="chooseMessage(m.name)"
+        >
+          <b>{{ m.name }}</b>
+          @if (m.doc) {
+            <span style="color: var(--muted)"> — {{ firstLine(m.doc) }}</span>
+          }
+        </button>
+      } @empty {
+        <p>Keine Nachricht passt zum Filter.</p>
+      }
+    </div>
+    <button style="margin-top: 8px" (click)="createVersion.set(null)">‹ andere Version</button>
+  }
+  <div style="text-align: right; margin-top: 12px">
+    <button (click)="createDlg.close()">Abbrechen</button>
   </div>
-  <pre class="xmlView">{{ viewXml() }}</pre>
 </dialog>
 
-<dialog #noteDlg id="noteDlg">
-  <h3 style="margin-top: 0">Notiz</h3>
+<dialog #genDlg id="genDlg">
+  <h3 style="margin-top: 0">Testnachricht aus Profilierung erzeugen</h3>
+  <p class="dashSub" style="margin-top: 0">
+    Erzeugt eine Beispielnachricht mit Platzhalter- und Beispielwerten aus einer
+    gespeicherten Profilierung und legt sie im Testdatenspeicher ab.
+  </p>
+  @if (profilKandidaten().length) {
+    <div style="max-height: 50vh; overflow: auto">
+      @for (e of profilKandidaten(); track e.id) {
+        <button
+          style="display: block; width: 100%; text-align: left; margin-bottom: 6px"
+          [disabled]="!versionVerfuegbar(e) || generating() !== null"
+          [title]="versionVerfuegbar(e) ? '' : 'XJustiz-Version ist weder geladen noch hinterlegt'"
+          (click)="generateFrom(e)"
+        >
+          <b>{{ e.name || '(ohne Namen)' }}</b> — {{ e.nachricht }}
+          @if (e.xjustizVersion) {
+            <span class="pill">XJustiz {{ e.xjustizVersion }}</span>
+          }
+          @if (!versionVerfuegbar(e)) {
+            <span class="pill pillMuted">Version nicht verfügbar</span>
+          }
+          @if (generating() === e.id) {
+            <span>… wird erzeugt</span>
+          }
+        </button>
+      }
+    </div>
+  } @else {
+    <p>Keine Profilierung mit Nachrichtentyp vorhanden — zuerst im Profil-Dashboard anlegen.</p>
+  }
+  <div style="text-align: right; margin-top: 12px">
+    <button (click)="genDlg.close()">Schließen</button>
+  </div>
+</dialog>
+
+<dialog #editDlg id="noteDlg">
+  <h3 style="margin-top: 0">Testnachricht bearbeiten</h3>
+  <label style="display: block; margin-bottom: 4px">Name</label>
+  <input
+    type="text"
+    style="width: 100%; box-sizing: border-box"
+    placeholder="Anzeigename der Testnachricht"
+    [value]="editName()"
+    (input)="editName.set($any($event.target).value)"
+  />
+  <label style="display: block; margin: 12px 0 4px">Beschreibung</label>
   <textarea
-    style="width: 100%; min-height: 120px"
-    [value]="noteText()"
-    (input)="noteText.set($any($event.target).value)"
+    style="width: 100%; min-height: 100px; box-sizing: border-box"
+    placeholder="Kurze Beschreibung (optional)"
+    [value]="editNote()"
+    (input)="editNote.set($any($event.target).value)"
   ></textarea>
   <div style="text-align: right; margin-top: 12px">
-    <button (click)="noteDlg.close()">Abbrechen</button>
-    <button class="primary" (click)="submitNote()">Übernehmen</button>
+    <button (click)="editDlg.close()">Abbrechen</button>
+    <button class="primary" (click)="submitEdit()">Übernehmen</button>
   </div>
 </dialog>

@@ -128,6 +128,13 @@ describe('StateService', () => {
       expect(s.pflichtStatus()?.wirkung).toBe('pflicht');
     });
 
+    it('optionalStatus findet die Stufe mit Wirkung optional; null wenn keine existiert', () => {
+      expect(s.optionalStatus()?.id).toBe('s2');
+      expect(s.optionalStatus()?.wirkung).toBe('optional');
+      s.setStatuses(s.statuses().filter((x) => x.wirkung !== 'optional'));
+      expect(s.optionalStatus()).toBeNull();
+    });
+
     it('prefillStatus setzt nur Pfade ohne Status und meldet die Anzahl', () => {
       s.setElementProfile('m/a', { status: 's3' }); // bereits gesetzt
       s.setElementProfile('m/b', { anmerkung: 'nur Notiz' }); // Status frei
@@ -211,6 +218,12 @@ describe('StateService', () => {
       s.loadProfile({ meta: {}, statuses: [], elemente: {}, auspraegungen: {} });
       expect(s.readOnly()).toBeFalse();
       expect(s.onlyValues()).toBeFalse();
+    });
+
+    it('laesst guided beim Profil-Reset unangetastet (Nachrichtenwahl im gefuehrten Modus)', () => {
+      s.guided.set(true);
+      s.loadProfile({ meta: {}, statuses: [], elemente: {}, auspraegungen: {} });
+      expect(s.guided()).toBeTrue();
     });
   });
 });

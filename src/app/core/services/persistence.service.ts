@@ -8,6 +8,9 @@ import { ToastService } from './toast.service';
 import { ProfileStoreService } from './profile-store.service';
 import { defaultStatuses, newProfile } from '../profile-defaults';
 
+/** localStorage-Prefix der Notfallkopien (Backend beim Autosave nicht erreichbar). */
+const NOTFALL_PREFIX = 'xjp.notfall.';
+
 /**
  * Laden von XSD-Ordnern, Profil-Persistenz und Autosave. Portiert aus
  * Profilierer.html (Funktionsgruppe G, Z.1471-1502 + 1746-1823).
@@ -15,6 +18,13 @@ import { defaultStatuses, newProfile } from '../profile-defaults';
  * Autosave und manuelles Speichern arbeiten gegen die Profil-Bibliothek
  * (ProfileStoreService): der Autosave schreibt fortlaufend in den aktiven
  * Bibliothekseintrag (state.activeProfileId), nicht mehr in einen anonymen Slot.
+ *
+ * Datenverlust-Schutz bei Backend-Ausfall: Schlaegt der Autosave fehl, wird der
+ * Stand als **Notfallkopie** im localStorage gehalten und der Autosave alle 5 s
+ * wiederholt; die Toolbar zeigt einen dauerhaften Warnhinweis. Beim naechsten
+ * App-Start (oder sobald das Backend wieder antwortet) werden Notfallkopien
+ * automatisch ans Backend nachgetragen. Zusaetzlich warnt der Browser beim
+ * Verlassen der Seite, solange Aenderungen nicht gesichert sind.
  */
 @Injectable({ providedIn: 'root' })
 export class PersistenceService {
@@ -31,6 +41,8 @@ export class PersistenceService {
   private autosavePending = false;
   /** Fehler-Toast nur einmal pro Ausfall zeigen (nicht bei jedem 800-ms-Tick). */
   private autosaveErrorShown = false;
+  /** Letzter Autosave fehlgeschlagen (Backend-Ausfall laeuft). */
+  private autosaveFehlgeschlagen = false;
 
   constructor() {
     // Autosave: bei jeder Profil-/Nachrichtenaenderung debounced in den aktiven
@@ -42,8 +54,83 @@ export class PersistenceService {
       const id = this.state.activeProfileId();
       if (!msg || !id) return;
       if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
-      this.autosaveTimer = setTimeout(() => void this.autosaveNow(), 800);
+      this.autosaveTimer = setTimeout(() => {
+        this.autosaveTimer = null;
+        void this.autosaveNow();
+      }, 800);
     });
+    // Notfallkopien frueherer Sitzungen ans Backend nachtragen (best effort).
+    void this.flushNotfallkopien();
+    // Browser-Warnung, solange Aenderungen noch nicht im Backend gesichert sind.
+    window.addEventListener('beforeunload', (e) => {
+      if (this.ungesichert()) e.preventDefault();
+    });
+  }
+
+  /** Stehen Aenderungen aus, die das Backend noch nicht hat? */
+  private ungesichert(): boolean {
+    return (
+      this.autosaveTimer !== null ||
+      this.autosaveInFlight ||
+      this.autosavePending ||
+      this.autosaveFehlgeschlagen
+    );
+  }
+
+  // ── Notfallkopien (Backend-Ausfall) ─────────────────────────────────
+
+  /** Notfallkopie schreiben; localStorage-Fehler (Quota o. ae.) bewusst schlucken. */
+  private schreibeNotfallkopie(id: string, doc: ProfileDoc): void {
+    try {
+      localStorage.setItem(NOTFALL_PREFIX + id, JSON.stringify({ doc, ts: Date.now() }));
+    } catch {
+      /* volle/gesperrte Storage: der 5-s-Retry bleibt die einzige Sicherung */
+    }
+  }
+
+  private loescheNotfallkopie(id: string): void {
+    try {
+      localStorage.removeItem(NOTFALL_PREFIX + id);
+    } catch { /* ignorieren */ }
+  }
+
+  /**
+   * Alle vorhandenen Notfallkopien ans Backend nachtragen (App-Start bzw.
+   * sobald das Backend wieder erreichbar ist). Bei Erfolg werden die lokalen
+   * Kopien entfernt; bleibt das Backend weg, bleiben sie liegen.
+   */
+  async flushNotfallkopien(): Promise<void> {
+    const keys: string[] = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(NOTFALL_PREFIX)) keys.push(k);
+      }
+    } catch {
+      return;
+    }
+    if (!keys.length) return;
+    let ok = 0;
+    for (const k of keys) {
+      try {
+        const { doc } = JSON.parse(localStorage.getItem(k) ?? '') as { doc: ProfileDoc };
+        await this.store.upsert(k.slice(NOTFALL_PREFIX.length), doc);
+        localStorage.removeItem(k);
+        ok++;
+      } catch {
+        /* Backend weiterhin weg oder Eintrag defekt → Kopie behalten */
+      }
+    }
+    if (ok)
+      this.toast.show(
+        ok === 1
+          ? 'Eine lokal zwischengespeicherte Profilierung wurde ans Backend nachgetragen.'
+          : `${ok} lokal zwischengespeicherte Profilierungen wurden ans Backend nachgetragen.`,
+      );
+    else
+      this.toast.show(
+        'Lokale Notfallkopie vorhanden — Backend nicht erreichbar, Nachtrag folgt automatisch.',
+      );
   }
 
   /** loadXsdFiles (Z.1746-1768). */
@@ -85,6 +172,18 @@ export class PersistenceService {
   }
 
   /**
+   * Haengenden Autosave sofort ausfuehren. Noetig vor einem temporaeren
+   * State-Swap (Testnachricht-Generierung): wird `activeProfileId` genullt,
+   * waehrend der 800-ms-Timer laeuft, ginge die letzte Aenderung verloren.
+   */
+  async flushAutosave(): Promise<void> {
+    if (this.autosaveTimer === null) return;
+    clearTimeout(this.autosaveTimer);
+    this.autosaveTimer = null;
+    await this.autosaveNow();
+  }
+
+  /**
    * autosaveNow (Z.1472-1483): den aktuellen Stand in den aktiven
    * Bibliothekseintrag schreiben. Nachricht und Version werden in die
    * gespeicherte Meta gemischt (ohne den Store zu mutieren — das wuerde den
@@ -109,14 +208,37 @@ export class PersistenceService {
       };
       await this.store.upsert(id, merged);
       this.autosaveErrorShown = false;
-      this.state.autosaveInfo.set(
-        'automatisch gesichert ' +
-          new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
-      );
+      const zeit = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      if (this.autosaveFehlgeschlagen) {
+        // Backend wieder da: Notfallkopie ist ueberholt; evtl. weitere nachtragen.
+        this.autosaveFehlgeschlagen = false;
+        this.loescheNotfallkopie(id);
+        this.toast.show('Backend wieder erreichbar — Stand gesichert.');
+        void this.flushNotfallkopien().catch(() => {});
+      }
+      this.state.autosaveInfo.set('automatisch gesichert ' + zeit);
     } catch {
+      // Kein Datenverlust bei Backend-Ausfall: Stand lokal sichern, dauerhaft
+      // warnen und den Autosave automatisch wiederholen.
+      this.autosaveFehlgeschlagen = true;
+      const doc = this.state.profileDoc();
+      this.schreibeNotfallkopie(id, {
+        ...doc,
+        meta: { ...doc.meta, nachricht: msg, xjustizVersion: this.state.version() },
+      });
+      const zeit = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      this.state.autosaveInfo.set(`⚠ NICHT im Backend gesichert — Notfallkopie lokal ${zeit}`);
       if (!this.autosaveErrorShown) {
         this.autosaveErrorShown = true;
-        this.toast.show('Automatische Sicherung fehlgeschlagen — Backend nicht erreichbar.');
+        this.toast.show(
+          'Backend nicht erreichbar — Änderungen werden lokal zwischengespeichert und automatisch nachgetragen.',
+        );
+      }
+      if (!this.autosaveTimer) {
+        this.autosaveTimer = setTimeout(() => {
+          this.autosaveTimer = null;
+          void this.autosaveNow();
+        }, 5000);
       }
     } finally {
       this.autosaveInFlight = false;
@@ -145,6 +267,9 @@ export class PersistenceService {
     }
     this.state.activeProfileId.set(id);
     this.state.loadProfile(doc);
+    // Bestehende Profilierungen oeffnen im freien Modus; gefuehrt ist zuschaltbar
+    // (Fortschritt wird dann aus den gespeicherten Entscheidungen berechnet).
+    this.state.guided.set(false);
     const nachricht = doc.meta.nachricht;
 
     if (!this.state.idx()) {
@@ -182,6 +307,9 @@ export class PersistenceService {
     this.state.resetProfile();
     this.state.msgName.set(null);
     this.state.root.set(null);
+    // Neue Profilierung startet gefuehrt (US "Profilierung gefuehrt erstellen");
+    // nach resetProfile setzen, da loadProfile guided zuruecksetzt.
+    this.state.guided.set(true);
     this.state.view.set('editor');
   }
 

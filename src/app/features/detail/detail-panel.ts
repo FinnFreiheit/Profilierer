@@ -3,6 +3,7 @@ import { StateService } from '../../core/services/state.service';
 import { TreeService } from '../../core/services/tree.service';
 import { ValueService } from '../../core/services/value.service';
 import { NavService } from '../../core/services/nav.service';
+import { GuidedService } from '../../core/services/guided.service';
 import { CodelistService } from '../../core/services/codelist.service';
 import { ToastService } from '../../core/services/toast.service';
 import { itemPath } from '../../models/node.model';
@@ -24,6 +25,7 @@ export class DetailPanel {
   private readonly tree = inject(TreeService);
   private readonly values = inject(ValueService);
   private readonly nav = inject(NavService);
+  private readonly guided = inject(GuidedService);
   private readonly codelistSvc = inject(CodelistService);
   private readonly toast = inject(ToastService);
 
@@ -31,6 +33,14 @@ export class DetailPanel {
 
   /** Betrachtungsmodus: Editier-Controls werden im Template ausgeblendet. */
   protected readonly ro = computed(() => this.state.readOnly());
+
+  /** Nachrichten-Modus: eine Instanz wird erstellt oder bearbeitet (Werte statt Profil). */
+  protected readonly msgMode = computed(
+    () => !!this.state.messageCreate() || !!this.state.messageEdit(),
+  );
+
+  /** Gefuehrte Testnachricht-Erstellung (US "Testnachricht gefuehrt erstellen"). */
+  protected readonly isCreate = computed(() => !!this.state.messageCreate());
 
   protected readonly vm = computed(() => {
     const it = this.state.selItem();
@@ -56,6 +66,11 @@ export class DetailPanel {
 
     const showAusps = !isAusp && this.tree.isRepeatable(n) && !n.synthetic;
     const auspList = showAusps ? this.state.auspsOf(path) ?? [] : [];
+
+    // Blatt-Eigenschaft des ausgewaehlten Items (Ausprägung: ihr Kontext-Knoten).
+    const leaf = isAusp
+      ? this.tree.isLeaf(this.tree.ctxNode(it.parentNode, it.ausp.id))
+      : this.tree.isLeaf(n);
 
     // Codeliste.
     let codelist: null | {
@@ -137,6 +152,7 @@ export class DetailPanel {
       kardHint: isAusp ? 'genau 1' : 'Standard',
       showAusps,
       auspList,
+      leaf,
       codelist,
       ref,
       anmerkung: p.anmerkung ?? '',
@@ -152,6 +168,117 @@ export class DetailPanel {
           )
         : null,
       curStatusName: st?.name ?? 'wie Standard',
+    };
+  });
+
+  /**
+   * Gefuehrte Entscheidung (US "Profilierung gefuehrt erstellen"): Dispositions-
+   * Buttons an der Wirkung, Auswahl-Schritt fuer choice-Gruppen, wiederverwendbare
+   * Freitexte und Spur-Navigation. Nur im gefuehrten Modus (nicht read-only).
+   */
+  protected readonly gv = computed(() => {
+    if (!this.state.guided() || this.state.readOnly()) return null;
+    if (this.guided.instanzModus()) return null; // Instanz-Fuehrung uebernimmt giv()
+    const it = this.state.selItem();
+    if (!it) return null;
+    const path = itemPath(it);
+    const cur = this.state.elemente()[path]?.status ?? null;
+
+    // Drei feste Dispositionen, an die Wirkung gebunden (Fallback: disabled,
+    // wenn die Profilierung keine Stufe mit passender Wirkung konfiguriert hat).
+    const dispo = [
+      { st: this.state.pflichtStatus(), fallback: 'zwingend' },
+      { st: this.state.optionalStatus(), fallback: 'anzugeben, wenn vorhanden' },
+      { st: this.state.exclStatus(), fallback: 'nicht verwendet' },
+    ].map((d) => ({
+      id: d.st?.id ?? '',
+      label: d.st?.name ?? d.fallback,
+      farbe: d.st?.farbe ?? 'var(--muted)',
+      active: !!d.st && cur === d.st.id,
+      disabled: !d.st,
+    }));
+
+    // Auswahl-Schritt: zulaessige Alternativen einschraenken — sowohl fuer
+    // synthetische choice-Gruppen als auch fuer den XJustiz-Normalfall
+    // benannter auswahl_*-Elemente (Element mit choice-Inhalt; model steht
+    // erst nach expandNode fest).
+    let isChoice = false;
+    let synthChoice = false;
+    let zweige: { path: string; label: string; zulaessig: boolean }[] | null = null;
+    let minChoice = '1';
+    if (it.kind === 'el' && !it.node.recursive && !this.tree.isLeaf(it.node)) {
+      this.tree.expandNode(it.node);
+      isChoice = it.node.model === 'choice';
+      synthChoice = isChoice && it.node.synthetic;
+      if (isChoice) {
+        minChoice = it.node.min;
+        zweige = (it.node.children ?? []).map((c) => ({
+          path: c.path,
+          label: c.synthetic ? c.name : pretty(c.name),
+          zulaessig: this.state.wirkungOf(c.path) !== 'ausgeschlossen',
+        }));
+      }
+    }
+
+    const offene = this.guided.offeneSet();
+    const anm = this.state.elemente()[path]?.anmerkung?.trim() ?? '';
+    return {
+      path,
+      offen: offene.has(path),
+      nOffen: offene.size,
+      dispo,
+      isChoice,
+      synthChoice,
+      minChoice,
+      zweige,
+      bestaetigt: isChoice ? this.guided.istEntschieden(path) : false,
+      // Eigenen aktuellen Text nicht als Vorschlag anbieten.
+      vorschlaege: this.guided.anmerkungVorschlaege().filter((t) => t !== anm),
+    };
+  });
+
+  /**
+   * Gefuehrte Instanz-Entscheidung (US "Testnachricht gefuehrt erstellen"):
+   * aufnehmen/weglassen fuer Optionales, genau EIN Zweig je Auswahl,
+   * Pflichtwert-Hinweis fuer Blaetter und die Spur-Navigation.
+   */
+  protected readonly giv = computed(() => {
+    if (!this.state.guided() || this.state.readOnly()) return null;
+    if (!this.state.messageCreate()) return null;
+    const it = this.state.selItem();
+    if (!it) return null;
+    const path = itemPath(it);
+    const punkt = this.guided.punktAt(path);
+    const offene = this.guided.offeneSet();
+    const w = this.state.wirkungOf(path);
+
+    // Zweige des Auswahl-Schritts (Entweder-oder).
+    let zweige: { path: string; label: string; gewaehlt: boolean }[] | null = null;
+    if (punkt?.art === 'auswahl') {
+      const node = it.kind === 'el' ? it.node : this.tree.ctxNode(it.parentNode, it.ausp.id);
+      this.tree.expandNode(node);
+      zweige = (node.children ?? []).map((c) => ({
+        path: c.path,
+        label: c.synthetic ? c.name : pretty(c.name),
+        gewaehlt: this.state.wirkungOf(c.path) === 'pflicht',
+      }));
+    }
+
+    const wertOffen =
+      (punkt?.art === 'wert' ||
+        ((punkt?.art === 'element' || punkt?.art === 'auspraegung') && punkt.leaf && w === 'pflicht')) &&
+      !this.guided.wertOk(path);
+
+    return {
+      art: punkt?.art ?? null,
+      istPunkt: !!punkt,
+      offen: offene.has(path),
+      nOffen: offene.size,
+      aufgenommen: w === 'pflicht',
+      weggelassen: w === 'ausgeschlossen',
+      entfaellt: !w && this.state.inheritedExcluded(path),
+      zweige,
+      wertOffen,
     };
   });
 
@@ -245,6 +372,79 @@ export class DetailPanel {
   protected refJump(): void {
     const cur = this.vm()?.ref?.cur;
     if (cur) this.nav.jumpTo(cur);
+  }
+
+  // ── Gefuehrte Entscheidung ──────────────────────────────────────────
+
+  protected onZweig(childPath: string, e: Event): void {
+    this.guided.setzeZweig(this.path(), childPath, (e.target as HTMLInputElement).checked);
+  }
+
+  // ── Gefuehrte Instanz-Entscheidung (Testnachricht erstellen) ────────
+
+  /** aufnehmen (true) / weglassen (false); erneuter Klick nimmt die Entscheidung zurueck. */
+  protected aufnahme(auf: boolean): void {
+    const w = this.state.wirkungOf(this.path());
+    const aktiv = auf ? w === 'pflicht' : w === 'ausgeschlossen';
+    this.guided.setzeAufnahme(this.path(), aktiv ? null : auf);
+  }
+
+  /** Instanz-Auswahl: genau einen Zweig waehlen. */
+  protected waehleZweig(zweigPath: string): void {
+    this.guided.waehleZweig(this.path(), zweigPath);
+  }
+
+  /** Wuerfel-Button: typkonformen Dummy-Wert in das aktuelle Blatt setzen. */
+  protected wuerfeln(): void {
+    const it = this.state.selItem();
+    if (!it) return;
+    const n = it.kind === 'el' ? it.node : this.tree.ctxNode(it.parentNode, it.ausp.id);
+    const path = this.path();
+    this.state.setElementProfile(path, {
+      beispiel: this.values.dummyFor({ name: n.name, path, typeName: n.typeName, codelist: n.codelist }),
+    });
+  }
+
+  /** Nachrichten-Modus: Codelisten-Wert per Klick als Blattwert uebernehmen. */
+  protected setWertAusListe(value: string): void {
+    this.state.setElementProfile(this.path(), { beispiel: value });
+  }
+
+  /**
+   * Weiteres Vorkommen eines wiederholbaren Elements (Nachrichten-Modus):
+   * erster Klick fuehrt den generischen Unterbaum als "Fall 1" weiter und legt
+   * ein leeres zweites Vorkommen an (duplicateElement); danach je Klick eines.
+   */
+  protected addVorkommen(): void {
+    const list = this.state.auspsOf(this.path());
+    if (!list?.length) this.state.duplicateElement(this.path());
+    else this.state.addAusp(this.path(), 'Vorkommen ' + (list.length + 1));
+  }
+
+  /** Vorkommen samt erfasster Werte kopieren (Kopie danach anpassen). */
+  protected copyVorkommen(id: string): void {
+    this.state.copyAusp(this.path(), id);
+  }
+
+  protected bestaetigeAuswahl(): void {
+    this.guided.bestaetigeAuswahl(this.path());
+  }
+
+  /** Wiederverwendbaren Freitext in die Anmerkung des aktuellen Elements uebernehmen. */
+  protected uebernehmeAnmerkung(text: string): void {
+    this.state.setElementProfile(this.path(), { anmerkung: text });
+  }
+
+  protected guidedPrev(): void {
+    this.guided.gotoPrev();
+  }
+
+  protected guidedNext(): void {
+    this.guided.gotoNext();
+  }
+
+  protected guidedNextOpen(): void {
+    this.guided.gotoNextOpen();
   }
 
   protected async fetchSingle(): Promise<void> {

@@ -27,6 +27,13 @@ export class InstanceImportService {
   private readonly toast = inject(ToastService);
   private readonly codelists = inject(CodelistService);
 
+  /**
+   * Waehrend eines Imports gefuellte Zuordnung Modell-Pfad -> Quell-Element.
+   * Transient (importXml laeuft synchron); wird am Ende in die Bearbeitungs-
+   * Session uebergeben und dort fuer den treuen Re-Export gehalten.
+   */
+  private quelle: Map<string, Element> | null = null;
+
   /** Prüft, ob ein XML-Text eine XJustiz-Nachricht (kein Genericode o. ä.) ist. */
   static rootMessageName(xmlText: string): string | null {
     const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
@@ -35,8 +42,12 @@ export class InstanceImportService {
     return /^nachricht\./.test(name) ? name : null;
   }
 
-  /** Importiert die XML-Instanz und lädt sie als aktuelles Profil. */
-  importXml(xmlText: string): void {
+  /**
+   * Importiert die XML-Instanz und lädt sie als aktuelles Profil. `quellName`
+   * (Dateiname/Testnachrichten-Name) fliesst in die Bearbeitungs-Session als
+   * Vorschlag fuer das spaetere „als neue Nachricht speichern".
+   */
+  importXml(xmlText: string, quellName?: string): void {
     const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
     if (doc.getElementsByTagName('parsererror').length) throw new Error('XML nicht lesbar (Parserfehler).');
     const rootEl = doc.documentElement;
@@ -46,20 +57,41 @@ export class InstanceImportService {
     if (!idx) throw new Error('Bitte zuerst den passenden XSD-Ordner laden.');
     if (!idx.el[msgName]) throw new Error(`Kein passendes Schema für <${msgName}> geladen.`);
 
-    this.nav.loadMessage(msgName); // setzt Profil zurück (readOnly/onlyValues aus), baut den Baum
+    this.nav.loadMessage(msgName); // setzt Profil zurück (readOnly/onlyValues aus, messageEdit null), baut den Baum
+    // Kein Bibliothekseintrag: die Bearbeitung einer Nachricht darf nicht per
+    // Autosave in ein (evtl. offenes) Profil geschrieben werden.
+    this.state.activeProfileId.set(null);
     const root = this.state.root()!;
     const opened = new Set<string>([root.path]);
+    this.quelle = new Map<string, Element>();
     this.bindChildren(root, rootEl, opened, 0);
     this.state.open.set(opened);
     this.state.selItem.set({ kind: 'el', node: root });
+    // Bearbeitungs-Session merken: Quell-DOM + Pfad-Zuordnung fuer den treuen
+    // Re-Export. Nach loadMessage setzen (das leert messageEdit).
+    this.state.messageEdit.set({
+      msgName,
+      quellName: quellName || msgName,
+      xjustizVersion: this.leseVersion(rootEl) || this.state.version() || undefined,
+      sourceDoc: doc,
+      quelle: this.quelle,
+    });
+    this.quelle = null;
     // Nachricht inspizieren: gesperrte Ansicht, die sofort nur den belegten
     // Inhalt zeigt. Nach dem Reset in loadMessage setzen, damit die Flags stehen.
     this.state.readOnly.set(true);
     this.state.onlyValues.set(true);
+    this.state.guided.set(false); // Nachrichten-Modus: keine gefuehrte Profilierung
     this.toast.show(`Nachricht ${msgName} geladen.`);
     // Codelisten im Hintergrund nachladen, damit belegte Codes zu Klartext
     // aufgelöst werden (Story 4). Best-effort, blockiert das Betrachten nicht.
     void this.codelists.ensureUsedCodelists();
+  }
+
+  /** XJustiz-Version aus dem `xjustizVersion`-Attribut (Wurzel oder Nachrichtenkopf). */
+  private leseVersion(rootEl: Element): string | null {
+    const vom = (el: Element | null | undefined): string | null => el?.getAttribute('xjustizVersion')?.trim() || null;
+    return vom(rootEl) ?? vom(rootEl.getElementsByTagNameNS('*', 'nachrichtenkopf')[0]);
   }
 
   private byName(el: Element, name: string): Element[] {
@@ -103,6 +135,9 @@ export class InstanceImportService {
 
   private bindNode(node: TreeNode, xmlEl: Element, opened: Set<string>, depth: number): void {
     if (node.recursive) return;
+    // Quell-Element fuer den treuen Re-Export merken (auch Container, damit
+    // unveraenderte Teilbaeume 1:1 uebernommen werden koennen).
+    this.quelle?.set(node.path, xmlEl);
     if (this.tree.isLeaf(node)) {
       const val = this.leafValue(node, xmlEl);
       if (val) this.state.setElementProfile(node.path, { beispiel: val });

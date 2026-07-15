@@ -19,10 +19,14 @@ import { ExportService } from './core/services/export.service';
 import { DiffService } from './core/services/diff.service';
 import { NavService } from './core/services/nav.service';
 import { InstanceImportService } from './core/services/instance-import.service';
+import { InstanceExportService } from './core/services/instance-export.service';
+import { TestmessageCreateService } from './core/services/testmessage-create.service';
+import { TestmessageStoreService } from './core/services/testmessage-store.service';
 import { ToastService } from './core/services/toast.service';
 import { StateService } from './core/services/state.service';
 import { BundledSchemaService } from './core/services/bundled-schema.service';
 import { MigrationService } from './core/services/migration.service';
+import { parseTestmessage } from './core/util/testmessage.util';
 
 @Component({
   selector: 'app-root',
@@ -54,6 +58,9 @@ export class App implements OnInit {
   protected readonly diff = inject(DiffService);
   private readonly nav = inject(NavService);
   private readonly instanceImport = inject(InstanceImportService);
+  private readonly instanceExport = inject(InstanceExportService);
+  private readonly testmessageCreate = inject(TestmessageCreateService);
+  private readonly testmessages = inject(TestmessageStoreService);
   private readonly toast = inject(ToastService);
   private readonly state = inject(StateService);
   private readonly bundled = inject(BundledSchemaService);
@@ -143,14 +150,65 @@ export class App implements OnInit {
 
   /** Bestehende XJustiz-Nachricht (XML-Instanz) laden und als Testnachricht anzeigen. */
   async onInstanceFile(file: File): Promise<void> {
-    this.importInstanceText(await file.text());
+    this.importInstanceText(await file.text(), file.name);
   }
 
-  private importInstanceText(text: string): void {
+  private importInstanceText(text: string, quellName?: string): void {
     try {
-      this.instanceImport.importXml(text);
+      this.instanceImport.importXml(text, quellName);
     } catch (e) {
       this.toast.show(e instanceof Error ? e.message : 'Nachricht konnte nicht geladen werden.');
+    }
+  }
+
+  /**
+   * Bearbeitete Nachricht als *neue* Testnachricht ablegen: getreu serialisieren
+   * (Original-DOM + Modell-Änderungen), Metadaten aus dem Ergebnis ableiten und
+   * im zentralen Testdaten-Speicher anlegen.
+   */
+  async onSaveMessage(): Promise<void> {
+    const session = this.state.messageEdit();
+    if (!session) return;
+    const vorschlag = this.msgNameVorschlag(session.quellName);
+    const eingabe = prompt('Name der neuen Testnachricht:', vorschlag);
+    if (eingabe == null) return; // abgebrochen
+    try {
+      const xml = this.instanceExport.buildInstanceXml(session);
+      const meta = parseTestmessage(xml);
+      if (!meta) {
+        this.toast.show('Die erzeugte Nachricht ist nicht lesbar — bitte prüfen.');
+        return;
+      }
+      await this.testmessages.create({
+        name: eingabe.trim() || vorschlag,
+        xml,
+        nachricht: meta.nachricht,
+        fachmodul: meta.fachmodul,
+        xjustizVersion: meta.xjustizVersion,
+        groesse: xml.length,
+      });
+      this.toast.show('Als neue Testnachricht gespeichert.');
+      this.state.view.set('testdaten');
+    } catch (e) {
+      this.toast.show(e instanceof Error ? e.message : 'Speichern fehlgeschlagen — Backend nicht erreichbar.');
+    }
+  }
+
+  /** Vorschlag „<Quelle> (bearbeitet).xml" aus dem Quellnamen. */
+  private msgNameVorschlag(quellName: string): string {
+    const base = quellName.replace(/\.xml$/i, '');
+    return `${base} (bearbeitet).xml`;
+  }
+
+  /**
+   * Gefuehrte Testnachricht-Erstellung speichern: erstes Mal anlegen
+   * (Namensabfrage im Service), danach denselben Eintrag aktualisieren.
+   */
+  async onSaveCreate(): Promise<void> {
+    try {
+      await this.testmessageCreate.speichern();
+    } catch (e) {
+      this.toast.show(e instanceof Error ? e.message : 'Speichern fehlgeschlagen — Backend nicht erreichbar.');
     }
   }
 
@@ -188,7 +246,7 @@ export class App implements OnInit {
     // Einzelne .xml: XJustiz-Nachricht (nachricht.*) vs. Genericode-Codeliste unterscheiden.
     if (files.length === 1 && /\.xml$/i.test(files[0]!.name)) {
       const text = await files[0]!.text();
-      if (InstanceImportService.rootMessageName(text)) this.importInstanceText(text);
+      if (InstanceImportService.rootMessageName(text)) this.importInstanceText(text, files[0]!.name);
       else this.onCodelistFiles(files);
       return;
     }

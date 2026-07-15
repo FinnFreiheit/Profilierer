@@ -1,8 +1,27 @@
 import { Injectable, signal } from '@angular/core';
-import { TestmessageEntry, TestmessageInput } from '../../models/testmessage.model';
+import {
+  GuidedMessageState,
+  TestmessageEntry,
+  TestmessageFortschritt,
+  TestmessageInput,
+} from '../../models/testmessage.model';
 
-/** Basis-URL der Testdaten-API (same-origin; im Dev via Proxy auf das Backend). */
-const API_BASE = '/api';
+/** Patch fuer PATCH /api/testmessages/:id — nur gesetzte Felder werden geaendert. */
+export interface TestmessagePatch {
+  name?: string;
+  notiz?: string;
+  xml?: string;
+  entwurf?: boolean;
+  fortschritt?: TestmessageFortschritt;
+  entscheidungen?: GuidedMessageState;
+}
+
+/**
+ * Basis-URL der Testdaten-API (same-origin; im Dev via Proxy auf das Backend).
+ * Relativ, loest gegen <base href> auf: Dev/Root -> /api, Unterpfad-Deployment
+ * (xjw.freiheits.de/profilierer) -> /profilierer/api (nginx strippt den Praefix).
+ */
+const API_BASE = 'api';
 
 /**
  * Persistenz-Layer des zentralen Testdaten-Speichers — spricht das Backend
@@ -52,6 +71,15 @@ export class TestmessageStoreService {
     return await r.text();
   }
 
+  /** Entscheidungsstand einer gefuehrt erstellten Nachricht; 404 → null. */
+  async loadEntscheidungen(id: string): Promise<GuidedMessageState | null> {
+    const r = await fetch(`${API_BASE}/testmessages/${encodeURIComponent(id)}/entscheidungen`);
+    if (r.status === 404) return null;
+    if (!r.ok)
+      throw new Error(`Testdaten-Backend: GET /testmessages/${id}/entscheidungen → ${r.status}`);
+    return (await r.json()) as GuidedMessageState;
+  }
+
   // ── Schreiben ───────────────────────────────────────────────────────
 
   /** Neue Testnachricht anlegen; gibt die (serverseitig vergebene) id zurueck. */
@@ -64,20 +92,16 @@ export class TestmessageStoreService {
     return id;
   }
 
-  /** Notiz aendern. */
-  async updateNote(id: string, notiz: string): Promise<void> {
+  /**
+   * Felder aendern: Metadaten (Name/Notiz) und — bei gefuehrt erstellten
+   * Nachrichten — XML, Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand.
+   * Nur die gesetzten Felder werden gesendet; das Backend laesst weggelassene
+   * unberuehrt.
+   */
+  async updateMeta(id: string, patch: TestmessagePatch): Promise<void> {
     const { entry } = await this.req<{ entry: TestmessageEntry }>(
       `/testmessages/${encodeURIComponent(id)}`,
-      { method: 'PATCH', body: JSON.stringify({ notiz }) },
-    );
-    this.putEntry(entry);
-  }
-
-  /** Anzeigenamen aendern. */
-  async rename(id: string, name: string): Promise<void> {
-    const { entry } = await this.req<{ entry: TestmessageEntry }>(
-      `/testmessages/${encodeURIComponent(id)}`,
-      { method: 'PATCH', body: JSON.stringify({ name }) },
+      { method: 'PATCH', body: JSON.stringify(patch) },
     );
     this.putEntry(entry);
   }

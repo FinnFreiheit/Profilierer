@@ -15,6 +15,9 @@ import { testmessagesRouter } from './routes/testmessages.js';
  */
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.XJP_PORT) || 3001;
+// Bind-Adresse: hinter einem Reverse-Proxy auf 127.0.0.1 einschraenken,
+// damit der Node-Prozess nicht direkt aus dem Netz erreichbar ist.
+const HOST = process.env.XJP_HOST || '';
 const DB_PATH = process.env.XJP_DB || join(__dirname, 'data', 'profiles.db');
 const DIST = join(__dirname, '..', 'dist', 'xjustiz-profilierer', 'browser');
 
@@ -52,6 +55,8 @@ if (existsSync(DIST)) {
   console.warn(`[xjp] SPA-Build nicht gefunden unter ${DIST} — nur API/Proxy aktiv (dev).`);
 }
 
-app.listen(PORT, () => {
-  console.log(`[xjp] Server auf http://localhost:${PORT}  (DB: ${DB_PATH})`);
-});
+const onListen = () => {
+  console.log(`[xjp] Server auf http://${HOST || 'localhost'}:${PORT}  (DB: ${DB_PATH})`);
+};
+if (HOST) app.listen(PORT, HOST, onListen);
+else app.listen(PORT, onListen);

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input } from '@an
 import { TreeItem, TreeNode as TNode, itemPath } from '../../models/node.model';
 import { StateService } from '../../core/services/state.service';
 import { TreeService } from '../../core/services/tree.service';
+import { GuidedService } from '../../core/services/guided.service';
 import { ValueService } from '../../core/services/value.service';
 import { XsdParserService } from '../../core/services/xsd-parser.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -44,6 +45,7 @@ export class TreeNode {
 
   private readonly state = inject(StateService);
   private readonly tree = inject(TreeService);
+  private readonly guided = inject(GuidedService);
   private readonly values = inject(ValueService);
   private readonly parser = inject(XsdParserService);
   private readonly toast = inject(ToastService);
@@ -214,6 +216,9 @@ export class TreeNode {
       );
     }
     if (this.state.hasNotes(path)) tags.push({ cls: 't-note', text: 'Notiz' });
+    // Gefuehrter Modus: offene Entscheidungspunkte markieren.
+    if (this.state.guided() && !readOnly && this.guided.offeneSet().has(path))
+      tags.push({ cls: 't-open', text: 'offen', title: 'Entscheidung steht noch aus' });
 
     // Diff-Markierungen (Z.1290-1312).
     let dfR = false;

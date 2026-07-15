@@ -1,0 +1,3 @@
+* [x] Der Button "Ansehen" im Testdaten Speicher, kann entfernt werden, da ein klick auf die Kachel genügt.
+* [x] Die Kachel soll bearbeitbar sein, bzw alle Metadaten. Es ist wichtig die Datei umzubennenen und eine Kurze Beschreibung hinzuzufügen.
+* [x] Die XJustiz-Version kann aus der Testnachricht ausgelesen werden. Bitte entsprechend selber das Metadatum ergänzen.

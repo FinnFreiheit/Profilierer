@@ -85,9 +85,21 @@ export class ValueService {
 
   /** placeholderFor (Z.2001-2040): Beispielwert bzw. typgerechter Platzhalter. */
   placeholderFor(n: PlaceholderNode): string {
+    const p = this.state.elemente()[n.path] ?? {};
+    if (p.beispiel) return p.beispiel;
+    return this.dummyFor(n);
+  }
+
+  /**
+   * Typkonformer Dummy-Wert, unabhaengig von einem evtl. gesetzten Beispielwert
+   * — fuer den "Wuerfel"-Button und das globale Befuellen offener Pflichtfelder
+   * (US "Testnachricht gefuehrt erstellen"). UUID-Facetten bekommen eine echte
+   * Zufalls-UUID, sonst gilt die Platzhalter-Logik (Codeliste, Enumeration,
+   * Pattern-Facette, Builtin).
+   */
+  dummyFor(n: PlaceholderNode): string {
     const elemente = this.state.elemente();
     const p = elemente[n.path] ?? {};
-    if (p.beispiel) return p.beispiel;
 
     // Verweis-Blatt: Nummer der Ziel-Auspraegung.
     if (/^ref\./.test(n.name)) {
@@ -119,7 +131,18 @@ export class ValueService {
     const sample = res.builtin ? XS_BUILTIN[res.builtin]! : 'Beispieltext';
     // Datentyp-Facette einhalten: Wert an der Pattern-Restriktion ausrichten
     // (z. B. Type.GDS.Datumsangabe, UUID-Typen).
-    if (res.patterns) return konformerBeispielwert(res.patterns, Object.values(XS_BUILTIN), sample);
+    if (res.patterns) {
+      // Echte Zufalls-UUID, wenn erst die UUID die Facette erfuellt (z. B.
+      // eigeneNachrichtenID) — nicht bei permissiven Text-Patterns, die schon
+      // die freundlichen Kandidaten zulassen.
+      const rxs = res.patterns.map(compileXsdPattern).filter((r): r is RegExp => !!r);
+      const passt = (s: string): boolean => rxs.some((r) => r.test(s));
+      if (rxs.length && !passt(sample) && !Object.values(XS_BUILTIN).some(passt)) {
+        const uuid = globalThis.crypto?.randomUUID?.();
+        if (uuid && passt(uuid)) return uuid;
+      }
+      return konformerBeispielwert(res.patterns, Object.values(XS_BUILTIN), sample);
+    }
     return sample;
   }
 

@@ -1,6 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { PersistenceService } from './persistence.service';
+import { ProfileStoreService } from './profile-store.service';
+import { ToastService } from './toast.service';
 import { StateService } from './state.service';
+import { ProfileDoc } from '../../models/profile.model';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
@@ -31,5 +34,73 @@ describe('PersistenceService.loadXsdFiles', () => {
   it('wirft bei fehlenden .xsd-Dateien', async () => {
     const other = new File(['x'], 'liste.xml', { type: 'text/xml' });
     await expectAsync(svc.loadXsdFiles([other])).toBeRejectedWithError(/Keine .xsd/);
+  });
+});
+
+describe('PersistenceService Notfallkopien', () => {
+  const PREFIX = 'xjp.notfall.';
+  const doc = (name: string): ProfileDoc => ({
+    meta: { name },
+    statuses: [],
+    elemente: {},
+    auspraegungen: {},
+  });
+
+  let upserted: { id: string; doc: ProfileDoc }[];
+  let toasts: string[];
+  let upsertOk: boolean;
+
+  const clearNotfall = (): void => {
+    for (const k of Object.keys(localStorage)) if (k.startsWith(PREFIX)) localStorage.removeItem(k);
+  };
+
+  beforeEach(() => {
+    upserted = [];
+    toasts = [];
+    upsertOk = true;
+    clearNotfall();
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: ProfileStoreService,
+          useValue: {
+            upsert: async (id: string, d: ProfileDoc) => {
+              if (!upsertOk) throw new Error('offline');
+              upserted.push({ id, doc: d });
+            },
+          },
+        },
+        { provide: ToastService, useValue: { show: (m: string) => toasts.push(m) } },
+      ],
+    });
+  });
+
+  afterEach(clearNotfall);
+
+  it('traegt vorhandene Notfallkopien beim Start ans Backend nach und raeumt sie weg', async () => {
+    localStorage.setItem(PREFIX + 'p1', JSON.stringify({ doc: doc('Eins'), ts: 1 }));
+    localStorage.setItem(PREFIX + 'p2', JSON.stringify({ doc: doc('Zwei'), ts: 2 }));
+    const svc = TestBed.inject(PersistenceService);
+    await svc.flushNotfallkopien(); // Konstruktor-Flush laeuft parallel — Dedupe im Assert
+    expect([...new Set(upserted.map((u) => u.id))].sort()).toEqual(['p1', 'p2']);
+    expect(localStorage.getItem(PREFIX + 'p1')).toBeNull();
+    expect(localStorage.getItem(PREFIX + 'p2')).toBeNull();
+    expect(toasts.some((t) => t.includes('nachgetragen'))).toBeTrue();
+  });
+
+  it('behaelt Notfallkopien, solange das Backend nicht erreichbar ist', async () => {
+    upsertOk = false;
+    localStorage.setItem(PREFIX + 'p1', JSON.stringify({ doc: doc('Eins'), ts: 1 }));
+    const svc = TestBed.inject(PersistenceService);
+    await svc.flushNotfallkopien();
+    expect(localStorage.getItem(PREFIX + 'p1')).not.toBeNull();
+    expect(toasts.some((t) => t.includes('Notfallkopie vorhanden'))).toBeTrue();
+  });
+
+  it('ohne Notfallkopien: kein Nachtrag, kein Toast', async () => {
+    const svc = TestBed.inject(PersistenceService);
+    await svc.flushNotfallkopien();
+    expect(upserted.length).toBe(0);
+    expect(toasts.length).toBe(0);
   });
 });

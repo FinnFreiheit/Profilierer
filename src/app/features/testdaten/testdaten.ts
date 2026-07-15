@@ -11,9 +11,12 @@ import { TestmessageStoreService } from '../../core/services/testmessage-store.s
 import { StateService } from '../../core/services/state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { InstanceImportService } from '../../core/services/instance-import.service';
-import { BundledSchemaService } from '../../core/services/bundled-schema.service';
-import { PersistenceService } from '../../core/services/persistence.service';
+import { ProfileStoreService } from '../../core/services/profile-store.service';
+import { TestmessageGenerationService } from '../../core/services/testmessage-generation.service';
+import { TestmessageCreateService } from '../../core/services/testmessage-create.service';
 import { TestmessageEntry } from '../../models/testmessage.model';
+import { LibraryEntry } from '../../models/profile.model';
+import { MessageRef } from '../../models/xsd-index.model';
 import { parseTestmessage } from '../../core/util/testmessage.util';
 
 /** Eine Fachmodul-Gruppe fuer die Kachel-Ansicht. */
@@ -37,25 +40,32 @@ interface Gruppe {
 })
 export class Testdaten {
   protected readonly store = inject(TestmessageStoreService);
-  private readonly state = inject(StateService);
+  protected readonly state = inject(StateService);
   private readonly toast = inject(ToastService);
   private readonly instanceImport = inject(InstanceImportService);
-  private readonly bundled = inject(BundledSchemaService);
-  private readonly persistence = inject(PersistenceService);
+  private readonly profiles = inject(ProfileStoreService);
+  private readonly generator = inject(TestmessageGenerationService);
+  private readonly creator = inject(TestmessageCreateService);
 
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
-  private readonly noteDlg = viewChild.required<ElementRef<HTMLDialogElement>>('noteDlg');
-  private readonly viewDlg = viewChild.required<ElementRef<HTMLDialogElement>>('viewDlg');
+  private readonly editDlg = viewChild.required<ElementRef<HTMLDialogElement>>('editDlg');
+  private readonly genDlg = viewChild.required<ElementRef<HTMLDialogElement>>('genDlg');
+  private readonly createDlg = viewChild.required<ElementRef<HTMLDialogElement>>('createDlg');
 
   protected readonly search = signal('');
 
-  /** Viewer-Dialog: Titel + XML-Inhalt der aktuell angesehenen Nachricht. */
-  protected readonly viewTitle = signal('');
-  protected readonly viewXml = signal('');
+  /** Laufende Generierung (Profil-id) — sperrt Doppelklicks im Dialog. */
+  protected readonly generating = signal<string | null>(null);
 
-  /** Notiz-Dialog: aktive id + Textpuffer. */
-  protected readonly noteId = signal<string | null>(null);
-  protected readonly noteText = signal('');
+  /** Bibliotheksprofile, aus denen sich eine Nachricht erzeugen laesst. */
+  protected readonly profilKandidaten = computed<LibraryEntry[]>(() =>
+    this.profiles.entries().filter((e) => !!e.nachricht),
+  );
+
+  /** Bearbeiten-Dialog: aktive id + Puffer für Name und Beschreibung. */
+  protected readonly editId = signal<string | null>(null);
+  protected readonly editName = signal('');
+  protected readonly editNote = signal('');
 
   /** Gefiltert (Suche) und nach Fachmodul → Nachricht gruppiert. */
   protected readonly gruppen = computed<Gruppe[]>(() => {
@@ -93,7 +103,89 @@ export class Testdaten {
     return () => this.toast.show(msg);
   }
 
+  // ── Neu erstellen (gefuehrt aus einem Schema) ───────────────────────
+
+  /** Im Dialog gewaehlte Schemaversion (null = noch keine gewaehlt). */
+  protected readonly createVersion = signal<string | null>(null);
+  protected readonly createLoading = signal(false);
+  protected readonly msgFilter = signal('');
+
+  /**
+   * Waehlbare Schemata: hinterlegte Versionen, plus das aktuell geladene
+   * Fremdschema (Ordner-Upload), falls vorhanden.
+   */
+  protected readonly versionOptionen = computed<{ id: string; label: string }[]>(() => {
+    const opts = this.state.bundledVersions().map((v) => ({ id: v.id, label: v.label || 'XJustiz ' + v.id }));
+    const cur = this.state.version();
+    if (this.state.idx() && !this.state.activeBundle() && cur && !opts.some((o) => o.id === cur)) {
+      opts.push({ id: cur, label: `aktuell geladenes Schema (XJustiz ${cur})` });
+    }
+    return opts;
+  });
+
+  /** Nachrichten der gewaehlten Version, nach Filter. */
+  protected readonly createMessages = computed<MessageRef[]>(() => {
+    if (!this.createVersion()) return [];
+    const idx = this.state.idx();
+    if (!idx) return [];
+    const f = this.msgFilter().toLowerCase();
+    return idx.messages.filter(
+      (m) => !f || m.name.toLowerCase().includes(f) || m.doc.toLowerCase().includes(f),
+    );
+  });
+
+  protected openCreate(): void {
+    this.createVersion.set(null);
+    this.msgFilter.set('');
+    this.createDlg().nativeElement.showModal();
+  }
+
+  /** Schritt 1: Version waehlen (laedt bei Bedarf das hinterlegte Schema). */
+  protected async chooseVersion(id: string): Promise<void> {
+    if (this.createLoading()) return;
+    this.createLoading.set(true);
+    try {
+      await this.generator.ensureSchema(id);
+      this.createVersion.set(id);
+    } catch {
+      this.toast.show('Schema konnte nicht geladen werden.');
+    } finally {
+      this.createLoading.set(false);
+    }
+  }
+
+  /** Schritt 2: Nachricht waehlen — startet die gefuehrte Erstellung im Baum-Editor. */
+  protected async chooseMessage(name: string): Promise<void> {
+    if (this.createLoading()) return;
+    this.createLoading.set(true);
+    try {
+      await this.creator.neuErstellen(this.createVersion() ?? undefined, name);
+      this.createDlg().nativeElement.close();
+    } catch (err) {
+      this.toast.show(err instanceof Error ? err.message : 'Erstellen fehlgeschlagen.');
+    } finally {
+      this.createLoading.set(false);
+    }
+  }
+
   // ── Im Baum öffnen ──────────────────────────────────────────────────
+
+  /**
+   * Kachel-Klick: gefuehrt erstellte Nachrichten (gespeicherter
+   * Entscheidungsstand) werden gefuehrt fortgesetzt, alle anderen wie bisher
+   * zum Betrachten/Bearbeiten geoeffnet.
+   */
+  protected async openEntry(e: TestmessageEntry): Promise<void> {
+    if (e.gefuehrt) {
+      try {
+        await this.creator.fortsetzen(e);
+        return;
+      } catch {
+        // Stand nicht ladbar (Backend/Schema) — auf das normale Oeffnen zurueckfallen.
+      }
+    }
+    await this.openInTree(e);
+  }
 
   /**
    * Testnachricht wie eine Profilierung im Baum-Editor oeffnen: passendes
@@ -111,7 +203,7 @@ export class Testdaten {
       // Kein Bibliothekseintrag: verhindert, dass der Autosave die Testnachricht
       // in ein (evtl. zuvor geoeffnetes) Profil schreibt.
       this.state.activeProfileId.set(null);
-      this.instanceImport.importXml(xml); // wirft bei fehlendem/falschem Schema
+      this.instanceImport.importXml(xml, e.name); // wirft bei fehlendem/falschem Schema
       this.state.view.set('editor');
     } catch (err) {
       this.toast.show(err instanceof Error ? err.message : 'Nachricht konnte nicht geöffnet werden.');
@@ -120,12 +212,37 @@ export class Testdaten {
 
   /** Die zur Testnachricht passende hinterlegte XJustiz-Version laden (falls noetig). */
   private async ensureSchema(version?: string): Promise<void> {
-    if (!version || this.state.version() === version) return; // best effort: aktuelles Schema nutzen
-    const v = this.state.bundledVersions().find((x) => x.id === version);
-    if (!v) return; // keine hinterlegte Version — importXml meldet ggf. fehlendes Schema
-    const files = await this.bundled.files(v);
-    await this.persistence.loadXsdFiles(files);
-    this.state.activeBundle.set(v.dir);
+    await this.generator.ensureSchema(version);
+  }
+
+  // ── Aus Profilierung erzeugen ───────────────────────────────────────
+
+  protected openGenerate(): void {
+    void this.profiles.refresh().catch(this.fail('Profile konnten nicht geladen werden — Backend nicht erreichbar.'));
+    this.genDlg().nativeElement.showModal();
+  }
+
+  /** Ist die XJustiz-Version des Profils verfuegbar (aktuell geladen oder hinterlegt)? */
+  protected versionVerfuegbar(e: LibraryEntry): boolean {
+    return (
+      !e.xjustizVersion ||
+      e.xjustizVersion === this.state.version() ||
+      this.state.bundledVersions().some((v) => v.id === e.xjustizVersion)
+    );
+  }
+
+  protected async generateFrom(e: LibraryEntry): Promise<void> {
+    if (this.generating()) return;
+    this.generating.set(e.id);
+    try {
+      await this.generator.erzeugeAusProfil(e);
+      this.genDlg().nativeElement.close();
+      this.toast.show('Testnachricht erzeugt — Platzhalterwerte fachlich prüfen.');
+    } catch (err) {
+      this.toast.show(err instanceof Error ? err.message : 'Erzeugen fehlgeschlagen.');
+    } finally {
+      this.generating.set(null);
+    }
   }
 
   // ── Upload ──────────────────────────────────────────────────────────
@@ -174,43 +291,34 @@ export class Testdaten {
     if (ok && !abgelehnt.length && !fehler) this.uploadDlg().nativeElement.close();
   }
 
-  // ── Notiz ───────────────────────────────────────────────────────────
+  // ── Bearbeiten (Name + Beschreibung) ────────────────────────────────
 
-  protected openNote(e: TestmessageEntry, ev: Event): void {
+  protected openEdit(e: TestmessageEntry, ev: Event): void {
     ev.stopPropagation();
-    this.noteId.set(e.id);
-    this.noteText.set(e.notiz || '');
-    this.noteDlg().nativeElement.showModal();
+    this.editId.set(e.id);
+    this.editName.set(e.name || '');
+    this.editNote.set(e.notiz || '');
+    this.editDlg().nativeElement.showModal();
   }
 
-  protected submitNote(): void {
-    const id = this.noteId();
-    if (id)
+  protected submitEdit(): void {
+    const id = this.editId();
+    if (id) {
+      const name = this.editName().trim();
       void this.store
-        .updateNote(id, this.noteText())
-        .catch(this.fail('Notiz speichern fehlgeschlagen — Backend nicht erreichbar.'));
-    this.noteDlg().nativeElement.close();
-  }
-
-  // ── Ansehen ─────────────────────────────────────────────────────────
-
-  protected async openView(e: TestmessageEntry, ev: Event): Promise<void> {
-    ev.stopPropagation();
-    try {
-      const xml = await this.store.loadXml(e.id);
-      if (xml == null) return;
-      this.viewTitle.set(e.name);
-      this.viewXml.set(xml);
-      this.viewDlg().nativeElement.showModal();
-    } catch {
-      this.toast.show('Nachricht konnte nicht geladen werden — Backend nicht erreichbar.');
+        // Leerer Name ändert nichts (undefined) — der bestehende bleibt erhalten.
+        .updateMeta(id, { name: name || undefined, notiz: this.editNote() })
+        .catch(this.fail('Speichern fehlgeschlagen — Backend nicht erreichbar.'));
     }
+    this.editDlg().nativeElement.close();
   }
 
   // ── Download / Löschen ──────────────────────────────────────────────
 
   protected async download(e: TestmessageEntry, ev: Event): Promise<void> {
     ev.stopPropagation();
+    if (e.entwurf && !confirm('Diese Nachricht ist unvollständig (Entwurf) — trotzdem herunterladen?'))
+      return;
     try {
       const xml = await this.store.loadXml(e.id);
       if (xml == null) return;
@@ -231,6 +339,10 @@ export class Testdaten {
   }
 
   // ── Anzeige-Helfer ──────────────────────────────────────────────────
+
+  protected firstLine(doc: string): string {
+    return doc.split('\n')[0]!;
+  }
 
   protected groesse(e: TestmessageEntry): string {
     const kb = e.groesse / 1024;

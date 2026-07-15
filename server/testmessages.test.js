@@ -56,6 +56,28 @@ test('tmUpdate ändert Notiz und Name, setzt aktualisiert', () => {
   db.close();
 });
 
+test('tmBackfillVersionen ergänzt fehlende Version aus dem XML', () => {
+  const db = openDb(':memory:');
+  const xml =
+    '<nachricht.dabag.antrag.2900001 xmlns="http://www.xjustiz.de">' +
+    '<nachrichtenkopf xjustizVersion="3.6.2"/></nachricht.dabag.antrag.2900001>';
+  const { id } = db.tmCreate(input({ xjustizVersion: undefined, xml }));
+  assert.equal(db.tmList()[0].xjustizVersion, undefined); // zunächst ohne Version
+  assert.equal(db.tmBackfillVersionen(), 1);
+  assert.equal(db.tmList()[0].xjustizVersion, '3.6.2');
+  assert.equal(db.tmBackfillVersionen(), 0); // idempotent
+  assert.equal(id, db.tmList()[0].id);
+  db.close();
+});
+
+test('tmBackfillVersionen lässt Nachrichten ohne Versionsattribut unberührt', () => {
+  const db = openDb(':memory:');
+  db.tmCreate(input({ xjustizVersion: undefined, xml: '<nachricht.x xmlns="http://www.xjustiz.de"/>' }));
+  assert.equal(db.tmBackfillVersionen(), 0);
+  assert.equal(db.tmList()[0].xjustizVersion, undefined);
+  db.close();
+});
+
 test('tmDelete entfernt Nachricht und XML', () => {
   const db = openDb(':memory:');
   const { id } = db.tmCreate(input());
@@ -63,6 +85,55 @@ test('tmDelete entfernt Nachricht und XML', () => {
   assert.equal(db.tmLoadXml(id), null);
   assert.equal(db.tmList().length, 0);
   assert.equal(db.tmDelete(id), false);
+  db.close();
+});
+
+test('gefuehrte Erstellung: entwurf/fortschritt/entscheidungen Roundtrip', () => {
+  const db = openDb(':memory:');
+  const stand = {
+    msgName: 'nachricht.dabag.antrag.2900001',
+    xjustizVersion: '3.6.2',
+    profil: { meta: {}, statuses: [], elemente: { 'a/b': { beispiel: '1' } }, auspraegungen: {} },
+  };
+  const { id, entry } = db.tmCreate(
+    input({ entwurf: true, fortschritt: { x: 3, y: 10 }, entscheidungen: stand }),
+  );
+  assert.equal(entry.entwurf, true);
+  assert.deepEqual(entry.fortschritt, { x: 3, y: 10 });
+  assert.equal(entry.gefuehrt, true);
+  assert.deepEqual(db.tmLoadEntscheidungen(id), stand);
+  // Liste trägt Kennzeichen + Fortschritt, aber nicht den Stand selbst.
+  const row = db.tmList()[0];
+  assert.equal(row.entwurf, true);
+  assert.equal(row.gefuehrt, true);
+  assert.equal(row.entscheidungen, undefined);
+  db.close();
+});
+
+test('tmUpdate aktualisiert XML/Entwurf/Fortschritt/Entscheidungen selektiv', () => {
+  const db = openDb(':memory:');
+  const stand = { msgName: 'n', profil: { meta: {}, statuses: [], elemente: {}, auspraegungen: {} } };
+  const { id } = db.tmCreate(input({ entwurf: true, fortschritt: { x: 1, y: 5 }, entscheidungen: stand }));
+  // Nur Notiz ändern: gefuehrte Felder bleiben.
+  let e = db.tmUpdate(id, { notiz: 'x' });
+  assert.equal(e.entwurf, true);
+  assert.deepEqual(e.fortschritt, { x: 1, y: 5 });
+  // Fertigstellen: neues XML, entwurf weg, Fortschritt voll.
+  e = db.tmUpdate(id, { xml: '<neu/>', entwurf: false, fortschritt: { x: 5, y: 5 } });
+  assert.equal(e.entwurf, undefined);
+  assert.deepEqual(e.fortschritt, { x: 5, y: 5 });
+  assert.equal(e.groesse, '<neu/>'.length);
+  assert.equal(db.tmLoadXml(id), '<neu/>');
+  assert.deepEqual(db.tmLoadEntscheidungen(id), stand); // unberührt
+  db.close();
+});
+
+test('tmLoadEntscheidungen: null ohne Stand (hochgeladene Nachricht)', () => {
+  const db = openDb(':memory:');
+  const { id, entry } = db.tmCreate(input());
+  assert.equal(entry.gefuehrt, undefined);
+  assert.equal(db.tmLoadEntscheidungen(id), null);
+  assert.equal(db.tmLoadEntscheidungen('gibtsnicht'), null);
   db.close();
 });
 

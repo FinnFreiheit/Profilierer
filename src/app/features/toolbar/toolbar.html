@@ -1,7 +1,7 @@
 <div id="toolbar">
   <app-message-picker></app-message-picker>
 
-  @if (!state.readOnly()) {
+  @if (!state.readOnly() && !isMessage() && !isCreate()) {
     <div class="toolgroup">
       <label for="profilName">Szenario:</label>
       <input
@@ -17,15 +17,26 @@
   }
 
   <span id="fortschritt">{{ fortschrittText() }}</span>
-  <span id="autosaveInfo">{{ state.autosaveInfo() }}</span>
+  <span id="autosaveInfo" [class.warn]="state.autosaveInfo().startsWith('⚠')">{{ state.autosaveInfo() }}</span>
   <span class="spacer"></span>
 
   <app-search></app-search>
 
   <div class="toolgroup">
-    <label title="Nachricht nur betrachten — ohne Profilier-Bedienelemente, Werte gesperrt">
+    @if (!state.readOnly() && !isMessage()) {
+      <label [title]="isCreate()
+          ? 'Geführt durch alle offenen Punkte der Testnachricht (Pflichtwerte, Aufnahmen, Auswahlen)'
+          : 'Geführt durch alle offenen Entscheidungen der Profilierung'">
+        <input type="checkbox" [disabled]="!hasRoot()" [checked]="state.guided()"
+          (change)="state.guided.set(checked($event))" /> Geführt
+      </label>
+    }
+    <label [title]="isMessage()
+        ? 'Nachricht nur betrachten (Häkchen entfernen zum Bearbeiten der Werte)'
+        : 'Nachricht nur betrachten — ohne Profilier-Bedienelemente, Werte gesperrt'">
       <input type="checkbox" [disabled]="!hasRoot()" [checked]="state.readOnly()"
-        (change)="state.readOnly.set(checked($event))" /> Nur betrachten
+        (change)="state.readOnly.set(checked($event))" />
+      {{ isMessage() ? 'Nur betrachten (sonst bearbeiten)' : 'Nur betrachten' }}
     </label>
     <label title="Versionsunterschiede im Baum markieren">
       <input type="checkbox" [disabled]="!hasIdxB()" [checked]="state.showDiff()"
@@ -57,14 +68,27 @@
     </label>
     <button [disabled]="!hasRoot()" (click)="expand()">Alles ausklappen</button>
     <button [disabled]="!hasRoot()" (click)="collapse()">Zuklappen</button>
-    @if (!state.readOnly()) {
+    @if (!state.readOnly() && !isMessage() && !isCreate()) {
       <button [disabled]="!hasRoot()" title="Alle Pflichtelemente als „zwingend“ vorbelegen"
         (click)="prefillMandatory()">Pflicht vorbelegen</button>
     }
   </div>
 
   <div class="toolgroup">
-    @if (!state.readOnly()) {
+    @if ((isCreate() || isMessage()) && !state.readOnly()) {
+      <button [disabled]="!hasRoot()"
+        title="Alle offenen Pflichtfelder typkonform mit Dummy-Werten befüllen (UUID, Datum, Pattern, Codeliste)"
+        (click)="fillPflicht()">Offene Pflichtfelder füllen</button>
+    }
+    @if (isCreate()) {
+      <button class="primary" [disabled]="!hasRoot()"
+        title="Stand im Testdaten-Speicher sichern — unvollständige Nachrichten werden als Entwurf gekennzeichnet"
+        (click)="saveCreateClick.emit()">Speichern</button>
+    } @else if (isMessage()) {
+      <button [disabled]="!hasRoot()"
+        title="Die (bearbeitete) Nachricht als neue Testnachricht im Testdaten-Speicher ablegen"
+        (click)="saveMessageClick.emit()">Als neue Nachricht speichern</button>
+    } @else if (!state.readOnly()) {
       <button [disabled]="!hasRoot()" (click)="saveClick.emit()">Speichern</button>
       <button [disabled]="!hasRoot()" (click)="excelClick.emit()">Excel</button>
       <button [disabled]="!hasRoot()" (click)="schClick.emit()">Schematron</button>

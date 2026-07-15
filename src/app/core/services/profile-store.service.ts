@@ -1,8 +1,12 @@
 import { Injectable, signal } from '@angular/core';
 import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
 
-/** Basis-URL der Profil-API (same-origin; im Dev via Proxy auf das Backend). */
-const API_BASE = '/api';
+/**
+ * Basis-URL der Profil-API (same-origin; im Dev via Proxy auf das Backend).
+ * Relativ, loest gegen <base href> auf: Dev/Root -> /api, Unterpfad-Deployment
+ * (xjw.freiheits.de/profilierer) -> /profilierer/api (nginx strippt den Praefix).
+ */
+const API_BASE = 'api';
 
 /**
  * Persistenz-Layer der Profil-Bibliothek — spricht das Backend (SQLite) per

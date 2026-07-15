@@ -22,6 +22,13 @@ export function testmessagesRouter(db) {
     res.type('application/xml').send(xml);
   });
 
+  // Entscheidungsstand einer gefuehrt erstellten Testnachricht (JSON).
+  r.get('/testmessages/:id/entscheidungen', (req, res) => {
+    const stand = db.tmLoadEntscheidungen(req.params.id);
+    if (stand == null) return res.status(404).json({ error: 'kein Entscheidungsstand' });
+    res.json(stand);
+  });
+
   // Anlegen: id serverseitig.
   r.post('/testmessages', (req, res) => {
     const b = req.body;
@@ -30,10 +37,13 @@ export function testmessagesRouter(db) {
     res.status(201).json(db.tmCreate(b));
   });
 
-  // Notiz/Name ändern.
+  // Felder ändern (Notiz/Name; gefuehrte Erstellung zusätzlich XML,
+  // Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand).
   r.patch('/testmessages/:id', (req, res) => {
-    const { notiz, name } = req.body ?? {};
-    const entry = db.tmUpdate(req.params.id, { notiz, name });
+    const { notiz, name, xml, entwurf, fortschritt, entscheidungen } = req.body ?? {};
+    if (xml !== undefined && (typeof xml !== 'string' || !xml.trim()))
+      return res.status(400).json({ error: 'kein XML' });
+    const entry = db.tmUpdate(req.params.id, { notiz, name, xml, entwurf, fortschritt, entscheidungen });
     if (!entry) return res.status(404).json({ error: 'nicht gefunden' });
     res.json({ entry });
   });

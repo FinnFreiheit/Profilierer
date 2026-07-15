@@ -47,6 +47,15 @@ export function openDb(path) {
     CREATE INDEX IF NOT EXISTS idx_testmessages_fachmodul ON testmessages(fachmodul);
   `);
 
+  // Migration: Spalten der gefuehrten Testnachricht-Erstellung nachziehen
+  // (entwurf-Kennzeichen, Fortschritt "x von y" als JSON, Entscheidungsstand).
+  {
+    const cols = new Set(db.prepare('PRAGMA table_info(testmessages)').all().map((c) => c.name));
+    if (!cols.has('entwurf')) db.exec('ALTER TABLE testmessages ADD COLUMN entwurf INTEGER');
+    if (!cols.has('fortschritt')) db.exec('ALTER TABLE testmessages ADD COLUMN fortschritt TEXT');
+    if (!cols.has('entscheidungen')) db.exec('ALTER TABLE testmessages ADD COLUMN entscheidungen TEXT');
+  }
+
   const stmt = {
     list: db.prepare(
       `SELECT id, name, nachricht, xjustiz_version, n_status, n_ausp, gespeichert, aktualisiert
@@ -70,25 +79,46 @@ export function openDb(path) {
 
     // ── Testnachrichten (zentraler Testdaten-Speicher) ──────────────────
     tmList: db.prepare(
-      `SELECT id, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert
+      `SELECT id, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
+              entwurf, fortschritt, (entscheidungen IS NOT NULL) AS gefuehrt
        FROM testmessages ORDER BY aktualisiert DESC`,
     ),
     tmGetXml: db.prepare('SELECT xml FROM testmessages WHERE id = ?'),
-    tmGet: db.prepare('SELECT * FROM testmessages WHERE id = ?'),
+    tmGetEntscheidungen: db.prepare('SELECT entscheidungen FROM testmessages WHERE id = ?'),
+    tmGet: db.prepare(
+      `SELECT id, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
+              entwurf, fortschritt, (entscheidungen IS NOT NULL) AS gefuehrt
+       FROM testmessages WHERE id = ?`,
+    ),
+    tmGetRow: db.prepare('SELECT * FROM testmessages WHERE id = ?'),
     tmInsert: db.prepare(
       `INSERT INTO testmessages
-         (id, xml, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert)
+         (id, xml, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
+          entwurf, fortschritt, entscheidungen)
        VALUES
-         (@id, @xml, @name, @nachricht, @fachmodul, @xjustizVersion, @groesse, @notiz, @ts, @ts)`,
+         (@id, @xml, @name, @nachricht, @fachmodul, @xjustizVersion, @groesse, @notiz, @ts, @ts,
+          @entwurf, @fortschritt, @entscheidungen)`,
     ),
     tmUpdate: db.prepare(
-      'UPDATE testmessages SET notiz = @notiz, name = @name, aktualisiert = @aktualisiert WHERE id = @id',
+      `UPDATE testmessages SET
+         xml = @xml, notiz = @notiz, name = @name, groesse = @groesse,
+         entwurf = @entwurf, fortschritt = @fortschritt, entscheidungen = @entscheidungen,
+         aktualisiert = @aktualisiert
+       WHERE id = @id`,
     ),
     tmDel: db.prepare('DELETE FROM testmessages WHERE id = ?'),
   };
 
-  /** Baut die schlanke Index-Zeile (ohne xml) aus einer DB-Zeile. */
+  /** Baut die schlanke Index-Zeile (ohne xml/entscheidungen) aus einer DB-Zeile. */
   function tmEntry(r) {
+    let fortschritt;
+    if (r.fortschritt) {
+      try {
+        fortschritt = JSON.parse(r.fortschritt);
+      } catch {
+        fortschritt = undefined;
+      }
+    }
     return {
       id: r.id,
       name: r.name,
@@ -99,6 +129,9 @@ export function openDb(path) {
       notiz: r.notiz ?? undefined,
       hochgeladen: r.hochgeladen,
       aktualisiert: r.aktualisiert,
+      entwurf: !!r.entwurf || undefined,
+      fortschritt,
+      gefuehrt: !!r.gefuehrt || undefined,
     };
   }
 
@@ -120,7 +153,7 @@ export function openDb(path) {
     return entry;
   }
 
-  return {
+  const api = {
     _db: db,
 
     /** Bibliotheks-Index (LibraryEntry[]), absteigend nach aktualisiert. */
@@ -208,8 +241,19 @@ export function openDb(path) {
       return row ? row.xml : null;
     },
 
+    /** Gespeicherter Entscheidungsstand (JSON) oder null. */
+    tmLoadEntscheidungen(id) {
+      const row = stmt.tmGetEntscheidungen.get(id);
+      if (!row || !row.entscheidungen) return null;
+      try {
+        return JSON.parse(row.entscheidungen);
+      } catch {
+        return null;
+      }
+    },
+
     /** Neue Testnachricht; id serverseitig vergeben. Gibt { id, entry }. */
-    tmCreate({ name, xml, nachricht, fachmodul, xjustizVersion, groesse }, ts) {
+    tmCreate({ name, xml, nachricht, fachmodul, xjustizVersion, groesse, entwurf, fortschritt, entscheidungen }, ts) {
       const id = randomUUID();
       const stamp = ts ?? Date.now();
       stmt.tmInsert.run({
@@ -221,18 +265,34 @@ export function openDb(path) {
         xjustizVersion: xjustizVersion ?? null,
         groesse: groesse ?? (xml ? String(xml).length : 0),
         notiz: null,
+        entwurf: entwurf ? 1 : null,
+        fortschritt: fortschritt ? JSON.stringify(fortschritt) : null,
+        entscheidungen: entscheidungen ? JSON.stringify(entscheidungen) : null,
         ts: stamp,
       });
       return { id, entry: tmEntry(stmt.tmGet.get(id)) };
     },
 
-    /** Notiz und/oder Name ändern; aktualisiert-Zeitstempel setzen. Gibt entry oder null. */
-    tmUpdate(id, { notiz, name }, ts) {
-      const row = stmt.tmGet.get(id);
+    /**
+     * Felder ändern; nur die im Patch gesetzten werden übernommen (undefined =
+     * unberührt). Aktualisiert-Zeitstempel setzen. Gibt entry oder null.
+     */
+    tmUpdate(id, { notiz, name, xml, entwurf, fortschritt, entscheidungen }, ts) {
+      const row = stmt.tmGetRow.get(id);
       if (!row) return null;
+      const nextXml = xml !== undefined ? String(xml) : row.xml;
       const next = {
+        xml: nextXml,
+        groesse: xml !== undefined ? nextXml.length : row.groesse,
         notiz: notiz !== undefined ? (notiz || null) : row.notiz,
         name: name !== undefined ? (name || null) : row.name,
+        entwurf: entwurf !== undefined ? (entwurf ? 1 : null) : row.entwurf,
+        fortschritt:
+          fortschritt !== undefined ? (fortschritt ? JSON.stringify(fortschritt) : null) : row.fortschritt,
+        entscheidungen:
+          entscheidungen !== undefined
+            ? (entscheidungen ? JSON.stringify(entscheidungen) : null)
+            : row.entscheidungen,
         aktualisiert: ts ?? Date.now(),
       };
       stmt.tmUpdate.run({ id, ...next });
@@ -244,8 +304,36 @@ export function openDb(path) {
       return stmt.tmDel.run(id).changes > 0;
     },
 
+    /**
+     * Trägt fehlende XJustiz-Versionen nach: leitet sie best-effort aus dem
+     * gespeicherten XML ab (Attribut `xjustizVersion` an Wurzel oder
+     * Nachrichtenkopf). Idempotent — wirkt nur auf Einträge ohne Version; läuft
+     * beim Öffnen der DB. Gibt die Anzahl ergänzter Einträge zurück.
+     */
+    tmBackfillVersionen() {
+      const offen = db
+        .prepare(`SELECT id, xml FROM testmessages WHERE xjustiz_version IS NULL OR xjustiz_version = ''`)
+        .all();
+      const set = db.prepare(`UPDATE testmessages SET xjustiz_version = ? WHERE id = ?`);
+      let n = 0;
+      db.transaction(() => {
+        for (const r of offen) {
+          const m = String(r.xml).match(/xjustizVersion\s*=\s*"([^"]+)"/);
+          if (m) {
+            set.run(m[1].trim(), r.id);
+            n++;
+          }
+        }
+      })();
+      return n;
+    },
+
     close() {
       db.close();
     },
   };
+
+  // Alt-Bestand ohne erkannte XJustiz-Version einmalig aus dem XML nachziehen.
+  api.tmBackfillVersionen();
+  return api;
 }

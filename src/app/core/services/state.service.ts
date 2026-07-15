@@ -12,6 +12,7 @@ import { Codelist } from '../../models/codelist.model';
 import { DiffAnc, DiffEntry } from '../../models/diff.model';
 import { XsdDoc, XsdIndex } from '../../models/xsd-index.model';
 import { BundledVersion } from '../../models/schema-bundle.model';
+import { MessageCreateSession, MessageEditSession } from '../../models/testmessage.model';
 import { newProfile } from '../profile-defaults';
 import { pretty } from '../util/pretty.util';
 import { REF_TARGETS } from '../refs';
@@ -66,6 +67,26 @@ export class StateService {
   readonly alignLeaves = signal(false);
   /** Betrachtungsmodus: gesperrte Ansicht ohne Profilier-Bedienelemente (Nachricht inspizieren). */
   readonly readOnly = signal(false);
+  /**
+   * Aktive Bearbeitungs-Session einer geladenen XJustiz-Instanz (null = normales
+   * Profil/Szenario). Gesetzt vom InstanceImportService; ermoeglicht den treuen
+   * Re-Export als neue Nachricht (InstanceExportService). Wird bei jedem
+   * Profil-Einstieg wieder geleert.
+   */
+  readonly messageEdit = signal<MessageEditSession | null>(null);
+  /**
+   * Laufende Sitzung "Testnachricht gefuehrt aus einem Schema erstellen"
+   * (TestmessageCreateService). Schaltet Toolbar/Detailpanel in den
+   * Erstellungs-Modus und traegt den Testspeicher-Eintrag der Sitzung.
+   */
+  readonly messageCreate = signal<MessageCreateSession | null>(null);
+  /**
+   * Gefuehrter Profilier-Modus: Fuehrungs-/Zaehlschicht ueber denselben Daten
+   * (GuidedService). Reiner UI-Zustand, nicht Teil des ProfileDoc; bei neuen
+   * Profilierungen standardmaessig an (createNew), sonst zuschaltbar. Bei der
+   * gefuehrten Testnachricht-Erstellung ebenfalls an (Instanz-Modus).
+   */
+  readonly guided = signal(false);
   /** Profil, das vor dem XSD-Ordner geladen wurde (loadProfileFile, Z.1813). */
   readonly pendingMsg = signal<ProfileDoc | null>(null);
   /** Anzeige "automatisch gesichert HH:MM" (autosaveNow, Z.1481). */
@@ -120,6 +141,11 @@ export class StateService {
   /** Die Statusstufe mit Wirkung "pflicht" (fuer die Zwingend-Vorbelegung). */
   pflichtStatus(): Status | null {
     return this.statuses().find((s) => s.wirkung === 'pflicht') ?? null;
+  }
+
+  /** Die Statusstufe mit Wirkung "optional" (Disposition "anzugeben, wenn vorhanden"). */
+  optionalStatus(): Status | null {
+    return this.statuses().find((s) => s.wirkung === 'optional') ?? null;
   }
 
   /** statusOf (Z.997). */
@@ -347,6 +373,15 @@ export class StateService {
     // Betrachtungsmodus wird nur beim Nachrichten-Import (importXml) eingeschaltet.
     this.readOnly.set(false);
     this.onlyValues.set(false);
+    // Eine evtl. laufende Nachrichten-Bearbeitung/-Erstellung endet mit dem
+    // Profil-Wechsel; importXml bzw. TestmessageCreateService setzen ihre
+    // Session danach neu.
+    this.messageEdit.set(null);
+    this.messageCreate.set(null);
+    // `guided` bleibt hier bewusst unangetastet: loadProfile laeuft auch bei der
+    // Nachrichtenwahl innerhalb eines gefuehrten neuen Profils (loadMessage →
+    // resetProfile). Die Einstiege setzen den Modus explizit (createNew: an;
+    // openFromLibrary/importXml: aus).
   }
 
   /** Frisches, leeres Profil (newProfile). */

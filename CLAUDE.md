@@ -26,7 +26,9 @@ xjustiz-profilierer/
 │   │   ├── services/          StateService (Signals-Store), XsdParserService, TreeService,
 │   │   │                      NavService, ValueService, CodelistService, ExportService,
 │   │   │                      DiffService, PersistenceService, ProfileStoreService, MigrationService,
-│   │   │                      InstanceImportService, BundledSchemaService, DownloadService, ToastService, SearchService
+│   │   │                      InstanceImportService, InstanceExportService, TestmessageStoreService,
+│   │   │                      TestmessageGenerationService, TestmessageCreateService, GuidedService,
+│   │   │                      BundledSchemaService, DownloadService, ToastService, SearchService
 │   │   ├── util/              xml.util, pretty.util
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
 │   │   └── profile-defaults.ts
