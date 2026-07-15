@@ -27,7 +27,7 @@
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "allowedCommonJsDependencies": [
-              "xlsx",
+              "exceljs",
               "jszip"
             ],
             "assets": [
