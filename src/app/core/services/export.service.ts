@@ -339,10 +339,11 @@ export class ExportService {
       ws.getRow(r).height = 25;
       r++;
     }
-    // Gliederungsstreifen wie in der Referenz: jedes Element mit Kindzeilen
-    // bekommt in seiner Einrueckspalte einen kurzen Streifen von der eigenen
-    // Zeile ueber die Beschreibungszeile bis zur Zeile des ersten Kindes,
-    // dazu die Typ-/Anzahl-Zellen der eigenen Zeile; Farbe rotiert je Tiefe.
+    // Gliederungsfaerbung: jedes Elternelement (mit eingerueckten Kindzeilen)
+    // faerbt (a) seine Einrueckspalte vertikal ueber den gesamten Block —
+    // bis zum naechsten Element derselben oder einer hoeheren Ebene — und
+    // (b) seine Element- und Beschreibungszeile horizontal von der eigenen
+    // Spalte bis zur Anzahl-Spalte. Farbe rotiert je Tiefe.
     const fuelle = (rr: number, c: number, argb: string): void => {
       ws.getCell(rr, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
     };
@@ -351,11 +352,14 @@ export class ExportService {
       if (z.art !== 'el') continue;
       let j = i + 1;
       while (j < zeilen.length && zeilen[j]!.art !== 'el') j++;
-      if (j >= zeilen.length || zeilen[j]!.tiefe <= z.tiefe) continue;
+      if (j >= zeilen.length || zeilen[j]!.tiefe <= z.tiefe) continue; // Blatt
+      let ende = j;
+      while (ende < zeilen.length && !(zeilen[ende]!.art === 'el' && zeilen[ende]!.tiefe <= z.tiefe)) ende++;
       const farbe = XL_STREIFEN[z.tiefe % XL_STREIFEN.length]!;
-      for (let rr = 4 + i; rr <= 4 + j; rr++) fuelle(rr, z.tiefe + 1, farbe);
-      fuelle(4 + i, colTyp, farbe);
-      fuelle(4 + i, colAnzahl, farbe);
+      for (let rr = 4 + i; rr < 4 + ende; rr++) fuelle(rr, z.tiefe + 1, farbe);
+      const bandBis = zeilen[i + 1]?.art === 'desc' ? i + 1 : i;
+      for (let bi = i; bi <= bandBis; bi++)
+        for (let c = z.tiefe + 1; c <= colAnzahl; c++) fuelle(4 + bi, c, farbe);
     }
     // Die Szenariospalte ist in der Referenz durchgaengig gefuellt.
     for (let rr = 4; rr < r; rr++)
