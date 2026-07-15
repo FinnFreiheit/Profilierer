@@ -32,16 +32,17 @@ interface ExcelZeile {
   anzahl?: string;
   status?: string;
   testdaten?: string;
-  /** choice-Gruppe: Zeile wird farbig hinterlegt. */
-  choice?: boolean;
 }
 
 /** Farben des NGem-Layouts (ARGB). */
 const XL_HEADER = 'FFFFC000';
 const XL_SZENARIO = 'FFC6E0B4';
 const XL_TESTDATEN = 'FFBDD7EE';
-/** Choice-Farbstreifen, alternierend nach Verschachtelungstiefe. */
-const XL_CHOICE = ['FFDCE6F1', 'FFE4DFEC'];
+/**
+ * Gliederungsstreifen je Einrueck-Tiefe (Referenz: Office-Themefarben
+ * accent6/5/4/2/1/lt2 mit Tint 0,6 fuer die Spalten A..F, dann wiederholt).
+ */
+const XL_STREIFEN = ['FFC6DEB5', 'FFB4C7E7', 'FFFFE699', 'FFF8CBAD', 'FFBDD7EE', 'FFF5F5F5'];
 const XL_FONT = { name: 'Arial', size: 10 };
 
 /** Kompakte Kardinalitaet im Referenz-Stil ("1", "0..1", "1..n"). */
@@ -214,7 +215,6 @@ export class ExportService {
         typ: n.synthetic ? `[${n.model}]` : n.typeName || (n.model === 'choice' ? '[choice]' : ''),
         anzahl: kurzKard(n.min, n.max) + (k.changed ? '\n' + kurzKard(k.min, k.max) : ''),
         status, testdaten: p.beispiel || '',
-        choice: n.model === 'choice',
       });
       if (n.doc) zeilen.push({ art: 'desc', tiefe, text: n.doc, status: status ? '.' : '' });
       if (kollabiert?.(n) || tiefe >= maxTiefe || n.recursive) continue;
@@ -317,32 +317,17 @@ export class ExportService {
     ws.getRow(3).height = 52;
     ws.views = [{ state: 'frozen', ySplit: 3 }];
 
-    // Choice-Farbstreifen wie in der Referenz: die Einrueckspalte des Blocks
-    // wird vertikal ueber alle Blockzeilen gefaerbt (Farbe alterniert je
-    // Verschachtelung); dazu Typ/Anzahl der Kopfzeile.
-    const offen: { col: number; start: number; farbe: string }[] = [];
-    const streifen = (bis: number): void => {
-      const b = offen.pop()!;
-      for (let rr = b.start; rr <= bis; rr++)
-        ws.getCell(rr, b.col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: b.farbe } };
-    };
     let r = 4;
     for (const z of zeilen) {
       const cName = z.tiefe + 1;
       if (z.art === 'el') {
-        while (offen.length && cName <= offen[offen.length - 1]!.col) streifen(r - 1);
         zelle(r, cName, z.text, true);
         if (z.typ) zelle(r, colTyp, z.typ);
         if (z.anzahl) zelle(r, colAnzahl, z.anzahl);
-        if (z.choice) {
-          const farbe = XL_CHOICE[offen.length % XL_CHOICE.length]!;
-          offen.push({ col: cName, start: r, farbe });
-          for (const c of [colTyp, colAnzahl])
-            ws.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: farbe } };
-        }
       } else {
+        // Beschreibungszeilen ohne Merge — der Text laeuft ueber die leeren
+        // Nachbarzellen (wie in der Referenz), Streifen bleiben zellgenau.
         zelle(r, cName, z.text);
-        if (cName < colAnzahl) ws.mergeCells(r, cName, r, colAnzahl);
       }
       if (z.status) {
         zelle(r, colStatus, z.status);
@@ -354,7 +339,24 @@ export class ExportService {
       ws.getRow(r).height = 25;
       r++;
     }
-    while (offen.length) streifen(r - 1);
+    // Gliederungsstreifen wie in der Referenz: jedes Element mit Kindzeilen
+    // bekommt in seiner Einrueckspalte einen kurzen Streifen von der eigenen
+    // Zeile ueber die Beschreibungszeile bis zur Zeile des ersten Kindes,
+    // dazu die Typ-/Anzahl-Zellen der eigenen Zeile; Farbe rotiert je Tiefe.
+    const fuelle = (rr: number, c: number, argb: string): void => {
+      ws.getCell(rr, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
+    };
+    for (let i = 0; i < zeilen.length; i++) {
+      const z = zeilen[i]!;
+      if (z.art !== 'el') continue;
+      let j = i + 1;
+      while (j < zeilen.length && zeilen[j]!.art !== 'el') j++;
+      if (j >= zeilen.length || zeilen[j]!.tiefe <= z.tiefe) continue;
+      const farbe = XL_STREIFEN[z.tiefe % XL_STREIFEN.length]!;
+      for (let rr = 4 + i; rr <= 4 + j; rr++) fuelle(rr, z.tiefe + 1, farbe);
+      fuelle(4 + i, colTyp, farbe);
+      fuelle(4 + i, colAnzahl, farbe);
+    }
     // Die Szenariospalte ist in der Referenz durchgaengig gefuellt.
     for (let rr = 4; rr < r; rr++)
       ws.getCell(rr, colStatus).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_SZENARIO } };
