@@ -22,8 +22,8 @@ interface Tag {
  * Portierung von renderBox (Z.1207-1391) und buildSub (Z.1080-1117).
  *
  * Das Host-Element traegt die Klasse `ntree` und enthaelt direkt `.box` und
- * optional `.nkids` — genau die DOM-Struktur, die die SVG-Verbindungslinien
- * (P6) per Geometrie vermessen. Referenz-/Diff-Linien folgen in P6/P7.
+ * optional `.nkids` — genau die DOM-Struktur, die der TreeCanvas fuer die
+ * SVG-Verbindungs- und Verweislinien per Geometrie vermisst.
  */
 @Component({
   selector: 'app-tree-node',

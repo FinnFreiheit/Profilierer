@@ -13,7 +13,6 @@ import { REF_LABELS, refKindOf } from '../../core/refs';
 /**
  * Detailbereich (Profilierer.html Z.1506-1666): Status, Kardinalitaet,
  * Ausprägungen, Codelisten-Werte, Verweisziel, Anmerkung, Beispielwert.
- * Der XRepository-Einzelabruf (dClFetch) folgt in P5.
  */
 @Component({
   selector: 'app-detail-panel',
