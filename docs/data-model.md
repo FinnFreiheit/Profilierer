@@ -39,7 +39,7 @@ Die Interfaces (`src/app/models/`), die Zustands-Signale des `StateService` und 
 | Schema/Nachricht | `docs, idx, version, standardKennung, msgName, root` |
 | Profil | `meta, statuses, elemente, auspraegungen` |
 | UI | `selItem, open (Set), codelists, showTech, onlyProfile, showRefs, focusMode, pendingMsg, scrollTarget, autosaveInfo` |
-| Diff | `showDiff, diffMap, diffAnc, diffMsgMissing, idxB` |
+| Diff | `showDiff, diffMap, diffAnc, idxB` |
 | Ableitungen | `profileDoc`, `fortschritt` |
 
 ## Pfad-indizierte Maps (zentral)

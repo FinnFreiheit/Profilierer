@@ -109,7 +109,6 @@ export class StateService {
   readonly showDiff = signal(false);
   readonly diffMap = signal<Map<string, DiffEntry> | null>(null);
   readonly diffAnc = signal<Map<string, DiffAnc> | null>(null);
-  readonly diffMsgMissing = signal(false);
   readonly idxB = signal<XsdIndex | null>(null);
 
   /** Laufender Zaehler fuer Ausprägungs-IDs (wie AUSPN, Z.1016). */

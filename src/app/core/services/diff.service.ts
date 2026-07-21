@@ -75,7 +75,6 @@ export class DiffService {
     this.state.diffAnc.set(null);
     if (!this.state.idxB() || !this.state.msgName()) return;
     const d = this.computeDiff();
-    this.state.diffMsgMissing.set(!d.msgInB);
     this.state.diffMap.set(new Map(d.rows.map((r) => [r.rel, r] as [string, DiffEntry])));
     const anc = new Map<string, DiffAnc>();
     const bump = (p: string, art: DiffArt): void => {
