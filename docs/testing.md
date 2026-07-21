@@ -12,6 +12,16 @@ npm run test:ci
 - Einmalige Vorbereitung, falls der Browser fehlt: `npx puppeteer browsers install chrome`.
 - Direkt (mit gesetztem `CHROME_BIN`): `npx ng test --watch=false --browsers=ChromeHeadless`.
 
+## Server-Tests (Backend)
+
+```
+npm run test:server
+```
+
+- Delegiert an `server/package.json` (`node --test`): `server/profiles.test.js` und `server/testmessages.test.js` laufen gegen eine **In-Memory-SQLite** (`openDb(':memory:')`) — kein laufender Server, kein Netz, keine Datei-DB nötig.
+- Einmalige Vorbereitung: `cd server && npm install` (better-sqlite3 ist nativ).
+- Die Frontend-Unit-Tests (`test:ci`, Karma) und die Server-Tests (node:test) sind bewusst getrennt; die vollständige Prüfkette ist `npm run test:ci && npm run test:server`.
+
 **Abgedeckt** (Spec-Dateien neben den Quellen):
 - `StateService` — `setElementProfile`/`pruneP`, Status-Zugriff, `effKard`, `addAusp`, **`removeAusp`-Kaskade**, `toggleOpen`, `fortschritt`.
 - `XsdParserService` — `buildIndexFrom`, `particlesOfCT` (inkl. Vererbung), `enumsOfST`, `codelistOf`, `valueKind` gegen ein Inline-XSD-Fixture.

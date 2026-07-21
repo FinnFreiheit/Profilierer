@@ -8,6 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:ci": "node scripts/test-headless.mjs",
+    "test:server": "npm --prefix server test",
     "schemas:manifest": "node scripts/gen-schema-manifest.mjs",
     "server": "node server/index.js",
     "dev": "concurrently -n web,api -c cyan,green \"npm:start\" \"npm:server\"",
