@@ -28,8 +28,26 @@ export class Search {
 
   protected readonly open = computed(() => this.focused() && this.query().trim().length > 0);
 
+  /** Horizontaler Versatz des Panels, damit es nicht rechts aus dem Viewport ragt. */
+  protected readonly panelLeft = signal(0);
+
   protected onInput(e: Event): void {
-    this.query.set((e.target as HTMLInputElement).value);
+    const input = e.target as HTMLInputElement;
+    this.query.set(input.value);
+    this.updatePanelPos(input);
+  }
+
+  protected onFocus(e: FocusEvent): void {
+    this.focused.set(true);
+    this.updatePanelPos(e.target as HTMLInputElement);
+  }
+
+  private updatePanelPos(input: HTMLInputElement): void {
+    const rect = input.getBoundingClientRect();
+    // Muss zur Panel-Breite in styles.scss passen (#searchPanel: width 460px, max-width 92vw)
+    const panelWidth = Math.min(460, window.innerWidth * 0.92);
+    const overhang = rect.left + panelWidth - (window.innerWidth - 8);
+    this.panelLeft.set(Math.max(8 - rect.left, Math.min(0, -overhang)));
   }
 
   protected onKeydown(e: KeyboardEvent): void {
