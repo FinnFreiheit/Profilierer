@@ -1,0 +1,15 @@
+<button [disabled]="disabled()" (click)="toggle(btn); $event.stopPropagation()" #btn>
+  {{ label() }} ▾
+</button>
+
+@if (open()) {
+  <div style="position: fixed; inset: 0; z-index: 39" (click)="close()"></div>
+  <div
+    class="menuPanel"
+    [style.left.px]="pos().left"
+    [style.top.px]="pos().top"
+    (click)="$event.stopPropagation()"
+  >
+    <ng-content></ng-content>
+  </div>
+}

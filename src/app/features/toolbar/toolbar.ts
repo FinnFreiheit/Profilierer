@@ -5,6 +5,7 @@ import { GuidedService } from '../../core/services/guided.service';
 import { ToastService } from '../../core/services/toast.service';
 import { MessagePicker } from '../message-picker/message-picker';
 import { Search } from '../search/search';
+import { Menu } from '../../shared/menu/menu';
 
 /**
  * Werkzeugleiste (Profilierer.html Z.211-241). Ansichts-Umschalter binden
@@ -14,7 +15,7 @@ import { Search } from '../search/search';
 @Component({
   selector: 'app-toolbar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MessagePicker, Search],
+  imports: [MessagePicker, Search, Menu],
   templateUrl: './toolbar.html',
 })
 export class Toolbar {

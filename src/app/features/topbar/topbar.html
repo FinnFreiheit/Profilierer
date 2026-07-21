@@ -27,32 +27,22 @@
       }
     </select>
   }
-  <button (click)="pick(xsdInput)" title="Eigenen Ordner mit XJustiz-Schemadateien laden">
-    Eigener XSD-Ordner…
-  </button>
-  <button
-    [disabled]="!hasIdx()"
-    title="Alle vom Standard genutzten Codelisten über die XRepository-REST-Schnittstelle abrufen"
-    (click)="xrepClick.emit()"
-  >
-    Codelisten: XRepository
-  </button>
-  <button title="Genericode-Dateien oder ZIP aus Dateien laden" (click)="pick(clInput)">
-    Codelisten: Datei…
-  </button>
-  <button
-    [disabled]="!hasIdx()"
-    title="Zweiten XSD-Ordner (andere XJustiz-Version) laden und Unterschiede anzeigen"
-    (click)="diffClick.emit()"
-  >
-    {{ diffLabel() }}
-  </button>
-  <button (click)="pick(profilInput)">Profil laden…</button>
-  <button
-    [disabled]="!hasIdx()"
-    title="Bestehende XJustiz-Nachricht (XML) laden und als Testnachricht anzeigen"
-    (click)="pick(nachrichtInput)"
-  >
-    Nachricht laden…
-  </button>
+  <app-menu label="Laden" #laden>
+    <button class="menuItem" title="Eigenen Ordner mit XJustiz-Schemadateien laden"
+      (click)="laden.close(); pick(xsdInput)">Eigener XSD-Ordner…</button>
+    <button class="menuItem" [disabled]="!hasIdx()"
+      title="Alle vom Standard genutzten Codelisten über die XRepository-REST-Schnittstelle abrufen"
+      (click)="laden.close(); xrepClick.emit()">Codelisten: XRepository</button>
+    <button class="menuItem" title="Genericode-Dateien oder ZIP aus Dateien laden"
+      (click)="laden.close(); pick(clInput)">Codelisten: Datei…</button>
+    <div class="menuSep"></div>
+    <button class="menuItem" [disabled]="!hasIdx()"
+      title="Zweiten XSD-Ordner (andere XJustiz-Version) laden und Unterschiede anzeigen"
+      (click)="laden.close(); diffClick.emit()">{{ diffLabel() }}</button>
+    <div class="menuSep"></div>
+    <button class="menuItem" (click)="laden.close(); pick(profilInput)">Profil laden…</button>
+    <button class="menuItem" [disabled]="!hasIdx()"
+      title="Bestehende XJustiz-Nachricht (XML) laden und als Testnachricht anzeigen"
+      (click)="laden.close(); pick(nachrichtInput)">Nachricht laden…</button>
+  </app-menu>
 </div>
