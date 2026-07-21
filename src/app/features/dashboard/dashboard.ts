@@ -10,6 +10,7 @@ import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { PersistenceService } from '../../core/services/persistence.service';
 import { ToastService } from '../../core/services/toast.service';
 import { StateService } from '../../core/services/state.service';
+import { NavService } from '../../core/services/nav.service';
 import { LibraryEntry } from '../../models/profile.model';
 
 /**
@@ -30,11 +31,17 @@ export class Dashboard {
   private readonly persistence = inject(PersistenceService);
   private readonly toast = inject(ToastService);
   private readonly state = inject(StateService);
+  private readonly nav = inject(NavService);
   private readonly renameDlg = viewChild.required<ElementRef<HTMLDialogElement>>('renameDlg');
 
   /** Zum Testdaten-Speicher wechseln. */
   protected goTestdaten(): void {
     this.state.view.set('testdaten');
+  }
+
+  /** US "Schema ansehen": reine Schema-Ansicht ohne Profilierung oeffnen. */
+  protected schemaAnsehen(): void {
+    this.nav.openSchemaView();
   }
 
   /** Bibliotheksfehler (Backend nicht erreichbar) einheitlich melden. */

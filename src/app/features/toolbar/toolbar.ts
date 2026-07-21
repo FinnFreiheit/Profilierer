@@ -39,6 +39,8 @@ export class Toolbar {
   protected readonly isMessage = computed(() => !!this.state.messageEdit());
   /** Gefuehrte Testnachricht-Erstellung (US "Testnachricht gefuehrt erstellen"). */
   protected readonly isCreate = computed(() => !!this.state.messageCreate());
+  /** Reine Schema-Ansicht (US "Schema ansehen"): nur betrachten und suchen. */
+  protected readonly isSchemaView = computed(() => this.state.schemaView());
 
   protected readonly fortschrittText = computed(() => {
     // Gefuehrter Modus: verbleibende echte Entscheidungen statt Festlegungs-Summe.

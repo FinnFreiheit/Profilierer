@@ -10,6 +10,12 @@
       <button class="primary" (click)="createNew()">+ Neues Profil</button>
       <input #imp type="file" accept=".json" class="hidden" (change)="onImport($event)" />
       <button (click)="imp.click()">Profil aus Datei importieren…</button>
+      <button
+        title="Ein XJustiz-Schema nur ansehen und durchsuchen — ohne eine Profilierung anzulegen"
+        (click)="schemaAnsehen()"
+      >
+        Schema ansehen
+      </button>
     </div>
   </div>
 

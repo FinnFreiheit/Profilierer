@@ -68,6 +68,12 @@ export class StateService {
   /** Betrachtungsmodus: gesperrte Ansicht ohne Profilier-Bedienelemente (Nachricht inspizieren). */
   readonly readOnly = signal(false);
   /**
+   * Reine Schema-Ansicht (US "Schema ansehen"): das Schema nur betrachten und
+   * durchsuchen — ohne Profilierung, Testnachricht oder Persistenz
+   * (activeProfileId bleibt null, kein Autosave). Impliziert readOnly.
+   */
+  readonly schemaView = signal(false);
+  /**
    * Aktive Bearbeitungs-Session einer geladenen XJustiz-Instanz (null = normales
    * Profil/Szenario). Gesetzt vom InstanceImportService; ermoeglicht den treuen
    * Re-Export als neue Nachricht (InstanceExportService). Wird bei jedem
@@ -378,6 +384,10 @@ export class StateService {
     // Session danach neu.
     this.messageEdit.set(null);
     this.messageCreate.set(null);
+    // Die reine Schema-Ansicht endet mit jedem Profil-Einstieg; bei der
+    // Nachrichtenwahl innerhalb der Schema-Ansicht stellt loadMessage sie
+    // danach wieder her.
+    this.schemaView.set(false);
     // `guided` bleibt hier bewusst unangetastet: loadProfile laeuft auch bei der
     // Nachrichtenwahl innerhalb eines gefuehrten neuen Profils (loadMessage →
     // resetProfile). Die Einstiege setzen den Modus explizit (createNew: an;

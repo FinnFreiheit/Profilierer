@@ -69,6 +69,8 @@ export class App implements OnInit {
   protected readonly hasRoot = computed(() => !!this.state.root());
   /** Dashboard (Bibliothek) vs. Baum-Editor. */
   protected readonly view = computed(() => this.state.view());
+  /** Reine Schema-Ansicht (US "Schema ansehen") — eigener Empty-State-Text. */
+  protected readonly schemaView = computed(() => this.state.schemaView());
 
   /** Zurueck zur Uebersicht (Topbar-Button). */
   protected goDashboard(): void {

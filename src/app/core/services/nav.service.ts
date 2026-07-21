@@ -18,13 +18,39 @@ export class NavService {
   loadMessage(name: string, keepProfile = false): void {
     const idx = this.state.idx();
     if (!idx) return;
+    const schemaView = this.state.schemaView();
     this.state.msgName.set(name);
     this.state.root.set(this.tree.buildRoot(name, idx));
-    if (!keepProfile) this.state.resetProfile();
+    if (!keepProfile) {
+      this.state.resetProfile();
+      // resetProfile beendet die Schema-Ansicht (loadProfile); bei der
+      // Nachrichtenwahl innerhalb der Schema-Ansicht bleibt sie bestehen.
+      if (schemaView) {
+        this.state.schemaView.set(true);
+        this.state.readOnly.set(true);
+      }
+    }
     const root = this.state.root()!;
     this.state.selItem.set({ kind: 'el', node: root });
     this.state.open.set(new Set([root.path]));
     // TODO(P7): if (this.state.idxB()) computeDiffMap();
+  }
+
+  /**
+   * US "Schema ansehen": Editor als reine Schema-Ansicht oeffnen — Nachricht
+   * waehlen, Baum betrachten, suchen. Es wird keine Profilierung angelegt und
+   * nichts gespeichert (activeProfileId bleibt null → kein Autosave); alle
+   * Profilier-Bedienelemente sind gesperrt (readOnly).
+   */
+  openSchemaView(): void {
+    this.state.activeProfileId.set(null);
+    this.state.msgName.set(null);
+    this.state.root.set(null);
+    this.state.resetProfile();
+    this.state.guided.set(false);
+    this.state.schemaView.set(true);
+    this.state.readOnly.set(true);
+    this.state.view.set('editor');
   }
 
   /**
