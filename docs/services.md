@@ -12,16 +12,22 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `NavService` | Nachricht laden, Auf-/Zuklappen, Auswahl, Pfeiltasten, Sprünge |
 | `ValueService` | Codelisten-Werte + typgerechte Beispiel-/Platzhalterwerte |
 | `CodelistService` | Genericode-Parsing, ZIP-/Datei-Import, XRepository, Cache |
-| `ExportService` | Excel-, Schematron-, Beispiel-XML-Export, Druckzeilen |
+| `ExportService` | Schematron-, Beispiel-XML-Export, Druckzeilen (+ Guard für offene Entscheidungen) |
+| `ExcelExportService` | Excel-Export im NGem-Abstimmungslayout (ExcelJS, dynamisch geladen) |
+| `GuidedService` | Geführter Modus: offene Entscheidungspunkte, Fortschritt, Sprung zum nächsten Punkt |
 | `DiffService` | Versionsvergleich (flach), Diff-Karte, Vergleichsordner laden |
 | `BundledSchemaService` | Im Projekt hinterlegte Schemaversionen (public/schemas/) per fetch laden |
 | `InstanceImportService` | Bestehende XJustiz-Nachricht (XML) zurück ins Profil-Modell binden |
+| `InstanceExportService` | Bearbeitete Nachricht getreu re-exportieren (Original-DOM + Modell-Änderungen) |
+| `TestmessageStoreService` | Testdaten-Speicher: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal |
+| `TestmessageGenerationService` | Testnachricht aus einem Bibliotheksprofil erzeugen (Schema sicherstellen, State-Swap) |
+| `TestmessageCreateService` | Testnachricht geführt aus einem Schema erstellen (Session, Entwurf speichern/fortsetzen) |
 | `PersistenceService` | XSD laden, Autosave (async, Race-Schutz), Profil öffnen/anlegen, Datei-Import/-Export |
 | `ProfileStoreService` | Profil-Bibliothek: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal |
 | `MigrationService` | Einmalige Übernahme der localStorage-Bibliothek ins Backend |
 | `DownloadService` | Blob-Download + Profil-Dateinamen |
 | `SearchService` | Baum-Suchindex + Ranking |
-| `ToastService` | Kurzmeldungen (Signal) |
+| `ToastService` | Kurzmeldungen (Signal), `showError`/`fail`-Fehlerhelfer |
 
 ## StateService — der Kern
 
@@ -44,7 +50,7 @@ Baut den Element-Baum lazy. `expandNode` mutiert `node.children` (Cache-Baum, be
 
 ## NavService
 
-`loadMessage` (Z.1732), `expandAllTree/collapseTree`, `findItemByPath/findChainByPath/openAncestors/openPathTo`, `selectItem` (+ Scroll-Anforderung), `jumpTo`, `arrowNavigate(key)` (Pfeiltasten, Z.2443).
+`loadMessage` (Z.1732, berechnet bei geladener Vergleichsversion die Diff-Karte neu und erhält die Schema-Ansicht), `openSchemaView` (US „Schema ansehen": Editor ohne Profilierung), `prefillMandatoryStatus`, `expandAllTree/collapseTree`, `findItemByPath/findChainByPath/openAncestors/openPathTo`, `selectItem` (+ Scroll-Anforderung), `jumpTo`, `arrowNavigate(key)` (Pfeiltasten, Z.2443). Getestet in `nav.service.spec.ts`.
 
 ## ValueService
 
@@ -56,7 +62,11 @@ Baut den Element-Baum lazy. `expandNode` mutiert `node.children` (Cache-Baum, be
 
 ## ExportService
 
-`exportExcel` (SheetJS dynamisch, 3 Blätter), `exportSchematron` (Regeln aus Wirkung/Kardinalität/Werten + Mindest-Ausprägungen), `genBeispielXml` (Instanz-Aufbau mit `include`/`chooseBranch`/`emit`), `buildPrintRows` (für die Druckansicht). Private `walkFull`-Traversierung (Z.1826).
+`exportSchematron` (Regeln aus Wirkung/Kardinalität/Werten + Mindest-Ausprägungen), `genBeispielXml`/`buildBeispielXml` (Instanz-Aufbau mit `include`/`chooseBranch`/`emit`; `{instanz: true}` für den Testnachricht-Zwischenstand), `buildPrintRows` (für die Druckansicht), `bestaetigeOffeneEntscheidungen` (Guard des geführten Modus, auch vom ExcelExportService genutzt). Private `walkFull`-Traversierung (Z.1826).
+
+## ExcelExportService
+
+`exportExcel` — Excel im **NGem-Abstimmungslayout** ([ADR 0008](adr/0008-exceljs-excel-export.md)): Hauptsheet mit kollabierten `Type.GDS.*`-Kindern, je ein Typ-Sheet, Codelisten-Sheets der Fachdaten, Meta-Sheet „Szenario" mit Statuslegende. ExcelJS wird dynamisch importiert (Lazy-Chunk). Getestet in `excel-export.service.spec.ts` (Export wird zurückgelesen).
 
 ## DiffService
 
@@ -71,6 +81,20 @@ Verdrahtung: `App.ngOnInit` lädt das Manifest nach `StateService.bundledVersion
 ## InstanceImportService
 
 Lädt eine bestehende XJustiz-Nachricht (XML-Instanz) und bildet sie gegen das geladene Schema **zurück ins Profil-Modell** ab — die Umkehrung von `ExportService.genBeispielXml`. `importXml(text)` bestimmt aus dem Wurzelelement die `nachricht.*`, ruft `NavService.loadMessage` und bindet dann rekursiv: Blatt-Werte → Testwert (`beispiel`), Codelisten-`<code>` → Wert, mehrfach vorkommende Elemente → Ausprägungen „Vorkommen N" (ab 2 Vorkommen; genau 1 → direkt). Kein Status wird gesetzt. `rootMessageName(text)` (statisch) erkennt XJustiz-Nachrichten fürs Drop-Routing. Ergebnis: der Baum sieht aus wie eine von Hand gebaute Testnachricht.
+
+## GuidedService
+
+Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten): offene Entscheidungspunkte (`offeneSet`), `fortschritt` (x von y), `gotoNextOpen`, `offenePflicht`, `fuellePflichtfelder` (Dummy-Werte typkonform). Getestet in `guided.service.spec.ts`.
+
+## InstanceExportService
+
+`buildInstanceXml(session)` — treuer Re-Export einer bearbeiteten Nachricht: Original-DOM der Quelle plus Modell-Änderungen (geänderte Blattwerte, neue Elemente/Ausprägungen), Pretty-Serialisierung mit bewusst konservativem Text-Escaping (`escText` ohne `"`-Escape). Getestet in `instance-export.service.spec.ts`.
+
+## Testnachricht-Services
+
+- `TestmessageStoreService`: HTTP-CRUD des Testdaten-Speichers (`/api`), `entries`-Signal — Gegenstück zum `ProfileStoreService`.
+- `TestmessageGenerationService`: erzeugt eine Testnachricht aus einem Bibliotheksprofil (`ensureSchema`, temporärer State-Swap, `buildBeispielXml`).
+- `TestmessageCreateService`: US „Testnachricht geführt erstellen" — `neuErstellen`/`fortsetzen` (Session `messageCreate`), `speichern` (Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand).
 
 ## PersistenceService
 
@@ -88,7 +112,9 @@ Einzige Persistenz-Kapsel der Profil-Bibliothek — spricht das Backend per nati
 
 - `DownloadService`: `download(name, content, mime)`, `profilFilename(ext)`.
 - `SearchService`: `buildIndex` (Baum-Traversierung), `run(query)` (Präfix vor Teilstring, Top 40).
-- `ToastService`: `show(text, ms)` über ein Signal → `Toast`-Komponente.
-- `core/util/xml.util.ts`: `kids/kid/local/docOf/appinfoOf/esc/escapeRegExp`, Namespaces `XS`/`XJNS`.
-- `core/util/pretty.util.ts`: `pretty/kardText/fmtKard`.
+- `ToastService`: `show(text, ms)` über ein Signal → `Toast`-Komponente; `showError(e, fallback)` und `fail(msg)` als einheitliche Fehlerhelfer.
+- `core/util/xml.util.ts`: `kids/kid/local/docOf/appinfoOf/byName/leafValue/esc/escapeRegExp`, Namespaces `XS`/`XJNS`.
+- `core/util/pretty.util.ts`: `pretty/kardText/fmtKard/firstLine`.
+- `core/util/testmessage.util.ts`: `parseTestmessage` (Root-Metadaten), `frageTestnachrichtName`, `testmessageInput`.
+- `core/util/pattern-sample.util.ts`: Beispielwerte zu XSD-Pattern-Facetten.
 - `core/refs.ts`: `REF_LABELS/REF_TARGETS`, `refKindOf(node)`.

@@ -1,6 +1,6 @@
 # ADR 0006: SheetJS/JSZip als npm-Pakete, dynamisch geladen
 
-- Status: Angenommen
+- Status: Teilweise abgelöst durch [ADR-0008](0008-exceljs-excel-export.md) — der Excel-Export nutzt inzwischen ExcelJS statt `xlsx`/SheetJS; der JSZip-Teil gilt weiter
 - Datum: 26.07.10
 
 ## Kontext

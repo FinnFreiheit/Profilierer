@@ -25,11 +25,12 @@ xjustiz-profilierer/
 │   ├── core/
 │   │   ├── services/          StateService (Signals-Store), XsdParserService, TreeService,
 │   │   │                      NavService, ValueService, CodelistService, ExportService,
-│   │   │                      DiffService, PersistenceService, ProfileStoreService, MigrationService,
-│   │   │                      InstanceImportService, InstanceExportService, TestmessageStoreService,
-│   │   │                      TestmessageGenerationService, TestmessageCreateService, GuidedService,
-│   │   │                      BundledSchemaService, DownloadService, ToastService, SearchService
-│   │   ├── util/              xml.util, pretty.util
+│   │   │                      ExcelExportService, DiffService, PersistenceService, ProfileStoreService,
+│   │   │                      MigrationService, InstanceImportService, InstanceExportService,
+│   │   │                      TestmessageStoreService, TestmessageGenerationService,
+│   │   │                      TestmessageCreateService, GuidedService, BundledSchemaService,
+│   │   │                      DownloadService, ToastService, SearchService
+│   │   ├── util/              xml.util, pretty.util, testmessage.util, pattern-sample.util
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
 │   │   └── profile-defaults.ts
 │   ├── features/              Topbar, Toolbar, Crumbs, Search, MessagePicker, Tree (TreeCanvas +
@@ -79,4 +80,4 @@ export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use 24
 
 ## Git
 
-Repository mit `git init` angelegt. Commits knapp und auf Deutsch. Kein Remote gesetzt — bei Bedarf hinzufügen.
+Repository mit `git init` angelegt. Commits knapp und auf Deutsch. Remote `origin` zeigt auf `github.com:FinnFreiheit/Profilierer` (push nach Absprache).
