@@ -14,6 +14,7 @@ Architecture Decision Records halten wesentliche Richtungsentscheidungen mit Beg
 | [0006](0006-lazy-xlsx-jszip.md) | SheetJS/JSZip als npm-Pakete, dynamisch geladen | Teilweise abgelöst durch 0008 |
 | [0007](0007-datenbank-backend.md) | Profil-Persistenz über ein self-hosted Node/SQLite-Backend | Angenommen |
 | [0008](0008-exceljs-excel-export.md) | ExcelJS statt SheetJS für den Excel-Export | Angenommen |
+| [0009](0009-xsd-validierung-xmllint-wasm.md) | XSD-Validierung im Browser mit xmllint-wasm | Angenommen |
 
 ## Vorlage
 

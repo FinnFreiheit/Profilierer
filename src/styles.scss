@@ -60,6 +60,11 @@ input[type=text]:focus,textarea:focus{outline:2px solid var(--accent-soft);borde
 label.menuItem{display:flex;align-items:center;gap:8px}
 label.menuItem:has(input:disabled){opacity:.45;cursor:not-allowed}
 .menuSep{border-top:1px solid var(--border);margin:4px 0}
+
+/* Validierungsbericht (app-validation-dialog) */
+.validFehler{border:1px solid var(--border);border-radius:6px;max-height:320px;overflow:auto;font-family:var(--mono);font-size:12px}
+.vfItem{padding:6px 10px;border-bottom:1px solid var(--border)}
+.vfItem:last-child{border-bottom:0}
 @keyframes flashSel{0%{box-shadow:0 0 0 7px rgba(26,95,168,.4)}100%{box-shadow:none}}
 .box.flash{animation:flashSel 1.3s ease-out}
 #autosaveInfo{font-size:11.5px;color:var(--muted)}

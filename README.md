@@ -43,6 +43,10 @@ Die **Suche** in der Werkzeugleiste findet Elemente nach Anzeigename, technische
 
 Über **„Nachricht laden…"** wird eine vorhandene XJustiz-Nachricht (XML-Instanz) eingelesen und im Baum als **Testnachricht** dargestellt: Blatt-Werte erscheinen als Testwerte, Codelisten-Werte werden übernommen, und mehrfach vorkommende Elemente werden als Ausprägungen („Vorkommen 1/2…") angelegt — genau so, als hätte man die Testnachricht von Hand aufgebaut. Voraussetzung ist der passende, zuvor geladene XSD-Ordner (das Wurzelelement bestimmt die Nachricht). Alternativ per Drag & Drop der XML-Datei; eine `nachricht.*`-Datei wird automatisch als Nachricht erkannt (Genericode-XML weiterhin als Codeliste).
 
+## Schemavalidierung
+
+Alle XML-Nachrichten werden **gegen das XJustiz-Schema validiert** (direkt im Browser, auch für eigene XSD-Ordner). Es gilt: Nur valide Nachrichten verlassen das Tool und nur valide Nachrichten kommen in den Testdatenspeicher. Konkret: Uploads in den Testdatenspeicher werden bei Schemaverstößen mit einem Fehlerbericht abgelehnt; Download, „Als neue Nachricht speichern" und der Beispiel-XML-Export sind für invalide Nachrichten gesperrt; geführt erstellte oder aus Profilierungen erzeugte Nachrichten, die (noch) nicht valide sind, bleiben als **Entwurf** gekennzeichnet. Eine invalide Nachricht lässt sich weiterhin über „Nachricht laden…" öffnen, ansehen und reparieren — dabei erscheint nur ein Hinweis mit der Fehlerliste. Der Bericht nennt je Fehler die Zeile und die vom Schema erwarteten Elemente.
+
 ## Autosave
 
 Der Arbeitsstand wird bei jeder Änderung automatisch im Browser gesichert (Anzeige „automatisch gesichert HH:MM" in der Werkzeugleiste). Nach dem nächsten Laden des XSD-Ordners bietet das Tool die Wiederherstellung an — Schutz gegen versehentliches Schließen oder Abstürze. Das ersetzt nicht das bewusste „Speichern" als Profil-Datei (JSON), die weitergegeben und archiviert werden kann.

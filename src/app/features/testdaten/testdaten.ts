@@ -15,6 +15,8 @@ import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { TestmessageGenerationService } from '../../core/services/testmessage-generation.service';
 import { TestmessageCreateService } from '../../core/services/testmessage-create.service';
 import { DownloadService } from '../../core/services/download.service';
+import { XmlValidationService } from '../../core/services/xml-validation.service';
+import { ValidationReportService } from '../../core/services/validation-report.service';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { LibraryEntry } from '../../models/profile.model';
 import { MessageRef } from '../../models/xsd-index.model';
@@ -49,6 +51,8 @@ export class Testdaten {
   private readonly generator = inject(TestmessageGenerationService);
   private readonly creator = inject(TestmessageCreateService);
   private readonly dl = inject(DownloadService);
+  private readonly validator = inject(XmlValidationService);
+  private readonly report = inject(ValidationReportService);
 
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
   private readonly editDlg = viewChild.required<ElementRef<HTMLDialogElement>>('editDlg');
@@ -250,7 +254,11 @@ export class Testdaten {
     this.uploadDlg().nativeElement.showModal();
   }
 
-  /** Ausgewaehlte Dateien einlesen, validieren und anlegen. */
+  /**
+   * Ausgewaehlte Dateien einlesen, validieren und anlegen. Anforderung: nur
+   * schema-valide Nachrichten kommen in den Testdatenspeicher — invalide (und
+   * nicht pruefbare) Uploads werden mit Fehlerbericht abgelehnt.
+   */
   protected async onFiles(e: Event): Promise<void> {
     const input = e.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
@@ -259,12 +267,18 @@ export class Testdaten {
 
     let ok = 0;
     const abgelehnt: string[] = []; // kein XJustiz-XML
+    const invalide: string[] = []; // Schemavalidierung fehlgeschlagen (mit Bericht)
     let fehler = 0; // Speichern fehlgeschlagen (Backend)
     for (const f of files) {
       const xml = await f.text();
       const meta = parseTestmessage(xml);
       if (!meta) {
         abgelehnt.push(f.name);
+        continue;
+      }
+      const pruefung = await this.validator.validiere(xml);
+      if (pruefung.status !== 'valide') {
+        invalide.push(...pruefung.fehler.map((m) => `${f.name}: ${m}`));
         continue;
       }
       try {
@@ -285,9 +299,12 @@ export class Testdaten {
     const teile: string[] = [];
     if (ok) teile.push(`${ok} hochgeladen`);
     if (abgelehnt.length) teile.push(`${abgelehnt.length} abgelehnt (keine XJustiz-Nachricht)`);
+    if (invalide.length) teile.push('nicht valide Nachrichten abgelehnt');
     if (fehler) teile.push(`${fehler} fehlgeschlagen (Backend nicht erreichbar)`);
     this.toast.show(teile.join(', ') || 'Nichts hochgeladen.');
-    if (ok && !abgelehnt.length && !fehler) this.uploadDlg().nativeElement.close();
+    if (invalide.length)
+      this.report.zeige('Upload abgelehnt — Nachricht nicht schema-valide', invalide);
+    if (ok && !abgelehnt.length && !invalide.length && !fehler) this.uploadDlg().nativeElement.close();
   }
 
   // ── Bearbeiten (Name + Beschreibung) ────────────────────────────────
@@ -314,13 +331,17 @@ export class Testdaten {
 
   // ── Download / Löschen ──────────────────────────────────────────────
 
+  /** Export-Tor: nur schema-valide Nachrichten verlassen den Speicher. */
   protected async download(e: TestmessageEntry, ev: Event): Promise<void> {
     ev.stopPropagation();
-    if (e.entwurf && !confirm('Diese Nachricht ist unvollständig (Entwurf) — trotzdem herunterladen?'))
-      return;
     try {
       const xml = await this.store.loadXml(e.id);
       if (xml == null) return;
+      const pruefung = await this.validator.validiere(xml);
+      if (pruefung.status !== 'valide') {
+        this.report.zeige(`Download blockiert — „${e.name}" ist nicht schema-valide`, pruefung.fehler);
+        return;
+      }
       this.dl.download(e.name || (e.nachricht ?? 'testnachricht') + '.xml', xml, 'application/xml');
     } catch {
       this.toast.show('Download fehlgeschlagen — Backend nicht erreichbar.');

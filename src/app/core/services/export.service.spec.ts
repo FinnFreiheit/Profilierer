@@ -5,6 +5,8 @@ import { TreeService } from './tree.service';
 import { XsdParserService } from './xsd-parser.service';
 import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
+import { XmlValidationService, XmlValidierung } from './xml-validation.service';
+import { ValidationReportService } from './validation-report.service';
 import { XsdDoc } from '../../models/xsd-index.model';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
@@ -29,9 +31,12 @@ describe('ExportService (Schematron)', () => {
   let svc: ExportService;
   let state: StateService;
   let downloaded: { name: string; content: string }[];
+  /** Stub-Ergebnis der Schemavalidierung (Export-Tor); Tests schalten um. */
+  let pruefung: XmlValidierung;
 
   beforeEach(() => {
     downloaded = [];
+    pruefung = { status: 'valide', fehler: [] };
     TestBed.configureTestingModule({
       providers: [
         {
@@ -42,6 +47,7 @@ describe('ExportService (Schematron)', () => {
           },
         },
         { provide: ToastService, useValue: { show: () => {} } },
+        { provide: XmlValidationService, useValue: { validiere: async () => pruefung } },
       ],
     });
     svc = TestBed.inject(ExportService);
@@ -116,12 +122,21 @@ describe('ExportService (Schematron)', () => {
       expect(svc.buildBeispielXml()).toBeNull();
     });
 
-    it('genBeispielXml laedt denselben Inhalt herunter (Regression fuer den Split)', () => {
+    it('genBeispielXml laedt denselben Inhalt herunter (Regression fuer den Split)', async () => {
       const xml = svc.buildBeispielXml()!;
-      svc.genBeispielXml();
+      await svc.genBeispielXml();
       expect(downloaded.length).toBe(1);
       expect(downloaded[0]!.content).toBe(xml);
       expect(downloaded[0]!.name).toBe('test.beispiel.xml');
+    });
+
+    it('genBeispielXml blockiert invalide Nachrichten mit Bericht (Export-Tor)', async () => {
+      pruefung = { status: 'invalide', fehler: ['Zeile 3: kopf fehlt'] };
+      await svc.genBeispielXml();
+      expect(downloaded.length).toBe(0);
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.offen()).toBeTrue();
+      expect(report.fehler()).toEqual(['Zeile 3: kopf fehlt']);
     });
   });
 

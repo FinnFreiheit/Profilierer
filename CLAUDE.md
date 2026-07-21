@@ -29,6 +29,7 @@ xjustiz-profilierer/
 │   │   │                      MigrationService, InstanceImportService, InstanceExportService,
 │   │   │                      TestmessageStoreService, TestmessageGenerationService,
 │   │   │                      TestmessageCreateService, GuidedService, BundledSchemaService,
+│   │   │                      XmlValidationService, ValidationReportService,
 │   │   │                      DownloadService, ToastService, SearchService
 │   │   ├── util/              xml.util, pretty.util, testmessage.util, pattern-sample.util
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)

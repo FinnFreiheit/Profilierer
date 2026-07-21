@@ -27,6 +27,9 @@ import { ToastService } from './core/services/toast.service';
 import { StateService } from './core/services/state.service';
 import { BundledSchemaService } from './core/services/bundled-schema.service';
 import { MigrationService } from './core/services/migration.service';
+import { XmlValidationService } from './core/services/xml-validation.service';
+import { ValidationReportService } from './core/services/validation-report.service';
+import { ValidationDialog } from './features/dialogs/validation-dialog';
 import { frageTestnachrichtName, parseTestmessage, testmessageInput } from './core/util/testmessage.util';
 
 @Component({
@@ -48,6 +51,7 @@ import { frageTestnachrichtName, parseTestmessage, testmessageInput } from './co
     FileDropDirective,
     Dashboard,
     Testdaten,
+    ValidationDialog,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -67,6 +71,8 @@ export class App implements OnInit {
   private readonly state = inject(StateService);
   private readonly bundled = inject(BundledSchemaService);
   private readonly migration = inject(MigrationService);
+  private readonly validator = inject(XmlValidationService);
+  private readonly validationReport = inject(ValidationReportService);
 
   protected readonly hasRoot = this.state.hasRoot;
   /** Dashboard (Bibliothek) vs. Baum-Editor. */
@@ -180,6 +186,15 @@ export class App implements OnInit {
       const meta = parseTestmessage(xml);
       if (!meta) {
         this.toast.show('Die erzeugte Nachricht ist nicht lesbar — bitte prüfen.');
+        return;
+      }
+      // Anforderung: nur schema-valide Nachrichten kommen in den Testdatenspeicher.
+      const pruefung = await this.validator.validiere(xml);
+      if (pruefung.status !== 'valide') {
+        this.validationReport.zeige(
+          'Nicht gespeichert — die Nachricht ist nicht schema-valide',
+          pruefung.fehler,
+        );
         return;
       }
       await this.testmessages.create(testmessageInput(name, xml, meta));

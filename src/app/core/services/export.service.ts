@@ -8,6 +8,8 @@ import { NavService } from './nav.service';
 import { GuidedService } from './guided.service';
 import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
+import { XmlValidationService } from './xml-validation.service';
+import { ValidationReportService } from './validation-report.service';
 import { esc, XJNS } from '../util/xml.util';
 import { kardText, pretty } from '../util/pretty.util';
 
@@ -48,6 +50,8 @@ export class ExportService {
   private readonly guided = inject(GuidedService);
   private readonly dl = inject(DownloadService);
   private readonly toast = inject(ToastService);
+  private readonly validator = inject(XmlValidationService);
+  private readonly report = inject(ValidationReportService);
 
   /**
    * Weiche Vollstaendigkeit (gefuehrter Modus): bei offenen Entscheidungen vor
@@ -199,11 +203,20 @@ export class ExportService {
 
   // ── Beispiel-XML (Z.2041-2161) ──────────────────────────────────────
 
-  /** Toolbar-Fluss: Guard (geführter Modus), Download, Toast. */
-  genBeispielXml(): void {
+  /**
+   * Toolbar-Fluss: Guard (geführter Modus), Schemavalidierung, Download, Toast.
+   * Anforderung: nur schema-valide Nachrichten werden exportiert — ein
+   * invalides Beispiel (z. B. offene Auswahlen) wird mit Bericht blockiert.
+   */
+  async genBeispielXml(): Promise<void> {
     if (!this.bestaetigeOffeneEntscheidungen()) return;
     const xml = this.buildBeispielXml();
     if (xml == null) return;
+    const pruefung = await this.validator.validiere(xml);
+    if (pruefung.status !== 'valide') {
+      this.report.zeige('Beispiel-XML nicht exportiert — nicht schema-valide', pruefung.fehler);
+      return;
+    }
     this.dl.download(this.dl.profilFilename('beispiel.xml'), xml, 'application/xml');
     this.toast.show('Beispiel-XML erzeugt — Platzhalter fachlich prüfen.');
   }

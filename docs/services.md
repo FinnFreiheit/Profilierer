@@ -22,6 +22,8 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `TestmessageStoreService` | Testdaten-Speicher: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal |
 | `TestmessageGenerationService` | Testnachricht aus einem Bibliotheksprofil erzeugen (Schema sicherstellen, State-Swap) |
 | `TestmessageCreateService` | Testnachricht geführt aus einem Schema erstellen (Session, Entwurf speichern/fortsetzen) |
+| `XmlValidationService` | XSD-Validierung von Instanzen im Browser (xmllint-wasm, lazy; Schemaquelle: geladener Stand oder hinterlegte Version) |
+| `ValidationReportService` | Zustand des Validierungsbericht-Dialogs (blockierte Exporte/Uploads mit Fehlerliste) |
 | `PersistenceService` | XSD laden, Autosave (async, Race-Schutz), Profil öffnen/anlegen, Datei-Import/-Export |
 | `ProfileStoreService` | Profil-Bibliothek: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal |
 | `MigrationService` | Einmalige Übernahme der localStorage-Bibliothek ins Backend |
@@ -94,7 +96,11 @@ Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten
 
 - `TestmessageStoreService`: HTTP-CRUD des Testdaten-Speichers (`/api`), `entries`-Signal — Gegenstück zum `ProfileStoreService`.
 - `TestmessageGenerationService`: erzeugt eine Testnachricht aus einem Bibliotheksprofil (`ensureSchema`, temporärer State-Swap, `buildBeispielXml`).
-- `TestmessageCreateService`: US „Testnachricht geführt erstellen" — `neuErstellen`/`fortsetzen` (Session `messageCreate`), `speichern` (Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand).
+- `TestmessageCreateService`: US „Testnachricht geführt erstellen" — `neuErstellen`/`fortsetzen` (Session `messageCreate`), `speichern` (Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand; invalide fertige Nachrichten bleiben Entwurf).
+
+## XmlValidationService & ValidationReportService
+
+`XmlValidationService.validiere(xmlText)` prüft eine Instanz gegen das XJustiz-Schema ([ADR 0009](adr/0009-xsd-validierung-xmllint-wasm.md)): Nachricht/Version aus dem Wurzelelement, Schemaquelle = geladener Stand (`state.docs()`, re-serialisiert und je Referenz gecacht) oder passende hinterlegte Version (fetch, je Versions-id gecacht); Validierung via xmllint-wasm (statische Assets unter `xmllint/`, Laufzeit-`import()`). Ergebnis `{ status: 'valide' | 'invalide' | 'unpruefbar', fehler }` — an den Toren (Upload, Download, „Als neue Nachricht speichern", Beispiel-XML) wird nur `valide` durchgelassen; die geführte Erstellung und die Profil-Generierung kennzeichnen invalide Ergebnisse als Entwurf; „Nachricht laden" in den Baum warnt nur. Befunde zeigt der `ValidationReportService` (Signals `titel`/`fehler`/`offen`) im `app-validation-dialog` (in der App-Shell eingebunden).
 
 ## PersistenceService
 

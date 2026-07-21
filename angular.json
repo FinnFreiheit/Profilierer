@@ -34,6 +34,11 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "{index-browser.mjs,xmllint-browser.mjs,xmllint.wasm}",
+                "input": "node_modules/xmllint-wasm",
+                "output": "xmllint"
               }
             ],
             "styles": [
@@ -95,6 +100,11 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "{index-browser.mjs,xmllint-browser.mjs,xmllint.wasm}",
+                "input": "node_modules/xmllint-wasm",
+                "output": "xmllint"
               }
             ],
             "styles": [

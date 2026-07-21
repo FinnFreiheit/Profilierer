@@ -11,6 +11,8 @@ import { ProfileStoreService } from './profile-store.service';
 import { TestmessageStoreService } from './testmessage-store.service';
 import { BundledSchemaService } from './bundled-schema.service';
 import { PersistenceService } from './persistence.service';
+import { XmlValidationService } from './xml-validation.service';
+import { ValidationReportService } from './validation-report.service';
 
 /** Vollstaendiger Editor-Stand fuer den temporaeren Profil-Swap. */
 interface EditorStand {
@@ -46,6 +48,8 @@ export class TestmessageGenerationService {
   private readonly testdaten = inject(TestmessageStoreService);
   private readonly bundled = inject(BundledSchemaService);
   private readonly persistence = inject(PersistenceService);
+  private readonly validator = inject(XmlValidationService);
+  private readonly report = inject(ValidationReportService);
 
   /** Erzeugt die Testnachricht; wirft Error mit Nutzertext (Toast macht der Aufrufer). */
   async erzeugeAusProfil(entry: LibraryEntry): Promise<string> {
@@ -70,6 +74,12 @@ export class TestmessageGenerationService {
       const meta = parseTestmessage(xml);
       if (!meta) throw new Error('Erzeugtes XML ist keine XJustiz-Nachricht.');
 
+      // Anforderung: Testnachrichten muessen schema-valide sein. Ein invalides
+      // Erzeugnis (z. B. offene Auswahlen im Profil) wird als Entwurf
+      // gekennzeichnet und der Befund gemeldet — Download bleibt gesperrt.
+      const pruefung = await this.validator.validiere(xml);
+      const entwurf = pruefung.status !== 'valide';
+
       const profilName = doc.meta.name || entry.name || nachricht;
       // Version aus dem Profil bzw. dem geladenen Schema — das generierte XML
       // traegt kein xjustizVersion-Attribut, parseTestmessage liefert sie nicht.
@@ -81,7 +91,13 @@ export class TestmessageGenerationService {
         fachmodul: meta.fachmodul,
         xjustizVersion: version,
         groesse: xml.length,
+        entwurf,
       });
+      if (entwurf)
+        this.report.zeige(
+          `Testnachricht „${profilName} — Beispiel.xml" als Entwurf angelegt — nicht schema-valide`,
+          pruefung.fehler,
+        );
       // Herkunft als Notiz (kein eigenes DB-Feld); Fehler hier sind nicht fatal.
       await this.testdaten
         .updateMeta(id, {

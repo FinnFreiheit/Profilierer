@@ -5,6 +5,8 @@ import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
 import { ToastService } from './toast.service';
 import { CodelistService } from './codelist.service';
+import { XmlValidationService } from './xml-validation.service';
+import { ValidationReportService } from './validation-report.service';
 import { byName, leafValue } from '../util/xml.util';
 
 /**
@@ -27,6 +29,8 @@ export class InstanceImportService {
   private readonly nav = inject(NavService);
   private readonly toast = inject(ToastService);
   private readonly codelists = inject(CodelistService);
+  private readonly validator = inject(XmlValidationService);
+  private readonly report = inject(ValidationReportService);
 
   /**
    * Waehrend eines Imports gefuellte Zuordnung Modell-Pfad -> Quell-Element.
@@ -87,6 +91,13 @@ export class InstanceImportService {
     // Codelisten im Hintergrund nachladen, damit belegte Codes zu Klartext
     // aufgelöst werden (Story 4). Best-effort, blockiert das Betrachten nicht.
     void this.codelists.ensureUsedCodelists();
+    // Schemavalidierung im Hintergrund: invalide Nachrichten duerfen betrachtet
+    // und repariert werden (Speichern/Export sind hart gesperrt), aber der
+    // Befund wird sofort gemeldet.
+    void this.validator.validiere(xmlText).then((p) => {
+      if (p.status === 'invalide')
+        this.report.zeige(`Hinweis: „${quellName || msgName}" ist nicht schema-valide`, p.fehler);
+    });
   }
 
   /** XJustiz-Version aus dem `xjustizVersion`-Attribut (Wurzel oder Nachrichtenkopf). */

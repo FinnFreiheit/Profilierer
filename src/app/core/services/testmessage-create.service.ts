@@ -11,6 +11,8 @@ import { TestmessageStoreService } from './testmessage-store.service';
 import { TestmessageGenerationService } from './testmessage-generation.service';
 import { PersistenceService } from './persistence.service';
 import { ToastService } from './toast.service';
+import { XmlValidationService } from './xml-validation.service';
+import { ValidationReportService } from './validation-report.service';
 
 /**
  * Testnachricht gefuehrt aus einem Schema erstellen (US "Testnachricht
@@ -32,6 +34,8 @@ export class TestmessageCreateService {
   private readonly generator = inject(TestmessageGenerationService);
   private readonly persistence = inject(PersistenceService);
   private readonly toast = inject(ToastService);
+  private readonly validator = inject(XmlValidationService);
+  private readonly report = inject(ValidationReportService);
 
   /**
    * Neue Sitzung: Schema der Version sicherstellen, Nachricht laden (leerer
@@ -111,7 +115,18 @@ export class TestmessageCreateService {
     const meta = parseTestmessage(xml);
     if (!meta) throw new Error('Erzeugte Nachricht ist keine XJustiz-Nachricht.');
 
-    const entwurf = kritisch > 0;
+    // Anforderung: Testnachrichten muessen schema-valide sein. Eine fertige,
+    // aber invalide Nachricht wird als Entwurf gekennzeichnet (Arbeit bleibt
+    // erhalten, Download bleibt gesperrt) und der Befund gemeldet.
+    let entwurf = kritisch > 0;
+    let validierungsFehler: string[] = [];
+    if (!entwurf) {
+      const pruefung = await this.validator.validiere(xml);
+      if (pruefung.status !== 'valide') {
+        entwurf = true;
+        validierungsFehler = pruefung.fehler;
+      }
+    }
     const entscheidungen: GuidedMessageState = {
       msgName: session.msgName,
       xjustizVersion: session.xjustizVersion,
@@ -139,11 +154,16 @@ export class TestmessageCreateService {
       });
       this.state.messageCreate.set({ ...session, entryId: id, name });
     }
-    this.toast.show(
-      entwurf
-        ? `Als Entwurf gespeichert — noch ${kritisch} Pflichtpunkt${kritisch === 1 ? '' : 'e'} offen.`
-        : 'Testnachricht gespeichert.',
-    );
+    if (validierungsFehler.length) {
+      this.toast.show('Als Entwurf gespeichert — die Nachricht ist nicht schema-valide.');
+      this.report.zeige('Als Entwurf gespeichert — Nachricht nicht schema-valide', validierungsFehler);
+    } else {
+      this.toast.show(
+        entwurf
+          ? `Als Entwurf gespeichert — noch ${kritisch} Pflichtpunkt${kritisch === 1 ? '' : 'e'} offen.`
+          : 'Testnachricht gespeichert.',
+      );
+    }
     return true;
   }
 

@@ -4,6 +4,7 @@ import { TestmessageStoreService } from './testmessage-store.service';
 import { TestmessageGenerationService } from './testmessage-generation.service';
 import { PersistenceService } from './persistence.service';
 import { ToastService } from './toast.service';
+import { XmlValidationService, XmlValidierung } from './xml-validation.service';
 import { StateService } from './state.service';
 import { GuidedService } from './guided.service';
 import { XsdParserService } from './xsd-parser.service';
@@ -36,11 +37,14 @@ describe('TestmessageCreateService', () => {
   let created: TestmessageInput[];
   let patched: { id: string; patch: Record<string, unknown> }[];
   let entscheidungen: GuidedMessageState | null;
+  /** Stub-Ergebnis der Schemavalidierung; Tests schalten um. */
+  let pruefung: XmlValidierung;
 
   beforeEach(() => {
     created = [];
     patched = [];
     entscheidungen = null;
+    pruefung = { status: 'valide', fehler: [] };
     TestBed.configureTestingModule({
       providers: [
         {
@@ -59,6 +63,7 @@ describe('TestmessageCreateService', () => {
         { provide: TestmessageGenerationService, useValue: { ensureSchema: async () => {} } },
         { provide: PersistenceService, useValue: { flushAutosave: async () => {} } },
         { provide: ToastService, useValue: { show: () => {} } },
+        { provide: XmlValidationService, useValue: { validiere: async () => pruefung } },
       ],
     });
     svc = TestBed.inject(TestmessageCreateService);
@@ -128,6 +133,15 @@ describe('TestmessageCreateService', () => {
       await svc.speichern();
       expect(confirmSpy).toHaveBeenCalled(); // az (optional) ist noch offen
       expect(created[0]!.entwurf).toBeFalse();
+    });
+
+    it('vollstaendig, aber nicht schema-valide -> bleibt Entwurf', async () => {
+      pruefung = { status: 'invalide', fehler: ['Zeile 2: kopf fehlt'] };
+      spyOn(window, 'prompt').and.returnValue('X.xml');
+      guided.fuellePflichtfelder();
+      spyOn(window, 'confirm').and.returnValue(true);
+      await svc.speichern();
+      expect(created[0]!.entwurf).toBeTrue();
     });
 
     it('abgebrochene Namensabfrage speichert nicht', async () => {
