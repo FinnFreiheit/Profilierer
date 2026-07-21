@@ -44,11 +44,6 @@ export class Dashboard {
     this.nav.openSchemaView();
   }
 
-  /** Bibliotheksfehler (Backend nicht erreichbar) einheitlich melden. */
-  private fail(msg: string): (e: unknown) => void {
-    return () => this.toast.show(msg);
-  }
-
   protected readonly renId = signal<string | null>(null);
   protected readonly renName = signal('');
 
@@ -62,14 +57,14 @@ export class Dashboard {
 
   protected duplicate(id: string, e: Event): void {
     e.stopPropagation();
-    void this.store.duplicate(id).catch(this.fail('Duplizieren fehlgeschlagen — Backend nicht erreichbar.'));
+    void this.store.duplicate(id).catch(this.toast.fail('Duplizieren fehlgeschlagen — Backend nicht erreichbar.'));
   }
 
   protected remove(id: string, e: Event): void {
     e.stopPropagation();
     const entry = this.store.entries().find((x) => x.id === id);
     if (confirm(`Profil „${entry?.name || '(ohne Namen)'}" wirklich löschen?`))
-      void this.store.delete(id).catch(this.fail('Löschen fehlgeschlagen — Backend nicht erreichbar.'));
+      void this.store.delete(id).catch(this.toast.fail('Löschen fehlgeschlagen — Backend nicht erreichbar.'));
   }
 
   protected async exportEntry(id: string, e: Event): Promise<void> {
@@ -93,7 +88,7 @@ export class Dashboard {
   protected submitRename(): void {
     const id = this.renId();
     if (id)
-      void this.store.rename(id, this.renName()).catch(this.fail('Umbenennen fehlgeschlagen — Backend nicht erreichbar.'));
+      void this.store.rename(id, this.renName()).catch(this.toast.fail('Umbenennen fehlgeschlagen — Backend nicht erreichbar.'));
     this.renameDlg().nativeElement.close();
   }
 

@@ -142,7 +142,7 @@ export class App implements OnInit {
       this.state.activeBundle.set(null);
       this.toast.show(`${n} Schemadateien geladen.`);
     } catch (e) {
-      this.toast.show(e instanceof Error ? e.message : 'Laden fehlgeschlagen.');
+      this.toast.showError(e, 'Laden fehlgeschlagen.');
     }
   }
 
@@ -159,7 +159,7 @@ export class App implements OnInit {
     try {
       this.instanceImport.importXml(text, quellName);
     } catch (e) {
-      this.toast.show(e instanceof Error ? e.message : 'Nachricht konnte nicht geladen werden.');
+      this.toast.showError(e, 'Nachricht konnte nicht geladen werden.');
     }
   }
 
@@ -192,7 +192,7 @@ export class App implements OnInit {
       this.toast.show('Als neue Testnachricht gespeichert.');
       this.state.view.set('testdaten');
     } catch (e) {
-      this.toast.show(e instanceof Error ? e.message : 'Speichern fehlgeschlagen — Backend nicht erreichbar.');
+      this.toast.showError(e, 'Speichern fehlgeschlagen — Backend nicht erreichbar.');
     }
   }
 
@@ -210,7 +210,7 @@ export class App implements OnInit {
     try {
       await this.testmessageCreate.speichern();
     } catch (e) {
-      this.toast.show(e instanceof Error ? e.message : 'Speichern fehlgeschlagen — Backend nicht erreichbar.');
+      this.toast.showError(e, 'Speichern fehlgeschlagen — Backend nicht erreichbar.');
     }
   }
 

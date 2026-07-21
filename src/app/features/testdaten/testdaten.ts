@@ -102,10 +102,6 @@ export class Testdaten {
     this.state.view.set('dashboard');
   }
 
-  private fail(msg: string): (e: unknown) => void {
-    return () => this.toast.show(msg);
-  }
-
   // ── Neu erstellen (gefuehrt aus einem Schema) ───────────────────────
 
   /** Im Dialog gewaehlte Schemaversion (null = noch keine gewaehlt). */
@@ -165,7 +161,7 @@ export class Testdaten {
       await this.creator.neuErstellen(this.createVersion() ?? undefined, name);
       this.createDlg().nativeElement.close();
     } catch (err) {
-      this.toast.show(err instanceof Error ? err.message : 'Erstellen fehlgeschlagen.');
+      this.toast.showError(err, 'Erstellen fehlgeschlagen.');
     } finally {
       this.createLoading.set(false);
     }
@@ -209,7 +205,7 @@ export class Testdaten {
       this.instanceImport.importXml(xml, e.name); // wirft bei fehlendem/falschem Schema
       this.state.view.set('editor');
     } catch (err) {
-      this.toast.show(err instanceof Error ? err.message : 'Nachricht konnte nicht geöffnet werden.');
+      this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
     }
   }
 
@@ -221,7 +217,7 @@ export class Testdaten {
   // ── Aus Profilierung erzeugen ───────────────────────────────────────
 
   protected openGenerate(): void {
-    void this.profiles.refresh().catch(this.fail('Profile konnten nicht geladen werden — Backend nicht erreichbar.'));
+    void this.profiles.refresh().catch(this.toast.fail('Profile konnten nicht geladen werden — Backend nicht erreichbar.'));
     this.genDlg().nativeElement.showModal();
   }
 
@@ -242,7 +238,7 @@ export class Testdaten {
       this.genDlg().nativeElement.close();
       this.toast.show('Testnachricht erzeugt — Platzhalterwerte fachlich prüfen.');
     } catch (err) {
-      this.toast.show(err instanceof Error ? err.message : 'Erzeugen fehlgeschlagen.');
+      this.toast.showError(err, 'Erzeugen fehlgeschlagen.');
     } finally {
       this.generating.set(null);
     }
@@ -311,7 +307,7 @@ export class Testdaten {
       void this.store
         // Leerer Name ändert nichts (undefined) — der bestehende bleibt erhalten.
         .updateMeta(id, { name: name || undefined, notiz: this.editNote() })
-        .catch(this.fail('Speichern fehlgeschlagen — Backend nicht erreichbar.'));
+        .catch(this.toast.fail('Speichern fehlgeschlagen — Backend nicht erreichbar.'));
     }
     this.editDlg().nativeElement.close();
   }
@@ -334,7 +330,7 @@ export class Testdaten {
   protected remove(e: TestmessageEntry, ev: Event): void {
     ev.stopPropagation();
     if (confirm(`Testnachricht „${e.name}" wirklich löschen?`))
-      void this.store.delete(e.id).catch(this.fail('Löschen fehlgeschlagen — Backend nicht erreichbar.'));
+      void this.store.delete(e.id).catch(this.toast.fail('Löschen fehlgeschlagen — Backend nicht erreichbar.'));
   }
 
   // ── Anzeige-Helfer ──────────────────────────────────────────────────
