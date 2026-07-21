@@ -5,6 +5,7 @@ import { MessageEditSession } from '../../models/testmessage.model';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { ValueService } from './value.service';
+import { byName, esc, leafValue } from '../util/xml.util';
 
 /** Durchgereichter Einfüge-Cursor: das zuletzt in Schema-Reihenfolge platzierte
  *  Element unter einem Eltern-Knoten (Anker für neu eingefügte Elemente). */
@@ -92,7 +93,7 @@ export class InstanceExportService {
   }
 
   private patchElement(child: TreeNode, parentXmlEl: Element, cursor: Cursor, depth: number): void {
-    const matches = this.byName(parentXmlEl, child.name);
+    const matches = byName(parentXmlEl, child.name);
 
     // Ausgeschlossen (direkt oder geerbt) → alle Vorkommen entfernen.
     if (this.state.wirkungOf(child.path) === 'ausgeschlossen') {
@@ -171,30 +172,22 @@ export class InstanceExportService {
   private patchLeaf(node: TreeNode, xmlEl: Element): void {
     const val = this.state.elemente()[node.path]?.beispiel;
     if (val == null) return; // kein Modellwert → Original unangetastet lassen
-    if (val === this.leafValue(node, xmlEl)) return; // unverändert → Treue wahren
+    if (val === leafValue(xmlEl, !!node.codelist)) return; // unverändert → Treue wahren
     this.setLeafValue(node, xmlEl, val);
   }
 
   // ── DOM-Werte lesen/schreiben ───────────────────────────────────────
 
-  private leafValue(node: TreeNode, xmlEl: Element): string {
-    if (node.codelist) {
-      const code = this.byName(xmlEl, 'code')[0];
-      return ((code ? code.textContent : xmlEl.textContent) ?? '').trim();
-    }
-    return (xmlEl.textContent ?? '').trim();
-  }
-
   private setLeafValue(node: TreeNode, xmlEl: Element, val: string): void {
     if (node.codelist) {
-      let code = this.byName(xmlEl, 'code')[0];
+      let code = byName(xmlEl, 'code')[0];
       if (!code) {
         code = this.createEl('code');
         xmlEl.insertBefore(code, xmlEl.firstChild);
       }
       code.textContent = val;
       // Klartext-Geschwister gehört zum alten Code → entfernen (kein neuer bekannt).
-      this.byName(xmlEl, 'name').forEach((n) => n.remove());
+      byName(xmlEl, 'name').forEach((n) => n.remove());
     } else {
       xmlEl.textContent = val;
     }
@@ -294,10 +287,6 @@ export class InstanceExportService {
 
   // ── Kleine DOM-Helfer ───────────────────────────────────────────────
 
-  private byName(el: Element, name: string): Element[] {
-    return Array.from(el.children).filter((c) => c.localName === name);
-  }
-
   private firstDescendant(el: Element, localName: string): Element | null {
     return el.getElementsByTagNameNS('*', localName)[0] ?? null;
   }
@@ -342,7 +331,7 @@ export class InstanceExportService {
     const rec = (el: Element, depth: number): void => {
       const pad = IND.repeat(depth);
       const attrs = Array.from(el.attributes)
-        .map((a) => ` ${a.name}="${this.escAttr(a.value)}"`)
+        .map((a) => ` ${a.name}="${esc(a.value)}"`)
         .join('');
       const kinder = Array.from(el.children);
       const tag = el.tagName;
@@ -360,11 +349,11 @@ export class InstanceExportService {
     return lines.join('\n') + '\n';
   }
 
+  /**
+   * Escaping fuer Textknoten — bewusst OHNE `"`→`&quot;` (anders als `esc`),
+   * damit Anfuehrungszeichen in Inhalten beim Re-Export unveraendert bleiben.
+   */
   private escText(s: string): string {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  private escAttr(s: string): string {
-    return this.escText(s).replace(/"/g, '&quot;');
   }
 }

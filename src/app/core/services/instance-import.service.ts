@@ -5,6 +5,7 @@ import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
 import { ToastService } from './toast.service';
 import { CodelistService } from './codelist.service';
+import { byName, leafValue } from '../util/xml.util';
 
 /**
  * Importiert eine bestehende XJustiz-Nachricht (XML-Instanz) und bildet sie
@@ -94,10 +95,6 @@ export class InstanceImportService {
     return vom(rootEl) ?? vom(rootEl.getElementsByTagNameNS('*', 'nachrichtenkopf')[0]);
   }
 
-  private byName(el: Element, name: string): Element[] {
-    return Array.from(el.children).filter((c) => c.localName === name);
-  }
-
   /** Bindet die Schema-Kinder von `node` an die XML-Kinder von `xmlEl`. */
   private bindChildren(node: TreeNode, xmlEl: Element, opened: Set<string>, depth: number): void {
     if (depth > 40) return;
@@ -112,7 +109,7 @@ export class InstanceImportService {
       }
       if (done.has(child.name)) continue; // gleicher Basisname nur einmal
       done.add(child.name);
-      const matches = this.byName(xmlEl, child.name);
+      const matches = byName(xmlEl, child.name);
       if (!matches.length) continue;
       this.bindElement(child, matches, opened, depth);
     }
@@ -139,19 +136,11 @@ export class InstanceImportService {
     // unveraenderte Teilbaeume 1:1 uebernommen werden koennen).
     this.quelle?.set(node.path, xmlEl);
     if (this.tree.isLeaf(node)) {
-      const val = this.leafValue(node, xmlEl);
+      const val = leafValue(xmlEl, !!node.codelist);
       if (val) this.state.setElementProfile(node.path, { beispiel: val });
       return;
     }
     opened.add(node.path);
     this.bindChildren(node, xmlEl, opened, depth + 1);
-  }
-
-  private leafValue(node: TreeNode, xmlEl: Element): string {
-    if (node.codelist) {
-      const code = this.byName(xmlEl, 'code')[0];
-      return ((code ? code.textContent : xmlEl.textContent) ?? '').trim();
-    }
-    return (xmlEl.textContent ?? '').trim();
   }
 }

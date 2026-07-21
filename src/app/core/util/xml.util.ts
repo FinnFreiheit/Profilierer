@@ -43,6 +43,20 @@ export function appinfoOf(el: Element): Element | null {
   return a ? kid(a, 'appinfo') : null;
 }
 
+/** Direkte Kinder einer XML-Instanz mit lokalem Namen (praefix-/namensraumfrei). */
+export function byName(el: Element, name: string): Element[] {
+  return Array.from(el.children).filter((c) => c.localName === name);
+}
+
+/** Blattwert einer XML-Instanz: bei Codelisten der <code>-Inhalt, sonst der Text. */
+export function leafValue(xmlEl: Element, codeliste: boolean): string {
+  if (codeliste) {
+    const code = byName(xmlEl, 'code')[0];
+    return ((code ? code.textContent : xmlEl.textContent) ?? '').trim();
+  }
+  return (xmlEl.textContent ?? '').trim();
+}
+
 /** HTML-Escaping fuer Textinhalte (esc, Z.1503). */
 export function esc(s: unknown): string {
   const map: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
