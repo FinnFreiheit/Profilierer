@@ -8,10 +8,34 @@
  * Bewusst getrennt von `InstanceImportService.rootMessageName`, das nur den
  * Namen fuer das Drag&Drop-Routing braucht.
  */
+import { TestmessageInput } from '../../models/testmessage.model';
+
 export interface TestmessageMeta {
   nachricht: string;
   fachmodul: string;
   xjustizVersion?: string;
+}
+
+/**
+ * Namensabfrage fuer eine neue Testnachricht (einheitlicher Prompt der beiden
+ * Speichern-Fluesse). null = abgebrochen; leere Eingabe faellt auf den
+ * Vorschlag zurueck.
+ */
+export function frageTestnachrichtName(vorschlag: string): string | null {
+  const eingabe = prompt('Name der neuen Testnachricht:', vorschlag);
+  return eingabe == null ? null : eingabe.trim() || vorschlag;
+}
+
+/** Basis-Eingabedaten eines Testspeicher-Eintrags aus XML + Root-Metadaten. */
+export function testmessageInput(name: string, xml: string, meta: TestmessageMeta): TestmessageInput {
+  return {
+    name,
+    xml,
+    nachricht: meta.nachricht,
+    fachmodul: meta.fachmodul,
+    xjustizVersion: meta.xjustizVersion,
+    groesse: xml.length,
+  };
 }
 
 export function parseTestmessage(xmlText: string): TestmessageMeta | null {

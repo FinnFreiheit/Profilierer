@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { TreeNode } from '../../models/node.model';
 import { GuidedMessageState, TestmessageEntry } from '../../models/testmessage.model';
-import { parseTestmessage } from '../util/testmessage.util';
+import { frageTestnachrichtName, parseTestmessage, testmessageInput } from '../util/testmessage.util';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
@@ -126,17 +126,13 @@ export class TestmessageCreateService {
         entscheidungen,
       });
     } else {
-      const vorschlag = `${session.msgName} — Testnachricht.xml`;
-      const eingabe = prompt('Name der neuen Testnachricht:', vorschlag);
-      if (eingabe == null) return false; // abgebrochen
-      const name = eingabe.trim() || vorschlag;
+      const name = frageTestnachrichtName(`${session.msgName} — Testnachricht.xml`);
+      if (name == null) return false; // abgebrochen
       const id = await this.store.create({
-        name,
-        xml,
-        nachricht: meta.nachricht,
-        fachmodul: meta.fachmodul,
+        ...testmessageInput(name, xml, meta),
+        // Session-Version gewinnt: sie traegt die tatsaechlich gewaehlte
+        // Schemaversion, auch wenn die Instanz (noch) kein Attribut traegt.
         xjustizVersion: session.xjustizVersion,
-        groesse: xml.length,
         entwurf,
         fortschritt: { x, y },
         entscheidungen,

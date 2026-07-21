@@ -26,7 +26,7 @@ import { ToastService } from './core/services/toast.service';
 import { StateService } from './core/services/state.service';
 import { BundledSchemaService } from './core/services/bundled-schema.service';
 import { MigrationService } from './core/services/migration.service';
-import { parseTestmessage } from './core/util/testmessage.util';
+import { frageTestnachrichtName, parseTestmessage, testmessageInput } from './core/util/testmessage.util';
 
 @Component({
   selector: 'app-root',
@@ -171,9 +171,8 @@ export class App implements OnInit {
   async onSaveMessage(): Promise<void> {
     const session = this.state.messageEdit();
     if (!session) return;
-    const vorschlag = this.msgNameVorschlag(session.quellName);
-    const eingabe = prompt('Name der neuen Testnachricht:', vorschlag);
-    if (eingabe == null) return; // abgebrochen
+    const name = frageTestnachrichtName(this.msgNameVorschlag(session.quellName));
+    if (name == null) return; // abgebrochen
     try {
       const xml = this.instanceExport.buildInstanceXml(session);
       const meta = parseTestmessage(xml);
@@ -181,14 +180,7 @@ export class App implements OnInit {
         this.toast.show('Die erzeugte Nachricht ist nicht lesbar — bitte prüfen.');
         return;
       }
-      await this.testmessages.create({
-        name: eingabe.trim() || vorschlag,
-        xml,
-        nachricht: meta.nachricht,
-        fachmodul: meta.fachmodul,
-        xjustizVersion: meta.xjustizVersion,
-        groesse: xml.length,
-      });
+      await this.testmessages.create(testmessageInput(name, xml, meta));
       this.toast.show('Als neue Testnachricht gespeichert.');
       this.state.view.set('testdaten');
     } catch (e) {

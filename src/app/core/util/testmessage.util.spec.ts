@@ -1,4 +1,4 @@
-import { parseTestmessage } from './testmessage.util';
+import { frageTestnachrichtName, parseTestmessage, testmessageInput } from './testmessage.util';
 
 describe('testmessage.util', () => {
   describe('parseTestmessage', () => {
@@ -48,6 +48,34 @@ describe('testmessage.util', () => {
     it('lehnt kaputtes XML ab', () => {
       expect(parseTestmessage('<nachricht.dabag.antrag>')).toBeNull();
       expect(parseTestmessage('kein xml')).toBeNull();
+    });
+  });
+
+  describe('frageTestnachrichtName', () => {
+    it('liefert die Eingabe getrimmt; leer faellt auf den Vorschlag zurueck', () => {
+      spyOn(window, 'prompt').and.returnValue('  Mein Name  ');
+      expect(frageTestnachrichtName('Vorschlag.xml')).toBe('Mein Name');
+      (window.prompt as jasmine.Spy).and.returnValue('   ');
+      expect(frageTestnachrichtName('Vorschlag.xml')).toBe('Vorschlag.xml');
+    });
+
+    it('liefert null bei Abbruch', () => {
+      spyOn(window, 'prompt').and.returnValue(null);
+      expect(frageTestnachrichtName('Vorschlag.xml')).toBeNull();
+    });
+  });
+
+  describe('testmessageInput', () => {
+    it('baut den Testspeicher-Eintrag aus XML und Root-Metadaten', () => {
+      const meta = { nachricht: 'nachricht.enova.entscheidung.2900003', fachmodul: 'enova', xjustizVersion: '3.6.2' };
+      expect(testmessageInput('N', '<x/>', meta)).toEqual({
+        name: 'N',
+        xml: '<x/>',
+        nachricht: meta.nachricht,
+        fachmodul: 'enova',
+        xjustizVersion: '3.6.2',
+        groesse: 4,
+      });
     });
   });
 });
