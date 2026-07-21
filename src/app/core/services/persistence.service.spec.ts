@@ -3,6 +3,7 @@ import { PersistenceService } from './persistence.service';
 import { ProfileStoreService } from './profile-store.service';
 import { ToastService } from './toast.service';
 import { StateService } from './state.service';
+import { BundledSchemaService } from './bundled-schema.service';
 import { ProfileDoc } from '../../models/profile.model';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
@@ -34,6 +35,84 @@ describe('PersistenceService.loadXsdFiles', () => {
   it('wirft bei fehlenden .xsd-Dateien', async () => {
     const other = new File(['x'], 'liste.xml', { type: 'text/xml' });
     await expectAsync(svc.loadXsdFiles([other])).toBeRejectedWithError(/Keine .xsd/);
+  });
+});
+
+describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
+  const XSD_400 = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="4.0.0">
+  <xs:element name="nachricht.neu.0002" type="Type.Test.Root"/>
+  <xs:complexType name="Type.Test.Root"><xs:sequence>
+    <xs:element name="datum" type="xs:date"/>
+  </xs:sequence></xs:complexType>
+</xs:schema>`;
+
+  const BUNDLE_400 = { id: '4.0.0', label: '4.0.0', dir: '4.0.0', files: ['test.xsd'] };
+
+  let toasts: string[];
+  let filesCalls: number;
+
+  const doc = (nachricht: string, xjustizVersion?: string): ProfileDoc => ({
+    meta: { name: 'Test', nachricht, xjustizVersion },
+    statuses: [],
+    elemente: {},
+    auspraegungen: {},
+  });
+
+  const setup = (geladen: ProfileDoc): { svc: PersistenceService; state: StateService } => {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: ProfileStoreService, useValue: { load: async () => geladen } },
+        { provide: ToastService, useValue: { show: (m: string) => toasts.push(m) } },
+        {
+          provide: BundledSchemaService,
+          useValue: {
+            manifest: async () => [BUNDLE_400],
+            files: async () => {
+              filesCalls++;
+              return [new File([XSD_400], 'xjustiz_0000_test.xsd', { type: 'application/xml' })];
+            },
+          },
+        },
+      ],
+    });
+    return { svc: TestBed.inject(PersistenceService), state: TestBed.inject(StateService) };
+  };
+
+  beforeEach(() => {
+    toasts = [];
+    filesCalls = 0;
+  });
+
+  it('laedt die hinterlegte Profil-Version, wenn die Nachricht dort liegt (Bug: leerer Editor)', async () => {
+    const { svc, state } = setup(doc('nachricht.neu.0002', '4.0.0'));
+    state.bundledVersions.set([BUNDLE_400]);
+    // Auto-Load-Zustand: 3.6.2 ist geladen, kennt die Nachricht nicht.
+    await svc.loadXsdFiles([new File([XSD], 'xjustiz_0000_alt.xsd', { type: 'application/xml' })]);
+    await svc.openFromLibrary('p1');
+    expect(state.version()).toBe('4.0.0');
+    expect(state.activeBundle()).toBe('4.0.0');
+    expect(state.msgName()).toBe('nachricht.neu.0002');
+    expect(state.root()).not.toBeNull();
+    expect(toasts.some((t) => t.includes('nicht gefunden'))).toBeFalse();
+  });
+
+  it('laedt kein Bundle, wenn die Profil-Version bereits geladen ist', async () => {
+    const { svc, state } = setup(doc('nachricht.test.0001', '3.6.2'));
+    state.bundledVersions.set([BUNDLE_400]);
+    await svc.loadXsdFiles([new File([XSD], 'xjustiz_0000_alt.xsd', { type: 'application/xml' })]);
+    await svc.openFromLibrary('p1');
+    expect(filesCalls).toBe(0);
+    expect(state.msgName()).toBe('nachricht.test.0001');
+  });
+
+  it('unbekannte Version: bisheriges Verhalten (leerer Editor + Hinweis)', async () => {
+    const { svc, state } = setup(doc('nachricht.fremd.0009', '9.9.9'));
+    state.bundledVersions.set([BUNDLE_400]);
+    await svc.loadXsdFiles([new File([XSD], 'xjustiz_0000_alt.xsd', { type: 'application/xml' })]);
+    await svc.openFromLibrary('p1');
+    expect(state.root()).toBeNull();
+    expect(toasts.some((t) => t.includes('nicht gefunden'))).toBeTrue();
   });
 });
 

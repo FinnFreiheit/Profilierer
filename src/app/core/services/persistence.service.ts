@@ -7,6 +7,7 @@ import { NavService } from './nav.service';
 import { ToastService } from './toast.service';
 import { ProfileStoreService } from './profile-store.service';
 import { DownloadService } from './download.service';
+import { BundledSchemaService } from './bundled-schema.service';
 import { defaultStatuses, newProfile } from '../profile-defaults';
 
 /** localStorage-Prefix der Notfallkopien (Backend beim Autosave nicht erreichbar). */
@@ -35,6 +36,7 @@ export class PersistenceService {
   private readonly toast = inject(ToastService);
   private readonly store = inject(ProfileStoreService);
   private readonly dl = inject(DownloadService);
+  private readonly bundled = inject(BundledSchemaService);
 
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   /** Verhindert parallele Upserts (Reihenfolge/Lost-Update-Schutz). */
@@ -273,6 +275,33 @@ export class PersistenceService {
     // (Fortschritt wird dann aus den gespeicherten Entscheidungen berechnet).
     this.state.guided.set(false);
     const nachricht = doc.meta.nachricht;
+
+    // Versions-Angleich: Wurde das Profil mit einer anderen hinterlegten
+    // XJustiz-Version erstellt, zuerst deren Schemata laden — sonst endet das
+    // Oeffnen bei versions-exklusiven Nachrichten (z. B. nur in 4.0.0) im
+    // leeren Editor ("Nachricht aus dem Profil nicht gefunden").
+    const ver = doc.meta.xjustizVersion;
+    if (ver && ver !== this.state.version()) {
+      let versions = this.state.bundledVersions();
+      if (!versions.length) {
+        try {
+          versions = await this.bundled.manifest();
+          this.state.bundledVersions.set(versions);
+        } catch {
+          versions = [];
+        }
+      }
+      const bundle = versions.find((v) => v.id === ver);
+      if (bundle) {
+        try {
+          await this.loadXsdFiles(await this.bundled.files(bundle));
+          this.state.activeBundle.set(bundle.dir);
+          this.toast.show(`XJustiz ${bundle.label} geladen (Version des Profils).`);
+        } catch {
+          // Bundle nicht ladbar: mit dem aktuellen Index fortfahren (Hinweis unten).
+        }
+      }
+    }
 
     if (!this.state.idx()) {
       // Schema noch nicht geladen (selten dank Auto-Load): nach XSD anwenden.
