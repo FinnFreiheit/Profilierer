@@ -32,15 +32,13 @@ export class DetailPanel {
   protected readonly clFilter = signal('');
 
   /** Betrachtungsmodus: Editier-Controls werden im Template ausgeblendet. */
-  protected readonly ro = computed(() => this.state.readOnly());
+  protected readonly ro = this.state.readOnly;
 
   /** Nachrichten-Modus: eine Instanz wird erstellt oder bearbeitet (Werte statt Profil). */
-  protected readonly msgMode = computed(
-    () => !!this.state.messageCreate() || !!this.state.messageEdit(),
-  );
+  protected readonly msgMode = this.state.msgMode;
 
   /** Gefuehrte Testnachricht-Erstellung (US "Testnachricht gefuehrt erstellen"). */
-  protected readonly isCreate = computed(() => !!this.state.messageCreate());
+  protected readonly isCreate = this.state.isMessageCreate;
 
   protected readonly vm = computed(() => {
     const it = this.state.selItem();

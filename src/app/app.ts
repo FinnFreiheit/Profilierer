@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
 import { Topbar } from './features/topbar/topbar';
 import { Toolbar } from './features/toolbar/toolbar';
 import { Crumbs } from './features/crumbs/crumbs';
@@ -66,11 +66,11 @@ export class App implements OnInit {
   private readonly bundled = inject(BundledSchemaService);
   private readonly migration = inject(MigrationService);
 
-  protected readonly hasRoot = computed(() => !!this.state.root());
+  protected readonly hasRoot = this.state.hasRoot;
   /** Dashboard (Bibliothek) vs. Baum-Editor. */
-  protected readonly view = computed(() => this.state.view());
+  protected readonly view = this.state.view;
   /** Reine Schema-Ansicht (US "Schema ansehen") — eigener Empty-State-Text. */
-  protected readonly schemaView = computed(() => this.state.schemaView());
+  protected readonly schemaView = this.state.schemaView;
 
   /** Zurueck zur Uebersicht (Topbar-Button). */
   protected goDashboard(): void {

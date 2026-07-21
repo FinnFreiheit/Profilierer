@@ -19,7 +19,7 @@ export class Search {
 
   protected readonly query = signal('');
   protected readonly focused = signal(false);
-  protected readonly hasRoot = computed(() => !!this.state.root());
+  protected readonly hasRoot = this.state.hasRoot;
 
   protected readonly hits = computed(() => {
     const q = this.query();

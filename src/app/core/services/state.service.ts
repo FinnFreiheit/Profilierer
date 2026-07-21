@@ -116,6 +116,15 @@ export class StateService {
 
   // ── Abgeleitete Sichten ─────────────────────────────────────────────
 
+  /** Ist eine Nachricht geladen (Baum vorhanden)? */
+  readonly hasRoot = computed(() => !!this.root());
+  /** Nachrichten-Bearbeitung (geladene Instanz) statt Profil/Szenario. */
+  readonly isMessageEdit = computed(() => !!this.messageEdit());
+  /** Gefuehrte Testnachricht-Erstellung (US "Testnachricht gefuehrt erstellen"). */
+  readonly isMessageCreate = computed(() => !!this.messageCreate());
+  /** Nachrichten-Modus: eine Instanz wird erstellt oder bearbeitet (Werte statt Profil). */
+  readonly msgMode = computed(() => this.isMessageEdit() || this.isMessageCreate());
+
   /** Das komplette Profil-Dokument als eine Sicht (fuer Persistenz/Export). */
   readonly profileDoc = computed<ProfileDoc>(() => ({
     meta: this.meta(),

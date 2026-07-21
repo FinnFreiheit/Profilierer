@@ -33,14 +33,14 @@ export class Toolbar {
   readonly saveMessageClick = output<void>();
   readonly saveCreateClick = output<void>();
 
-  protected readonly hasRoot = computed(() => !!this.state.root());
+  protected readonly hasRoot = this.state.hasRoot;
   protected readonly hasIdxB = computed(() => !!this.state.idxB());
   /** Nachrichten-Bearbeitung (geladene Instanz) statt Profil/Szenario. */
-  protected readonly isMessage = computed(() => !!this.state.messageEdit());
+  protected readonly isMessage = this.state.isMessageEdit;
   /** Gefuehrte Testnachricht-Erstellung (US "Testnachricht gefuehrt erstellen"). */
-  protected readonly isCreate = computed(() => !!this.state.messageCreate());
+  protected readonly isCreate = this.state.isMessageCreate;
   /** Reine Schema-Ansicht (US "Schema ansehen"): nur betrachten und suchen. */
-  protected readonly isSchemaView = computed(() => this.state.schemaView());
+  protected readonly isSchemaView = this.state.schemaView;
 
   protected readonly fortschrittText = computed(() => {
     // Gefuehrter Modus: verbleibende echte Entscheidungen statt Festlegungs-Summe.
