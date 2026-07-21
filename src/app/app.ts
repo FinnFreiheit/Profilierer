@@ -16,6 +16,7 @@ import { Testdaten } from './features/testdaten/testdaten';
 import { PersistenceService } from './core/services/persistence.service';
 import { CodelistService } from './core/services/codelist.service';
 import { ExportService } from './core/services/export.service';
+import { ExcelExportService } from './core/services/excel-export.service';
 import { DiffService } from './core/services/diff.service';
 import { NavService } from './core/services/nav.service';
 import { InstanceImportService } from './core/services/instance-import.service';
@@ -55,6 +56,7 @@ export class App implements OnInit {
   protected readonly persistence = inject(PersistenceService);
   protected readonly codelists = inject(CodelistService);
   protected readonly exporter = inject(ExportService);
+  protected readonly excel = inject(ExcelExportService);
   protected readonly diff = inject(DiffService);
   private readonly nav = inject(NavService);
   private readonly instanceImport = inject(InstanceImportService);
