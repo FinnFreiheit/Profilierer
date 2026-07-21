@@ -109,6 +109,101 @@ describe('StateService', () => {
       const list = s.auspsOf('m/bet')!;
       expect(list.map((x) => x.id)).toEqual([b]);
     });
+
+    it('removeAusp raeumt auch Erweiterungen unter der Auspraegung weg', () => {
+      const id = s.addAusp('m/bet', 'Notar');
+      const prefix = 'm/bet@' + id;
+      s.addErweiterung(prefix, { name: 'zusatz', min: '1', max: '1', datentyp: 'string' });
+      expect(s.erweiterungenOf(prefix)).not.toBeNull();
+      s.removeAusp('m/bet', id);
+      expect(s.erweiterungenOf(prefix)).toBeNull();
+    });
+  });
+
+  describe('Schema-Erweiterungen', () => {
+    it('addErweiterung haengt an und liefert die id (neue Map-Referenz)', () => {
+      const before = s.erweiterungen();
+      const id = s.addErweiterung('m/a', { name: 'zusatz', min: '0', max: '1', datentyp: 'string' });
+      expect(s.erweiterungen()).not.toBe(before);
+      const list = s.erweiterungenOf('m/a')!;
+      expect(list.length).toBe(1);
+      expect(list[0]!.id).toBe(id);
+      expect(list[0]!.name).toBe('zusatz');
+    });
+
+    it('updateErweiterung patcht Felder und erzeugt neue Referenzen', () => {
+      const id = s.addErweiterung('m/a', { name: 'zusatz', min: '1', max: '1' });
+      const before = s.erweiterungenOf('m/a');
+      s.updateErweiterung('m/a', id, { name: 'neu', datentyp: 'date' });
+      expect(s.erweiterungenOf('m/a')).not.toBe(before);
+      expect(s.erweiterungenOf('m/a')![0]).toEqual(
+        jasmine.objectContaining({ id, name: 'neu', datentyp: 'date' }),
+      );
+    });
+
+    it('removeErweiterung raeumt kaskadierend ueber alle drei Maps auf', () => {
+      const id = s.addErweiterung('m/a', { name: 'container', min: '1', max: '1' });
+      const pfad = 'm/a/~' + id;
+      // Unter-Erweiterung, Profil-Eintraege, Auspraegung, Auswahl und Oeffnung.
+      const kindId = s.addErweiterung(pfad, { name: 'kind', min: '1', max: '1', datentyp: 'string' });
+      s.setElementProfile(pfad, { status: 's1' });
+      s.setElementProfile(pfad + '/~' + kindId, { beispiel: 'x' });
+      s.auspraegungen.update((m) => ({ ...m, [pfad]: [{ id: 'a1', name: 'A' }] }));
+      s.selItem.set({ kind: 'el', node: node(pfad) } as TreeItem);
+      s.setOpen(pfad, true);
+
+      s.removeErweiterung('m/a', id);
+
+      expect(s.erweiterungenOf('m/a')).toBeNull();
+      expect(s.erweiterungenOf(pfad)).toBeNull();
+      expect(s.elemente()[pfad]).toBeUndefined();
+      expect(s.elemente()[pfad + '/~' + kindId]).toBeUndefined();
+      expect(s.auspraegungen()[pfad]).toBeUndefined();
+      expect(s.selItem()).toBeNull();
+      expect(s.isOpen(pfad)).toBeFalse();
+    });
+
+    it('removeErweiterung laesst Geschwister stehen', () => {
+      const a = s.addErweiterung('m/a', { name: 'eins', min: '1', max: '1' });
+      const b = s.addErweiterung('m/a', { name: 'zwei', min: '1', max: '1' });
+      s.removeErweiterung('m/a', a);
+      expect(s.erweiterungenOf('m/a')!.map((e) => e.id)).toEqual([b]);
+    });
+
+    it('duplicateElement nimmt direkt unterliegende Erweiterungen mit in Fall 1', () => {
+      s.addErweiterung('m/bet', { name: 'zusatz', min: '1', max: '1', datentyp: 'string' });
+      s.duplicateElement('m/bet');
+      const [fall1] = s.auspsOf('m/bet')!;
+      expect(s.erweiterungenOf('m/bet')).toBeNull();
+      const verschoben = s.erweiterungenOf('m/bet@' + fall1!.id)!;
+      expect(verschoben.map((e) => e.name)).toEqual(['zusatz']);
+    });
+
+    it('copyAusp kopiert Erweiterungen der Auspraegung mit (eigene Objekt-Kopien)', () => {
+      const a = s.addAusp('m/bet', 'A');
+      s.addErweiterung('m/bet@' + a, { name: 'zusatz', min: '1', max: '1' });
+      s.copyAusp('m/bet', a);
+      const kopie = s.auspsOf('m/bet')!.find((x) => x.id !== a)!;
+      const list = s.erweiterungenOf('m/bet@' + kopie.id)!;
+      expect(list.map((e) => e.name)).toEqual(['zusatz']);
+      expect(list[0]).not.toBe(s.erweiterungenOf('m/bet@' + a)![0]);
+    });
+
+    it('profileDoc enthaelt die Erweiterungen; loadProfile stellt sie wieder her', () => {
+      s.addErweiterung('m/a', { name: 'zusatz', min: '1', max: '1' });
+      const doc = s.profileDoc();
+      expect(Object.keys(doc.erweiterungen)).toEqual(['m/a']);
+      s.resetProfile();
+      expect(s.erweiterungenOf('m/a')).toBeNull();
+      s.loadProfile(doc);
+      expect(s.erweiterungenOf('m/a')!.map((e) => e.name)).toEqual(['zusatz']);
+    });
+
+    it('fortschritt zaehlt nErw ueber alle Ebenen', () => {
+      const id = s.addErweiterung('m/a', { name: 'c', min: '1', max: '1' });
+      s.addErweiterung('m/a/~' + id, { name: 'k', min: '1', max: '1', datentyp: 'string' });
+      expect(s.fortschritt().nErw).toBe(2);
+    });
   });
 
   describe('Oeffnungszustaende', () => {
@@ -162,7 +257,7 @@ describe('StateService', () => {
       s.setElementProfile('m/a', { status: 's1' });
       s.setElementProfile('m/b', { anmerkung: 'nur Notiz' }); // kein Status
       s.addAusp('m/bet');
-      expect(s.fortschritt()).toEqual({ nStatus: 1, nAusp: 1 });
+      expect(s.fortschritt()).toEqual({ nStatus: 1, nAusp: 1, nErw: 0 });
     });
   });
 
@@ -215,15 +310,23 @@ describe('StateService', () => {
     it('setzt readOnly und onlyValues beim Laden eines Profils zurueck', () => {
       s.readOnly.set(true);
       s.onlyValues.set(true);
-      s.loadProfile({ meta: {}, statuses: [], elemente: {}, auspraegungen: {} });
+      s.loadProfile({ meta: {}, statuses: [], elemente: {}, auspraegungen: {}, erweiterungen: {} });
       expect(s.readOnly()).toBeFalse();
       expect(s.onlyValues()).toBeFalse();
     });
 
     it('laesst guided beim Profil-Reset unangetastet (Nachrichtenwahl im gefuehrten Modus)', () => {
       s.guided.set(true);
-      s.loadProfile({ meta: {}, statuses: [], elemente: {}, auspraegungen: {} });
+      s.loadProfile({ meta: {}, statuses: [], elemente: {}, auspraegungen: {}, erweiterungen: {} });
       expect(s.guided()).toBeTrue();
+    });
+
+    it('raeumt die Validierungsmarker des vorherigen Prueflaufs', () => {
+      s.valFehler.set(new Map([['m/a', ['Fehler']]]));
+      s.valAnc.set(new Map([['m', 1]]));
+      s.loadProfile({ meta: {}, statuses: [], elemente: {}, auspraegungen: {}, erweiterungen: {} });
+      expect(s.valFehler()).toBeNull();
+      expect(s.valAnc()).toBeNull();
     });
   });
 });

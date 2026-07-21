@@ -13,6 +13,7 @@ import { BundledSchemaService } from './bundled-schema.service';
 import { PersistenceService } from './persistence.service';
 import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
+import { ValidationMarkerService } from './validation-marker.service';
 
 /** Vollstaendiger Editor-Stand fuer den temporaeren Profil-Swap. */
 interface EditorStand {
@@ -50,6 +51,7 @@ export class TestmessageGenerationService {
   private readonly persistence = inject(PersistenceService);
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
+  private readonly marker = inject(ValidationMarkerService);
 
   /** Erzeugt die Testnachricht; wirft Error mit Nutzertext (Toast macht der Aufrufer). */
   async erzeugeAusProfil(entry: LibraryEntry): Promise<string> {
@@ -69,16 +71,23 @@ export class TestmessageGenerationService {
         throw new Error('Nachricht nicht im geladenen Schema gefunden: ' + nachricht);
       this.state.loadProfile(doc);
       this.nav.loadMessage(nachricht, true);
-      const xml = this.exporter.buildBeispielXml();
-      if (xml == null) throw new Error('Beispiel-XML konnte nicht erzeugt werden.');
+      const res = this.exporter.buildBeispielXmlMitPfaden();
+      if (res == null) throw new Error('Beispiel-XML konnte nicht erzeugt werden.');
+      const xml = res.xml;
       const meta = parseTestmessage(xml);
       if (!meta) throw new Error('Erzeugtes XML ist keine XJustiz-Nachricht.');
 
       // Anforderung: Testnachrichten muessen schema-valide sein. Ein invalides
       // Erzeugnis (z. B. offene Auswahlen im Profil) wird als Entwurf
       // gekennzeichnet und der Befund gemeldet — Download bleibt gesperrt.
+      // Ausnahme: Fehler, die nur auf bekannte Schema-Erweiterungen des Profils
+      // zurueckgehen (bewusste XSD-Abweichung), machen keinen Entwurf.
       const pruefung = await this.validator.validiere(xml);
-      const entwurf = pruefung.status !== 'valide';
+      const eintraege =
+        pruefung.status === 'invalide' ? this.marker.ordneZu(pruefung.fehlerDetails, res.zeilenPfade) : [];
+      const nurErweiterungen =
+        pruefung.status === 'invalide' && this.marker.nurErweiterungsFehler(eintraege);
+      const entwurf = pruefung.status !== 'valide' && !nurErweiterungen;
 
       const profilName = doc.meta.name || entry.name || nachricht;
       // Version aus dem Profil bzw. dem geladenen Schema — das generierte XML
@@ -93,6 +102,10 @@ export class TestmessageGenerationService {
         groesse: xml.length,
         entwurf,
       });
+      // Bewusst ohne Baum-Markierung/klickbare Pfade (ValidationMarkerService):
+      // der Baum ist hier nur transient geladen und wird im finally per
+      // restore(stand) auf den vorherigen Editor-Stand zurueckgesetzt —
+      // Marker und Spruenge liefen ins Leere bzw. auf den falschen Baum.
       if (entwurf)
         this.report.zeige(
           `Testnachricht „${profilName} — Beispiel.xml" als Entwurf angelegt — nicht schema-valide`,
@@ -104,7 +117,10 @@ export class TestmessageGenerationService {
           notiz:
             `Automatisch erzeugt aus Profilierung „${profilName}"` +
             (version ? ` (XJustiz ${version})` : '') +
-            ` am ${new Date().toLocaleDateString('de-DE')}. Platzhalterwerte fachlich prüfen.`,
+            ` am ${new Date().toLocaleDateString('de-DE')}. Platzhalterwerte fachlich prüfen.` +
+            (nurErweiterungen
+              ? ' Enthält Schema-Erweiterungen — bewusst nicht schema-valide (Nachbeauftragung).'
+              : ''),
         })
         .catch(() => {});
       return id;

@@ -13,6 +13,8 @@ import { PersistenceService } from './persistence.service';
 import { ToastService } from './toast.service';
 import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
+import { ValidationMarkerService } from './validation-marker.service';
+import { ReportEintrag } from '../../models/validation.model';
 
 /**
  * Testnachricht gefuehrt aus einem Schema erstellen (US "Testnachricht
@@ -36,6 +38,7 @@ export class TestmessageCreateService {
   private readonly toast = inject(ToastService);
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
+  private readonly marker = inject(ValidationMarkerService);
 
   /**
    * Neue Sitzung: Schema der Version sicherstellen, Nachricht laden (leerer
@@ -110,21 +113,32 @@ export class TestmessageCreateService {
       }
     }
 
-    const xml = this.exporter.buildBeispielXml({ instanz: true });
-    if (xml == null) throw new Error('Nachricht konnte nicht erzeugt werden.');
+    const res = this.exporter.buildBeispielXmlMitPfaden({ instanz: true });
+    if (res == null) throw new Error('Nachricht konnte nicht erzeugt werden.');
+    const xml = res.xml;
     const meta = parseTestmessage(xml);
     if (!meta) throw new Error('Erzeugte Nachricht ist keine XJustiz-Nachricht.');
 
     // Anforderung: Testnachrichten muessen schema-valide sein. Eine fertige,
     // aber invalide Nachricht wird als Entwurf gekennzeichnet (Arbeit bleibt
     // erhalten, Download bleibt gesperrt) und der Befund gemeldet.
+    // Ausnahme: Fehler nur durch bekannte Schema-Erweiterungen (bewusste
+    // XSD-Abweichung) — kein Entwurf, nur Hinweis.
     let entwurf = kritisch > 0;
-    let validierungsFehler: string[] = [];
+    let fehlerEintraege: ReportEintrag[] | null = null;
+    let nurErweiterungen = false;
     if (!entwurf) {
       const pruefung = await this.validator.validiere(xml);
       if (pruefung.status !== 'valide') {
-        entwurf = true;
-        validierungsFehler = pruefung.fehler;
+        const eintraege = this.marker.markiere(pruefung.fehlerDetails, res.zeilenPfade);
+        if (pruefung.status === 'invalide' && this.marker.nurErweiterungsFehler(eintraege)) {
+          nurErweiterungen = true;
+        } else {
+          entwurf = true;
+          fehlerEintraege = eintraege;
+        }
+      } else {
+        this.marker.loesche();
       }
     }
     const entscheidungen: GuidedMessageState = {
@@ -154,14 +168,16 @@ export class TestmessageCreateService {
       });
       this.state.messageCreate.set({ ...session, entryId: id, name });
     }
-    if (validierungsFehler.length) {
+    if (fehlerEintraege) {
       this.toast.show('Als Entwurf gespeichert — die Nachricht ist nicht schema-valide.');
-      this.report.zeige('Als Entwurf gespeichert — Nachricht nicht schema-valide', validierungsFehler);
+      this.report.zeigeMitPfaden('Als Entwurf gespeichert — Nachricht nicht schema-valide', fehlerEintraege);
     } else {
       this.toast.show(
         entwurf
           ? `Als Entwurf gespeichert — noch ${kritisch} Pflichtpunkt${kritisch === 1 ? '' : 'e'} offen.`
-          : 'Testnachricht gespeichert.',
+          : nurErweiterungen
+            ? 'Testnachricht gespeichert — enthält Schema-Erweiterungen (bewusste XSD-Abweichung).'
+            : 'Testnachricht gespeichert.',
       );
     }
     return true;

@@ -357,11 +357,12 @@ export class PersistenceService {
     const json = JSON.stringify(
       {
         app: 'xjustiz-profilierer',
-        formatVersion: 2,
+        formatVersion: 3,
         meta: doc.meta,
         statuses: doc.statuses,
         elemente: doc.elemente,
         auspraegungen: doc.auspraegungen,
+        erweiterungen: doc.erweiterungen,
       },
       null,
       2,
@@ -395,7 +396,7 @@ export class PersistenceService {
       if (e.status) e.status = map[e.status] || undefined;
       elemente[k] = e;
     }
-    return { meta: data.meta || {}, statuses: st, elemente, auspraegungen: {} };
+    return { meta: data.meta || {}, statuses: st, elemente, auspraegungen: {}, erweiterungen: {} };
   }
 
   /**
@@ -414,6 +415,8 @@ export class PersistenceService {
               statuses: data.statuses || defaultStatuses(),
               elemente: data.elemente,
               auspraegungen: data.auspraegungen || {},
+              // v2-Dateien tragen noch keine Schema-Erweiterungen.
+              erweiterungen: data.erweiterungen || {},
             }
           : this.migrateV1(data);
       const id = await this.store.create(prof);

@@ -6,12 +6,17 @@
 export function zaehleFortschritt(doc) {
   const elemente = doc?.elemente ?? {};
   const auspraegungen = doc?.auspraegungen ?? {};
+  const erweiterungen = doc?.erweiterungen ?? {};
   const nStatus = Object.values(elemente).filter((p) => p && p.status).length;
   const nAusp = Object.values(auspraegungen).reduce(
     (s, l) => s + (Array.isArray(l) ? l.length : 0),
     0,
   );
-  return { nStatus, nAusp };
+  const nErw = Object.values(erweiterungen).reduce(
+    (s, l) => s + (Array.isArray(l) ? l.length : 0),
+    0,
+  );
+  return { nStatus, nAusp, nErw };
 }
 
 /**
@@ -20,7 +25,7 @@ export function zaehleFortschritt(doc) {
  */
 export function toEntry(id, doc, aktualisiert) {
   const meta = doc?.meta ?? {};
-  const { nStatus, nAusp } = zaehleFortschritt(doc);
+  const { nStatus, nAusp, nErw } = zaehleFortschritt(doc);
   return {
     id,
     name: (meta.name || '').trim(),
@@ -28,6 +33,7 @@ export function toEntry(id, doc, aktualisiert) {
     xjustizVersion: meta.xjustizVersion,
     nStatus,
     nAusp,
+    nErw,
     gespeichert: meta.gespeichert,
     aktualisiert,
   };

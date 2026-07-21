@@ -10,6 +10,8 @@
   [class.parentBox]="v.parentBox"
   [class.dfR]="v.dfR"
   [class.dfA]="v.dfA"
+  [class.valErr]="v.valErr"
+  [class.extBox]="v.extBox"
   [attr.data-path]="path()"
   [attr.data-refkind]="v.refkind"
   [attr.data-refziel]="v.refziel"
@@ -98,6 +100,9 @@
   @if (v.showDelAusp) {
     <button class="hideBtn delBtn" title="Ausprägung löschen (samt Unter-Profilierung)" (click)="onDelAusp($event)">✕</button>
   }
+  @if (v.showDelErw) {
+    <button class="hideBtn delBtn" title="Schema-Erweiterung löschen (samt Unterelementen)" (click)="onDelErw($event)">✕</button>
+  }
   @if (v.showDup) {
     <button class="dupBtn" [title]="v.dupTitle" (click)="onDup($event)">⧉</button>
   }
@@ -110,6 +115,15 @@
     }
     @if (showAddAusp()) {
       <div class="box addBox" (click)="onAddAusp()">+ Ausprägung</div>
+    }
+    @if (showAddErweiterung()) {
+      <div
+        class="box addBox addExt"
+        title="Schema-Erweiterung: fehlendes Element festhalten, das nachbeauftragt werden soll"
+        (click)="onAddErweiterung()"
+      >
+        + Element (Erweiterung)
+      </div>
     }
     @for (ph of phantoms(); track ph.tech) {
       <div class="box phantom" title="Dieses Element existiert erst in der Vergleichsversion.">

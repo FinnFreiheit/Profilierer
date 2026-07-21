@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input } from '@an
 import { TreeItem, TreeNode as TNode, itemPath } from '../../models/node.model';
 import { StateService } from '../../core/services/state.service';
 import { TreeService } from '../../core/services/tree.service';
+import { ErweiterungDialogService } from '../../core/services/erweiterung-dialog.service';
 import { NavService } from '../../core/services/nav.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { ValueService } from '../../core/services/value.service';
@@ -46,6 +47,7 @@ export class TreeNode {
 
   private readonly state = inject(StateService);
   private readonly tree = inject(TreeService);
+  private readonly erwDialog = inject(ErweiterungDialogService);
   private readonly nav = inject(NavService);
   private readonly guided = inject(GuidedService);
   private readonly values = inject(ValueService);
@@ -74,6 +76,20 @@ export class TreeNode {
     if (it.kind !== 'el') return false;
     const a = this.state.auspsOf(it.node.path);
     return !!(a && a.length);
+  });
+
+  /** "+ Element (Erweiterung)" nur an aufklappbaren Containern (US Schema-Erweiterung). */
+  protected readonly showAddErweiterung = computed(() => {
+    if (this.state.readOnly() || this.state.msgMode()) return false;
+    const it = this.item();
+    if (it.kind === 'el') {
+      const n = it.node;
+      if (n.synthetic || n.recursive) return false;
+      if (this.state.auspsOf(n.path)?.length) return false;
+      return n.erweiterung ? !n.erweiterung.datentyp : !this.tree.isLeaf(n);
+    }
+    const cn = this.tree.ctxNode(it.parentNode, it.ausp.id);
+    return !cn.recursive && !this.tree.isLeaf(cn);
   });
 
   /** Sichtbare Kind-Items (ohne "nur Profil"-ausgeblendete). */
@@ -195,6 +211,12 @@ export class TreeNode {
 
     // Tags (Z.1270-1313, ohne Diff — P7).
     const tags: Tag[] = [];
+    if (n.erweiterung)
+      tags.push({
+        cls: 't-ext',
+        text: 'Schema-Erweiterung',
+        title: 'Nachbeauftragung — Element ist nicht im XJustiz-Schema enthalten',
+      });
     const rk = refKindOf(n);
     if (rk) {
       const rlbl = pe.refZiel
@@ -255,10 +277,28 @@ export class TreeNode {
       else if (ownArt || anc) dfA = true;
     }
 
+    // Schemavalidierungs-Marker des letzten Prueflaufs (ValidationMarkerService).
+    // Schluessel ist der volle Pfad inkl. @auspId — gilt fuer Elemente und
+    // Auspraegungen, daher anders als der Diff keine Pfad-Normalisierung.
+    let valErr = false;
+    const vf = this.state.valFehler();
+    if (vf) {
+      const eigene = vf.get(path);
+      if (eigene) {
+        valErr = true;
+        tags.push({ cls: 't-verr', text: 'Schema-Fehler', title: eigene.join('\n') });
+      }
+      const sub = this.state.valAnc()?.get(path);
+      if (sub)
+        tags.push({ cls: 't-vsub', text: sub + ' Fehler', title: 'Schemafehler in untergeordneten Elementen' });
+    }
+
     const isExcl = !!excluded;
     return {
       dfR,
       dfA,
+      valErr,
+      extBox: !!n.erweiterung,
       kind: it.kind,
       auspBox: it.kind === 'ausp',
       selected: sel ? itemPath(sel) === path : false,
@@ -290,12 +330,14 @@ export class TreeNode {
       tags,
       isValueBox,
       // Buttons (im Betrachtungsmodus ausgeblendet).
-      showHide: !readOnly && !this.isRoot() && it.kind === 'el',
+      showHide: !readOnly && !this.isRoot() && it.kind === 'el' && !n.erweiterung,
       hideIsExcl: isExcl,
       showDelAusp: !readOnly && !this.isRoot() && it.kind === 'ausp',
+      showDelErw: !readOnly && it.kind === 'el' && !!n.erweiterung,
       showDup:
         !readOnly &&
         !this.isRoot() &&
+        !n.erweiterung &&
         (it.kind === 'ausp' || (!n.synthetic && this.tree.isRepeatable(n))),
       dupTitle:
         it.kind === 'ausp'
@@ -366,6 +408,28 @@ export class TreeNode {
   protected onAddAusp(): void {
     const it = this.item();
     if (it.kind === 'el') this.state.addAusp(it.node.path);
+  }
+
+  /** Oeffnet den Erweiterungs-Dialog fuer ein neues Element unter diesem Knoten. */
+  protected onAddErweiterung(): void {
+    const it = this.item();
+    const parent = it.kind === 'el' ? it.node : this.tree.ctxNode(it.parentNode, it.ausp.id);
+    const namen = this.tree
+      .kinder(parent)
+      .filter((c) => !c.synthetic)
+      .map((c) => c.name);
+    this.erwDialog.oeffneNeu(this.path(), namen);
+  }
+
+  /** Loescht eine Schema-Erweiterung samt Unter-Profilierung. */
+  protected onDelErw(e: Event): void {
+    e.stopPropagation();
+    const n = this.node();
+    if (!n.erweiterung) return;
+    const i = n.path.lastIndexOf('/~');
+    if (i < 0) return;
+    if (confirm('Schema-Erweiterung „' + n.erweiterung.name + '" samt Unterelementen löschen?'))
+      this.state.removeErweiterung(n.path.slice(0, i), n.erweiterung.id);
   }
 
   /** Sprung zum festgelegten Verweisziel (wie refJump im Detailpanel). */

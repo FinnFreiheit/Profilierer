@@ -138,8 +138,41 @@ export class TreeService {
     }
   }
 
+  /**
+   * Synthetisiert die Erweiterungs-Knoten unter einem Elternknoten — frisch pro
+   * Aufruf, bewusst ohne Lazy-Cache: der Bestand liegt reaktiv im StateService
+   * und wuerde im `children`-Cache bei Add/Remove veralten.
+   */
+  erweiterungsKinder(parent: TreeNode): TreeNode[] {
+    const list = this.state.erweiterungenOf(parent.path);
+    if (!list?.length) return [];
+    return list.map((e) =>
+      this.makeNode({
+        name: e.name,
+        path: parent.path + '/~' + e.id,
+        parent,
+        depth: parent.depth + 1,
+        min: e.min,
+        max: e.max,
+        doc: e.beschreibung ?? '',
+        typeName: e.datentyp ?? null,
+        erweiterung: e,
+      }),
+    );
+  }
+
+  /** Alle Kinder eines Knotens: Schema-Kinder plus angehaengte Schema-Erweiterungen. */
+  kinder(n: TreeNode): TreeNode[] {
+    if (n.erweiterung) return this.erweiterungsKinder(n);
+    this.expandNode(n);
+    const erw = this.erweiterungsKinder(n);
+    return erw.length ? [...(n.children ?? []), ...erw] : (n.children ?? []);
+  }
+
   /** isLeaf (Z.527-541). */
   isLeaf(n: TreeNode): boolean {
+    if (n.erweiterung)
+      return !!n.erweiterung.datentyp && !this.state.erweiterungenOf(n.path)?.length;
     if (n.codelist) return true;
     if (n.children !== null) return n.children.length === 0;
     if (n.synthetic) return false;
@@ -196,14 +229,12 @@ export class TreeService {
       const ausps = this.state.auspsOf(n.path);
       if (ausps && ausps.length)
         return ausps.map((a) => ({ kind: 'ausp', parentNode: n, ausp: a, path: n.path + '@' + a.id }));
-      if (n.recursive || this.isLeaf(n)) return [];
-      this.expandNode(n);
-      return (n.children ?? []).map((c) => ({ kind: 'el', node: c }));
+      if (n.recursive) return [];
+      return this.kinder(n).map((c) => ({ kind: 'el', node: c }));
     }
     const cn = this.ctxNode(it.parentNode, it.ausp.id);
-    if (cn.recursive || this.isLeaf(cn)) return [];
-    this.expandNode(cn);
-    return (cn.children ?? []).map((c) => ({ kind: 'el', node: c }));
+    if (cn.recursive) return [];
+    return this.kinder(cn).map((c) => ({ kind: 'el', node: c }));
   }
 
   /**
@@ -287,11 +318,17 @@ export class TreeService {
   itemHasKids(it: TreeItem): boolean {
     if (it.kind === 'el') {
       const n = it.node;
+      // Container-Erweiterungen sind immer aufklappbar (darunter liegt die
+      // "+ Element"-Box — der einzige Weg, dort ein Kind anzulegen).
+      if (n.erweiterung)
+        return !n.erweiterung.datentyp || !!this.state.erweiterungenOf(n.path)?.length;
       const ausps = this.state.auspsOf(n.path);
       if (ausps && ausps.length) return true;
+      if (this.state.erweiterungenOf(n.path)?.length) return true;
       return !n.recursive && !this.isLeaf(n);
     }
     const cn = this.ctxNode(it.parentNode, it.ausp.id);
+    if (this.state.erweiterungenOf(cn.path)?.length) return true;
     return !cn.recursive && !this.isLeaf(cn);
   }
 }

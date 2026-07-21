@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { openDb } from './db.js';
 import { zaehleFortschritt, toEntry } from './fortschritt.js';
 
@@ -8,12 +11,17 @@ const docWith = (over = {}) => ({
   statuses: [],
   elemente: { a: { status: 's1' }, b: { status: 's1' }, c: {} },
   auspraegungen: { x: [{ id: '1', name: 'F' }, { id: '2', name: 'G' }] },
+  erweiterungen: { y: [{ id: 'x1', name: 'zusatz', min: '1', max: '1' }] },
   ...over,
 });
 
-test('zaehleFortschritt zaehlt Status-Elemente und Ausprägungen', () => {
-  assert.deepEqual(zaehleFortschritt(docWith()), { nStatus: 2, nAusp: 2 });
-  assert.deepEqual(zaehleFortschritt({ elemente: {}, auspraegungen: {} }), { nStatus: 0, nAusp: 0 });
+test('zaehleFortschritt zaehlt Status-Elemente, Ausprägungen und Erweiterungen', () => {
+  assert.deepEqual(zaehleFortschritt(docWith()), { nStatus: 2, nAusp: 2, nErw: 1 });
+  assert.deepEqual(zaehleFortschritt({ elemente: {}, auspraegungen: {} }), {
+    nStatus: 0,
+    nAusp: 0,
+    nErw: 0,
+  });
 });
 
 test('toEntry leitet die Index-Felder ab', () => {
@@ -23,6 +31,7 @@ test('toEntry leitet die Index-Felder ab', () => {
   assert.equal(e.nachricht, 'nachricht.x');
   assert.equal(e.nStatus, 2);
   assert.equal(e.nAusp, 2);
+  assert.equal(e.nErw, 1);
   assert.equal(e.aktualisiert, 42);
 });
 
@@ -34,11 +43,31 @@ test('create → list → load Roundtrip', () => {
   assert.equal(list.length, 1);
   assert.equal(list[0].id, id);
   assert.equal(list[0].name, 'P');
+  assert.equal(list[0].nErw, 1);
   // Liste enthält kein doc.
   assert.equal(list[0].doc, undefined);
   const doc = db.load(id);
   assert.deepEqual(doc.elemente, docWith().elemente);
+  assert.deepEqual(doc.erweiterungen, docWith().erweiterungen);
   db.close();
+});
+
+test('Migration: n_erw-Spalte wird an einer Alt-DB nachgezogen', () => {
+  // Alt-Schema ohne n_erw in einer Datei simulieren, dann erneut oeffnen —
+  // die PRAGMA-Migration laeuft in openDb.
+  const file = join(mkdtempSync(join(tmpdir(), 'xjp-test-')), 'profil.db');
+  const db = openDb(file);
+  db._db.exec('ALTER TABLE profiles DROP COLUMN n_erw');
+  const cols = db._db.prepare('PRAGMA table_info(profiles)').all().map((c) => c.name);
+  assert.ok(!cols.includes('n_erw'));
+  db.close();
+  const db2 = openDb(file);
+  const cols2 = db2._db.prepare('PRAGMA table_info(profiles)').all().map((c) => c.name);
+  assert.ok(cols2.includes('n_erw'));
+  // Profil ohne erweiterungen-Feld (Altbestand) zaehlt 0.
+  const { entry } = db2.create(docWith({ erweiterungen: undefined }));
+  assert.equal(entry.nErw, 0);
+  db2.close();
 });
 
 test('upsert aktualisiert Index-Spalten und Fortschritt', () => {

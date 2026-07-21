@@ -19,6 +19,23 @@ export interface Auspraegung {
 }
 
 /**
+ * Eine Schema-Erweiterung: ein benutzerdefiniertes Element, das im
+ * XJustiz-Schema (noch) nicht existiert und nachbeauftragt werden soll.
+ * Pfad-indiziert am Elternpfad; der eigene Pfad ist `elternPfad + '/~' + id`
+ * (die id, nicht der Name — Umbenennen verschiebt keine Profil-Eintraege).
+ */
+export interface Erweiterung {
+  id: string;
+  /** XML-Elementname (NCName). */
+  name: string;
+  beschreibung?: string;
+  min: string;
+  max: string;
+  /** xs:-Lokalname ohne Praefix oder Freitext; undefined = Container. */
+  datentyp?: string;
+}
+
+/**
  * Die Profilierung eines einzelnen Elements (pfad-indiziert). Alle Felder
  * optional; ein Eintrag ohne belegte Felder wird weggeraeumt (siehe pruneP,
  * Z.992-996).
@@ -58,6 +75,8 @@ export interface ProfileDoc {
   statuses: Status[];
   elemente: Record<string, ElementProfile>;
   auspraegungen: Record<string, Auspraegung[]>;
+  /** Schema-Erweiterungen, indiziert am Elternpfad. */
+  erweiterungen: Record<string, Erweiterung[]>;
 }
 
 /**
@@ -75,6 +94,8 @@ export interface LibraryEntry {
   nStatus: number;
   /** Fortschritt-Snapshot: Summe aller Auspraegungen. */
   nAusp: number;
+  /** Fortschritt-Snapshot: Summe aller Schema-Erweiterungen (alte Server-Zeilen: fehlt). */
+  nErw?: number;
   /** meta.gespeichert (fachliches Datum, YYYY-MM-DD). */
   gespeichert?: string;
   /** ms-Timestamp der letzten Schreibung (Sortierung im Dashboard). */

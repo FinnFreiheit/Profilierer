@@ -140,6 +140,19 @@ describe('ExcelExportService (NGem-Layout)', () => {
     expect(ws2.getCell(beschrZeile, colStatus).value).toBe('.');
   });
 
+  it('Schema-Erweiterungen erscheinen mit [Erweiterung]-Typ in der Struktur', async () => {
+    const id = state.addErweiterung(`${M2}/fachdaten`, {
+      name: 'zusatzAngabe', beschreibung: 'Nachbeauftragung', min: '0', max: '1', datentyp: 'string',
+    });
+    state.addErweiterung(`${M2}/fachdaten/~${id}`, { name: 'unterFeld', min: '1', max: '1' });
+    const wb = await exportiert();
+    const haupt = inhalt(wb, 'Notar an Gemeinde');
+    expect(haupt).toContain('zusatzAngabe');
+    expect(haupt).toContain('[Erweiterung] string');
+    expect(haupt).toContain('[Erweiterung] Container');
+    expect(haupt).toContain('Nachbeauftragung'); // Beschreibung als desc-Zeile
+  });
+
   it('Meta-Sheet enthaelt Metadaten und die Statuslegende', async () => {
     const wb = await exportiert();
     const meta = inhalt(wb, 'Szenario');

@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { StateService } from './state.service';
 import { BundledSchemaService } from './bundled-schema.service';
 import { XsdDoc } from '../../models/xsd-index.model';
+import { ValidierungsFehler } from '../../models/validation.model';
 import { parseTestmessage } from '../util/testmessage.util';
 
 /**
@@ -13,6 +14,8 @@ import { parseTestmessage } from '../util/testmessage.util';
 export interface XmlValidierung {
   status: 'valide' | 'invalide' | 'unpruefbar';
   fehler: string[];
+  /** Strukturierte Fehler (gleiche Reihenfolge wie `fehler`) — Grundlage der Baum-Markierung. */
+  fehlerDetails: ValidierungsFehler[];
 }
 
 interface SchemaDatei {
@@ -54,26 +57,20 @@ export class XmlValidationService {
   /** Instanz gegen das zur Nachricht passende Schema pruefen. */
   async validiere(xmlText: string): Promise<XmlValidierung> {
     const meta = parseTestmessage(xmlText);
-    if (!meta) return { status: 'invalide', fehler: ['Kein lesbares XJustiz-XML (Wurzelelement `nachricht.*` fehlt).'] };
+    if (!meta) return this.ohneZeile('invalide', ['Kein lesbares XJustiz-XML (Wurzelelement `nachricht.*` fehlt).']);
 
     const schemata = await this.schemataFuer(meta.nachricht, meta.xjustizVersion);
     if (!schemata) {
-      return {
-        status: 'unpruefbar',
-        fehler: [
-          `Kein passendes Schema für „${meta.nachricht}"` +
-            (meta.xjustizVersion ? ` (XJustiz ${meta.xjustizVersion})` : '') +
-            ' verfügbar — Validität nicht prüfbar.',
-        ],
-      };
+      return this.ohneZeile('unpruefbar', [
+        `Kein passendes Schema für „${meta.nachricht}"` +
+          (meta.xjustizVersion ? ` (XJustiz ${meta.xjustizVersion})` : '') +
+          ' verfügbar — Validität nicht prüfbar.',
+      ]);
     }
 
     const haupt = schemata.find((d) => d.contents.includes(`name="${meta.nachricht}"`));
     if (!haupt) {
-      return {
-        status: 'unpruefbar',
-        fehler: [`Die Nachricht „${meta.nachricht}" ist im verfügbaren Schema nicht deklariert.`],
-      };
+      return this.ohneZeile('unpruefbar', [`Die Nachricht „${meta.nachricht}" ist im verfügbaren Schema nicht deklariert.`]);
     }
 
     try {
@@ -85,14 +82,17 @@ export class XmlValidationService {
         initialMemoryPages: memoryPages.MiB * 64,
         maxMemoryPages: memoryPages.MiB * 512,
       });
-      if (ergebnis.valid) return { status: 'valide', fehler: [] };
-      return { status: 'invalide', fehler: ergebnis.errors.map((e) => this.lesbar(e)) };
+      if (ergebnis.valid) return { status: 'valide', fehler: [], fehlerDetails: [] };
+      const details = ergebnis.errors.map((e) => ({ text: this.lesbar(e), zeile: e.loc?.lineNumber }));
+      return { status: 'invalide', fehler: details.map((f) => f.text), fehlerDetails: details };
     } catch (e) {
-      return {
-        status: 'unpruefbar',
-        fehler: ['Validierung fehlgeschlagen: ' + (e instanceof Error ? e.message : String(e))],
-      };
+      return this.ohneZeile('unpruefbar', ['Validierung fehlgeschlagen: ' + (e instanceof Error ? e.message : String(e))]);
     }
+  }
+
+  /** Ergebnis aus reinen Meldungstexten (keine Fundstellen). */
+  private ohneZeile(status: XmlValidierung['status'], texte: string[]): XmlValidierung {
+    return { status, fehler: texte, fehlerDetails: texte.map((text) => ({ text })) };
   }
 
   /** libxml2-Meldung fuer die Anzeige aufbereiten (Zeile, Namespace-Klammern). */

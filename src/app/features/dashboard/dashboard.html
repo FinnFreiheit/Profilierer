@@ -31,6 +31,13 @@
             @if (e.xjustizVersion) {
               <span class="pill">XJustiz {{ e.xjustizVersion }}</span>
             }
+            @if (e.nErw) {
+              <span
+                class="pill pillExt"
+                title="Enthält nachzubeauftragende Elemente, die nicht im XJustiz-Schema stehen"
+                >{{ e.nErw }} Schema-Erweiterung{{ e.nErw === 1 ? '' : 'en' }}</span
+              >
+            }
             <span class="dcProg">{{ fortschritt(e) }}</span>
           </div>
           <div class="dcFoot">

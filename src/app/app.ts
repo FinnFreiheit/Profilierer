@@ -33,6 +33,7 @@ import { ValidationReportService } from './core/services/validation-report.servi
 import { LoggerService } from './core/services/logger.service';
 import { DownloadService } from './core/services/download.service';
 import { ValidationDialog } from './features/dialogs/validation-dialog';
+import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
 import { frageTestnachrichtName, parseTestmessage, testmessageInput } from './core/util/testmessage.util';
 
 @Component({
@@ -55,6 +56,7 @@ import { frageTestnachrichtName, parseTestmessage, testmessageInput } from './co
     Dashboard,
     Testdaten,
     ValidationDialog,
+    ErweiterungDialog,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',

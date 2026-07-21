@@ -46,6 +46,12 @@ describe('XmlValidationService', () => {
     expect(r.fehler[0]).toContain('falsch');
   });
 
+  it('liefert strukturierte Details mit Zeilennummer, deckungsgleich zur Fehlerliste', async () => {
+    const r = await service.validiere(INVALIDE);
+    expect(r.fehlerDetails.map((f) => f.text)).toEqual(r.fehler);
+    expect(r.fehlerDetails[0]!.zeile).toBe(2); // <falsch> steht in Zeile 2
+  });
+
   it('lehnt Nicht-XJustiz-XML als invalide ab', async () => {
     const r = await service.validiere('<foo/>');
     expect(r.status).toBe('invalide');
@@ -57,5 +63,6 @@ describe('XmlValidationService', () => {
     const r = await service.validiere(fremd);
     expect(r.status).toBe('unpruefbar');
     expect(r.fehler.length).toBe(1);
+    expect(r.fehlerDetails).toEqual([{ text: r.fehler[0]! }]); // ohne Fundstelle
   });
 });

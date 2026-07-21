@@ -20,6 +20,30 @@ export const WIRKUNGEN: ReadonlyArray<readonly [Wirkung, string]> = [
   ['markierung', 'nur Markierung'],
 ];
 
+/**
+ * Elementname einer Schema-Erweiterung: NCName ohne Doppelpunkt
+ * (Erweiterungen liegen im Default-Namespace der Nachricht).
+ */
+export const ERW_NAME_MUSTER = /^[A-Za-z_][A-Za-z0-9_.\-]*$/;
+
+/**
+ * Waehlbare xs:-Basistypen fuer Schema-Erweiterungen (Auswahl im Dialog;
+ * Teilmenge der in XsdParserService.valueKind bekannten Builtins).
+ */
+export const ERW_DATENTYPEN: ReadonlyArray<string> = [
+  'string',
+  'token',
+  'date',
+  'dateTime',
+  'time',
+  'boolean',
+  'integer',
+  'decimal',
+  'gYear',
+  'anyURI',
+  'base64Binary',
+];
+
 /** Standard-Statusstufen eines neuen Profils (Z.319-324). */
 export function defaultStatuses(): Status[] {
   return [
@@ -32,5 +56,5 @@ export function defaultStatuses(): Status[] {
 
 /** Ein frisches, leeres Profil (newProfile, Z.333). */
 export function newProfile(): ProfileDoc {
-  return { meta: {}, statuses: defaultStatuses(), elemente: {}, auspraegungen: {} };
+  return { meta: {}, statuses: defaultStatuses(), elemente: {}, auspraegungen: {}, erweiterungen: {} };
 }

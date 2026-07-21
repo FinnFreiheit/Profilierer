@@ -4,7 +4,7 @@ import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
 
 /** Ein minimales ProfileDoc fuer die Tests. */
 function doc(name = 'P'): ProfileDoc {
-  return { meta: { name }, statuses: [], elemente: {}, auspraegungen: {} };
+  return { meta: { name }, statuses: [], elemente: {}, auspraegungen: {}, erweiterungen: {} };
 }
 
 /** Ein LibraryEntry-Stub. */

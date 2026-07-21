@@ -1,0 +1,65 @@
+<dialog #dlg id="erwDlg" (close)="onClose()">
+  <h3 style="margin-top: 0">Schema-Erweiterung anlegen</h3>
+  <p class="erwHint">
+    Das Element existiert nicht im XJustiz-Schema und wird als Nachbeauftragung
+    festgehalten. Es wird überall als Erweiterung gekennzeichnet.
+  </p>
+  <div class="metaGrid">
+    <label>Elementname</label>
+    <input
+      type="text"
+      placeholder="z. B. zusatzAngabe"
+      [value]="eName()"
+      (input)="eName.set($any($event.target).value)"
+    />
+    <label>Beschreibung</label>
+    <textarea
+      placeholder="Fachliche Bedeutung / Begründung der Nachbeauftragung"
+      [value]="eBeschr()"
+      (input)="eBeschr.set($any($event.target).value)"
+    ></textarea>
+    <label>Kardinalität</label>
+    <div class="erwKard">
+      <input type="text" [value]="eMin()" (input)="eMin.set($any($event.target).value)" title="min" />
+      <span>..</span>
+      <input
+        type="text"
+        [value]="eMax()"
+        (input)="eMax.set($any($event.target).value)"
+        title="max — * oder unbounded für beliebig viele"
+      />
+    </div>
+    <label>Datentyp</label>
+    <div class="erwTyp">
+      <select [value]="eTypWahl()" (change)="eTypWahl.set($any($event.target).value)">
+        @for (t of datentypen; track t) {
+          <option [value]="t">xs:{{ t }}</option>
+        }
+        <option value="sonstig">Sonstiger…</option>
+        <option value="container">Container (enthält Unterelemente)</option>
+      </select>
+      @if (eTypWahl() === 'sonstig') {
+        <input
+          type="text"
+          placeholder="z. B. Code.GDS.Neu oder eigener Typ"
+          [value]="eTypFrei()"
+          (input)="eTypFrei.set($any($event.target).value)"
+        />
+      }
+    </div>
+  </div>
+  @if (nameProblem(); as np) {
+    @if (eName().trim()) {
+      <div class="erwProblem">{{ np }}</div>
+    }
+  } @else if (kollision()) {
+    <div class="erwWarn">
+      Hinweis: Unter diesem Element existiert bereits ein Kind mit diesem Namen — das erzeugt
+      mehrdeutiges XML.
+    </div>
+  }
+  <div style="text-align: right; margin-top: 12px">
+    <button (click)="abbrechen()">Abbrechen</button>
+    <button class="primary" [disabled]="nameProblem()" (click)="submit()">Anlegen</button>
+  </div>
+</dialog>

@@ -9,6 +9,7 @@ import { PersistenceService } from './persistence.service';
 import { BundledSchemaService } from './bundled-schema.service';
 import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
+import { XmlValidationService, XmlValidierung } from './xml-validation.service';
 import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
 import { TestmessageInput } from '../../models/testmessage.model';
 import { XsdDoc } from '../../models/xsd-index.model';
@@ -32,6 +33,7 @@ function fixtureDoc(nachricht: string): ProfileDoc {
     statuses: [],
     elemente: { [`${M}/az`]: { beispiel: '4711' } },
     auspraegungen: {},
+    erweiterungen: {},
   } as unknown as ProfileDoc;
 }
 
@@ -42,14 +44,18 @@ describe('TestmessageGenerationService', () => {
   let notizen: { id: string; notiz?: string }[];
   let flushed: number;
   let profilDoc: ProfileDoc;
+  /** Stub-Ergebnis der Schemavalidierung; Tests schalten um. */
+  let pruefung: XmlValidierung;
 
   beforeEach(() => {
     created = [];
     notizen = [];
     flushed = 0;
     profilDoc = fixtureDoc(M);
+    pruefung = { status: 'valide', fehler: [], fehlerDetails: [] };
     TestBed.configureTestingModule({
       providers: [
+        { provide: XmlValidationService, useValue: { validiere: async () => pruefung } },
         { provide: ProfileStoreService, useValue: { load: () => Promise.resolve(profilDoc) } },
         {
           provide: TestmessageStoreService,
@@ -135,5 +141,34 @@ describe('TestmessageGenerationService', () => {
   it('wirft, wenn das Profil keinen Nachrichtentyp hat', async () => {
     profilDoc = { ...fixtureDoc(M), meta: { name: 'ohne' } } as ProfileDoc;
     await expectAsync(svc.erzeugeAusProfil(ENTRY)).toBeRejectedWithError(/keinen Nachrichtentyp/);
+  });
+
+  it('nimmt Schema-Erweiterungen auf; nur Erweiterungs-Fehler machen keinen Entwurf', async () => {
+    profilDoc = {
+      ...fixtureDoc(M),
+      erweiterungen: {
+        [M]: [{ id: 'x1', name: 'zusatzAngabe', min: '1', max: '1', datentyp: 'string' }],
+      },
+    } as ProfileDoc;
+    pruefung = {
+      status: 'invalide',
+      fehler: ['nicht erwartet'],
+      fehlerDetails: [{ text: "Element 'zusatzAngabe': This element is not expected.", zeile: 6 }],
+    };
+    await svc.erzeugeAusProfil(ENTRY);
+    const c = created[0]!;
+    expect(c.xml).toContain('<zusatzAngabe>');
+    expect(c.entwurf).toBeFalse();
+    expect(notizen[0]!.notiz).toContain('Schema-Erweiterungen');
+  });
+
+  it('echte Fehler machen weiterhin einen Entwurf', async () => {
+    pruefung = {
+      status: 'invalide',
+      fehler: ['Zeile 5: kopf fehlt'],
+      fehlerDetails: [{ text: 'Zeile 5: kopf fehlt', zeile: 5 }],
+    };
+    await svc.erzeugeAusProfil(ENTRY);
+    expect(created[0]!.entwurf).toBeTrue();
   });
 });

@@ -2,6 +2,7 @@ import { Injectable, computed, signal } from '@angular/core';
 import {
   Auspraegung,
   ElementProfile,
+  Erweiterung,
   ProfileDoc,
   ProfileMeta,
   Status,
@@ -46,6 +47,7 @@ export class StateService {
   readonly statuses = signal<Status[]>(newProfile().statuses);
   readonly elemente = signal<Record<string, ElementProfile>>({});
   readonly auspraegungen = signal<Record<string, Auspraegung[]>>({});
+  readonly erweiterungen = signal<Record<string, Erweiterung[]>>({});
 
   // ── Ansicht / Bibliothek ────────────────────────────────────────────
   /** Dashboard (Bibliothek) vs. Baum-Editor vs. Testdaten-Speicher. Startseite ist das Dashboard. */
@@ -111,8 +113,21 @@ export class StateService {
   readonly diffAnc = signal<Map<string, DiffAnc> | null>(null);
   readonly idxB = signal<XsdIndex | null>(null);
 
+  // ── Schemavalidierung (Fehler-Markierung im Baum) ───────────────────
+  /** Voller Pfad (inkl. @auspId) → Fehlermeldungen des letzten Prueflaufs. */
+  readonly valFehler = signal<Map<string, string[]> | null>(null);
+  /** Vorfahren-Aggregat: voller Pfad → Anzahl Fehler im Teilbaum darunter. */
+  readonly valAnc = signal<Map<string, number> | null>(null);
+
+  clearValidierungsMarker(): void {
+    this.valFehler.set(null);
+    this.valAnc.set(null);
+  }
+
   /** Laufender Zaehler fuer Ausprägungs-IDs (wie AUSPN, Z.1016). */
   private auspN = 0;
+  /** Laufender Zaehler fuer Erweiterungs-IDs. */
+  private erwN = 0;
 
   // ── Abgeleitete Sichten ─────────────────────────────────────────────
 
@@ -131,13 +146,15 @@ export class StateService {
     statuses: this.statuses(),
     elemente: this.elemente(),
     auspraegungen: this.auspraegungen(),
+    erweiterungen: this.erweiterungen(),
   }));
 
   /** Fortschrittszaehler (updateFortschritt, Z.1453-1456). */
   readonly fortschritt = computed(() => {
     const nStatus = Object.values(this.elemente()).filter((p) => p.status).length;
     const nAusp = Object.values(this.auspraegungen()).reduce((s, l) => s + l.length, 0);
-    return { nStatus, nAusp };
+    const nErw = Object.values(this.erweiterungen()).reduce((s, l) => s + l.length, 0);
+    return { nStatus, nAusp, nErw };
   });
 
   // ── Status-Zugriff ──────────────────────────────────────────────────
@@ -315,6 +332,81 @@ export class StateService {
       return next;
     });
 
+    this.erweiterungen.update((m) => {
+      const next = { ...m };
+      for (const k of Object.keys(next)) {
+        if (k === prefix || k.startsWith(prefix + '/')) delete next[k];
+      }
+      return next;
+    });
+
+    const sel = this.selItem();
+    if (sel && itemPath(sel).startsWith(prefix)) this.selItem.set(null);
+
+    this.open.update((s) => {
+      const next = new Set(s);
+      for (const p of s) if (p.startsWith(prefix)) next.delete(p);
+      return next;
+    });
+  }
+
+  // ── Schema-Erweiterungen ────────────────────────────────────────────
+
+  erweiterungenOf(parentPath: string): Erweiterung[] | null {
+    return this.erweiterungen()[parentPath] ?? null;
+  }
+
+  /** Haengt eine Schema-Erweiterung unter `parentPath` an (Muster addAusp). */
+  addErweiterung(parentPath: string, daten: Omit<Erweiterung, 'id'>): string {
+    const id = 'x' + Date.now().toString(36) + ++this.erwN;
+    this.erweiterungen.update((m) => {
+      const list = m[parentPath] ? [...m[parentPath]!] : [];
+      list.push({ ...daten, id });
+      return { ...m, [parentPath]: list };
+    });
+    return id;
+  }
+
+  updateErweiterung(parentPath: string, id: string, patch: Partial<Omit<Erweiterung, 'id'>>): void {
+    this.erweiterungen.update((m) => {
+      const list = m[parentPath];
+      if (!list) return m;
+      return { ...m, [parentPath]: list.map((e) => (e.id === id ? { ...e, ...patch } : e)) };
+    });
+  }
+
+  /**
+   * Entfernt eine Schema-Erweiterung und kaskadierend alle Profil-Eintraege,
+   * Auspraegungen und Unter-Erweiterungen darunter (Muster removeAusp).
+   */
+  removeErweiterung(parentPath: string, id: string): void {
+    const list = this.erweiterungen()[parentPath];
+    if (!list?.some((e) => e.id === id)) return;
+    const prefix = parentPath + '/~' + id;
+    const betroffen = (k: string): boolean =>
+      k === prefix || k.startsWith(prefix + '/') || k.startsWith(prefix + '@');
+
+    this.erweiterungen.update((m) => {
+      const next = { ...m };
+      const rest = (next[parentPath] ?? []).filter((e) => e.id !== id);
+      if (rest.length) next[parentPath] = rest;
+      else delete next[parentPath];
+      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
+      return next;
+    });
+
+    this.elemente.update((m) => {
+      const next = { ...m };
+      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
+      return next;
+    });
+
+    this.auspraegungen.update((m) => {
+      const next = { ...m };
+      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
+      return next;
+    });
+
     const sel = this.selItem();
     if (sel && itemPath(sel).startsWith(prefix)) this.selItem.set(null);
 
@@ -377,10 +469,15 @@ export class StateService {
 
   /** Setzt das Profil komplett neu (loadProfile). */
   loadProfile(doc: ProfileDoc): void {
+    // Validierungsmarker beziehen sich auf den letzten Prueflauf des vorherigen
+    // Profils/Baums — jeder Profil-Einstieg (auch loadMessage → resetProfile,
+    // fortsetzen, restore nach transienter Generierung) raeumt sie.
+    this.clearValidierungsMarker();
     this.meta.set(doc.meta ?? {});
     this.statuses.set(doc.statuses ?? newProfile().statuses);
     this.elemente.set(doc.elemente ?? {});
     this.auspraegungen.set(doc.auspraegungen ?? {});
+    this.erweiterungen.set(doc.erweiterungen ?? {});
     this.selItem.set(null);
     this.open.set(new Set());
     // Jeder Profil-Einstieg ist editierbar und zeigt den vollen Standard; der
@@ -451,6 +548,20 @@ export class StateService {
       }
       return next;
     });
+    // Erweiterungen sind am Elternpfad indiziert: direkt unter der Basis
+    // liegende Erweiterungen stehen am Basis-Pfad selbst (ohne '/').
+    const fromBase = fromPrefix.replace(/\/$/, '');
+    const toBase = toPrefix.replace(/\/$/, '');
+    this.erweiterungen.update((m) => {
+      const next = { ...m };
+      for (const k of Object.keys(next)) {
+        if (k === fromBase || k.startsWith(fromPrefix)) {
+          next[toBase + k.slice(fromBase.length)] = next[k]!;
+          delete next[k];
+        }
+      }
+      return next;
+    });
   }
 
   private copySubProfile(fromPrefix: string, toPrefix: string): void {
@@ -468,6 +579,18 @@ export class StateService {
       for (const [k, v] of Object.entries(m)) {
         if (k.startsWith(fromPrefix)) {
           next[toPrefix + k.slice(fromPrefix.length)] = v.map((a) => ({ ...a }));
+        }
+      }
+      return next;
+    });
+    // Wie in moveSubProfile: Erweiterungen an der Basis selbst mitnehmen.
+    const fromBase = fromPrefix.replace(/\/$/, '');
+    const toBase = toPrefix.replace(/\/$/, '');
+    this.erweiterungen.update((m) => {
+      const next = { ...m };
+      for (const [k, v] of Object.entries(m)) {
+        if (k === fromBase || k.startsWith(fromPrefix)) {
+          next[toBase + k.slice(fromBase.length)] = v.map((e) => ({ ...e }));
         }
       }
       return next;

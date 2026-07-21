@@ -53,7 +53,7 @@ describe('ExportService (Schematron)', () => {
 
   beforeEach(() => {
     downloaded = [];
-    pruefung = { status: 'valide', fehler: [] };
+    pruefung = { status: 'valide', fehler: [], fehlerDetails: [] };
     TestBed.configureTestingModule({
       providers: [
         {
@@ -162,12 +162,84 @@ describe('ExportService (Schematron)', () => {
     });
 
     it('genBeispielXml blockiert invalide Nachrichten mit Bericht (Export-Tor)', async () => {
-      pruefung = { status: 'invalide', fehler: ['Zeile 3: kopf fehlt'] };
+      pruefung = {
+        status: 'invalide',
+        fehler: ['Zeile 3: kopf fehlt'],
+        fehlerDetails: [{ text: 'Zeile 3: kopf fehlt', zeile: 3 }],
+      };
       await svc.genBeispielXml();
       expect(downloaded.length).toBe(0);
       const report = TestBed.inject(ValidationReportService);
       expect(report.offen()).toBeTrue();
-      expect(report.fehler()).toEqual(['Zeile 3: kopf fehlt']);
+      expect(report.eintraege().map((e) => e.text)).toEqual(['Zeile 3: kopf fehlt']);
+    });
+
+    it('genBeispielXml markiert Fehler im Baum und macht Eintraege klickbar', async () => {
+      // Zeile 5 ist das kopf-Blatt (1 Deklaration + 2 Praeambel + Root-Open).
+      pruefung = {
+        status: 'invalide',
+        fehler: ['Zeile 5: kopf falsch belegt'],
+        fehlerDetails: [{ text: 'Zeile 5: kopf falsch belegt', zeile: 5 }],
+      };
+      await svc.genBeispielXml();
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.eintraege()[0]!.pfad).toBe(`${M}/kopf`);
+      expect(state.valFehler()?.get(`${M}/kopf`)).toEqual(['Zeile 5: kopf falsch belegt']);
+      expect(state.valAnc()?.get(M)).toBe(1);
+    });
+
+    it('ein valider Lauf raeumt die Marker des vorherigen Laufs', async () => {
+      state.valFehler.set(new Map([[`${M}/kopf`, ['alt']]]));
+      state.valAnc.set(new Map([[M, 1]]));
+      await svc.genBeispielXml();
+      expect(state.valFehler()).toBeNull();
+      expect(state.valAnc()).toBeNull();
+    });
+  });
+
+  describe('Zeile→Pfad-Karte (buildBeispielXmlMitPfaden)', () => {
+    it('liefert dasselbe XML wie buildBeispielXml (beide Modi)', () => {
+      expect(svc.buildBeispielXmlMitPfaden()!.xml).toBe(svc.buildBeispielXml()!);
+      expect(svc.buildBeispielXmlMitPfaden({ instanz: true })!.xml).toBe(
+        svc.buildBeispielXml({ instanz: true })!,
+      );
+    });
+
+    it('mappt Element-Zeilen auf Baumpfade; Deklaration und Praeambel bleiben ohne Eintrag', () => {
+      const res = svc.buildBeispielXmlMitPfaden()!;
+      const zeilen = res.xml.split('\n');
+      const nr = (frag: string): number => zeilen.findIndex((l) => l.includes(frag)) + 1;
+      expect(res.zeilenPfade.get(1)).toBeUndefined(); // XML-Deklaration
+      expect(res.zeilenPfade.get(2)).toBeUndefined(); // Praeambel-Kommentar
+      expect(res.zeilenPfade.get(nr(`<${M}`))).toBe(M);
+      expect(res.zeilenPfade.get(nr('<kopf>'))).toBe(`${M}/kopf`);
+      expect(res.zeilenPfade.get(nr(`</${M}>`))).toBe(M);
+    });
+
+    it('Instanz-Modus ohne Praeambel: Root-Open ist Zeile 2', () => {
+      const res = svc.buildBeispielXmlMitPfaden({ instanz: true })!;
+      expect(res.zeilenPfade.get(2)).toBe(M);
+    });
+
+    it('Codelisten-Blatt: alle drei Zeilen tragen den Blattpfad', () => {
+      state.setElementProfile(`${M}/farbe`, { status: 's1' });
+      const res = svc.buildBeispielXmlMitPfaden()!;
+      const zeilen = res.xml.split('\n');
+      const start = zeilen.findIndex((l) => l.includes('<farbe')) + 1;
+      expect(res.zeilenPfade.get(start)).toBe(`${M}/farbe`);
+      expect(res.zeilenPfade.get(start + 1)).toBe(`${M}/farbe`); // <code xmlns="">
+      expect(res.zeilenPfade.get(start + 2)).toBe(`${M}/farbe`); // </farbe>
+    });
+
+    it('Auspraegungen: die Zeile traegt den Kontextpfad mit @auspId', () => {
+      state.addAusp(`${M}/az`);
+      const auspId = state.auspsOf(`${M}/az`)![0]!.id;
+      const res = svc.buildBeispielXmlMitPfaden()!;
+      const zeilen = res.xml.split('\n');
+      const nr = zeilen.findIndex((l) => l.includes('<az>')) + 1;
+      expect(res.zeilenPfade.get(nr)).toBe(`${M}/az@${auspId}`);
+      // Der Auspraegungs-Kommentar davor bleibt ohne Eintrag.
+      expect(res.zeilenPfade.get(nr - 1)).toBeUndefined();
     });
   });
 
@@ -211,6 +283,80 @@ describe('ExportService (Schematron)', () => {
       const xml = svc.buildBeispielXml()!;
       expect(xml).toContain('<kopf>Beispieltext</kopf>');
       expect(xml).toContain('<email>');
+    });
+  });
+
+  // ── Schema-Erweiterungen (US Schema-Erweiterung) ──────────────────────
+
+  describe('Schema-Erweiterungen', () => {
+    it('Beispiel-XML enthaelt Erweiterungen immer — auch min=0 ohne Beispielwert, verschachtelt', () => {
+      const id = state.addErweiterung(M, { name: 'zusatzBlock', min: '0', max: '1' });
+      state.addErweiterung(`${M}/~${id}`, { name: 'zusatzFeld', min: '0', max: '1', datentyp: 'string' });
+      const res = svc.buildBeispielXmlMitPfaden()!;
+      expect(res.xml).toContain('<zusatzBlock>');
+      expect(res.xml).toMatch(/<zusatzFeld>.+<\/zusatzFeld>/); // typkonformer Platzhalter
+      // Die Zeile→Pfad-Karte traegt den /~-Pfad der Erweiterung.
+      const zeile = res.xml.split('\n').findIndex((l) => l.includes('<zusatzBlock>')) + 1;
+      expect(res.zeilenPfade.get(zeile)).toBe(`${M}/~${id}`);
+    });
+
+    it('Schematron: dokumentierender Kommentar statt Assert', () => {
+      const id = state.addErweiterung(M, {
+        name: 'zusatzAngabe', beschreibung: 'Nachtrag', min: '1', max: '1', datentyp: 'string',
+      });
+      state.setElementProfile(`${M}/~${id}`, { status: 's1' });
+      svc.exportSchematron();
+      expect(sch()).toContain('Schema-Erweiterung (nachzubeauftragen)');
+      expect(sch()).toContain('Nachtrag');
+      expect(sch()).not.toContain('xj:zusatzAngabe');
+    });
+
+    it('buildPrintRows kennzeichnet Erweiterungs-Zeilen', () => {
+      state.addErweiterung(M, { name: 'zusatzAngabe', min: '1', max: '1', datentyp: 'string' });
+      const rows = svc.buildPrintRows();
+      expect(rows.find((x) => x.tech === 'zusatzAngabe')!.erweiterung).toBeTrue();
+      expect(rows.find((x) => x.tech === 'kopf')!.erweiterung).toBeFalse();
+    });
+
+    it('genBeispielXml exportiert trotz invalide, wenn nur Erweiterungs-Fehler vorliegen', async () => {
+      state.addErweiterung(M, { name: 'zusatzAngabe', min: '1', max: '1', datentyp: 'string' });
+      const res = svc.buildBeispielXmlMitPfaden()!;
+      const zeile = res.xml.split('\n').findIndex((l) => l.includes('<zusatzAngabe>')) + 1;
+      pruefung = {
+        status: 'invalide',
+        fehler: ['nicht erwartet'],
+        fehlerDetails: [{ text: "Element 'zusatzAngabe': This element is not expected.", zeile }],
+      };
+      await svc.genBeispielXml();
+      expect(downloaded.length).toBe(1);
+      expect(TestBed.inject(ValidationReportService).offen()).toBeFalse();
+      // Keine roten Baum-Marker fuer erwartete Abweichungen.
+      expect(state.valFehler()).toBeNull();
+    });
+
+    it('genBeispielXml blockiert weiterhin bei gemischten Fehlern — mit Kennzeichnung', async () => {
+      state.addErweiterung(M, { name: 'zusatzAngabe', min: '1', max: '1', datentyp: 'string' });
+      const res = svc.buildBeispielXmlMitPfaden()!;
+      const zeilen = res.xml.split('\n');
+      const zErw = zeilen.findIndex((l) => l.includes('<zusatzAngabe>')) + 1;
+      const zKopf = zeilen.findIndex((l) => l.includes('<kopf>')) + 1;
+      pruefung = {
+        status: 'invalide',
+        fehler: ['erw', 'echt'],
+        fehlerDetails: [
+          { text: "Element 'zusatzAngabe': This element is not expected.", zeile: zErw },
+          { text: 'Zeile: kopf falsch belegt', zeile: zKopf },
+        ],
+      };
+      await svc.genBeispielXml();
+      expect(downloaded.length).toBe(0);
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.offen()).toBeTrue();
+      expect(report.eintraege()[0]!.erweiterung).toBeTrue();
+      expect(report.eintraege()[1]!.erweiterung).toBeUndefined();
+      // Nur der echte Fehler markiert den Baum.
+      expect(state.valFehler()?.has(`${M}/kopf`)).toBeTrue();
+      expect([...state.valFehler()!.keys()].some((p) => p.includes('/~'))).toBeFalse();
     });
   });
 });

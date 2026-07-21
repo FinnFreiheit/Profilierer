@@ -56,9 +56,15 @@ export function openDb(path) {
     if (!cols.has('entscheidungen')) db.exec('ALTER TABLE testmessages ADD COLUMN entscheidungen TEXT');
   }
 
+  // Migration: Index-Spalte fuer Schema-Erweiterungen (Dashboard-Badge) nachziehen.
+  {
+    const cols = new Set(db.prepare('PRAGMA table_info(profiles)').all().map((c) => c.name));
+    if (!cols.has('n_erw')) db.exec('ALTER TABLE profiles ADD COLUMN n_erw INTEGER');
+  }
+
   const stmt = {
     list: db.prepare(
-      `SELECT id, name, nachricht, xjustiz_version, n_status, n_ausp, gespeichert, aktualisiert
+      `SELECT id, name, nachricht, xjustiz_version, n_status, n_ausp, n_erw, gespeichert, aktualisiert
        FROM profiles ORDER BY aktualisiert DESC`,
     ),
     getDoc: db.prepare('SELECT doc FROM profiles WHERE id = ?'),
@@ -67,13 +73,13 @@ export function openDb(path) {
     del: db.prepare('DELETE FROM profiles WHERE id = ?'),
     upsert: db.prepare(
       `INSERT INTO profiles
-         (id, doc, name, nachricht, xjustiz_version, n_status, n_ausp, gespeichert, aktualisiert)
+         (id, doc, name, nachricht, xjustiz_version, n_status, n_ausp, n_erw, gespeichert, aktualisiert)
        VALUES
-         (@id, @doc, @name, @nachricht, @xjustizVersion, @nStatus, @nAusp, @gespeichert, @aktualisiert)
+         (@id, @doc, @name, @nachricht, @xjustizVersion, @nStatus, @nAusp, @nErw, @gespeichert, @aktualisiert)
        ON CONFLICT(id) DO UPDATE SET
          doc = excluded.doc, name = excluded.name, nachricht = excluded.nachricht,
          xjustiz_version = excluded.xjustiz_version, n_status = excluded.n_status,
-         n_ausp = excluded.n_ausp, gespeichert = excluded.gespeichert,
+         n_ausp = excluded.n_ausp, n_erw = excluded.n_erw, gespeichert = excluded.gespeichert,
          aktualisiert = excluded.aktualisiert`,
     ),
 
@@ -147,6 +153,7 @@ export function openDb(path) {
       xjustizVersion: entry.xjustizVersion ?? null,
       nStatus: entry.nStatus,
       nAusp: entry.nAusp,
+      nErw: entry.nErw,
       gespeichert: entry.gespeichert ?? null,
       aktualisiert: ts,
     });
@@ -165,6 +172,7 @@ export function openDb(path) {
         xjustizVersion: r.xjustiz_version ?? undefined,
         nStatus: r.n_status,
         nAusp: r.n_ausp,
+        nErw: r.n_erw ?? undefined,
         gespeichert: r.gespeichert ?? undefined,
         aktualisiert: r.aktualisiert,
       }));

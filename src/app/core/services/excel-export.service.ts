@@ -84,8 +84,7 @@ export class ExcelExportService {
       belegt.add(name.toLowerCase());
       return name;
     };
-    this.tree.expandNode(root);
-    const kinder = root.children ?? [];
+    const kinder = this.tree.kinder(root);
     const gdsKinder = kinder.filter((c) => !c.synthetic && c.typeName?.startsWith('Type.GDS.'));
 
     // Hauptsheet: Nachricht mit kollabierten GDS-Kindern.
@@ -98,9 +97,8 @@ export class ExcelExportService {
 
     // Je ein Typ-Sheet pro GDS-Kind (voll ausgeklappt).
     for (const g of gdsKinder) {
-      this.tree.expandNode(g);
       const zeilen: ExcelZeile[] = [];
-      this.sammleZeilen(g.children ?? [], 0, zeilen);
+      this.sammleZeilen(this.tree.kinder(g), 0, zeilen);
       this.schreibeStrukturSheet(wb, sheetName(g.typeName!), g.typeName!, zeilen);
     }
 
@@ -138,8 +136,11 @@ export class ExcelExportService {
       const status = this.statusText(n.path, p);
       zeilen.push({
         art: 'el', tiefe, text: n.name,
-        // Auch echte Elemente mit choice-Inhalt (auswahl_*) als [choice] markieren.
-        typ: n.synthetic ? `[${n.model}]` : n.typeName || (n.model === 'choice' ? '[choice]' : ''),
+        // Auch echte Elemente mit choice-Inhalt (auswahl_*) als [choice] markieren;
+        // Schema-Erweiterungen deutlich kennzeichnen.
+        typ: n.erweiterung
+          ? '[Erweiterung] ' + (n.typeName || 'Container')
+          : n.synthetic ? `[${n.model}]` : n.typeName || (n.model === 'choice' ? '[choice]' : ''),
         anzahl: kurzKard(n.min, n.max) + (k.changed ? '\n' + kurzKard(k.min, k.max) : ''),
         status, testdaten: p.beispiel || '',
       });
@@ -155,17 +156,11 @@ export class ExcelExportService {
             typ: n.typeName || '', anzahl: kurzKard(ap.min || '1', ap.max || '1'),
             status: this.statusText(cn.path, ap), testdaten: ap.beispiel || '',
           });
-          if (!this.tree.isLeaf(cn)) {
-            this.tree.expandNode(cn);
-            this.sammleZeilen(cn.children ?? [], tiefe + 2, zeilen, undefined, maxTiefe);
-          }
+          this.sammleZeilen(this.tree.kinder(cn), tiefe + 2, zeilen, undefined, maxTiefe);
         }
         continue;
       }
-      if (!this.tree.isLeaf(n)) {
-        this.tree.expandNode(n);
-        this.sammleZeilen(n.children ?? [], tiefe + 1, zeilen, undefined, maxTiefe);
-      }
+      this.sammleZeilen(this.tree.kinder(n), tiefe + 1, zeilen, undefined, maxTiefe);
     }
   }
 

@@ -1,4 +1,4 @@
-import { Auspraegung } from './profile.model';
+import { Auspraegung, Erweiterung } from './profile.model';
 import { CodelistInfo } from './codelist.model';
 
 /** Strukturmodell des XSD-Partikels (sequence/choice/all). */
@@ -31,6 +31,8 @@ export interface TreeNode {
   codelist: CodelistInfo | null;
   typeStack: string[];
   inChoice: boolean;
+  /** Gesetzt bei synthetisierten Knoten einer Schema-Erweiterung. */
+  erweiterung?: Erweiterung;
 }
 
 /**
@@ -45,4 +47,12 @@ export type TreeItem =
 /** Der Pfad-String eines Items (Z.1039). */
 export function itemPath(it: TreeItem): string {
   return it.kind === 'el' ? it.node.path : it.path;
+}
+
+/**
+ * Liegt der Pfad in (oder unter) einer Schema-Erweiterung? `~` ist kein
+ * NCName-Zeichen und kann daher nicht mit Schema-Elementnamen kollidieren.
+ */
+export function istErweiterungsPfad(pfad: string): boolean {
+  return pfad.includes('/~');
 }

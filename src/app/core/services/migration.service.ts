@@ -98,6 +98,7 @@ export class MigrationService {
       statuses: d.statuses ?? defaultStatuses(),
       elemente: d.elemente ?? {},
       auspraegungen: d.auspraegungen ?? {},
+      erweiterungen: d.erweiterungen ?? {},
     };
   }
 
@@ -119,6 +120,7 @@ export class MigrationService {
       statuses: a.statuses || defaultStatuses(),
       elemente: a.elemente || {},
       auspraegungen: a.auspraegungen || {},
+      erweiterungen: a.erweiterungen || {},
     };
     const id =
       typeof crypto !== 'undefined' && crypto.randomUUID

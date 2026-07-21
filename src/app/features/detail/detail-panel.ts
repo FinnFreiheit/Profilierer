@@ -6,8 +6,10 @@ import { NavService } from '../../core/services/nav.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { CodelistService } from '../../core/services/codelist.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ErweiterungDialogService } from '../../core/services/erweiterung-dialog.service';
 import { itemPath } from '../../models/node.model';
 import { fmtKard, kardText, pretty } from '../../core/util/pretty.util';
+import { ERW_DATENTYPEN, ERW_NAME_MUSTER } from '../../core/profile-defaults';
 import { REF_LABELS, refKindOf } from '../../core/refs';
 
 /**
@@ -27,8 +29,12 @@ export class DetailPanel {
   private readonly guided = inject(GuidedService);
   private readonly codelistSvc = inject(CodelistService);
   private readonly toast = inject(ToastService);
+  private readonly erwDialog = inject(ErweiterungDialogService);
 
   protected readonly clFilter = signal('');
+  protected readonly erwDatentypen = ERW_DATENTYPEN;
+  /** Pfad, fuer den im Datentyp-Select "Sonstiger…" gewaehlt wurde (noch ohne Freitext). */
+  private readonly erwSonstig = signal<string | null>(null);
 
   /** Betrachtungsmodus: Editier-Controls werden im Template ausgeblendet. */
   protected readonly ro = this.state.readOnly;
@@ -133,12 +139,37 @@ export class DetailPanel {
       ref = { label: REF_LABELS[rk] || rk, options, cur, curLabel };
     }
 
+    // Schema-Erweiterung: Eigenschaften direkt editierbar (US Schema-Erweiterung).
+    const e = !isAusp ? it.node.erweiterung ?? null : null;
+    const erw = e
+      ? {
+          name: e.name,
+          beschreibung: e.beschreibung ?? '',
+          min: e.min,
+          max: e.max,
+          typWahl:
+            this.erwSonstig() === path
+              ? 'sonstig'
+              : !e.datentyp
+                ? 'container'
+                : ERW_DATENTYPEN.includes(e.datentyp)
+                  ? e.datentyp
+                  : 'sonstig',
+          typFrei: e.datentyp && !ERW_DATENTYPEN.includes(e.datentyp) ? e.datentyp : '',
+          container: !e.datentyp,
+        }
+      : null;
+
     return {
       isAusp,
+      erw,
+      istErweiterung: !!n.erweiterung,
       auspName: isAusp ? it.ausp.name : '',
       parentName: n.name,
       title: pretty(n.name),
-      sub: n.name + (n.typeName ? ' : ' + n.typeName : '') + ' · Standard: ' + kardText(n.min, n.max),
+      sub: n.erweiterung
+        ? n.name + (n.typeName ? ' : ' + n.typeName : ' (Container)') + ' · Schema-Erweiterung'
+        : n.name + (n.typeName ? ' : ' + n.typeName : '') + ' · Standard: ' + kardText(n.min, n.max),
       subKard: fmtKard(n.min, n.max),
       doc: !isAusp ? n.doc : '',
       statusButtons,
@@ -360,6 +391,79 @@ export class DetailPanel {
 
   protected onClFilter(e: Event): void {
     this.clFilter.set((e.target as HTMLInputElement).value);
+  }
+
+  // ── Schema-Erweiterung ──────────────────────────────────────────────
+
+  /** Elternpfad + id der ausgewaehlten Erweiterung (null, wenn keine gewaehlt). */
+  private erwKontext(): { parentPath: string; id: string } | null {
+    const it = this.state.selItem();
+    if (!it || it.kind !== 'el' || !it.node.erweiterung) return null;
+    const i = it.node.path.lastIndexOf('/~');
+    if (i < 0) return null;
+    return { parentPath: it.node.path.slice(0, i), id: it.node.erweiterung.id };
+  }
+
+  protected setErwField(key: 'name' | 'beschreibung' | 'min' | 'max', e: Event): void {
+    const ctx = this.erwKontext();
+    if (!ctx) return;
+    const v = (e.target as HTMLInputElement | HTMLTextAreaElement).value.trim();
+    if (key === 'name') {
+      if (!ERW_NAME_MUSTER.test(v)) {
+        this.toast.show('Kein gültiger XML-Elementname — Änderung nicht übernommen.');
+        return;
+      }
+      this.state.updateErweiterung(ctx.parentPath, ctx.id, { name: v });
+      return;
+    }
+    if (key === 'min' || key === 'max') {
+      const wert = key === 'max' && v === '*' ? 'unbounded' : v || '1';
+      this.state.updateErweiterung(ctx.parentPath, ctx.id, { [key]: wert });
+      return;
+    }
+    this.state.updateErweiterung(ctx.parentPath, ctx.id, { beschreibung: v || undefined });
+  }
+
+  protected onErwTypWahl(e: Event): void {
+    const ctx = this.erwKontext();
+    if (!ctx) return;
+    const wahl = (e.target as HTMLSelectElement).value;
+    if (wahl === 'sonstig') {
+      // Erst mit dem Freitext wird der Typ gesetzt; bis dahin nur Anzeige-Zustand.
+      this.erwSonstig.set(this.path());
+      return;
+    }
+    this.erwSonstig.set(null);
+    this.state.updateErweiterung(ctx.parentPath, ctx.id, {
+      datentyp: wahl === 'container' ? undefined : wahl,
+    });
+  }
+
+  protected onErwTypFrei(e: Event): void {
+    const ctx = this.erwKontext();
+    if (!ctx) return;
+    const v = (e.target as HTMLInputElement).value.trim();
+    if (v) this.erwSonstig.set(null);
+    this.state.updateErweiterung(ctx.parentPath, ctx.id, { datentyp: v || undefined });
+  }
+
+  /** "+ Unterelement": Erweiterungs-Dialog fuer ein Kind der aktuellen Erweiterung. */
+  protected addErwUnter(): void {
+    const it = this.state.selItem();
+    if (!it || it.kind !== 'el') return;
+    const namen = this.tree
+      .kinder(it.node)
+      .filter((c) => !c.synthetic)
+      .map((c) => c.name);
+    this.erwDialog.oeffneNeu(it.node.path, namen);
+  }
+
+  protected delErw(): void {
+    const ctx = this.erwKontext();
+    const it = this.state.selItem();
+    if (!ctx || !it || it.kind !== 'el' || !it.node.erweiterung) return;
+    if (confirm('Schema-Erweiterung „' + it.node.erweiterung.name + '" samt Unterelementen löschen?'))
+      this.state.removeErweiterung(ctx.parentPath, ctx.id);
   }
 
   protected setRefZiel(e: Event): void {

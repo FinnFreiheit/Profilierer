@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { TreeNode } from '../../models/node.model';
+import { TreeNode, istErweiterungsPfad } from '../../models/node.model';
 import { Auspraegung } from '../../models/profile.model';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
@@ -10,6 +10,7 @@ import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
 import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
+import { ValidationMarkerService } from './validation-marker.service';
 import { esc, kid, kids, local, XJNS } from '../util/xml.util';
 import { kardText, pretty } from '../util/pretty.util';
 
@@ -22,8 +23,20 @@ interface WalkItem {
   segs: string[];
 }
 
+export interface BeispielXmlErgebnis {
+  xml: string;
+  /**
+   * Zeilennummer (1-basiert, identisch zur libxml2-Zaehlung des serialisierten
+   * XML) → voller Baumpfad (inkl. @auspId) des emittierten Knotens. Grundlage
+   * fuer die Fehler-Markierung im Baum (ValidationMarkerService).
+   */
+  zeilenPfade: ReadonlyMap<number, string>;
+}
+
 export interface PrintRow {
   excl: boolean;
+  /** Schema-Erweiterung (nachzubeauftragendes Element). */
+  erweiterung: boolean;
   indent: number;
   name: string;
   tech: string;
@@ -52,6 +65,7 @@ export class ExportService {
   private readonly toast = inject(ToastService);
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
+  private readonly marker = inject(ValidationMarkerService);
 
   /**
    * Weiche Vollstaendigkeit (gefuehrter Modus): bei offenen Entscheidungen vor
@@ -83,17 +97,11 @@ export class ExportService {
         for (const a of ausps) {
           const cn = this.tree.ctxNode(n, a.id);
           cb({ kind: 'ausp', path: cn.path, node: n, ausp: a, depth: depth + 1, segs: mySegs });
-          if (!this.tree.isLeaf(cn)) {
-            this.tree.expandNode(cn);
-            for (const c of cn.children ?? []) rec(c, depth + 2, mySegs);
-          }
+          for (const c of this.tree.kinder(cn)) rec(c, depth + 2, mySegs);
         }
         return;
       }
-      if (!this.tree.isLeaf(n)) {
-        this.tree.expandNode(n);
-        for (const c of n.children ?? []) rec(c, depth + 1, mySegs);
-      }
+      for (const c of this.tree.kinder(n)) rec(c, depth + 1, mySegs);
     };
     rec(root, 0, []);
   }
@@ -121,6 +129,19 @@ export class ExportService {
     this.walkFull((x) => {
       if (x.node === this.state.root()) return;
       if (this.state.inheritedExcluded(x.path)) return;
+      // Schema-Erweiterungen: keine Asserts (XPaths gegen das offizielle Schema
+      // wuerden jede real valide Nachricht scheitern lassen) — stattdessen ein
+      // dokumentierender Kommentar je Erweiterung; alles darunter ueberspringen.
+      if (istErweiterungsPfad(x.path)) {
+        if (x.kind === 'el' && x.node.erweiterung) {
+          const e = x.node.erweiterung;
+          addComment(
+            xpath(x.segs.slice(0, -1)),
+            `Schema-Erweiterung (nachzubeauftragen): "${x.segs.slice(1).join('/')}" — Kardinalität ${e.min}..${e.max === 'unbounded' ? '*' : e.max}${e.datentyp ? ', Typ ' + e.datentyp : ', Container'}${e.beschreibung ? ' — ' + e.beschreibung : ''}`,
+          );
+        }
+        return;
+      }
       const p = this.state.elemente()[x.path];
       if (x.kind === 'ausp') {
         const st = this.state.statusOf(x.path);
@@ -210,14 +231,25 @@ export class ExportService {
    */
   async genBeispielXml(): Promise<void> {
     if (!this.bestaetigeOffeneEntscheidungen()) return;
-    const xml = this.buildBeispielXml();
-    if (xml == null) return;
-    const pruefung = await this.validator.validiere(xml);
+    const res = this.buildBeispielXmlMitPfaden();
+    if (res == null) return;
+    const pruefung = await this.validator.validiere(res.xml);
     if (pruefung.status !== 'valide') {
-      this.report.zeige('Beispiel-XML nicht exportiert — nicht schema-valide', pruefung.fehler);
+      const eintraege = this.marker.markiere(pruefung.fehlerDetails, res.zeilenPfade);
+      // Bekannte Schema-Erweiterungen sind eine bewusste XSD-Abweichung und
+      // blockieren den Export nicht; echte Fehler (und unpruefbar) weiterhin.
+      if (pruefung.status === 'invalide' && this.marker.nurErweiterungsFehler(eintraege)) {
+        this.dl.download(this.dl.profilFilename('beispiel.xml'), res.xml, 'application/xml');
+        this.toast.show(
+          'Beispiel-XML erzeugt — enthält Schema-Erweiterungen (bewusste XSD-Abweichung). Platzhalter fachlich prüfen.',
+        );
+        return;
+      }
+      this.report.zeigeMitPfaden('Beispiel-XML nicht exportiert — nicht schema-valide', eintraege);
       return;
     }
-    this.dl.download(this.dl.profilFilename('beispiel.xml'), xml, 'application/xml');
+    this.marker.loesche();
+    this.dl.download(this.dl.profilFilename('beispiel.xml'), res.xml, 'application/xml');
     this.toast.show('Beispiel-XML erzeugt — Platzhalter fachlich prüfen.');
   }
 
@@ -232,12 +264,25 @@ export class ExportService {
    * optionale Gruppen entfallen, keine Beispiel-Kommentare.
    */
   buildBeispielXml(opts?: { instanz?: boolean }): string | null {
+    return this.buildBeispielXmlMitPfaden(opts)?.xml ?? null;
+  }
+
+  /** Wie buildBeispielXml, liefert zusaetzlich die Zeile→Pfad-Karte. */
+  buildBeispielXmlMitPfaden(opts?: { instanz?: boolean }): BeispielXmlErgebnis | null {
     const instanz = !!opts?.instanz;
     const root = this.state.root();
     const msgName = this.state.msgName();
     if (!root || !msgName) return null;
     const IND = '  ';
     const lines: string[] = ['<?xml version="1.0" encoding="UTF-8"?>'];
+    // Zeile→Pfad wird beim Emittieren mitgefuehrt; Kommentar-/Praeambelzeilen
+    // bleiben ohne Eintrag (lines.length ist die Wahrheit, daher stimmt die
+    // Zaehlung in beiden Modi).
+    const zeilenPfade = new Map<number, string>();
+    const push = (zeile: string, pfad?: string): void => {
+      if (pfad) zeilenPfade.set(lines.length + 1, pfad);
+      lines.push(zeile);
+    };
     if (!instanz) {
       lines.push(
         `<!-- Beispielnachricht (Entwurf) für Szenario "${this.state.meta().name || ''}" — generiert mit dem XJustiz Profilierer.`,
@@ -252,13 +297,13 @@ export class ExportService {
       if (n.codelist) {
         const ver = this.values.clVersion(n.codelist) || '~';
         const attrs = n.codelist.kennung ? ` listURI="${esc(n.codelist.kennung)}" listVersionID="${esc(ver)}"` : '';
-        lines.push(`${pad}<${n.name}${attrs}>`);
+        push(`${pad}<${n.name}${attrs}>`, n.path);
         // XOEV-Code: das code-Element ist unqualifiziert (form="unqualified") —
         // xmlns="" nimmt es aus dem Default-Namespace der Nachricht heraus.
-        lines.push(`${pad}${IND}<code xmlns="">${v}</code>`);
-        lines.push(`${pad}</${n.name}>`);
+        push(`${pad}${IND}<code xmlns="">${v}</code>`, n.path);
+        push(`${pad}</${n.name}>`, n.path);
       } else {
-        lines.push(`${pad}<${n.name}${this.fixedRequiredAttrs(n)}>${v}</${n.name}>`);
+        push(`${pad}<${n.name}${this.fixedRequiredAttrs(n)}>${v}</${n.name}>`, n.path);
       }
     };
     const hasProfilBelow = (path: string): boolean => {
@@ -295,6 +340,8 @@ export class ExportService {
       }
     }
     const include = (n: TreeNode): boolean => {
+      // Schema-Erweiterungen werden immer emittiert (bewusste XSD-Abweichung).
+      if (n.erweiterung) return true;
       if (forced.has(n.path)) return true;
       const w = this.state.wirkungOf(n.path);
       if (w === 'ausgeschlossen') return false;
@@ -361,15 +408,18 @@ export class ExportService {
         emitLeaf({ ...n, name }, depth);
         return;
       }
+      // model steht erst nach der Expansion fest (choice-Erkennung).
       this.tree.expandNode(n);
       const pad = IND.repeat(depth);
-      lines.push(`${pad}<${name}${this.fixedRequiredAttrs(n)}>`);
+      push(`${pad}<${name}${this.fixedRequiredAttrs(n)}>`, n.path);
       if (n.model === 'choice') {
         const b = chooseBranch(n.children ?? []);
         if (b) emit(b, depth + 1);
         else offeneAuswahl(n, depth + 1);
+        // Erweiterungen liegen ausserhalb der Auswahl-Logik und kommen zusaetzlich.
+        for (const c of this.tree.erweiterungsKinder(n)) emit(c, depth + 1);
       } else {
-        for (const c of n.children ?? []) {
+        for (const c of this.tree.kinder(n)) {
           if (c.synthetic) {
             emit(c, depth + 1);
             continue;
@@ -377,19 +427,18 @@ export class ExportService {
           if (include(c)) emit(c, depth + 1);
         }
       }
-      lines.push(`${pad}</${name}>`);
+      push(`${pad}</${name}>`, n.path);
     };
-    this.tree.expandNode(root);
-    lines.push(`<${msgName} xmlns="${XJNS}"${this.fixedRequiredAttrs(root)}>`);
-    for (const c of root.children ?? []) {
+    push(`<${msgName} xmlns="${XJNS}"${this.fixedRequiredAttrs(root)}>`, root.path);
+    for (const c of this.tree.kinder(root)) {
       if (c.synthetic) {
         emit(c, 1);
         continue;
       }
       if (include(c)) emit(c, 1);
     }
-    lines.push(`</${msgName}>`);
-    return lines.join('\n');
+    push(`</${msgName}>`, root.path);
+    return { xml: lines.join('\n'), zeilenPfade };
   }
 
   /**
@@ -451,6 +500,7 @@ export class ExportService {
           : kardText(this.state.effKard(x.node).min, this.state.effKard(x.node).max);
       rows.push({
         excl,
+        erweiterung: x.kind === 'el' && !!x.node.erweiterung,
         indent: x.depth * 14,
         name,
         tech: x.kind === 'el' ? x.node.name : '',

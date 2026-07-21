@@ -12,10 +12,68 @@
       </div>
       <div class="sub">Ausprägung von {{ v.parentName }}</div>
     } @else {
-      <h3>{{ v.title }}</h3>
+      <h3>
+        {{ v.title }}
+        @if (v.istErweiterung) {
+          <span class="tag t-ext" style="vertical-align: middle">Schema-Erweiterung</span>
+        }
+      </h3>
       <div class="sub">{{ v.sub }} <span style="color: #aaa">({{ v.subKard }})</span></div>
-      @if (v.doc) {
+      @if (v.doc && !v.erw) {
         <div class="dsec"><label>Beschreibung (Standard)</label><div class="docbox">{{ v.doc }}</div></div>
+      }
+    }
+
+    @if (v.erw; as erw) {
+      @if (!ro() && !msgMode()) {
+        <div class="dsec">
+          <label>Schema-Erweiterung bearbeiten</label>
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
+            Nachzubeauftragendes Element — nicht im XJustiz-Schema enthalten.
+          </div>
+          <div class="metaGrid">
+            <label>Elementname</label>
+            <input type="text" [value]="erw.name" (change)="setErwField('name', $event)" />
+            <label>Beschreibung</label>
+            <textarea
+              placeholder="Fachliche Bedeutung / Begründung der Nachbeauftragung"
+              [value]="erw.beschreibung"
+              (change)="setErwField('beschreibung', $event)"
+            ></textarea>
+            <label>Kardinalität</label>
+            <div class="erwKard">
+              <input type="text" [value]="erw.min" (change)="setErwField('min', $event)" title="min" />
+              <span>..</span>
+              <input
+                type="text"
+                [value]="erw.max === 'unbounded' ? '*' : erw.max"
+                (change)="setErwField('max', $event)"
+                title="max — * für beliebig viele"
+              />
+            </div>
+            <label>Datentyp</label>
+            <div class="erwTyp">
+              <select [value]="erw.typWahl" (change)="onErwTypWahl($event)">
+                @for (t of erwDatentypen; track t) {
+                  <option [value]="t">xs:{{ t }}</option>
+                }
+                <option value="sonstig">Sonstiger…</option>
+                <option value="container">Container (enthält Unterelemente)</option>
+              </select>
+              @if (erw.typWahl === 'sonstig') {
+                <input type="text" placeholder="eigener Typ" [value]="erw.typFrei" (change)="onErwTypFrei($event)" />
+              }
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; margin-top: 8px">
+            @if (erw.container) {
+              <button (click)="addErwUnter()">+ Unterelement</button>
+            }
+            <button (click)="delErw()">Erweiterung löschen</button>
+          </div>
+        </div>
+      } @else if (erw.beschreibung) {
+        <div class="dsec"><label>Beschreibung</label><div class="docbox">{{ erw.beschreibung }}</div></div>
       }
     }
 
@@ -149,7 +207,7 @@
         </div>
       }
 
-      @if (!isCreate()) {
+      @if (!isCreate() && !v.erw) {
         <div class="dsec">
           <label>Kardinalität im Szenario</label>
           <div class="kardRow">

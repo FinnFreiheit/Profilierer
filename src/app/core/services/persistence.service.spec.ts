@@ -4,6 +4,7 @@ import { ProfileStoreService } from './profile-store.service';
 import { ToastService } from './toast.service';
 import { StateService } from './state.service';
 import { BundledSchemaService } from './bundled-schema.service';
+import { DownloadService } from './download.service';
 import { ProfileDoc } from '../../models/profile.model';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
@@ -57,6 +58,7 @@ describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
     statuses: [],
     elemente: {},
     auspraegungen: {},
+    erweiterungen: {},
   });
 
   const setup = (geladen: ProfileDoc): { svc: PersistenceService; state: StateService } => {
@@ -116,6 +118,76 @@ describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
   });
 });
 
+describe('PersistenceService Profildatei (formatVersion 3, Schema-Erweiterungen)', () => {
+  let downloaded: { name: string; content: string }[];
+  let createdDocs: ProfileDoc[];
+  let svc: PersistenceService;
+
+  beforeEach(() => {
+    downloaded = [];
+    createdDocs = [];
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: DownloadService,
+          useValue: { download: (name: string, content: string) => downloaded.push({ name, content }) },
+        },
+        {
+          provide: ProfileStoreService,
+          useValue: {
+            create: async (doc: ProfileDoc) => {
+              createdDocs.push(doc);
+              return 'id1';
+            },
+          },
+        },
+        { provide: ToastService, useValue: { show: () => {} } },
+      ],
+    });
+    svc = TestBed.inject(PersistenceService);
+    spyOn(svc, 'openFromLibrary').and.resolveTo();
+  });
+
+  it('exportDoc schreibt formatVersion 3 inkl. erweiterungen', () => {
+    svc.exportDoc({
+      meta: { name: 'P' },
+      statuses: [],
+      elemente: {},
+      auspraegungen: {},
+      erweiterungen: { 'm/a': [{ id: 'x1', name: 'zusatz', min: '1', max: '1', datentyp: 'string' }] },
+    });
+    const json = JSON.parse(downloaded[0]!.content);
+    expect(json.formatVersion).toBe(3);
+    expect(json.erweiterungen['m/a'][0].name).toBe('zusatz');
+  });
+
+  it('importiert v2-Dateien ohne erweiterungen-Feld als leere Map', async () => {
+    const file = new File(
+      [JSON.stringify({
+        app: 'xjustiz-profilierer', formatVersion: 2, meta: { name: 'Alt' },
+        statuses: [], elemente: { 'm/a': { status: 's1' } }, auspraegungen: {},
+      })],
+      'alt.profil.json',
+    );
+    await svc.loadProfileFile(file);
+    expect(createdDocs.length).toBe(1);
+    expect(createdDocs[0]!.erweiterungen).toEqual({});
+  });
+
+  it('importiert v3-Dateien mit erweiterungen (Roundtrip)', async () => {
+    const erweiterungen = { 'm/a': [{ id: 'x1', name: 'zusatz', min: '0', max: '1' }] };
+    const file = new File(
+      [JSON.stringify({
+        app: 'xjustiz-profilierer', formatVersion: 3, meta: { name: 'Neu' },
+        statuses: [], elemente: {}, auspraegungen: {}, erweiterungen,
+      })],
+      'neu.profil.json',
+    );
+    await svc.loadProfileFile(file);
+    expect(createdDocs[0]!.erweiterungen).toEqual(erweiterungen);
+  });
+});
+
 describe('PersistenceService Notfallkopien', () => {
   const PREFIX = 'xjp.notfall.';
   const doc = (name: string): ProfileDoc => ({
@@ -123,6 +195,7 @@ describe('PersistenceService Notfallkopien', () => {
     statuses: [],
     elemente: {},
     auspraegungen: {},
+    erweiterungen: {},
   });
 
   let upserted: { id: string; doc: ProfileDoc }[];

@@ -5,6 +5,7 @@ import { TestmessageGenerationService } from './testmessage-generation.service';
 import { PersistenceService } from './persistence.service';
 import { ToastService } from './toast.service';
 import { XmlValidationService, XmlValidierung } from './xml-validation.service';
+import { ValidationReportService } from './validation-report.service';
 import { StateService } from './state.service';
 import { GuidedService } from './guided.service';
 import { XsdParserService } from './xsd-parser.service';
@@ -44,7 +45,7 @@ describe('TestmessageCreateService', () => {
     created = [];
     patched = [];
     entscheidungen = null;
-    pruefung = { status: 'valide', fehler: [] };
+    pruefung = { status: 'valide', fehler: [], fehlerDetails: [] };
     TestBed.configureTestingModule({
       providers: [
         {
@@ -136,12 +137,51 @@ describe('TestmessageCreateService', () => {
     });
 
     it('vollstaendig, aber nicht schema-valide -> bleibt Entwurf', async () => {
-      pruefung = { status: 'invalide', fehler: ['Zeile 2: kopf fehlt'] };
+      pruefung = {
+        status: 'invalide',
+        fehler: ['Zeile 2: kopf fehlt'],
+        fehlerDetails: [{ text: 'Zeile 2: kopf fehlt', zeile: 2 }],
+      };
       spyOn(window, 'prompt').and.returnValue('X.xml');
       guided.fuellePflichtfelder();
       spyOn(window, 'confirm').and.returnValue(true);
       await svc.speichern();
       expect(created[0]!.entwurf).toBeTrue();
+    });
+
+    it('invalides Speichern markiert die Fehler im Baum und liefert klickbare Eintraege', async () => {
+      // Zeile 3 ist das kopf-Blatt (Instanz-Modus: Deklaration + Root-Open davor).
+      pruefung = {
+        status: 'invalide',
+        fehler: ['Zeile 3: kopf falsch belegt'],
+        fehlerDetails: [{ text: 'Zeile 3: kopf falsch belegt', zeile: 3 }],
+      };
+      spyOn(window, 'prompt').and.returnValue('X.xml');
+      guided.fuellePflichtfelder();
+      spyOn(window, 'confirm').and.returnValue(true);
+      await svc.speichern();
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.offen()).toBeTrue();
+      expect(report.eintraege()[0]!.pfad).toBe(`${M}/kopf`);
+      expect(state.valFehler()?.get(`${M}/kopf`)).toEqual(['Zeile 3: kopf falsch belegt']);
+      expect(state.valAnc()?.get(M)).toBe(1);
+    });
+
+    it('nur Erweiterungs-Fehler machen keinen Entwurf (bekannte Schema-Erweiterung)', async () => {
+      state.addErweiterung(M, { name: 'zusatzAngabe', min: '1', max: '1', datentyp: 'string' });
+      pruefung = {
+        status: 'invalide',
+        fehler: ['nicht erwartet'],
+        fehlerDetails: [{ text: "Element 'zusatzAngabe': This element is not expected.", zeile: 3 }],
+      };
+      spyOn(window, 'prompt').and.returnValue('X.xml');
+      guided.fuellePflichtfelder();
+      spyOn(window, 'confirm').and.returnValue(true);
+      await svc.speichern();
+      expect(created[0]!.entwurf).toBeFalse();
+      // Kein blockierender Bericht, keine roten Baum-Marker.
+      expect(TestBed.inject(ValidationReportService).offen()).toBeFalse();
+      expect(state.valFehler()).toBeNull();
     });
 
     it('abgebrochene Namensabfrage speichert nicht', async () => {
@@ -162,6 +202,7 @@ describe('TestmessageCreateService', () => {
           statuses: state.statuses(),
           elemente: { [`${M}/kopf`]: { beispiel: 'Az 1' } },
           auspraegungen: {},
+          erweiterungen: {},
         },
       };
       await svc.fortsetzen({

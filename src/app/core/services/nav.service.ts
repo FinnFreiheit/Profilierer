@@ -38,6 +38,9 @@ export class NavService {
     // Diff-Karte auf die neue Nachricht beziehen (sonst blieben die Marker
     // der zuvor geladenen Nachricht stehen).
     if (this.state.idxB()) this.diff.computeDiffMap();
+    // Validierungsmarker gehoeren zur zuvor geprueften Nachricht (bei
+    // keepProfile laeuft loadProfile nicht — daher auch hier raeumen).
+    this.state.clearValidierungsMarker();
   }
 
   /**
