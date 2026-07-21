@@ -48,3 +48,8 @@ export function fmtKard(min: string, max: string): string {
   const mx = max === 'unbounded' ? '*' : max;
   return min === '1' && mx === '1' ? '1' : min + '..' + mx;
 }
+
+/** Erste Zeile eines mehrzeiligen Texts (Kachel-/Listen-Anzeige von Doku/Notizen). */
+export function firstLine(s: string): string {
+  return s.split('\n')[0]!;
+}

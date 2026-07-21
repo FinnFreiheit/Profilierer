@@ -19,6 +19,7 @@ import { TestmessageEntry } from '../../models/testmessage.model';
 import { LibraryEntry } from '../../models/profile.model';
 import { MessageRef } from '../../models/xsd-index.model';
 import { parseTestmessage } from '../../core/util/testmessage.util';
+import { firstLine } from '../../core/util/pretty.util';
 
 /** Eine Fachmodul-Gruppe fuer die Kachel-Ansicht. */
 interface Gruppe {
@@ -338,9 +339,7 @@ export class Testdaten {
 
   // ── Anzeige-Helfer ──────────────────────────────────────────────────
 
-  protected firstLine(doc: string): string {
-    return doc.split('\n')[0]!;
-  }
+  protected readonly firstLine = firstLine;
 
   protected groesse(e: TestmessageEntry): string {
     const kb = e.groesse / 1024;

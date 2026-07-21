@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
 import { MessageRef } from '../../models/xsd-index.model';
+import { firstLine } from '../../core/util/pretty.util';
 
 interface MsgGroup {
   file: string;
@@ -73,7 +74,5 @@ export class MessagePicker {
     if (!this.state.schemaView()) this.nav.prefillMandatoryStatus();
   }
 
-  protected firstLine(doc: string): string {
-    return doc.split('\n')[0]!;
-  }
+  protected readonly firstLine = firstLine;
 }

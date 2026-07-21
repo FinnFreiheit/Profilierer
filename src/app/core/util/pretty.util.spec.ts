@@ -1,4 +1,4 @@
-import { fmtKard, kardText, pretty } from './pretty.util';
+import { firstLine, fmtKard, kardText, pretty } from './pretty.util';
 
 describe('pretty.util', () => {
   describe('pretty', () => {
@@ -32,6 +32,13 @@ describe('pretty.util', () => {
       expect(fmtKard('1', '1')).toBe('1');
       expect(fmtKard('0', 'unbounded')).toBe('0..*');
       expect(fmtKard('1', '3')).toBe('1..3');
+    });
+  });
+
+  describe('firstLine', () => {
+    it('liefert die erste Zeile eines mehrzeiligen Texts', () => {
+      expect(firstLine('erste\nzweite')).toBe('erste');
+      expect(firstLine('einzeilig')).toBe('einzeilig');
     });
   });
 });
