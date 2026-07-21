@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import { openDb } from './db.js';
 import { profilesRouter } from './routes/profiles.js';
 import { testmessagesRouter } from './routes/testmessages.js';
+import { errorMiddleware, requestFehlerLog } from './log.js';
 
 /**
  * Same-origin-Vollstack-Server: liefert die gebaute SPA, die REST-API unter
@@ -23,6 +24,10 @@ const DIST = join(__dirname, '..', 'dist', 'xjustiz-profilierer', 'browser');
 
 const db = openDb(DB_PATH);
 const app = express();
+
+// Fehler-Antworten (Status >= 400) knapp auf der Konsole mitloggen — vor
+// express.json, damit auch Body-Parse-Fehler erfasst werden.
+app.use(requestFehlerLog);
 
 // Grosse Profil-Dokumente: elemente/auspraegungen-Maps sprengen das 100-kB-Default.
 app.use(express.json({ limit: '25mb' }));
@@ -54,6 +59,9 @@ if (existsSync(DIST)) {
 } else {
   console.warn(`[xjp] SPA-Build nicht gefunden unter ${DIST} — nur API/Proxy aktiv (dev).`);
 }
+
+// Zentrale Error-Middleware (Stack auf die Konsole, JSON-Antwort) — als letzte.
+app.use(errorMiddleware);
 
 const onListen = () => {
   console.log(`[xjp] Server auf http://${HOST || 'localhost'}:${PORT}  (DB: ${DB_PATH})`);

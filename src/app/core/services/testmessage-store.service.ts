@@ -1,10 +1,11 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import {
   GuidedMessageState,
   TestmessageEntry,
   TestmessageFortschritt,
   TestmessageInput,
 } from '../../models/testmessage.model';
+import { LoggerService } from './logger.service';
 
 /** Patch fuer PATCH /api/testmessages/:id — nur gesetzte Felder werden geaendert. */
 export interface TestmessagePatch {
@@ -36,11 +37,15 @@ const API_BASE = 'api';
  */
 @Injectable({ providedIn: 'root' })
 export class TestmessageStoreService {
+  private readonly log = inject(LoggerService);
+
   /** Testnachrichten-Index, nach letzter Änderung absteigend. */
   readonly entries = signal<TestmessageEntry[]>([]);
 
   constructor() {
-    void this.refresh().catch(() => {});
+    void this.refresh().catch((e) =>
+      this.log.warn('Testdaten-Backend', 'Index beim Start nicht ladbar (Backend offline?)', e),
+    );
   }
 
   // ── HTTP-Helfer ─────────────────────────────────────────────────────

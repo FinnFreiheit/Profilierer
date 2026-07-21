@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Codelist } from '../../models/codelist.model';
 import { StateService } from './state.service';
 import { ToastService } from './toast.service';
+import { LoggerService } from './logger.service';
 import { escapeRegExp } from '../util/xml.util';
 
 const XREP = 'https://www.xrepository.de/api';
@@ -24,6 +25,7 @@ const XREP_PROXIES: Array<(u: string) => string> = [
 export class CodelistService {
   private readonly state = inject(StateService);
   private readonly toast = inject(ToastService);
+  private readonly log = inject(LoggerService);
 
   constructor() {
     this.loadCodelistCache();
@@ -254,7 +256,7 @@ export class CodelistService {
           : n + ' Codelisten aus dem XRepository geladen (inkl. Typ 3, aktuell gültige Versionen).',
       );
     } catch (e) {
-      console.warn('XRepository:', e);
+      this.log.warn('XRepository', 'Abruf fehlgeschlagen', e);
       // Auto-Modus: still scheitern, Betrachten bleibt möglich (Codes roh).
       if (auto) return;
       const msg = e instanceof Error ? e.message : String(e);
@@ -291,7 +293,8 @@ export class CodelistService {
     if (!Object.keys(cls).length) return;
     try {
       localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), cls }));
-    } catch {
+    } catch (e) {
+      this.log.warn('Codelisten', 'Cache konnte nicht geschrieben werden (localStorage voll?)', e);
       try {
         localStorage.removeItem(CACHE_KEY);
       } catch {
@@ -308,8 +311,8 @@ export class CodelistService {
       if (!raw) return;
       const c = JSON.parse(raw);
       if (c && c.cls && typeof c.cls === 'object') this.state.codelists.set(c.cls);
-    } catch {
-      /* ignore */
+    } catch (e) {
+      this.log.warn('Codelisten', 'Cache nicht lesbar — wird ignoriert', e);
     }
   }
 }

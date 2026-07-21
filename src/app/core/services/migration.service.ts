@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
 import { defaultStatuses } from '../profile-defaults';
 import { ProfileStoreService } from './profile-store.service';
+import { LoggerService } from './logger.service';
 
 const MIGRATED_KEY = 'xjp.migrated';
 const INDEX_KEY = 'xjp.library.index';
@@ -27,6 +28,7 @@ interface ImportItem {
 @Injectable({ providedIn: 'root' })
 export class MigrationService {
   private readonly store = inject(ProfileStoreService);
+  private readonly log = inject(LoggerService);
 
   /** Fuehrt die Migration hoechstens einmal aus. */
   async runOnce(): Promise<void> {
@@ -36,7 +38,8 @@ export class MigrationService {
     // (Marker NICHT setzen).
     try {
       await this.store.refresh();
-    } catch {
+    } catch (e) {
+      this.log.warn('Migration', 'Backend nicht erreichbar — Migration wird beim nächsten Start erneut versucht', e);
       return;
     }
 
@@ -51,8 +54,10 @@ export class MigrationService {
       try {
         await this.store.importAll(items);
         await this.store.refresh();
-      } catch {
-        return; // Marker nicht setzen → naechster Start versucht es erneut
+      } catch (e) {
+        // Marker nicht setzen → naechster Start versucht es erneut.
+        this.log.warn('Migration', 'Import der localStorage-Profile ins Backend fehlgeschlagen', e);
+        return;
       }
     }
     localStorage.setItem(MIGRATED_KEY, new Date().toISOString());
@@ -79,8 +84,9 @@ export class MigrationService {
         const legacy = this.legacyAutosave();
         if (legacy) items.push(legacy);
       }
-    } catch {
-      /* defekter localStorage → nichts migrieren */
+    } catch (e) {
+      // Defekter localStorage → nichts migrieren.
+      this.log.warn('Migration', 'localStorage-Bibliothek nicht lesbar — Migration übersprungen', e);
     }
     return items;
   }

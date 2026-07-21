@@ -1,8 +1,10 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { LoggerService } from './logger.service';
 
 /** Kurzmeldungen (toast, Profilierer.html Z.2334ff). */
 @Injectable({ providedIn: 'root' })
 export class ToastService {
+  private readonly log = inject(LoggerService);
   private readonly _text = signal('');
   readonly text = this._text.asReadonly();
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -15,11 +17,15 @@ export class ToastService {
 
   /** Fehlermeldung: Error-Message des Auslösers, sonst der Fallback-Text. */
   showError(e: unknown, fallback: string): void {
+    this.log.error('Fehler', fallback, e);
     this.show(e instanceof Error ? e.message : fallback);
   }
 
   /** Fester Fehlertext als catch-Callback (z. B. Backend nicht erreichbar). */
   fail(msg: string): (e: unknown) => void {
-    return () => this.show(msg);
+    return (e) => {
+      this.log.error('Fehler', msg, e);
+      this.show(msg);
+    };
   }
 }

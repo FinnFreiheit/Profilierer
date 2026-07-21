@@ -30,6 +30,8 @@ import { BundledSchemaService } from './core/services/bundled-schema.service';
 import { MigrationService } from './core/services/migration.service';
 import { XmlValidationService } from './core/services/xml-validation.service';
 import { ValidationReportService } from './core/services/validation-report.service';
+import { LoggerService } from './core/services/logger.service';
+import { DownloadService } from './core/services/download.service';
 import { ValidationDialog } from './features/dialogs/validation-dialog';
 import { frageTestnachrichtName, parseTestmessage, testmessageInput } from './core/util/testmessage.util';
 
@@ -75,6 +77,8 @@ export class App implements OnInit {
   private readonly migration = inject(MigrationService);
   private readonly validator = inject(XmlValidationService);
   private readonly validationReport = inject(ValidationReportService);
+  private readonly logger = inject(LoggerService);
+  private readonly download = inject(DownloadService);
 
   protected readonly hasRoot = this.state.hasRoot;
   /** Dashboard (Bibliothek) vs. Baum-Editor. */
@@ -85,6 +89,12 @@ export class App implements OnInit {
   /** Zurueck zur Uebersicht (Topbar-Button). */
   protected goDashboard(): void {
     this.state.view.set('dashboard');
+  }
+
+  /** Fehlerprotokoll (Logger-Ringpuffer) als Textdatei herunterladen. */
+  protected exportLog(): void {
+    const stempel = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    this.download.download(`xjp-log_${stempel}.txt`, this.logger.exportText(), 'text/plain;charset=utf-8');
   }
 
   /**

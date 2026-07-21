@@ -44,5 +44,8 @@
     <button class="menuItem" [disabled]="!hasIdx()"
       title="Bestehende XJustiz-Nachricht (XML) laden und als Testnachricht anzeigen"
       (click)="laden.close(); pick(nachrichtInput)">Nachricht laden…</button>
+    <div class="menuSep"></div>
+    <button class="menuItem" title="Protokoll der letzten Fehler und Warnungen als Textdatei speichern (für Fehlermeldungen)"
+      (click)="laden.close(); logExportClick.emit()">Fehlerprotokoll speichern…</button>
   </app-menu>
 </div>

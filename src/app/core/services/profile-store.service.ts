@@ -1,5 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
+import { LoggerService } from './logger.service';
 
 /**
  * Basis-URL der Profil-API (same-origin; im Dev via Proxy auf das Backend).
@@ -25,13 +26,17 @@ const API_BASE = 'api';
  */
 @Injectable({ providedIn: 'root' })
 export class ProfileStoreService {
+  private readonly log = inject(LoggerService);
+
   /** Bibliotheks-Index, nach letzter Schreibung absteigend. */
   readonly entries = signal<LibraryEntry[]>([]);
 
   constructor() {
     // Konstruktor kann nicht async sein — Index nachladen (Dashboard zeigt kurz leer).
-    // Fehler (Backend offline beim Start) schlucken; MigrationService/refresh holen nach.
-    void this.refresh().catch(() => {});
+    // Fehler nur loggen (Backend offline beim Start); MigrationService/refresh holen nach.
+    void this.refresh().catch((e) =>
+      this.log.warn('Profil-Backend', 'Index beim Start nicht ladbar (Backend offline?)', e),
+    );
   }
 
   // ── HTTP-Helfer ─────────────────────────────────────────────────────

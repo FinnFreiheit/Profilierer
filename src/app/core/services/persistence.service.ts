@@ -5,6 +5,7 @@ import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
 import { NavService } from './nav.service';
 import { ToastService } from './toast.service';
+import { LoggerService } from './logger.service';
 import { ProfileStoreService } from './profile-store.service';
 import { DownloadService } from './download.service';
 import { BundledSchemaService } from './bundled-schema.service';
@@ -34,6 +35,7 @@ export class PersistenceService {
   private readonly parser = inject(XsdParserService);
   private readonly nav = inject(NavService);
   private readonly toast = inject(ToastService);
+  private readonly log = inject(LoggerService);
   private readonly store = inject(ProfileStoreService);
   private readonly dl = inject(DownloadService);
   private readonly bundled = inject(BundledSchemaService);
@@ -121,8 +123,9 @@ export class PersistenceService {
         await this.store.upsert(k.slice(NOTFALL_PREFIX.length), doc);
         localStorage.removeItem(k);
         ok++;
-      } catch {
-        /* Backend weiterhin weg oder Eintrag defekt → Kopie behalten */
+      } catch (e) {
+        // Backend weiterhin weg oder Eintrag defekt → Kopie behalten.
+        this.log.warn('Persistenz', `Notfallkopie ${k} konnte nicht nachgetragen werden`, e);
       }
     }
     if (ok)
@@ -146,8 +149,9 @@ export class PersistenceService {
     for (const f of xsds) {
       const text = await f.text();
       const dom = parser.parseFromString(text, 'application/xml');
-      if (dom.getElementsByTagName('parsererror').length) {
-        console.warn('Parse-Fehler in', f.name);
+      const parseFehler = dom.getElementsByTagName('parsererror');
+      if (parseFehler.length) {
+        this.log.warn('Schema', `Parse-Fehler in ${f.name}`, parseFehler[0]?.textContent ?? undefined);
         continue;
       }
       docs.push({ file: f.name, dom });
@@ -218,12 +222,15 @@ export class PersistenceService {
         this.autosaveFehlgeschlagen = false;
         this.loescheNotfallkopie(id);
         this.toast.show('Backend wieder erreichbar — Stand gesichert.');
-        void this.flushNotfallkopien().catch(() => {});
+        void this.flushNotfallkopien().catch((e) =>
+          this.log.warn('Persistenz', 'Nachtrag der Notfallkopien fehlgeschlagen', e),
+        );
       }
       this.state.autosaveInfo.set('automatisch gesichert ' + zeit);
-    } catch {
+    } catch (e) {
       // Kein Datenverlust bei Backend-Ausfall: Stand lokal sichern, dauerhaft
       // warnen und den Autosave automatisch wiederholen.
+      this.log.error('Persistenz', 'Autosave fehlgeschlagen — Notfallkopie lokal', e);
       this.autosaveFehlgeschlagen = true;
       const doc = this.state.profileDoc();
       this.schreibeNotfallkopie(id, {
@@ -261,7 +268,8 @@ export class PersistenceService {
     let doc: ProfileDoc | null;
     try {
       doc = await this.store.load(id);
-    } catch {
+    } catch (e) {
+      this.log.error('Persistenz', `Profil ${id} konnte nicht geladen werden`, e);
       this.toast.show('Profil konnte nicht geladen werden — Backend nicht erreichbar.');
       return;
     }

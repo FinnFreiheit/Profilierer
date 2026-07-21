@@ -26,6 +26,8 @@ export class Topbar {
   readonly diffClick = output<void>();
   /** Wechsel auf eine hinterlegte Schemaversion (dir aus dem Manifest). */
   readonly bundledPick = output<string>();
+  /** Fehlerprotokoll (LoggerService-Ringpuffer) als Datei speichern. */
+  readonly logExportClick = output<void>();
 
   protected readonly hasIdx = computed(() => !!this.state.idx());
   protected readonly bundledVersions = computed(() => this.state.bundledVersions());
