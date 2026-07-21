@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { TreeItem, itemPath } from '../../models/node.model';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
+import { DiffService } from './diff.service';
 
 /**
  * Nachrichtenauswahl und Baum-Navigation. Portiert aus Profilierer.html
@@ -13,6 +14,7 @@ import { TreeService } from './tree.service';
 export class NavService {
   private readonly state = inject(StateService);
   private readonly tree = inject(TreeService);
+  private readonly diff = inject(DiffService);
 
   /** loadMessage (Z.1732-1743): Nachricht laden und Baum aufbauen. */
   loadMessage(name: string, keepProfile = false): void {
@@ -33,7 +35,9 @@ export class NavService {
     const root = this.state.root()!;
     this.state.selItem.set({ kind: 'el', node: root });
     this.state.open.set(new Set([root.path]));
-    // TODO(P7): if (this.state.idxB()) computeDiffMap();
+    // Diff-Karte auf die neue Nachricht beziehen (sonst blieben die Marker
+    // der zuvor geladenen Nachricht stehen).
+    if (this.state.idxB()) this.diff.computeDiffMap();
   }
 
   /**

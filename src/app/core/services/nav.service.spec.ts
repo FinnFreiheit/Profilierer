@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { NavService } from './nav.service';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
+import { DiffService } from './diff.service';
 import { TreeNode } from '../../models/node.model';
 import { XsdIndex } from '../../models/xsd-index.model';
 
@@ -60,5 +61,34 @@ describe('NavService — Schema-Ansicht (US "Schema ansehen")', () => {
     state.resetProfile();
     expect(state.schemaView()).toBeFalse();
     expect(state.readOnly()).toBeFalse();
+  });
+});
+
+describe('NavService — Diff-Karte bei Nachrichtenwechsel', () => {
+  let nav: NavService;
+  let state: StateService;
+  let diff: DiffService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [{ provide: TreeService, useValue: { buildRoot: () => node('nachricht.test') } }],
+    });
+    nav = TestBed.inject(NavService);
+    state = TestBed.inject(StateService);
+    diff = TestBed.inject(DiffService);
+    state.idx.set({ el: {}, messages: [] } as unknown as XsdIndex);
+  });
+
+  it('berechnet die Diff-Karte neu, wenn eine Vergleichsversion geladen ist', () => {
+    const spy = spyOn(diff, 'computeDiffMap');
+    state.idxB.set({ el: {}, messages: [] } as unknown as XsdIndex);
+    nav.loadMessage('nachricht.test');
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('laesst die Diff-Berechnung ohne Vergleichsversion aus', () => {
+    const spy = spyOn(diff, 'computeDiffMap');
+    nav.loadMessage('nachricht.test');
+    expect(spy).not.toHaveBeenCalled();
   });
 });
