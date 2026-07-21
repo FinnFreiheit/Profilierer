@@ -182,7 +182,7 @@ export class InstanceExportService {
     if (node.codelist) {
       let code = byName(xmlEl, 'code')[0];
       if (!code) {
-        code = this.createEl('code');
+        code = this.createCodeEl();
         xmlEl.insertBefore(code, xmlEl.firstChild);
       }
       code.textContent = val;
@@ -206,7 +206,7 @@ export class InstanceExportService {
         if (node.codelist.kennung) el.setAttribute('listURI', node.codelist.kennung);
         const ver = this.values.clVersion(node.codelist);
         if (ver) el.setAttribute('listVersionID', ver);
-        const code = this.createEl('code');
+        const code = this.createCodeEl();
         code.textContent = v;
         el.appendChild(code);
       } else {
@@ -297,6 +297,11 @@ export class InstanceExportService {
     return this.ns
       ? this.outDoc.createElementNS(this.ns, qname)
       : this.outDoc.createElement(name);
+  }
+
+  /** XOEV-Code: das code-Element ist unqualifiziert (form="unqualified"). */
+  private createCodeEl(): Element {
+    return this.outDoc.createElementNS(null, 'code');
   }
 
   private insertAfter(parent: Element, ref: Node | null, el: Element): void {

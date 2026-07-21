@@ -307,6 +307,33 @@ export class Testdaten {
     if (ok && !abgelehnt.length && !invalide.length && !fehler) this.uploadDlg().nativeElement.close();
   }
 
+  // ── Prüfbericht ─────────────────────────────────────────────────────
+
+  /**
+   * Schemavalidierung fuer einen gespeicherten Eintrag ausfuehren und den
+   * Befund anzeigen — jederzeit abrufbar, insbesondere fuer als Entwurf
+   * gekennzeichnete Nachrichten (der Bericht beim Anlegen ist sonst weg).
+   */
+  protected async pruefe(e: TestmessageEntry, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    try {
+      const xml = await this.store.loadXml(e.id);
+      if (xml == null) {
+        this.toast.show('Nachricht nicht gefunden.');
+        return;
+      }
+      const pruefung = await this.validator.validiere(xml);
+      if (pruefung.status === 'valide') {
+        this.toast.show(`„${e.name}" ist schema-valide.`);
+      } else {
+        const grund = pruefung.status === 'invalide' ? 'nicht schema-valide' : 'Validität nicht prüfbar';
+        this.report.zeige(`Prüfbericht „${e.name}" — ${grund}`, pruefung.fehler);
+      }
+    } catch (err) {
+      this.toast.showError(err, 'Prüfung fehlgeschlagen.');
+    }
+  }
+
   // ── Bearbeiten (Name + Beschreibung) ────────────────────────────────
 
   protected openEdit(e: TestmessageEntry, ev: Event): void {

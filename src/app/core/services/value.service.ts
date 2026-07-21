@@ -76,9 +76,14 @@ export class ValueService {
     return hit && hit.label ? hit.label : null;
   }
 
-  /** clVersion (Z.803-807): Version einer geladenen Codeliste. */
+  /**
+   * clVersion (Z.803-807): Version einer Codeliste. Die im XSD fixierte
+   * `listVersionID` hat Vorrang — nur sie besteht die Schemavalidierung;
+   * sonst die Version der aus dem XRepository geladenen Liste.
+   */
   clVersion(cl: CodelistInfo | null): string | null {
     if (!cl) return null;
+    if (cl.version) return cl.version;
     const x = this.state.codelists()[cl.kennung];
     return x ? x.version ?? null : null;
   }

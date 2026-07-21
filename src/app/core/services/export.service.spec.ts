@@ -15,6 +15,8 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
   <xs:complexType name="Type.Test.Root"><xs:sequence>
     <xs:element name="kopf" type="xs:string"/>
     <xs:element name="az" type="xs:string" minOccurs="0"/>
+    <xs:element name="farbe" type="Code.Test.Farbe" minOccurs="0"/>
+    <xs:element name="versionskopf" type="Type.Test.Kopf" minOccurs="0"/>
     <xs:choice>
       <xs:element name="email" type="xs:string"/>
       <xs:element name="telefon" type="xs:string"/>
@@ -23,6 +25,21 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
       <xs:element name="detail" type="xs:string"/>
     </xs:sequence>
   </xs:sequence></xs:complexType>
+  <xs:complexType name="Code.Test.Farbe">
+    <xs:annotation><xs:appinfo>
+      <codeliste><kennung>urn:test:farbe</kennung></codeliste>
+      <versionCodeliste><version>8.8</version></versionCodeliste>
+    </xs:appinfo></xs:annotation>
+    <xs:complexContent><xs:restriction base="code:Code">
+      <xs:sequence><xs:element name="code" type="xs:token"/></xs:sequence>
+      <xs:attribute name="listURI" type="xs:anyURI" use="optional" fixed="urn:test:farbe"/>
+      <xs:attribute name="listVersionID" type="xs:normalizedString" use="optional" fixed="9.9"/>
+    </xs:restriction></xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="Type.Test.Kopf">
+    <xs:sequence><xs:element name="titel" type="xs:string"/></xs:sequence>
+    <xs:attribute name="xjustizVersion" type="xs:string" use="required" fixed="3.6.2"/>
+  </xs:complexType>
 </xs:schema>`;
 
 const M = 'nachricht.test.0001';
@@ -128,6 +145,20 @@ describe('ExportService (Schematron)', () => {
       expect(downloaded.length).toBe(1);
       expect(downloaded[0]!.content).toBe(xml);
       expect(downloaded[0]!.name).toBe('test.beispiel.xml');
+    });
+
+    it('schreibt code-Elemente unqualifiziert (xmlns="") mit fixer listVersionID aus dem Schema', () => {
+      state.setElementProfile(`${M}/farbe`, { status: 's1' });
+      const xml = svc.buildBeispielXml()!;
+      expect(xml).toContain('<farbe listURI="urn:test:farbe" listVersionID="9.9">');
+      expect(xml).toContain('<code xmlns="">');
+      expect(xml).not.toContain('listVersionID="~"');
+    });
+
+    it('setzt fixe Pflicht-Attribute aus dem Schema (z. B. xjustizVersion am Kopf)', () => {
+      state.setElementProfile(`${M}/versionskopf`, { status: 's1' });
+      const xml = svc.buildBeispielXml()!;
+      expect(xml).toContain('<versionskopf xjustizVersion="3.6.2">');
     });
 
     it('genBeispielXml blockiert invalide Nachrichten mit Bericht (Export-Tor)', async () => {

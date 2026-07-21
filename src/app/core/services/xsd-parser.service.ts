@@ -149,7 +149,24 @@ export class XsdParserService {
         info.kennung = g('kennung');
         info.beschreibung = g('beschreibung');
       }
+      const vc = ai.getElementsByTagName('versionCodeliste')[0];
+      const v = vc?.getElementsByTagName('version')[0];
+      if (v) info.version = (v.textContent ?? '').trim();
     }
+    // Fixe listVersionID der Restriction ist massgeblich (Schemavalidierung
+    // erzwingt genau diesen Wert) — sie ueberschreibt die appinfo-Version.
+    const fixAttr = (e: Element): string | null => {
+      for (const c of Array.from(e.children)) {
+        if (c.namespaceURI === XS && c.localName === 'attribute' && c.getAttribute('name') === 'listVersionID') {
+          return c.getAttribute('fixed');
+        }
+        const hit = fixAttr(c);
+        if (hit != null) return hit;
+      }
+      return null;
+    };
+    const fixed = fixAttr(ct);
+    if (fixed) info.version = fixed;
     let codeEl: Element | null = null;
     const walk = (e: Element): void => {
       for (const c of Array.from(e.children)) {

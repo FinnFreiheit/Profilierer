@@ -14,6 +14,12 @@ export interface CodelistInfo {
   kennung: string;
   beschreibung: string;
   werte: EnumWert[] | null;
+  /**
+   * Codelisten-Version aus dem XSD: fixe `listVersionID` der Restriction bzw.
+   * `versionCodeliste/version` aus dem appinfo. Massgeblich fuer generierte
+   * Instanzen — ein fixer Wert ist die einzige schema-valide Angabe.
+   */
+  version?: string;
 }
 
 /**

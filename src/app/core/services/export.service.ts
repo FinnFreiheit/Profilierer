@@ -10,7 +10,7 @@ import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
 import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
-import { esc, XJNS } from '../util/xml.util';
+import { esc, kid, kids, local, XJNS } from '../util/xml.util';
 import { kardText, pretty } from '../util/pretty.util';
 
 interface WalkItem {
@@ -253,10 +253,12 @@ export class ExportService {
         const ver = this.values.clVersion(n.codelist) || '~';
         const attrs = n.codelist.kennung ? ` listURI="${esc(n.codelist.kennung)}" listVersionID="${esc(ver)}"` : '';
         lines.push(`${pad}<${n.name}${attrs}>`);
-        lines.push(`${pad}${IND}<code>${v}</code>`);
+        // XOEV-Code: das code-Element ist unqualifiziert (form="unqualified") —
+        // xmlns="" nimmt es aus dem Default-Namespace der Nachricht heraus.
+        lines.push(`${pad}${IND}<code xmlns="">${v}</code>`);
         lines.push(`${pad}</${n.name}>`);
       } else {
-        lines.push(`${pad}<${n.name}>${v}</${n.name}>`);
+        lines.push(`${pad}<${n.name}${this.fixedRequiredAttrs(n)}>${v}</${n.name}>`);
       }
     };
     const hasProfilBelow = (path: string): boolean => {
@@ -361,7 +363,7 @@ export class ExportService {
       }
       this.tree.expandNode(n);
       const pad = IND.repeat(depth);
-      lines.push(`${pad}<${name}>`);
+      lines.push(`${pad}<${name}${this.fixedRequiredAttrs(n)}>`);
       if (n.model === 'choice') {
         const b = chooseBranch(n.children ?? []);
         if (b) emit(b, depth + 1);
@@ -378,7 +380,7 @@ export class ExportService {
       lines.push(`${pad}</${name}>`);
     };
     this.tree.expandNode(root);
-    lines.push(`<${msgName} xmlns="${XJNS}">`);
+    lines.push(`<${msgName} xmlns="${XJNS}"${this.fixedRequiredAttrs(root)}>`);
     for (const c of root.children ?? []) {
       if (c.synthetic) {
         emit(c, 1);
@@ -388,6 +390,48 @@ export class ExportService {
     }
     lines.push(`</${msgName}>`);
     return lines.join('\n');
+  }
+
+  /**
+   * Pflicht-Attribute mit fixem Wert aus dem complexType des Knotens als
+   * Attribut-String (z. B. ` xjustizVersion="3.6.2"` am nachrichtenkopf) —
+   * das Schema erzwingt genau diese Werte (use="required" fixed="…").
+   */
+  private fixedRequiredAttrs(n: TreeNode): string {
+    const idx = this.state.idx();
+    if (!idx) return '';
+    let ct: Element | null = (n.typeName ? idx.ct[n.typeName] : null) ?? (n.xsdEl ? kid(n.xsdEl, 'complexType') : null);
+    let out = '';
+    const seen = new Set<string>();
+    while (ct) {
+      const holders: Element[] = [ct];
+      let base: Element | null = null;
+      const content = kid(ct, 'complexContent') || kid(ct, 'simpleContent');
+      if (content) {
+        const ext = kid(content, 'extension');
+        const h = ext || kid(content, 'restriction');
+        if (h) {
+          holders.push(h);
+          const b = local(h.getAttribute('base'));
+          // Nur bei extension erben Attribute der Basis; restriction wiederholt sie.
+          if (ext && b && idx.ct[b] && !seen.has(b)) {
+            seen.add(b);
+            base = idx.ct[b]!;
+          }
+        }
+      }
+      for (const holder of holders) {
+        for (const a of kids(holder, 'attribute')) {
+          const fixed = a.getAttribute('fixed');
+          const name = a.getAttribute('name');
+          if (name && fixed != null && a.getAttribute('use') === 'required' && !out.includes(` ${name}="`)) {
+            out += ` ${name}="${esc(fixed)}"`;
+          }
+        }
+      }
+      ct = base;
+    }
+    return out;
   }
 
   // ── Druckzeilen (doPrint, Z.2334-2362) ──────────────────────────────

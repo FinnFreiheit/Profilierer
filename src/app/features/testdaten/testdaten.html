@@ -36,7 +36,10 @@
               }
               <div class="dcMeta">
                 @if (e.entwurf) {
-                  <span class="pill pillDraft" title="Es sind noch Pflicht-Punkte offen — die Nachricht ist unvollständig">
+                  <span
+                    class="pill pillDraft"
+                    title="Es sind noch Pflicht-Punkte offen oder die Nachricht ist nicht schema-valide — Details über den Prüfbericht"
+                  >
                     Entwurf — unvollständig
                   </span>
                 }
@@ -57,6 +60,7 @@
                 <span class="dcDate">{{ datum(e) }}</span>
                 <span class="dcTools">
                   <button title="Name und Beschreibung bearbeiten" (click)="openEdit(e, $event)">Bearbeiten</button>
+                  <button title="Schemavalidierung ausführen und Befund anzeigen" (click)="pruefe(e, $event)">Prüfbericht</button>
                   <button title="XML herunterladen" (click)="download(e, $event)">Download</button>
                   <button class="del" title="Löschen" (click)="remove(e, $event)">Löschen</button>
                 </span>
