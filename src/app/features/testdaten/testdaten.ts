@@ -14,6 +14,7 @@ import { InstanceImportService } from '../../core/services/instance-import.servi
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { TestmessageGenerationService } from '../../core/services/testmessage-generation.service';
 import { TestmessageCreateService } from '../../core/services/testmessage-create.service';
+import { DownloadService } from '../../core/services/download.service';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { LibraryEntry } from '../../models/profile.model';
 import { MessageRef } from '../../models/xsd-index.model';
@@ -46,6 +47,7 @@ export class Testdaten {
   private readonly profiles = inject(ProfileStoreService);
   private readonly generator = inject(TestmessageGenerationService);
   private readonly creator = inject(TestmessageCreateService);
+  private readonly dl = inject(DownloadService);
 
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
   private readonly editDlg = viewChild.required<ElementRef<HTMLDialogElement>>('editDlg');
@@ -322,11 +324,7 @@ export class Testdaten {
     try {
       const xml = await this.store.loadXml(e.id);
       if (xml == null) return;
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([xml], { type: 'application/xml' }));
-      a.download = e.name || (e.nachricht ?? 'testnachricht') + '.xml';
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      this.dl.download(e.name || (e.nachricht ?? 'testnachricht') + '.xml', xml, 'application/xml');
     } catch {
       this.toast.show('Download fehlgeschlagen — Backend nicht erreichbar.');
     }

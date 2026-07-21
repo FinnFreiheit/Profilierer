@@ -6,6 +6,7 @@ import { XsdParserService } from './xsd-parser.service';
 import { NavService } from './nav.service';
 import { ToastService } from './toast.service';
 import { ProfileStoreService } from './profile-store.service';
+import { DownloadService } from './download.service';
 import { defaultStatuses, newProfile } from '../profile-defaults';
 
 /** localStorage-Prefix der Notfallkopien (Backend beim Autosave nicht erreichbar). */
@@ -33,6 +34,7 @@ export class PersistenceService {
   private readonly nav = inject(NavService);
   private readonly toast = inject(ToastService);
   private readonly store = inject(ProfileStoreService);
+  private readonly dl = inject(DownloadService);
 
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   /** Verhindert parallele Upserts (Reihenfolge/Lost-Update-Schutz). */
@@ -329,18 +331,10 @@ export class PersistenceService {
     );
     const n = (doc.meta.name || 'Profil').replace(/[^\wäöüÄÖÜß-]+/g, '_');
     const msg = (doc.meta.nachricht || '').split('.').slice(1, -1).join('.') || 'xjustiz';
-    this.download(`${n}_${msg}.profil.json`, json, 'application/json');
+    this.dl.download(`${n}_${msg}.profil.json`, json, 'application/json');
   }
 
   // ── Profil speichern / laden (Z.1772-1823) ──────────────────────────
-
-  private download(name: string, content: string, mime: string): void {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([content], { type: mime }));
-    a.download = name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  }
 
   /** saveProfile (Z.1782-1792): Meta finalisieren und als Datei exportieren. */
   saveProfile(): void {
