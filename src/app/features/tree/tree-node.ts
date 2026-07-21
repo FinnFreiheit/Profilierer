@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input } from '@an
 import { TreeItem, TreeNode as TNode, itemPath } from '../../models/node.model';
 import { StateService } from '../../core/services/state.service';
 import { TreeService } from '../../core/services/tree.service';
+import { NavService } from '../../core/services/nav.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { ValueService } from '../../core/services/value.service';
 import { XsdParserService } from '../../core/services/xsd-parser.service';
@@ -45,6 +46,7 @@ export class TreeNode {
 
   private readonly state = inject(StateService);
   private readonly tree = inject(TreeService);
+  private readonly nav = inject(NavService);
   private readonly guided = inject(GuidedService);
   private readonly values = inject(ValueService);
   private readonly parser = inject(XsdParserService);
@@ -366,9 +368,11 @@ export class TreeNode {
     if (it.kind === 'el') this.state.addAusp(it.node.path);
   }
 
+  /** Sprung zum festgelegten Verweisziel (wie refJump im Detailpanel). */
   protected onRefTag(e: Event): void {
     e.stopPropagation();
-    // Sprung zum Verweisziel folgt in P6 (redrawLines/jumpTo).
-    this.toast.show('Verweis-Navigation folgt (Phase P6).');
+    const ziel = this.state.elemente()[this.path()]?.refZiel;
+    if (ziel) this.nav.jumpTo(ziel);
+    else this.toast.show('Kein Verweisziel festgelegt — Ziel im Detailbereich wählen.');
   }
 }
