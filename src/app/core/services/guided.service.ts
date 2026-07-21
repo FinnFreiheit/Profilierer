@@ -388,6 +388,28 @@ export class GuidedService {
     }
   }
 
+  /**
+   * Disposition des aktuellen Punkts per Wirkung setzen (Tastatur z/o/n) und
+   * automatisch zum naechsten offenen Punkt springen. Aufloesung ueber die
+   * Wirkung statt Status-IDs, damit umbenannte/eigene Stufen greifen (wie die
+   * Dispositions-Buttons im Detail-Panel). false, wenn nichts selektiert ist
+   * oder die Profilierung keine Stufe mit passender Wirkung konfiguriert hat.
+   */
+  setzeDisposition(wirkung: 'pflicht' | 'optional' | 'ausgeschlossen'): boolean {
+    const path = this.selPath();
+    if (path == null) return false;
+    const st =
+      wirkung === 'pflicht'
+        ? this.state.pflichtStatus()
+        : wirkung === 'optional'
+          ? this.state.optionalStatus()
+          : this.state.exclStatus();
+    if (!st) return false;
+    this.state.setElementProfile(path, { status: st.id });
+    this.gotoNextOpen();
+    return true;
+  }
+
   private selPath(): string | null {
     const it = this.state.selItem();
     return it ? itemPath(it) : null;

@@ -175,6 +175,7 @@ label.menuItem:has(input:disabled){opacity:.45;cursor:not-allowed}
 .gChip:hover{border-color:var(--accent);color:var(--accent)}
 .gNav{display:flex;gap:6px;margin-top:10px}
 .gNav button:last-child{margin-left:auto}
+.gKbdHint{font-size:11px;color:var(--muted);margin-top:6px}
 /* Gefuehrte Testnachricht-Erstellung (Instanz-Modus) */
 .statusBtns .gAuf.active{background:#1e7d3e;border-color:#1e7d3e;color:#fff}
 .statusBtns .gAuf:not(.active){border-color:#1e7d3e66;color:#1e7d3e}

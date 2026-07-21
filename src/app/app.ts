@@ -25,6 +25,7 @@ import { TestmessageCreateService } from './core/services/testmessage-create.ser
 import { TestmessageStoreService } from './core/services/testmessage-store.service';
 import { ToastService } from './core/services/toast.service';
 import { StateService } from './core/services/state.service';
+import { GuidedService } from './core/services/guided.service';
 import { BundledSchemaService } from './core/services/bundled-schema.service';
 import { MigrationService } from './core/services/migration.service';
 import { XmlValidationService } from './core/services/xml-validation.service';
@@ -69,6 +70,7 @@ export class App implements OnInit {
   private readonly testmessages = inject(TestmessageStoreService);
   private readonly toast = inject(ToastService);
   private readonly state = inject(StateService);
+  private readonly guided = inject(GuidedService);
   private readonly bundled = inject(BundledSchemaService);
   private readonly migration = inject(MigrationService);
   private readonly validator = inject(XmlValidationService);
@@ -135,12 +137,44 @@ export class App implements OnInit {
     }
   }
 
-  /** Pfeiltasten-Navigation im Baum (Z.2443-2463). */
+  /**
+   * Tastatur-Navigation (Z.2443-2463): Pfeiltasten im Baum; im gefuehrten
+   * Profil-Modus zusaetzlich Links/Rechts = Spur (vorheriger Punkt / naechster
+   * offener) und z/o/n = Disposition mit Auto-Sprung.
+   */
   onKeydown(e: KeyboardEvent): void {
-    if (!e.key.startsWith('Arrow')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target as HTMLElement | null;
     if (t && ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return;
     if (document.querySelector('dialog[open]')) return;
+
+    // Gefuehrter Profil-Modus (gleiche Bedingung wie gv im Detail-Panel).
+    if (
+      this.state.guided() &&
+      !this.state.readOnly() &&
+      !this.guided.instanzModus() &&
+      this.state.selItem()
+    ) {
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (key === 'ArrowLeft') {
+        this.guided.gotoPrev();
+        e.preventDefault();
+        return;
+      }
+      if (key === 'ArrowRight') {
+        this.guided.gotoNextOpen();
+        e.preventDefault();
+        return;
+      }
+      const wirkung =
+        key === 'z' ? 'pflicht' : key === 'o' ? 'optional' : key === 'n' ? 'ausgeschlossen' : null;
+      if (wirkung) {
+        if (this.guided.setzeDisposition(wirkung)) e.preventDefault();
+        return;
+      }
+    }
+
+    if (!e.key.startsWith('Arrow')) return;
     if (this.nav.arrowNavigate(e.key)) e.preventDefault();
   }
 

@@ -2,8 +2,10 @@ import { TestBed } from '@angular/core/testing';
 import { GuidedService } from './guided.service';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
+import { NavService } from './nav.service';
 import { XsdParserService } from './xsd-parser.service';
 import { XsdDoc } from '../../models/xsd-index.model';
+import { itemPath } from '../../models/node.model';
 
 /**
  * Fixture: Pflicht-Rueckgrat (kopf), optionales Blatt (az), choice mit zwei
@@ -153,6 +155,52 @@ describe('GuidedService', () => {
     it('liefert null, wenn alles entschieden ist', () => {
       for (const p of pfade()) state.setElementProfile(p, { status: S.excl });
       expect(svc.nextOpen(null)).toBeNull();
+    });
+  });
+
+  describe('Disposition per Tastatur (setzeDisposition)', () => {
+    let nav: NavService;
+
+    const waehle = (path: string): void => {
+      nav = TestBed.inject(NavService);
+      const it = nav.findItemByPath(path);
+      expect(it).withContext(path).not.toBeNull();
+      state.selItem.set(it);
+    };
+
+    const selPath = (): string | null => {
+      const it = state.selItem();
+      return it ? itemPath(it) : null;
+    };
+
+    it('setzt die Stufe gemaess Wirkung und springt zum naechsten offenen Punkt', () => {
+      waehle(`${M}/az`);
+      expect(svc.setzeDisposition('pflicht')).toBeTrue();
+      expect(state.elemente()[`${M}/az`]?.status).toBe(S.pflicht);
+      expect(selPath()).toBe(`${M}/_auswahl`); // Auto-Sprung
+    });
+
+    it('bildet optional und ausgeschlossen auf die passenden Stufen ab', () => {
+      waehle(`${M}/az`);
+      svc.setzeDisposition('optional');
+      expect(state.elemente()[`${M}/az`]?.status).toBe(S.optional);
+      waehle(`${M}/beteiligung`);
+      svc.setzeDisposition('ausgeschlossen');
+      expect(state.elemente()[`${M}/beteiligung`]?.status).toBe(S.excl);
+    });
+
+    it('tut ohne Selektion nichts und meldet false', () => {
+      state.selItem.set(null);
+      expect(svc.setzeDisposition('pflicht')).toBeFalse();
+      expect(Object.keys(state.elemente()).length).toBe(0);
+    });
+
+    it('tut ohne konfigurierte Stufe nichts und meldet false', () => {
+      state.statuses.set(state.statuses().filter((s) => s.wirkung !== 'optional'));
+      waehle(`${M}/az`);
+      expect(svc.setzeDisposition('optional')).toBeFalse();
+      expect(state.elemente()[`${M}/az`]?.status).toBeUndefined();
+      expect(selPath()).toBe(`${M}/az`); // kein Sprung
     });
   });
 

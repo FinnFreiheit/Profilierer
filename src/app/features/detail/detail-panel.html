@@ -47,7 +47,7 @@
                 [style.background]="d.active ? d.farbe : null"
                 [style.border-color]="d.active ? d.farbe : d.disabled ? null : d.farbe + '66'"
                 [style.color]="d.active ? '#fff' : d.disabled ? null : d.farbe"
-                [title]="d.disabled ? 'Keine Statusstufe mit passender Wirkung konfiguriert — unter Status… anlegen' : d.active ? 'Erneut klicken: zurück auf „wie Standard“' : ''"
+                [title]="d.disabled ? 'Keine Statusstufe mit passender Wirkung konfiguriert — unter Status… anlegen' : d.active ? 'Erneut klicken: zurück auf „wie Standard“ (Taste ' + d.taste + ')' : 'Taste ' + d.taste"
                 (click)="!d.disabled && setStatus(d.active ? '' : d.id)"
               >
                 {{ d.label }}
@@ -66,12 +66,13 @@
         }
 
         <div class="gNav">
-          <button (click)="guidedPrev()">‹ Zurück</button>
+          <button title="Taste ←" (click)="guidedPrev()">‹ Zurück</button>
           <button (click)="guidedNext()">Weiter ›</button>
-          <button class="primary" [disabled]="!g.nOffen" (click)="guidedNextOpen()">
+          <button class="primary" title="Taste →" [disabled]="!g.nOffen" (click)="guidedNextOpen()">
             Nächster offener ({{ g.nOffen }})
           </button>
         </div>
+        <div class="gKbdHint">Tastatur: ← → navigieren · z / o / n entscheiden</div>
       </div>
     }
 

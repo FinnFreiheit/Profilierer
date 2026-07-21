@@ -1,6 +1,6 @@
 # US-Story: Profilierung geführt erstellen
 
-Status: verfeinert (Refinement 26.07.14) · Typ: Story mit Vollständigkeits-Anspruch · Oberthema: Erstellung einer Profilierung
+Status: verfeinert (Refinement 26.07.14, Tastatursteuerung ergänzt 26.07.21) · Typ: Story mit Vollständigkeits-Anspruch · Oberthema: Erstellung einer Profilierung
 
 ## Ausgangslage
 
@@ -183,6 +183,20 @@ Bereits vorhanden und wiederverwendbar:
   Nutzer-Entscheidungen** (auto-vorbelegte Pflicht ausgenommen).
 - Der aktuelle Knoten ist hervorgehoben; der Pfad-Kontext (Vorfahren) bleibt sichtbar
   (bestehender Fokus-/Scroll-Mechanismus).
+- **Tastaturbedienung** (ergänzt 26.07.21): Eine Profilierung ist **vollständig ohne
+  Maus** erstellbar. Im geführten Modus gilt:
+  - **Pfeil Rechts** springt zum **nächsten offenen** Punkt, **Pfeil Links** zum
+    **vorherigen** Punkt (auch entschiedene — zum Korrigieren).
+  - **z / o / n** setzt die Disposition des aktuellen Punkts (z = zwingend,
+    o = anzugeben wenn vorhanden, n = nicht verwendet — aufgelöst über die
+    *Wirkung*, damit umbenannte Stufen greifen) und springt **automatisch zum
+    nächsten offenen Punkt**.
+  - Die Shortcuts greifen **nicht**, wenn der Fokus in einem Eingabefeld liegt,
+    ein Dialog offen ist oder eine Modifier-Taste (Strg/Cmd/Alt) gedrückt ist.
+  - Die Baum-Navigation Links/Rechts (Eltern/Kind) ist im geführten Modus durch
+    die Spur-Navigation ersetzt; Hoch/Runter (Geschwister) bleibt erhalten.
+  - Die Dispositions- und Navigations-Buttons zeigen die Tasten als Hinweis
+    (Tooltip bzw. Hinweiszeile) — Entdeckbarkeit auch für Nicht-Techniker.
 
 ### I. Vollständigkeit und Abschluss
 
@@ -220,6 +234,9 @@ Bereits vorhanden und wiederverwendbar:
 
 - Einstieg/Schema: `src/app/features/message-picker/`,
   `src/app/core/services/bundled-schema.service.ts`
+- Tastatursteuerung: `src/app/app.ts` (globaler Keydown-Handler — Guards für
+  Eingabefelder/Dialoge, Umdeutung Links/Rechts, z/o/n),
+  `src/app/core/services/guided.service.ts` (`setzeDisposition`)
 - Führung/Navigation: `src/app/core/services/nav.service.ts` (`loadMessage`,
   `prefillMandatoryStatus`, `jumpTo`, Next-/Reihenfolge-Logik),
   `src/app/core/services/tree.service.ts` (`collectMandatoryPaths`, `isRepeatable`,

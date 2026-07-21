@@ -184,15 +184,16 @@ export class DetailPanel {
     // Drei feste Dispositionen, an die Wirkung gebunden (Fallback: disabled,
     // wenn die Profilierung keine Stufe mit passender Wirkung konfiguriert hat).
     const dispo = [
-      { st: this.state.pflichtStatus(), fallback: 'zwingend' },
-      { st: this.state.optionalStatus(), fallback: 'anzugeben, wenn vorhanden' },
-      { st: this.state.exclStatus(), fallback: 'nicht verwendet' },
+      { st: this.state.pflichtStatus(), fallback: 'zwingend', taste: 'z' },
+      { st: this.state.optionalStatus(), fallback: 'anzugeben, wenn vorhanden', taste: 'o' },
+      { st: this.state.exclStatus(), fallback: 'nicht verwendet', taste: 'n' },
     ].map((d) => ({
       id: d.st?.id ?? '',
       label: d.st?.name ?? d.fallback,
       farbe: d.st?.farbe ?? 'var(--muted)',
       active: !!d.st && cur === d.st.id,
       disabled: !d.st,
+      taste: d.taste,
     }));
 
     // Auswahl-Schritt: zulaessige Alternativen einschraenken — sowohl fuer
