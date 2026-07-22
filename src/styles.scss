@@ -180,6 +180,9 @@ label.menuItem:has(input:disabled){opacity:.45;cursor:not-allowed}
 .pillExt{background:#efedfb;color:#5a50c0}
 .statusStrip{position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:9px 0 0 9px}
 
+/* Host aufloesen, damit #detail direktes Flex-Item von #main ist (Hoehe = Main-Hoehe,
+   sonst waechst das Panel ueber die Legende hinaus statt intern zu scrollen). */
+app-detail-panel{display:contents}
 #detail{width:400px;min-width:350px;border-left:1px solid var(--border);background:var(--panel);overflow-y:auto;padding:16px;display:none;flex:none}
 #detail.open{display:block}
 #detail h3{margin:0 0 2px;font-size:15px;word-break:break-word}
