@@ -6,6 +6,7 @@ import { TreeCanvas } from './features/tree/tree-canvas';
 import { DetailPanel } from './features/detail/detail-panel';
 import { StatusDialog } from './features/dialogs/status-dialog';
 import { MetaDialog } from './features/dialogs/meta-dialog';
+import { HinweiseDialog } from './features/dialogs/hinweise-dialog';
 import { DiffDialog } from './features/dialogs/diff-dialog';
 import { Legend } from './features/legend/legend';
 import { PrintDoc } from './features/print/print-doc';
@@ -48,6 +49,7 @@ import { frageTestnachrichtName, parseTestmessage, testmessageInput } from './co
     DetailPanel,
     StatusDialog,
     MetaDialog,
+    HinweiseDialog,
     DiffDialog,
     Legend,
     PrintDoc,

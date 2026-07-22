@@ -21,12 +21,15 @@ interface ExcelZeile {
   anzahl?: string;
   status?: string;
   testdaten?: string;
+  /** Offener interner Hinweis (erledigte werden nicht exportiert). */
+  hinweis?: string;
 }
 
 /** Farben des NGem-Layouts (ARGB). */
 const XL_HEADER = 'FFFFC000';
 const XL_SZENARIO = 'FFC6E0B4';
 const XL_TESTDATEN = 'FFBDD7EE';
+const XL_HINWEIS = 'FFDFF2F0';
 /**
  * Gliederungsstreifen je Einrueck-Tiefe (Referenz: Office-Themefarben
  * accent6/5/4/2/1/lt2 mit Tint 0,6 fuer die Spalten A..F, dann wiederholt).
@@ -143,6 +146,7 @@ export class ExcelExportService {
           : n.synthetic ? `[${n.model}]` : n.typeName || (n.model === 'choice' ? '[choice]' : ''),
         anzahl: kurzKard(n.min, n.max) + (k.changed ? '\n' + kurzKard(k.min, k.max) : ''),
         status, testdaten: p.beispiel || '',
+        hinweis: (!p.hinweisErledigt && p.hinweis) || '',
       });
       if (n.doc) zeilen.push({ art: 'desc', tiefe, text: n.doc, status: status ? '.' : '' });
       if (kollabiert?.(n) || tiefe >= maxTiefe || n.recursive) continue;
@@ -155,6 +159,7 @@ export class ExcelExportService {
             art: 'el', tiefe: tiefe + 1, text: `${n.name} (${a.name})`,
             typ: n.typeName || '', anzahl: kurzKard(ap.min || '1', ap.max || '1'),
             status: this.statusText(cn.path, ap), testdaten: ap.beispiel || '',
+            hinweis: (!ap.hinweisErledigt && ap.hinweis) || '',
           });
           this.sammleZeilen(this.tree.kinder(cn), tiefe + 2, zeilen, undefined, maxTiefe);
         }
@@ -210,12 +215,16 @@ export class ExcelExportService {
     const colAnzahl = colTyp + 1;
     const colStatus = colAnzahl + 1;
     const colTest = colStatus + 1;
+    // Zusatzspalte fuer offene interne Hinweise — nur wenn welche vorhanden sind,
+    // damit das Referenzlayout sonst unveraendert bleibt.
+    const colHinweis = zeilen.some((z) => z.hinweis) ? colTest + 1 : 0;
     for (let c = 1; c < einrueck; c++) ws.getColumn(c).width = 4.8;
     ws.getColumn(einrueck).width = 14;
     ws.getColumn(colTyp).width = 44;
     ws.getColumn(colAnzahl).width = 10;
     ws.getColumn(colStatus).width = 40;
     ws.getColumn(colTest).width = 40;
+    if (colHinweis) ws.getColumn(colHinweis).width = 40;
     const zelle = (r: number, c: number, v: string, fett = false): void => {
       const cell = ws.getCell(r, c);
       cell.value = v;
@@ -235,7 +244,12 @@ export class ExcelExportService {
     ws.getCell(3, colStatus).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_SZENARIO } };
     zelle(3, colTest, 'Testdaten\n' + profilName, true);
     ws.getCell(3, colTest).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_TESTDATEN } };
-    for (const c of [colStatus, colTest]) ws.getCell(3, c).alignment = { wrapText: true, vertical: 'top' };
+    if (colHinweis) {
+      zelle(3, colHinweis, 'Hinweise', true);
+      ws.getCell(3, colHinweis).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_HINWEIS } };
+    }
+    for (const c of colHinweis ? [colStatus, colTest, colHinweis] : [colStatus, colTest])
+      ws.getCell(3, c).alignment = { wrapText: true, vertical: 'top' };
     ws.getRow(3).height = 52;
     ws.views = [{ state: 'frozen', ySplit: 3 }];
 
@@ -270,12 +284,17 @@ export class ExcelExportService {
         zelle(r, colTest, z.testdaten);
         ws.getCell(r, colTest).alignment = { wrapText: true, vertical: 'top' };
       }
+      if (colHinweis && z.hinweis) {
+        zelle(r, colHinweis, z.hinweis);
+        ws.getCell(r, colHinweis).alignment = { wrapText: true, vertical: 'top' };
+      }
       if (z.anzahl && z.anzahl.includes('\n'))
         ws.getCell(r, colAnzahl).alignment = { wrapText: true, vertical: 'top' };
       const zeilenzahl = Math.max(
         z.art === 'desc' ? zeilenbedarf(z.text, breiteAb(cName)) : 1,
         zeilenbedarf(z.status, 40),
         zeilenbedarf(z.testdaten, 40),
+        zeilenbedarf(z.hinweis, 40),
         zeilenbedarf(z.anzahl, 10),
       );
       ws.getRow(r).height = Math.max(25, 13 * zeilenzahl + 4);

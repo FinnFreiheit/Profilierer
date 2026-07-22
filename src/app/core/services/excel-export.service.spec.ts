@@ -153,6 +153,24 @@ describe('ExcelExportService (NGem-Layout)', () => {
     expect(haupt).toContain('Nachbeauftragung'); // Beschreibung als desc-Zeile
   });
 
+  it('offener Hinweis erscheint in der Zusatzspalte "Hinweise"', async () => {
+    state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, { hinweis: 'Mit Registergericht klären' });
+    const wb = await exportiert();
+    const haupt = inhalt(wb, 'Notar an Gemeinde');
+    expect(haupt).toContain('Hinweise');
+    expect(haupt).toContain('Mit Registergericht klären');
+  });
+
+  it('erledigte Hinweise werden nicht exportiert; ohne Hinweise keine Zusatzspalte', async () => {
+    state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, {
+      hinweis: 'Mit Registergericht klären', hinweisErledigt: true,
+    });
+    const wb = await exportiert();
+    const haupt = inhalt(wb, 'Notar an Gemeinde');
+    expect(haupt).not.toContain('Hinweise');
+    expect(haupt).not.toContain('Mit Registergericht klären');
+  });
+
   it('Meta-Sheet enthaelt Metadaten und die Statuslegende', async () => {
     const wb = await exportiert();
     const meta = inhalt(wb, 'Szenario');

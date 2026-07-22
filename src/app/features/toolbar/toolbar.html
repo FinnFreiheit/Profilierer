@@ -84,6 +84,10 @@
   </app-menu>
 
   <div class="toolgroup">
+    @if (!isMessage() && !isCreate() && state.hinweisEintraege().length) {
+      <button title="Übersicht aller internen Hinweise — Klick springt zum Element"
+        (click)="hinweiseClick.emit()">Hinweise ({{ state.nOffeneHinweise() }})</button>
+    }
     @if ((isCreate() || isMessage()) && !state.readOnly()) {
       <button [disabled]="!hasRoot()"
         title="Alle offenen Pflichtfelder typkonform mit Dummy-Werten befüllen (UUID, Datum, Pattern, Codeliste)"

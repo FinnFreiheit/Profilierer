@@ -287,6 +287,61 @@ describe('StateService', () => {
     });
   });
 
+  describe('Hinweise (interne Review-Notizen)', () => {
+    it('Eintrag mit nur Hinweis ueberlebt das Prune', () => {
+      s.setElementProfile('m/a', { hinweis: 'pruefen' });
+      expect(s.elemente()['m/a']).toEqual({ hinweis: 'pruefen' });
+    });
+
+    it('Leeren des Hinweistexts raeumt den Eintrag weg — auch mit Erledigt-Flag', () => {
+      s.setElementProfile('m/a', { hinweis: 'pruefen', hinweisErledigt: true });
+      s.setElementProfile('m/a', { hinweis: undefined, hinweisErledigt: undefined });
+      expect(s.elemente()['m/a']).toBeUndefined();
+    });
+
+    it('hinweisErledigt allein haelt keinen Eintrag am Leben', () => {
+      s.setElementProfile('m/a', { hinweisErledigt: true });
+      expect(s.elemente()['m/a']).toBeUndefined();
+    });
+
+    it('hinweisEintraege sortiert offene vor erledigten, nOffeneHinweise zaehlt nur offene', () => {
+      s.setElementProfile('m/b', { hinweis: 'fertig', hinweisErledigt: true });
+      s.setElementProfile('m/c', { hinweis: 'offen2' });
+      s.setElementProfile('m/a', { hinweis: 'offen1' });
+      expect(s.hinweisEintraege().map((e) => e.pfad)).toEqual(['m/a', 'm/c', 'm/b']);
+      expect(s.nOffeneHinweise()).toBe(2);
+    });
+
+    it('hinweisAnc zaehlt offene Hinweise auf allen Vorfahren (Grenzen / und @)', () => {
+      s.setElementProfile('m/bet@a1/rolle', { hinweis: 'x' });
+      s.setElementProfile('m/bet@a1/name', { hinweis: 'y', hinweisErledigt: true });
+      const anc = s.hinweisAnc();
+      expect(anc.get('m')).toBe(1);
+      expect(anc.get('m/bet')).toBe(1);
+      expect(anc.get('m/bet@a1')).toBe(1);
+      expect(anc.get('m/bet@a1/rolle')).toBeUndefined();
+    });
+
+    it('hasNotes bleibt false bei nur-Hinweis (t-note getrennt vom Hinweis-Badge)', () => {
+      s.setElementProfile('m/a', { hinweis: 'x' });
+      expect(s.hasNotes('m/a')).toBeFalse();
+    });
+
+    it('boxHidden zeigt im nur-Werte-Modus Elemente mit Hinweis samt Vorfahren', () => {
+      s.setElementProfile('m/gds/kopf/az', { hinweis: 'pruefen' });
+      s.onlyValues.set(true);
+      expect(s.boxHidden('m/gds/kopf/az')).toBe(false);
+      expect(s.boxHidden('m/gds')).toBe(false);
+    });
+
+    it('duplicateElement nimmt den Hinweis mit nach Fall 1 (dokumentiertes Verhalten)', () => {
+      s.setElementProfile('m/bet/rolle', { hinweis: 'x' });
+      s.duplicateElement('m/bet');
+      const id1 = s.auspsOf('m/bet')![0]!.id;
+      expect(s.elemente()['m/bet@' + id1 + '/rolle']).toEqual({ hinweis: 'x' });
+    });
+  });
+
   describe('expandValueBranches', () => {
     it('klappt jeden Wert samt seiner Vorfahren auf', () => {
       s.setElementProfile('m/gds/kopf/az', { beispiel: '12345' });

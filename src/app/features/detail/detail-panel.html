@@ -364,6 +364,16 @@
           <label>Fachliche Anmerkung</label>
           <textarea placeholder="Ausfüllhinweis, juristische Erläuterung, offene Frage…" [value]="v.anmerkung" (change)="setField('anmerkung', $event)"></textarea>
         </div>
+        <div class="dsec">
+          <label>Interner Hinweis</label>
+          <textarea placeholder="Abzuarbeitende Review-Notiz — Excel-Export nur solange offen, nie im XML" [value]="v.hinweis" (change)="setHinweis($event)"></textarea>
+          @if (v.hinweis) {
+            <label class="hinweisErledigt">
+              <input type="checkbox" [checked]="v.hinweisErledigt" (change)="toggleHinweisErledigt($event)" />
+              erledigt
+            </label>
+          }
+        </div>
       }
       @if (!isCreate() || v.leaf) {
         <div class="dsec">
@@ -385,6 +395,12 @@
     } @else {
       @if (v.anmerkung) {
         <div class="dsec"><label>Fachliche Anmerkung</label><div class="docbox">{{ v.anmerkung }}</div></div>
+      }
+      @if (v.hinweis) {
+        <div class="dsec">
+          <label>Interner Hinweis</label>
+          <div class="docbox">{{ v.hinweis }}@if (v.hinweisErledigt) {<span style="color: var(--muted)"> (erledigt)</span>}</div>
+        </div>
       }
       @if (v.beispiel) {
         <div class="dsec">

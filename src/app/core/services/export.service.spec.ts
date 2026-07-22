@@ -118,6 +118,13 @@ describe('ExportService (Schematron)', () => {
     expect(sch()).toContain('<sch:assert test="xj:az">');
   });
 
+  it('interne Hinweise tauchen weder im Schematron noch im Beispiel-XML auf', () => {
+    state.setElementProfile(`${M}/az`, { status: 's1', hinweis: 'INTERN-GEHEIM' });
+    svc.exportSchematron();
+    expect(sch()).not.toContain('INTERN-GEHEIM');
+    expect(svc.buildBeispielXml()).not.toContain('INTERN-GEHEIM');
+  });
+
   describe('Beispiel-XML (buildBeispielXml/genBeispielXml)', () => {
     it('baut den XML-String mit Root und Pflichtelementen', () => {
       const xml = svc.buildBeispielXml();

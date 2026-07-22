@@ -68,6 +68,15 @@ label.menuItem:has(input:disabled){opacity:.45;cursor:not-allowed}
 .vfItem.klickbar{cursor:pointer}
 .vfItem.klickbar:hover{background:var(--accent-soft)}
 .vfItem.vfErw{border-left:3px solid #7F77DD;background:#f7f6fd}
+/* Hinweis-Uebersicht (hinweiseDlg): Liste mit Erledigt-Checkbox. */
+.hinweisListe .hwItem{display:flex;gap:8px;align-items:flex-start;font-family:inherit;font-size:12.5px}
+.hinweisListe .hwItem input[type=checkbox]{margin-top:2px;flex:none}
+.hinweisListe .hwTitel{font-weight:600}
+.hinweisListe .hwPfad{color:var(--muted);font-family:var(--mono);font-size:11px;word-break:break-all}
+.hinweisListe .hwErledigt{opacity:.55}
+.hinweisListe .hwErledigt .hwText{text-decoration:line-through}
+/* Erledigt-Checkbox im Detail-Panel unterhalb des Hinweis-Textfelds. */
+.dsec .hinweisErledigt{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:12.5px;color:var(--muted);text-transform:none;letter-spacing:normal;font-weight:400}
 @keyframes flashSel{0%{box-shadow:0 0 0 7px rgba(26,95,168,.4)}100%{box-shadow:none}}
 .box.flash{animation:flashSel 1.3s ease-out}
 #autosaveInfo{font-size:11.5px;color:var(--muted)}
@@ -154,6 +163,8 @@ label.menuItem:has(input:disabled){opacity:.45;cursor:not-allowed}
 .tag.t-rec{background:#ececec;color:#777}
 .tag.t-ausp{background:#e8f0fa;color:#1a5fa8}
 .tag.t-note{background:#e8f0fa;color:#1a5fa8}
+.tag.t-hint{background:#dff2f0;color:#0d7268}
+.tag.t-hsub{background:#eef7f6;color:#0d7268}
 .tag.t-open{background:#fdeecd;color:#9a6a00;border:1px dashed #d9a927}
 .box.excluded{opacity:.55;background:#fafafa}
 .box.excluded .bt{text-decoration:line-through}

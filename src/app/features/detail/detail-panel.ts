@@ -184,6 +184,8 @@ export class DetailPanel {
       codelist,
       ref,
       anmerkung: p.anmerkung ?? '',
+      hinweis: p.hinweis ?? '',
+      hinweisErledigt: !!p.hinweisErledigt,
       beispiel: p.beispiel ?? '',
       // Klartext hinter dem belegten Code (Story 4) — null, wenn kein Code-Feld
       // oder Liste (noch) nicht geladen.
@@ -338,6 +340,20 @@ export class DetailPanel {
   protected setField(key: 'min' | 'max' | 'anmerkung' | 'beispiel', e: Event): void {
     const v = (e.target as HTMLInputElement | HTMLTextAreaElement).value.trim();
     this.state.setElementProfile(this.path(), { [key]: v || undefined });
+  }
+
+  /** Hinweistext setzen; Leeren loescht auch das Erledigt-Flag. */
+  protected setHinweis(e: Event): void {
+    const v = (e.target as HTMLTextAreaElement).value.trim();
+    this.state.setElementProfile(
+      this.path(),
+      v ? { hinweis: v } : { hinweis: undefined, hinweisErledigt: undefined },
+    );
+  }
+
+  protected toggleHinweisErledigt(e: Event): void {
+    const checked = (e.target as HTMLInputElement).checked;
+    this.state.setElementProfile(this.path(), { hinweisErledigt: checked || undefined });
   }
 
   protected onAuspNameSelf(e: Event): void {

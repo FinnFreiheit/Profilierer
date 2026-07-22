@@ -52,6 +52,10 @@ export interface ElementProfile {
   werte?: string[];
   /** Verweisziel-Pfad (Z.1179-1183). */
   refZiel?: string;
+  /** Interner Review-Hinweis; offene Hinweise erscheinen im Excel-Export, nicht im XML. */
+  hinweis?: string;
+  /** Nur relevant, wenn `hinweis` gesetzt; haelt allein keinen Eintrag am Leben. */
+  hinweisErledigt?: boolean;
 }
 
 /** Metadaten des Profils (mName/mAutor/mDatum/mBeschr, Z.289-292). */

@@ -240,6 +240,16 @@ export class TreeNode {
       );
     }
     if (this.state.hasNotes(path)) tags.push({ cls: 't-note', text: 'Notiz' });
+    // Interne Hinweise: offener Hinweis am Element, Aggregat fuer den Teilbaum.
+    if (pe.hinweis && !pe.hinweisErledigt)
+      tags.push({ cls: 't-hint', text: 'Hinweis', title: pe.hinweis });
+    const hSub = this.state.hinweisAnc().get(path);
+    if (hSub)
+      tags.push({
+        cls: 't-hsub',
+        text: hSub + (hSub === 1 ? ' Hinweis' : ' Hinweise'),
+        title: 'Offene Hinweise in untergeordneten Elementen',
+      });
     // Gefuehrter Modus: offene Entscheidungspunkte markieren.
     if (this.state.guided() && !readOnly && this.guided.offeneSet().has(path))
       tags.push({ cls: 't-open', text: 'offen', title: 'Entscheidung steht noch aus' });

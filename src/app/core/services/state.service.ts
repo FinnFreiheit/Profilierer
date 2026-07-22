@@ -217,11 +217,48 @@ export class StateService {
   private readonly valuePaths = computed<ReadonlySet<string>>(() => {
     const set = new Set<string>();
     for (const [path, p] of Object.entries(this.elemente())) {
-      if (!p || !(p.beispiel || p.anmerkung || (p.werte && p.werte.length))) continue;
+      if (!p || !(p.beispiel || p.anmerkung || p.hinweis || (p.werte && p.werte.length))) continue;
       set.add(path);
       for (const a of this.ancestorPaths(path)) set.add(a);
     }
     return set;
+  });
+
+  /**
+   * Alle Hinweise (interne Review-Notizen) als Liste fuer die Uebersicht:
+   * offene vor erledigten, innerhalb dessen nach Pfad (deterministisch).
+   */
+  readonly hinweisEintraege = computed<{ pfad: string; text: string; erledigt: boolean }[]>(() => {
+    const r: { pfad: string; text: string; erledigt: boolean }[] = [];
+    for (const [pfad, p] of Object.entries(this.elemente())) {
+      if (p?.hinweis) r.push({ pfad, text: p.hinweis, erledigt: !!p.hinweisErledigt });
+    }
+    r.sort((a, b) => Number(a.erledigt) - Number(b.erledigt) || a.pfad.localeCompare(b.pfad));
+    return r;
+  });
+
+  /** Anzahl offener Hinweise (Toolbar-Zaehler). */
+  readonly nOffeneHinweise = computed(
+    () => this.hinweisEintraege().filter((e) => !e.erledigt).length,
+  );
+
+  /**
+   * Vorfahren-Aggregat der offenen Hinweise: Pfad → Anzahl im Teilbaum darunter
+   * (Sammel-Marker fuer zugeklappte Aeste; Praefix-Logik wie valAnc im
+   * ValidationMarkerService, Grenzen '/' und '@').
+   */
+  readonly hinweisAnc = computed<ReadonlyMap<string, number>>(() => {
+    const anc = new Map<string, number>();
+    for (const e of this.hinweisEintraege()) {
+      if (e.erledigt) continue;
+      for (let i = 0; i < e.pfad.length; i++) {
+        if (e.pfad[i] === '/' || e.pfad[i] === '@') {
+          const p = e.pfad.slice(0, i);
+          anc.set(p, (anc.get(p) ?? 0) + 1);
+        }
+      }
+    }
+    return anc;
   });
 
   /** "nur Profil" blendet Ausgeschlossenes aus (renderBox Z.1211), "nur Werte" alles Wertlose. */
@@ -281,7 +318,8 @@ export class StateService {
    */
   private isEmptyProfile(p: ElementProfile): boolean {
     return (
-      !p.status && !p.anmerkung && !p.beispiel && !p.min && !p.max && !p.refZiel && !p.werte
+      !p.status && !p.anmerkung && !p.beispiel && !p.min && !p.max && !p.refZiel && !p.werte &&
+      !p.hinweis
     );
   }
 

@@ -26,6 +26,7 @@ export class Toolbar {
 
   readonly metaClick = output<void>();
   readonly statusClick = output<void>();
+  readonly hinweiseClick = output<void>();
   readonly saveClick = output<void>();
   readonly excelClick = output<void>();
   readonly schClick = output<void>();
