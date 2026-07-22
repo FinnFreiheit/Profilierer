@@ -17,7 +17,7 @@ Feature-Komponenten (`src/app/features/`) und Querschnitt (`src/app/shared/`). A
 | Komponente | Selector | Zweck / Schnittstelle |
 |---|---|---|
 | `TreeCanvas` | `app-tree-canvas` | Scrollbereich `#treeCanvas` + SVG-Overlay der Verbindungslinien; rendert den rekursiven Wurzelknoten. Berechnet Linien aus DOM-Geometrie (`effect` + `ResizeObserver` + `afterNextRender`, `rAF`-Debounce) und scrollt/flasht auf Anforderung (Z.1066-1206, 682-691). |
-| `TreeNode` | `app-tree-node` | **Rekursiv.** Host-Klasse `ntree`, darin `.box` + `.nkids`. Input `item: TreeItem`. Ein großes `vm`-`computed` leitet Klassen, Status-Streifen, Kardinalität, Tags, Testwert, Diff-Markierungen ab; `phantoms`-`computed` für „neu in Vergleichsversion"-Kästen. Aktionen (Status/Toggle/Ausblenden/Duplizieren/Ausprägung/Testwert) rufen Store-Methoden (Z.1207-1391, 1080-1117). |
+| `TreeNode` | `app-tree-node` | **Rekursiv.** Host-Klasse `ntree`, darin `.box` + `.nkids`. Input `item: TreeItem`. Ein großes `vm`-`computed` leitet Klassen, Status-Streifen, Kardinalität, Tags, Testwert, Diff-/Validierungs-Markierungen ab; `phantoms`-`computed` für „neu in Vergleichsversion"-Kästen. Aktionen (Status/Toggle/Ausblenden/Duplizieren/Ausprägung/Testwert) rufen Store-Methoden (Z.1207-1391, 1080-1117). **Schema-Erweiterungen:** `.box.extBox` (violett gestrichelt) mit Tag `t-ext`, Lösch-Button und `.addBox.addExt` „+ Element (Erweiterung)" an aufklappbaren Containern (öffnet den Erweiterungs-Dialog via `ErweiterungDialogService`). |
 
 Wichtig: Die Klassen `.ntree/.nkids/.box/.addBox/.excluded/.phantom` und die `data-path`/`data-refkind`/`data-refziel`-Attribute müssen stabil bleiben — `TreeCanvas` vermisst darüber die Geometrie ([ADR 0003](adr/0003-svg-verbindungslinien.md)).
 
@@ -25,10 +25,12 @@ Wichtig: Die Klassen `.ntree/.nkids/.box/.addBox/.excluded/.phantom` und die `da
 
 | Komponente | Selector | Zweck / Schnittstelle |
 |---|---|---|
-| `DetailPanel` | `app-detail-panel` | Rechter Bereich für das ausgewählte Item: Status, Kardinalität, Ausprägungen, Codelisten-Werte (Checkbox/Filter/Extern-Textarea/Einzelabruf), Verweisziel, Anmerkung, Beispielwert. `vm` aus `selItem` (Z.1506-1666). |
+| `DetailPanel` | `app-detail-panel` | Rechter Bereich für das ausgewählte Item: Status, Kardinalität, Ausprägungen, Codelisten-Werte (Checkbox/Filter/Extern-Textarea/Einzelabruf), Verweisziel, Anmerkung, Beispielwert. Für Schema-Erweiterungen ein eigener Editier-Abschnitt (Name/Beschreibung/Kardinalität/Datentyp, „+ Unterelement", „Erweiterung löschen") — die generische Kardinalitäts-Override-Zeile ist dort ausgeblendet. `vm` aus `selItem` (Z.1506-1666). |
 | `StatusDialog` | `app-status-dialog` | Statusstufen konfigurieren (Name/Farbe/Wirkung/Löschen). Natives `<dialog>`, `open()`-Methode (Z.1669-1702). |
 | `MetaDialog` | `app-meta-dialog` | Profil-Details (Name/Autor/Stand/Beschreibung). `open()` füllt aus `meta`, `submit()` schreibt via `patchMeta` (Z.2417-2432). |
 | `DiffDialog` | `app-diff-dialog` | Versionsvergleich: Kopf (Versionen, Anzahl, Profil-Bezug, Nachrichten-Überblick) + gefilterte Diff-Liste (klickbar → Sprung, Kopier-Knopf). Output `loadOther` (Z.2243-2312). |
+| `ValidationDialog` | `app-validation-dialog` | Validierungsbericht (gesteuert vom `ValidationReportService`): Fehlerliste mit klickbaren Pfad-Einträgen (Sprung zum Knoten); Fehler durch bekannte Schema-Erweiterungen sind gekennzeichnet und werden im Kopf getrennt gezählt. |
+| `ErweiterungDialog` | `app-erweiterung-dialog` | Formular „Schema-Erweiterung anlegen" (Name mit NCName-Prüfung + Kollisionswarnung, Beschreibung, Kardinalität, Datentyp-Select aus `ERW_DATENTYPEN` + Freitext + Container). Gesteuert vom `ErweiterungDialogService`, Muster `meta-dialog`. |
 
 ## Fuß & Querschnitt
 

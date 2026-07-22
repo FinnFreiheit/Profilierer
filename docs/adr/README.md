@@ -15,6 +15,7 @@ Architecture Decision Records halten wesentliche Richtungsentscheidungen mit Beg
 | [0007](0007-datenbank-backend.md) | Profil-Persistenz über ein self-hosted Node/SQLite-Backend | Angenommen |
 | [0008](0008-exceljs-excel-export.md) | ExcelJS statt SheetJS für den Excel-Export | Angenommen |
 | [0009](0009-xsd-validierung-xmllint-wasm.md) | XSD-Validierung im Browser mit xmllint-wasm | Angenommen |
+| [0010](0010-schema-erweiterungen-profil-overlay.md) | Schema-Erweiterungen als Profil-Overlay statt Schema-Manipulation | Angenommen |
 
 ## Vorlage
 

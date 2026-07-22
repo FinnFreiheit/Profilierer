@@ -24,6 +24,8 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `TestmessageCreateService` | Testnachricht geführt aus einem Schema erstellen (Session, Entwurf speichern/fortsetzen) |
 | `XmlValidationService` | XSD-Validierung von Instanzen im Browser (xmllint-wasm, lazy; Schemaquelle: geladener Stand oder hinterlegte Version) |
 | `ValidationReportService` | Zustand des Validierungsbericht-Dialogs (blockierte Exporte/Uploads mit Fehlerliste) |
+| `ValidationMarkerService` | Fehlerzeilen → Baumpfade auflösen, Baum-Marker setzen, Erweiterungs-Fehler klassifizieren |
+| `ErweiterungDialogService` | Zustand des Erweiterungs-Dialogs (Anlage einer Schema-Erweiterung aus Baum/Detailpanel) |
 | `PersistenceService` | XSD laden, Autosave (async, Race-Schutz), Profil öffnen/anlegen, Datei-Import/-Export |
 | `ProfileStoreService` | Profil-Bibliothek: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal |
 | `MigrationService` | Einmalige Übernahme der localStorage-Bibliothek ins Backend |
@@ -35,12 +37,12 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 
 Ersetzt das globale `S`/`S.profile` (Z.327-335). Jedes Feld ein Signal, Ableitungen als `computed`.
 
-- **Signale:** Schema/Nachricht (`docs, idx, version, standardKennung, msgName, root`), Profil (`meta, statuses, elemente, auspraegungen`), UI (`selItem, open, codelists, showTech, onlyProfile, showRefs, focusMode, scrollTarget, autosaveInfo, pendingMsg`), Diff (`showDiff, diffMap, diffAnc, idxB`).
-- **Ableitungen:** `profileDoc`, `fortschritt` (Festlegungen/Ausprägungen, Z.1453).
-- **Profil-Zugriff:** `statusOf/wirkungOf/exclStatus`, `inheritedExcluded/ancestorPaths`, `effKard`, `hasNotes`, `boxHidden` (nur-Profil-Filter), `auspNumber/auspLabel`, `refZielKandidaten`.
-- **Mutationen (erzeugen neue Referenzen):** `setElementProfile` (merge + `pruneP`, Z.987-996), `addAusp/removeAusp` (kaskadierend, Z.1017-1035), `renameAusp`, `duplicateElement/copyAusp` (+ private `moveSubProfile/copySubProfile`, Z.1393-1434), `toggleOpen/setOpen`, Status-CRUD (`addStatus/updateStatus/removeStatus/statusUsed`), `patchMeta`, `loadProfile/resetProfile`.
+- **Signale:** Schema/Nachricht (`docs, idx, version, standardKennung, msgName, root`), Profil (`meta, statuses, elemente, auspraegungen, erweiterungen`), UI (`selItem, open, codelists, showTech, onlyProfile, showRefs, focusMode, scrollTarget, autosaveInfo, pendingMsg`), Diff (`showDiff, diffMap, diffAnc, idxB`), Validierung (`valFehler, valAnc`).
+- **Ableitungen:** `profileDoc`, `fortschritt` (Festlegungen/Ausprägungen/Erweiterungen, Z.1453).
+- **Profil-Zugriff:** `statusOf/wirkungOf/exclStatus`, `inheritedExcluded/ancestorPaths`, `effKard`, `hasNotes`, `boxHidden` (nur-Profil-Filter), `auspNumber/auspLabel`, `refZielKandidaten`, `erweiterungenOf`.
+- **Mutationen (erzeugen neue Referenzen):** `setElementProfile` (merge + `pruneP`, Z.987-996), `addAusp/removeAusp` (kaskadierend, Z.1017-1035), `addErweiterung/updateErweiterung/removeErweiterung` (kaskadierend über den Präfix `parentPath/~id`, [ADR 0010](adr/0010-schema-erweiterungen-profil-overlay.md)), `renameAusp`, `duplicateElement/copyAusp` (+ private `moveSubProfile/copySubProfile`, Z.1393-1434 — nehmen Erweiterungen mit), `toggleOpen/setOpen`, Status-CRUD (`addStatus/updateStatus/removeStatus/statusUsed`), `patchMeta`, `loadProfile/resetProfile`.
 
-`removeAusp` und `pruneP` sind der heikelste Teil und **unit-getestet** (`state.service.spec.ts`).
+`removeAusp`, `removeErweiterung` und `pruneP` sind der heikelste Teil und **unit-getestet** (`state.service.spec.ts`).
 
 ## XsdParserService
 
@@ -49,6 +51,8 @@ Zustandslos — der Index wird als **Parameter** durchgereicht (löst den frühe
 ## TreeService
 
 Baut den Element-Baum lazy. `expandNode` mutiert `node.children` (Cache-Baum, bewusst kein reaktiver Zustand). Instanzfelder `nodeId`/`ctxCache`/`idx` (früher globale Mutables). Methoden: `buildRoot(msgName, idx)`, `expandNode`, `isLeaf`, `isRepeatable`, `ctxNode` (Ausprägungs-Pfadraum, Z.544), `childItems/itemHasKids/rootItem`, `flattenSchema(msgName, idx)` (Wegwerf-Baum für den Diff, stellt aktiven Index wieder her).
+
+**Schema-Erweiterungen:** `kinder(n)` ist die Fassade für alle Konsumenten (Baum-Render, Exporte) — Schema-Kinder plus `erweiterungsKinder(n)`, die pro Aufruf frisch aus `state.erweiterungenOf(n.path)` synthetisiert werden (bewusst **nicht** in den `children`-Cache gemischt, der würde bei Add/Remove veralten). Erweiterungs-Knoten tragen `erweiterung` und `xsdEl: null`; `isLeaf`/`itemHasKids` haben eigene Branches (Container-Erweiterungen sind immer aufklappbar, darunter liegt die „+ Element"-Box).
 
 ## NavService
 
@@ -64,11 +68,13 @@ Baut den Element-Baum lazy. `expandNode` mutiert `node.children` (Cache-Baum, be
 
 ## ExportService
 
-`exportSchematron` (Regeln aus Wirkung/Kardinalität/Werten + Mindest-Ausprägungen), `genBeispielXml`/`buildBeispielXml` (Instanz-Aufbau mit `include`/`chooseBranch`/`emit`; `{instanz: true}` für den Testnachricht-Zwischenstand), `buildPrintRows` (für die Druckansicht), `bestaetigeOffeneEntscheidungen` (Guard des geführten Modus, auch vom ExcelExportService genutzt). Private `walkFull`-Traversierung (Z.1826).
+`exportSchematron` (Regeln aus Wirkung/Kardinalität/Werten + Mindest-Ausprägungen), `genBeispielXml`/`buildBeispielXml` (Instanz-Aufbau mit `include`/`chooseBranch`/`emit`; `{instanz: true}` für den Testnachricht-Zwischenstand; `buildBeispielXmlMitPfaden` liefert zusätzlich die Zeile→Pfad-Karte für die Fehler-Markierung), `buildPrintRows` (für die Druckansicht, `PrintRow.erweiterung` kennzeichnet Erweiterungs-Zeilen), `bestaetigeOffeneEntscheidungen` (Guard des geführten Modus, auch vom ExcelExportService genutzt). Private `walkFull`-Traversierung (Z.1826, läuft über `tree.kinder`).
+
+**Schema-Erweiterungen:** werden im Beispiel-XML **immer** emittiert (`include` → true, bewusste XSD-Abweichung); im Schematron entstehen keine Asserts, sondern dokumentierende Kommentare je Erweiterung. `genBeispielXml` lässt den Download durch, wenn die Validierung **nur** Erweiterungs-Fehler meldet.
 
 ## ExcelExportService
 
-`exportExcel` — Excel im **NGem-Abstimmungslayout** ([ADR 0008](adr/0008-exceljs-excel-export.md)): Hauptsheet mit kollabierten `Type.GDS.*`-Kindern, je ein Typ-Sheet, Codelisten-Sheets der Fachdaten, Meta-Sheet „Szenario" mit Statuslegende. ExcelJS wird dynamisch importiert (Lazy-Chunk). Getestet in `excel-export.service.spec.ts` (Export wird zurückgelesen).
+`exportExcel` — Excel im **NGem-Abstimmungslayout** ([ADR 0008](adr/0008-exceljs-excel-export.md)): Hauptsheet mit kollabierten `Type.GDS.*`-Kindern, je ein Typ-Sheet, Codelisten-Sheets der Fachdaten, Meta-Sheet „Szenario" mit Statuslegende. Schema-Erweiterungen erscheinen mit Typ `[Erweiterung] <Datentyp|Container>`. ExcelJS wird dynamisch importiert (Lazy-Chunk). Getestet in `excel-export.service.spec.ts` (Export wird zurückgelesen).
 
 ## DiffService
 
@@ -98,9 +104,13 @@ Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten
 - `TestmessageGenerationService`: erzeugt eine Testnachricht aus einem Bibliotheksprofil (`ensureSchema`, temporärer State-Swap, `buildBeispielXml`).
 - `TestmessageCreateService`: US „Testnachricht geführt erstellen" — `neuErstellen`/`fortsetzen` (Session `messageCreate`), `speichern` (Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand; invalide fertige Nachrichten bleiben Entwurf).
 
-## XmlValidationService & ValidationReportService
+Beide Erzeugungswege behandeln Validierungsfehler, die **nur** auf bekannte Schema-Erweiterungen zurückgehen, als bewusste Abweichung: kein Entwurfs-Kennzeichen, Download bleibt frei (Klassifikation via `ValidationMarkerService`).
 
-`XmlValidationService.validiere(xmlText)` prüft eine Instanz gegen das XJustiz-Schema ([ADR 0009](adr/0009-xsd-validierung-xmllint-wasm.md)): Nachricht/Version aus dem Wurzelelement, Schemaquelle = geladener Stand (`state.docs()`, re-serialisiert und je Referenz gecacht) oder passende hinterlegte Version (fetch, je Versions-id gecacht); Validierung via xmllint-wasm (statische Assets unter `xmllint/`, Laufzeit-`import()`). Ergebnis `{ status: 'valide' | 'invalide' | 'unpruefbar', fehler }` — an den Toren (Upload, Download, „Als neue Nachricht speichern", Beispiel-XML) wird nur `valide` durchgelassen; die geführte Erstellung und die Profil-Generierung kennzeichnen invalide Ergebnisse als Entwurf; „Nachricht laden" in den Baum warnt nur. Befunde zeigt der `ValidationReportService` (Signals `titel`/`fehler`/`offen`) im `app-validation-dialog` (in der App-Shell eingebunden).
+## XmlValidationService, ValidationMarkerService & ValidationReportService
+
+`XmlValidationService.validiere(xmlText)` prüft eine Instanz gegen das XJustiz-Schema ([ADR 0009](adr/0009-xsd-validierung-xmllint-wasm.md)): Nachricht/Version aus dem Wurzelelement, Schemaquelle = geladener Stand (`state.docs()`, re-serialisiert und je Referenz gecacht) oder passende hinterlegte Version (fetch, je Versions-id gecacht); Validierung via xmllint-wasm (statische Assets unter `xmllint/`, Laufzeit-`import()`). Ergebnis `{ status: 'valide' | 'invalide' | 'unpruefbar', fehler, fehlerDetails }` — an den Toren (Upload, Download, „Als neue Nachricht speichern", Beispiel-XML) wird nur `valide` durchgelassen; die geführte Erstellung und die Profil-Generierung kennzeichnen invalide Ergebnisse als Entwurf; „Nachricht laden" in den Baum warnt nur. Befunde zeigt der `ValidationReportService` (Signals `titel`/`eintraege`/`offen`) im `app-validation-dialog` (in der App-Shell eingebunden).
+
+`ValidationMarkerService` übersetzt die Fehlerzeilen über die Zeile→Pfad-Karte aus `buildBeispielXmlMitPfaden` in Baumpfade: `markiere(fehler, zeilenPfade)` setzt die Marker-Signals `valFehler`/`valAnc` (rote Kennzeichnung im Baum, klickbare Berichts-Einträge) und `loesche()` räumt sie; `ordneZu` ist die signal-freie Variante für transiente Bäume (Testnachricht-Generierung). **Erweiterungs-Klassifikation:** Fehler auf `/~`-Pfaden — plus konservativer Namens-Fallback über den Fehlertext — werden als `erweiterung` geflaggt, erscheinen im Bericht als „bekannte Schema-Erweiterung", setzen aber keine roten Baum-Marker; `nurErweiterungsFehler(eintraege)` speist die gelockerten Tore.
 
 ## PersistenceService
 
@@ -116,6 +126,7 @@ Einzige Persistenz-Kapsel der Profil-Bibliothek — spricht das Backend per nati
 
 ## Kleinere Services & Utilities
 
+- `ErweiterungDialogService`: Signal-Zustand des Erweiterungs-Dialogs (`anfrage` mit `parentPath` + vorhandenen Kindnamen für die Kollisionswarnung); geöffnet aus `TreeNode` („+ Element (Erweiterung)") und `DetailPanel` („+ Unterelement"), gerendert einmal in der App-Shell (Muster `ValidationReportService`).
 - `DownloadService`: `download(name, content, mime)`, `profilFilename(ext)`.
 - `SearchService`: `buildIndex` (Baum-Traversierung), `run(query)` (Präfix vor Teilstring, Top 40).
 - `ToastService`: `show(text, ms)` über ein Signal → `Toast`-Komponente; `showError(e, fallback)` und `fail(msg)` als einheitliche Fehlerhelfer.

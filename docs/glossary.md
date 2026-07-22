@@ -35,6 +35,7 @@ Diese Begriffe beschreiben die Struktur (Datenmodell) und die Darstellung des Ba
 - **Nachricht** — Wurzelelement einer XJustiz-Übermittlung (`nachricht.<modul>.<name>.<nummer>`); Ausgangspunkt jeder Profilierung.
 - **OSCI** — Online Services Computer Interface; Protokollfamilie für die sichere Übermittlung im ERV.
 - **Profilierung / Kommunikationsszenario** — Eingrenzung des allgemeinen XJustiz-Standards auf einen konkreten Anwendungsfall (Status, Kardinalitäten, Codelisten-Werte, Ausprägungen, Anmerkungen). Das Kernartefakt der App (`ProfileDoc`).
+- **Schema-Erweiterung** — Benutzerdefiniertes Element (Name, Beschreibung, Kardinalität, Datentyp; verschachtelbar), das (noch) nicht im XJustiz-Schema existiert und als Nachbeauftragung im Profil festgehalten wird. Überall violett gestrichelt gekennzeichnet; in Testnachrichten enthalten (bewusste XSD-Abweichung). Technisch ein eigener Pfad `elternPfad/~id` (siehe [Datenmodell](data-model.md), [ADR 0010](adr/0010-schema-erweiterungen-profil-overlay.md)).
 - **Schematron** — Regelbasierte XML-Validierung (Assertions über XPath). Die App erzeugt `.sch`-Regeln zusätzlich zur XSD-Validierung aus dem Profil.
 - **Status / Wirkung** — Frei konfigurierbare Profil-Stufe (Name/Farbe) mit technischer *Wirkung* (`pflicht`, `optional`, `ausgeschlossen`, `markierung`), die Schematron und Beispiel-XML steuert.
 - **Verweis (Type.GDS.Ref.\*)** — Referenz-Element, das auf eine andere Ausprägung zeigt (z. B. `rollennummer` → Beteiligung); in der App als rosa Verweislinie dargestellt.
