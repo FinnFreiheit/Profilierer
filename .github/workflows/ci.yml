@@ -1,9 +1,11 @@
 name: CI
 
 on:
+  # Jeder Branch, nicht nur main — sonst bekommt ein Feature-Branch ohne
+  # offenen Pull Request gar keine Rueckmeldung. Kein pull_request-Trigger,
+  # weil das im Ein-Personen-Repo jeden PR-Lauf verdoppeln wuerde; bei
+  # Beitraegen aus Forks waere er nachzuruesten.
   push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 concurrency:
