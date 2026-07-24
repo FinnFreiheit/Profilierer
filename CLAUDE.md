@@ -77,6 +77,16 @@ Node ≥ 22.12 nötig (Angular 20). Die Anforderung steht in `.nvmrc` (24) und i
 - Bei Änderungen an der XRepository-Logik `proxy.conf.json` und den Pfad `/xrep-api/` beachten (`CodelistService`).
 - Hinterlegte Schemata in `public/schemas/` nicht von Hand im Manifest pflegen — nach XSD-Änderungen `npm run schemas:manifest` laufen lassen (`scripts/gen-schema-manifest.mjs`).
 
+## Agent skills
+
+### Issue-Tracker
+
+Issues und Specs leben in den GitHub Issues des Repos (gh-CLI). Siehe `docs/agents/issue-tracker.md`.
+
+### Domain-Docs
+
+Single-Context: `CONTEXT.md` an der Wurzel (entsteht lazy), ADRs unter `docs/adr/`. Siehe `docs/agents/domain.md`.
+
 ## Git
 
 Repository mit `git init` angelegt. Commits knapp und auf Deutsch. Remote `origin` zeigt auf `github.com:FinnFreiheit/Profilierer` (push nach Absprache).
