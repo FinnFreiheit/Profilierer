@@ -6,3 +6,5 @@ legacy
 public/schemas
 package-lock.json
 deploy
+# Fremd-Skills (Upstream-Kopien aus mattpocock/skills) nicht umformatieren
+.claude/skills
