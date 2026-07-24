@@ -27,6 +27,18 @@ Entwicklung (ng serve + Backend parallel): im Root `npm run dev`.
 `PUT /api/profiles/:id` · `POST /api/profiles/:id/duplicate` ·
 `PATCH /api/profiles/:id` · `DELETE /api/profiles/:id` · `POST /api/import` (Migration).
 
+**Versionen** (Tabelle `profile_versions`, US „Profilierung versionieren"):
+`GET /api/profiles/:id/versions` (Liste ohne doc) ·
+`POST /api/profiles/:id/versions` (Snapshot des gespeicherten Stands; Body
+`{kommentar?, automatisch?}`; Automatik-Versionen serverseitig entprellt →
+`{skipped: true}` — und auf die jüngsten 10 gedeckelt) ·
+`POST /api/profiles/:id/versions/:vid/restore` (sichert den Arbeitsstand vorher
+als Sicherheits-Version; Antwort `{entry, doc, sicherheitsVersion?}`) ·
+`DELETE /api/profiles/:id/versions/:vid`.
+Profil-Löschen kaskadiert auf die Versionen; `doc_hash` (sha1 über den
+doc-String) auf beiden Tabellen speist Entprellung und das
+„geändert seit vX"-Kennzeichen im Entry.
+
 Datenmodell (Tabelle `profiles`, Index/Doc-Spaltentrennung): [docs/data-model.md](../docs/data-model.md).
 
 ## Backup

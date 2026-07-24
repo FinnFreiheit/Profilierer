@@ -49,6 +49,11 @@ export class PersistenceService {
   private autosaveErrorShown = false;
   /** Letzter Autosave fehlgeschlagen (Backend-Ausfall laeuft). */
   private autosaveFehlgeschlagen = false;
+  /**
+   * Laufender Upsert als Promise — flushAutosave wartet auch darauf, damit
+   * z. B. "Version anlegen" nicht den Stand von vor ~1 s einfriert.
+   */
+  private laufenderUpsert: Promise<void> | null = null;
 
   constructor() {
     // Autosave: bei jeder Profil-/Nachrichtenaenderung debounced in den aktiven
@@ -180,15 +185,20 @@ export class PersistenceService {
   }
 
   /**
-   * Haengenden Autosave sofort ausfuehren. Noetig vor einem temporaeren
-   * State-Swap (Testnachricht-Generierung): wird `activeProfileId` genullt,
-   * waehrend der 800-ms-Timer laeuft, ginge die letzte Aenderung verloren.
+   * Haengenden Autosave sofort ausfuehren und laufende Upserts abwarten.
+   * Noetig vor einem temporaeren State-Swap (Testnachricht-Generierung) und
+   * vor Versions-Operationen: wird `activeProfileId` genullt, waehrend der
+   * 800-ms-Timer laeuft, ginge die letzte Aenderung verloren; ein Snapshot
+   * waehrend eines laufenden Upserts fröre einen veralteten Stand ein.
    */
   async flushAutosave(): Promise<void> {
-    if (this.autosaveTimer === null) return;
-    clearTimeout(this.autosaveTimer);
-    this.autosaveTimer = null;
-    await this.autosaveNow();
+    if (this.autosaveTimer !== null) {
+      clearTimeout(this.autosaveTimer);
+      this.autosaveTimer = null;
+      await this.autosaveNow();
+    }
+    // Einen bereits laufenden Upsert (inkl. Nachzieher) zusaetzlich abwarten.
+    while (this.laufenderUpsert) await this.laufenderUpsert;
   }
 
   /**
@@ -198,15 +208,24 @@ export class PersistenceService {
    * Autosave-Effekt erneut ausloesen), damit der Bibliothekseintrag den
    * Nachrichtentyp anzeigt und ein Export vollstaendig bleibt.
    */
-  private async autosaveNow(): Promise<void> {
-    const msg = this.state.msgName();
-    const id = this.state.activeProfileId();
-    if (!msg || !id) return;
+  private autosaveNow(): Promise<void> {
     // Laeuft noch ein Upsert, den naechsten nach dessen Abschluss nachziehen.
     if (this.autosaveInFlight) {
       this.autosavePending = true;
-      return;
+      return this.laufenderUpsert ?? Promise.resolve();
     }
+    const p = this.autosaveLauf().finally(() => {
+      // Nur zuruecksetzen, wenn nicht schon ein Nachzieher uebernommen hat.
+      if (this.laufenderUpsert === p) this.laufenderUpsert = null;
+    });
+    this.laufenderUpsert = p;
+    return p;
+  }
+
+  private async autosaveLauf(): Promise<void> {
+    const msg = this.state.msgName();
+    const id = this.state.activeProfileId();
+    if (!msg || !id) return;
     this.autosaveInFlight = true;
     try {
       const doc = this.state.profileDoc();
@@ -265,6 +284,8 @@ export class PersistenceService {
 
   /** Ein Bibliotheksprofil oeffnen und in den Editor wechseln. */
   async openFromLibrary(id: string): Promise<void> {
+    // Haengende Aenderungen des zuvor aktiven Profils erst sichern.
+    await this.flushAutosave();
     let doc: ProfileDoc | null;
     try {
       doc = await this.store.load(id);
@@ -278,6 +299,45 @@ export class PersistenceService {
       return;
     }
     this.state.activeProfileId.set(id);
+    // Oeffnen-Snapshot (serverseitig entprellt): Sicherheitsnetz fuers vergessene
+    // "Version anlegen". Fire-and-forget — darf das Oeffnen weder verzoegern
+    // noch scheitern lassen.
+    void this.store
+      .createVersion(id, { automatisch: true, kommentar: 'Stand beim Öffnen' })
+      .catch((e) => this.log.warn('Persistenz', 'Öffnen-Snapshot fehlgeschlagen', e));
+    await this.uebernehmeDoc(doc);
+  }
+
+  /**
+   * Version des aktiven Profils wiederherstellen (in-place). Der Server sichert
+   * den Arbeitsstand unmittelbar davor als Sicherheits-Version. Bewusst NICHT
+   * ueber openFromLibrary: der Oeffnen-Snapshot wuerde nach dem Restore sofort
+   * eine weitere Automatik-Version erzeugen. Gibt false bei Fehler.
+   */
+  async restoreVersion(versionId: string): Promise<boolean> {
+    const id = this.state.activeProfileId();
+    if (!id) return false;
+    await this.flushAutosave();
+    let doc: ProfileDoc;
+    try {
+      doc = await this.store.restoreVersion(id, versionId);
+    } catch (e) {
+      this.log.error('Persistenz', `Version ${versionId} nicht wiederherstellbar`, e);
+      this.toast.show('Version konnte nicht wiederhergestellt werden — Backend nicht erreichbar.');
+      return false;
+    }
+    await this.uebernehmeDoc(doc);
+    this.toast.show('Version wiederhergestellt — der vorherige Arbeitsstand ist als Sicherheits-Version gesichert.');
+    return true;
+  }
+
+  /**
+   * Geladenes bzw. wiederhergestelltes Dokument in den Editor uebernehmen:
+   * Profil-State setzen, bei Bedarf die XJustiz-Version des Profils laden und
+   * die Nachricht aufbauen. Gemeinsamer Schwanz von openFromLibrary und
+   * restoreVersion.
+   */
+  private async uebernehmeDoc(doc: ProfileDoc): Promise<void> {
     this.state.loadProfile(doc);
     // Bestehende Profilierungen oeffnen im freien Modus; gefuehrt ist zuschaltbar
     // (Fortschritt wird dann aus den gespeicherten Entscheidungen berechnet).

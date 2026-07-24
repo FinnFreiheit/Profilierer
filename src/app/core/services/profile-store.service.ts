@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
+import { LibraryEntry, ProfileDoc, ProfilVersion } from '../../models/profile.model';
 import { LoggerService } from './logger.service';
 
 /**
@@ -128,6 +128,51 @@ export class ProfileStoreService {
       body: JSON.stringify(items),
     });
     return imported;
+  }
+
+  // ── Versionen (Snapshots) ───────────────────────────────────────────
+
+  /** Versionsliste eines Profils (ohne doc), absteigend nach Nummer. */
+  async listVersions(id: string): Promise<ProfilVersion[]> {
+    return this.req<ProfilVersion[]>(`/profiles/${encodeURIComponent(id)}/versions`);
+  }
+
+  /**
+   * Version anlegen — Snapshot des serverseitig gespeicherten Stands (der
+   * Aufrufer flusht vorher den Autosave). Automatik-Versionen sind serverseitig
+   * entprellt: unveraenderter Stand → { skipped: true }, keine neue Version.
+   */
+  async createVersion(
+    id: string,
+    opts?: { kommentar?: string; automatisch?: boolean },
+  ): Promise<{ version?: ProfilVersion; skipped?: boolean }> {
+    const out = await this.req<{ version?: ProfilVersion; skipped?: boolean; entry: LibraryEntry }>(
+      `/profiles/${encodeURIComponent(id)}/versions`,
+      { method: 'POST', body: JSON.stringify(opts ?? {}) },
+    );
+    this.putEntry(out.entry);
+    return { version: out.version, skipped: out.skipped };
+  }
+
+  /**
+   * Version wiederherstellen (in-place; der Server sichert den Arbeitsstand
+   * vorher als Sicherheits-Version). Gibt das wiederhergestellte Dokument.
+   */
+  async restoreVersion(id: string, versionId: string): Promise<ProfileDoc> {
+    const out = await this.req<{ entry: LibraryEntry; doc: ProfileDoc }>(
+      `/profiles/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/restore`,
+      { method: 'POST' },
+    );
+    this.putEntry(out.entry);
+    return out.doc;
+  }
+
+  /** Version loeschen. */
+  async deleteVersion(id: string, versionId: string): Promise<void> {
+    await this.req<void>(
+      `/profiles/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}`,
+      { method: 'DELETE' },
+    );
   }
 
   // ── Index-Signal pflegen ────────────────────────────────────────────

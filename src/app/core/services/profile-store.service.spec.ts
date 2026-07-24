@@ -98,6 +98,55 @@ describe('ProfileStoreService (HTTP)', () => {
     expect(n).toBe(2);
   });
 
+  it('listVersions liefert die Versionsliste', async () => {
+    handlers['GET api/profiles/x/versions'] = () =>
+      json([{ id: 'v2', nr: 2, erstellt: 200 }, { id: 'v1', nr: 1, kommentar: 'k', automatisch: true, erstellt: 100 }]);
+    const liste = await store.listVersions('x');
+    expect(liste.map((v) => v.nr)).toEqual([2, 1]);
+    expect(liste[1]!.automatisch).toBeTrue();
+  });
+
+  it('createVersion legt an und pflegt den Entry ein', async () => {
+    handlers['POST api/profiles/x/versions'] = () =>
+      json(
+        {
+          version: { id: 'v1', nr: 1, kommentar: 'k', erstellt: 100 },
+          entry: entry('x', { nVersionen: 1, letzteVersionNr: 1, aktualisiert: 900 }),
+        },
+        201,
+      );
+    const out = await store.createVersion('x', { kommentar: 'k' });
+    expect(out.version?.nr).toBe(1);
+    expect(store.entries()[0]!.nVersionen).toBe(1);
+  });
+
+  it('createVersion meldet entprellte Automatik-Version als skipped', async () => {
+    handlers['POST api/profiles/x/versions'] = () =>
+      json({ skipped: true, entry: entry('x', { nVersionen: 1, letzteVersionNr: 1 }) });
+    const out = await store.createVersion('x', { automatisch: true });
+    expect(out.skipped).toBeTrue();
+    expect(out.version).toBeUndefined();
+  });
+
+  it('restoreVersion liefert das Dokument und aktualisiert den Entry', async () => {
+    handlers['POST api/profiles/x/versions/v1/restore'] = () =>
+      json({ entry: entry('x', { name: 'Alt', nVersionen: 2, letzteVersionNr: 2, aktualisiert: 950 }), doc: doc('Alt') });
+    const restored = await store.restoreVersion('x', 'v1');
+    expect(restored.meta.name).toBe('Alt');
+    expect(store.entries()[0]!.letzteVersionNr).toBe(2);
+    expect(store.entries()[0]!.geaendert).toBeUndefined();
+  });
+
+  it('deleteVersion sendet DELETE (204)', async () => {
+    let aufgerufen = false;
+    handlers['DELETE api/profiles/x/versions/v1'] = () => {
+      aufgerufen = true;
+      return new Response(null, { status: 204 });
+    };
+    await store.deleteVersion('x', 'v1');
+    expect(aufgerufen).toBeTrue();
+  });
+
   it('wirft bei Fehlerstatus (nicht ok)', async () => {
     handlers['PUT api/profiles/x'] = () => new Response('boom', { status: 500 });
     await expectAsync(store.upsert('x', doc())).toBeRejectedWithError(/500/);

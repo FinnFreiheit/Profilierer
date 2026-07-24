@@ -17,10 +17,14 @@
       />
       <button title="Autor, Beschreibung, Datum" (click)="metaClick.emit()">Details…</button>
       <button title="Statusstufen konfigurieren" (click)="statusClick.emit()">Status…</button>
+      <button title="Stände sichern und wiederherstellen" (click)="versionenClick.emit()">Versionen…</button>
     </div>
   }
 
   <span id="fortschritt">{{ fortschrittText() }}</span>
+  @if (!isMessage() && !isCreate() && versionsStand()) {
+    <span class="pill" title="Der Arbeitsstand ist in keiner Version eingefroren — im Versionen-Dialog sichern">{{ versionsStand() }}</span>
+  }
   <span id="autosaveInfo" [class.warn]="state.autosaveInfo().startsWith('⚠')">{{ state.autosaveInfo() }}</span>
   <span class="spacer"></span>
 

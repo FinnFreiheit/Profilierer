@@ -104,4 +104,22 @@ export interface LibraryEntry {
   gespeichert?: string;
   /** ms-Timestamp der letzten Schreibung (Sortierung im Dashboard). */
   aktualisiert: number;
+  /** Anzahl der Versionen (Snapshots); fehlt, wenn keine existieren. */
+  nVersionen?: number;
+  /** Hoechste Versionsnummer (Nummern werden nie recycelt). */
+  letzteVersionNr?: number;
+  /** Arbeitsstand ist in keiner Version eingefroren ("geaendert seit vX"). */
+  geaendert?: boolean;
+}
+
+/** Metadaten einer Profil-Version (Liste im Versions-Dialog, ohne doc). */
+export interface ProfilVersion {
+  id: string;
+  /** Fortlaufende Nummer je Profil (v1, v2, …). */
+  nr: number;
+  kommentar?: string;
+  /** Automatisch entstanden (Oeffnen-Snapshot, Sicherheits-Version). */
+  automatisch?: boolean;
+  /** ms-Timestamp. */
+  erstellt: number;
 }

@@ -56,6 +56,37 @@ export function profilesRouter(db) {
     res.status(204).end();
   });
 
+  // ── Versionen (Snapshots) ─────────────────────────────────────────────
+
+  // Versionsliste (ohne doc).
+  r.get('/profiles/:id/versions', (req, res) => {
+    const liste = db.versionsList(req.params.id);
+    if (!liste) return res.status(404).json({ error: 'nicht gefunden' });
+    res.json(liste);
+  });
+
+  // Version anlegen (Snapshot des serverseitig gespeicherten Stands).
+  // Entprellte Automatik-Versionen antworten mit { skipped: true, entry }.
+  r.post('/profiles/:id/versions', (req, res) => {
+    const { kommentar, automatisch } = req.body ?? {};
+    const out = db.versionCreate(req.params.id, { kommentar, automatisch });
+    if (!out) return res.status(404).json({ error: 'nicht gefunden' });
+    res.status(out.skipped ? 200 : 201).json(out);
+  });
+
+  // Version wiederherstellen; sichert den Arbeitsstand vorher automatisch.
+  r.post('/profiles/:id/versions/:vid/restore', (req, res) => {
+    const out = db.versionRestore(req.params.id, req.params.vid);
+    if (!out) return res.status(404).json({ error: 'nicht gefunden' });
+    res.json(out);
+  });
+
+  // Version loeschen (idempotent).
+  r.delete('/profiles/:id/versions/:vid', (req, res) => {
+    db.versionDelete(req.params.id, req.params.vid);
+    res.status(204).end();
+  });
+
   // Migration: Bulk-Import (erhaelt id + aktualisiert).
   r.post('/import', (req, res) => {
     const items = req.body;

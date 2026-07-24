@@ -52,6 +52,8 @@ describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
 
   let toasts: string[];
   let filesCalls: number;
+  let createVersionCalls: { id: string; opts?: { kommentar?: string; automatisch?: boolean } }[];
+  let restoreDoc: ProfileDoc | null;
 
   const doc = (nachricht: string, xjustizVersion?: string): ProfileDoc => ({
     meta: { name: 'Test', nachricht, xjustizVersion },
@@ -64,7 +66,21 @@ describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
   const setup = (geladen: ProfileDoc): { svc: PersistenceService; state: StateService } => {
     TestBed.configureTestingModule({
       providers: [
-        { provide: ProfileStoreService, useValue: { load: async () => geladen } },
+        {
+          provide: ProfileStoreService,
+          useValue: {
+            load: async () => geladen,
+            upsert: async () => {},
+            createVersion: async (id: string, opts?: { kommentar?: string; automatisch?: boolean }) => {
+              createVersionCalls.push({ id, opts });
+              return { skipped: true };
+            },
+            restoreVersion: async () => {
+              if (!restoreDoc) throw new Error('offline');
+              return restoreDoc;
+            },
+          },
+        },
         { provide: ToastService, useValue: { show: (m: string) => toasts.push(m) } },
         {
           provide: BundledSchemaService,
@@ -84,6 +100,8 @@ describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
   beforeEach(() => {
     toasts = [];
     filesCalls = 0;
+    createVersionCalls = [];
+    restoreDoc = null;
   });
 
   it('laedt die hinterlegte Profil-Version, wenn die Nachricht dort liegt (Bug: leerer Editor)', async () => {
@@ -115,6 +133,47 @@ describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
     await svc.openFromLibrary('p1');
     expect(state.root()).toBeNull();
     expect(toasts.some((t) => t.includes('nicht gefunden'))).toBeTrue();
+  });
+
+  it('legt beim Oeffnen genau einen Auto-Snapshot an (US Versionieren)', async () => {
+    const { svc } = setup(doc('nachricht.test.0001', '3.6.2'));
+    await svc.loadXsdFiles([new File([XSD], 'xjustiz_0000_alt.xsd', { type: 'application/xml' })]);
+    await svc.openFromLibrary('p1');
+    expect(createVersionCalls).toEqual([
+      { id: 'p1', opts: { automatisch: true, kommentar: 'Stand beim Öffnen' } },
+    ]);
+  });
+
+  it('restoreVersion uebernimmt den Versionsstand — ohne Oeffnen-Snapshot', async () => {
+    const { svc, state } = setup(doc('nachricht.test.0001', '3.6.2'));
+    await svc.loadXsdFiles([new File([XSD], 'xjustiz_0000_alt.xsd', { type: 'application/xml' })]);
+    await svc.openFromLibrary('p1');
+    createVersionCalls = [];
+    restoreDoc = {
+      ...doc('nachricht.test.0001', '3.6.2'),
+      meta: { name: 'Alter Stand', nachricht: 'nachricht.test.0001', xjustizVersion: '3.6.2' },
+    };
+    expect(await svc.restoreVersion('v1')).toBeTrue();
+    expect(state.meta().name).toBe('Alter Stand');
+    expect(state.msgName()).toBe('nachricht.test.0001');
+    // Kein Oeffnen-Snapshot im Restore-Pfad — sonst entstuende sofort eine
+    // weitere Automatik-Version (juengste Version = Sicherheits-Version).
+    expect(createVersionCalls.length).toBe(0);
+    expect(toasts.some((t) => t.includes('wiederhergestellt'))).toBeTrue();
+  });
+
+  it('restoreVersion: Backend-Fehler → Toast und false', async () => {
+    const { svc } = setup(doc('nachricht.test.0001', '3.6.2'));
+    await svc.loadXsdFiles([new File([XSD], 'xjustiz_0000_alt.xsd', { type: 'application/xml' })]);
+    await svc.openFromLibrary('p1');
+    restoreDoc = null;
+    expect(await svc.restoreVersion('v1')).toBeFalse();
+    expect(toasts.some((t) => t.includes('konnte nicht wiederhergestellt'))).toBeTrue();
+  });
+
+  it('restoreVersion ohne aktives Profil → false', async () => {
+    const { svc } = setup(doc('nachricht.test.0001', '3.6.2'));
+    expect(await svc.restoreVersion('v1')).toBeFalse();
   });
 });
 

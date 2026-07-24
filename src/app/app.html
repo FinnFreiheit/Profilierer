@@ -24,6 +24,7 @@
   <app-toolbar
     (metaClick)="metaDlg.open()"
     (statusClick)="statusDlg.open()"
+    (versionenClick)="versionenDlg.open()"
     (hinweiseClick)="hinweiseDlg.open()"
     (saveClick)="persistence.saveProfile()"
     (excelClick)="excel.exportExcel()"
@@ -81,6 +82,7 @@
   <app-status-dialog #statusDlg></app-status-dialog>
   <app-meta-dialog #metaDlg></app-meta-dialog>
   <app-hinweise-dialog #hinweiseDlg></app-hinweise-dialog>
+  <app-versions-dialog #versionenDlg></app-versions-dialog>
   <app-diff-dialog #diffDlg (loadOther)="xsdBInput.click()"></app-diff-dialog>
 } @else if (view() === 'testdaten') {
   <app-testdaten></app-testdaten>

@@ -26,6 +26,7 @@ Zentraler Einstieg in die Entwickler- und Architekturdokumentation. Der **XJusti
   - Schema-Parsing → `XsdParserService` (Index wird als Parameter durchgereicht).
   - SVG-Verbindungslinien → `TreeCanvas` (bewusst imperative DOM-Messung, siehe [ADR 0003](adr/0003-svg-verbindungslinien.md)).
   - Schema-Erweiterungen (Pfad-Schema `/~id`, Baum-Injektion, gelockerte Validierungs-Tore) → [ADR 0010](adr/0010-schema-erweiterungen-profil-overlay.md) + [US Schema-Erweiterung](user-stories/schema-erweiterung.md).
+  - Profil-Versionen (Tabelle `profile_versions`, Hash-Entprellung, Restore-Fluss ohne Öffnen-Snapshot) → [US Profilierung versionieren](user-stories/profilierung-versionieren.md) + [Datenmodell](data-model.md).
 - **Tests:** `npm run test:ci` (headless). Angular 20 braucht Node ≥ 22.12 → vorher `nvm use 24`.
 - **Konvention:** deutschsprachige Bezeichner/Kommentare, standalone Components, Signals + OnPush; keine ungefragten Refactors.
 

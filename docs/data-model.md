@@ -72,3 +72,19 @@ Profilierungen werden in einer SQLite-Datenbank des Backends (`server/`) gehalte
 - **`LibraryEntry`** = `{ id, name, nachricht?, xjustizVersion?, nStatus, nAusp, nErw?, gespeichert?, aktualisiert }` — serverseitig aus dem Dokument abgeleitet (`server/fortschritt.js`, spiegelt `StateService.fortschritt`). `nErw` speist das Dashboard-Badge „N Schema-Erweiterungen" (optional — Zeilen von vor der Migration liefern es erst nach dem nächsten Speichern).
 - **Client:** `ProfileStoreService` spricht `/api` per nativem fetch an (async); das reaktive `entries`-Signal bleibt die Fassache fürs Dashboard und wird nach jedem Schreib-Call mit dem vom Server gelieferten `LibraryEntry` gepflegt. Der Autosave (`PersistenceService`, 800-ms-Debounce, In-Flight-Reschedule) schreibt in `PUT /api/profiles/:id`.
 - **Migration:** frühere localStorage-Bibliotheken (`xjp.library.index`/`xjp.library.doc.<id>`, Legacy `xjp.autosave`) werden einmalig via `MigrationService` → `POST /api/import` übernommen (id + `aktualisiert` bleiben erhalten).
+
+### Versionen (`profile_versions`)
+
+[US Profilierung versionieren](user-stories/profilierung-versionieren.md): Tabelle
+`profile_versions` = `{ id, profile_id, nr, kommentar, automatisch, doc, doc_hash, erstellt }`
+mit `UNIQUE(profile_id, nr)` — `nr` läuft je Profil fortlaufend und wird nie recycelt;
+`doc`/`doc_hash` werden beim Anlegen **verbatim** aus der `profiles`-Zeile kopiert
+(Snapshot des gespeicherten Stands, kein Request-Body). `doc_hash` (sha1 über den
+doc-String, auch auf `profiles` mit Backfill-Migration) macht zwei Prüfungen zu
+Spaltenvergleichen: die **Entprellung** der Automatik-Versionen (Öffnen-Snapshot,
+Sicherheits-Version beim Restore — zusätzlich auf die jüngsten 10 gedeckelt,
+manuelle unbegrenzt) und das Kennzeichen **`geaendert`** im `LibraryEntry`
+(`nVersionen`/`letzteVersionNr`/`geaendert`): gesetzt, wenn der Arbeitsstand in
+*keiner* Version eingefroren ist. Profil-Löschen kaskadiert (Transaktion, kein FK);
+`importAll` fasst Versionen nie an. Bewusst akzeptiert: der Hash vergleicht die
+Serialisierung, nicht die Semantik — falsch-positive „geändert" sind harmlos.

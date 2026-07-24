@@ -38,6 +38,16 @@
                 >{{ e.nErw }} Schema-Erweiterung{{ e.nErw === 1 ? '' : 'en' }}</span
               >
             }
+            @if (e.nVersionen) {
+              <span class="pill" title="Eingefrorene Stände — Verwaltung über „Versionen…“ im Editor"
+                >{{ e.nVersionen }} Version{{ e.nVersionen === 1 ? '' : 'en' }}</span
+              >
+            }
+            @if (e.geaendert && e.letzteVersionNr) {
+              <span class="pill" title="Der gespeicherte Stand ist in keiner Version eingefroren"
+                >geändert seit v{{ e.letzteVersionNr }}</span
+              >
+            }
             <span class="dcProg">{{ fortschritt(e) }}</span>
           </div>
           <div class="dcFoot">

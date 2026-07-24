@@ -7,6 +7,7 @@ import { DetailPanel } from './features/detail/detail-panel';
 import { StatusDialog } from './features/dialogs/status-dialog';
 import { MetaDialog } from './features/dialogs/meta-dialog';
 import { HinweiseDialog } from './features/dialogs/hinweise-dialog';
+import { VersionsDialog } from './features/dialogs/versions-dialog';
 import { DiffDialog } from './features/dialogs/diff-dialog';
 import { Legend } from './features/legend/legend';
 import { PrintDoc } from './features/print/print-doc';
@@ -50,6 +51,7 @@ import { frageTestnachrichtName, parseTestmessage, testmessageInput } from './co
     StatusDialog,
     MetaDialog,
     HinweiseDialog,
+    VersionsDialog,
     DiffDialog,
     Legend,
     PrintDoc,

@@ -116,9 +116,11 @@ Beide Erzeugungswege behandeln Validierungsfehler, die **nur** auf bekannte Sche
 
 `loadXsdFiles` (Z.1746, inkl. pendingMsg-Anwendung), Autosave-`effect` mit Debounce (800 ms) → `autosaveNow` (async `store.upsert`, In-Flight-Reschedule gegen Lost Updates, gedrosselter Fehler-Toast), `openFromLibrary`/`createNew` (async), `saveProfile`/`exportDoc` (v2-JSON-Datei), `loadProfileFile` + `migrateV1` (v1→v2). Alle Bibliotheks-Zugriffe laufen über den `ProfileStoreService`.
 
+**Versionen** ([US Profilierung versionieren](user-stories/profilierung-versionieren.md)): `flushAutosave` wartet auch auf laufende Upserts (sonst fröre „Version anlegen" einen veralteten Stand ein); `openFromLibrary` flusht zuerst, legt fire-and-forget einen serverseitig entprellten Öffnen-Snapshot an und übergibt an den privaten Helfer `uebernehmeDoc` (Versions-Angleich + Nachricht aufbauen); `restoreVersion(versionId)` stellt eine Version des aktiven Profils in-place wieder her (Server sichert den Arbeitsstand vorher als Sicherheits-Version) — bewusst nicht über `openFromLibrary`, damit kein weiterer Öffnen-Snapshot entsteht.
+
 ## ProfileStoreService
 
-Einzige Persistenz-Kapsel der Profil-Bibliothek — spricht das Backend per nativem `fetch` an ([ADR 0007](adr/0007-datenbank-backend.md)). `entries` (Signal, reaktive Index-Fassade fürs Dashboard), `refresh` (GET `/api/profiles`), `load` (GET, 404→null), `upsert`/`create`/`duplicate`/`rename`/`delete` (async, pflegen `entries` mit dem vom Server gelieferten `LibraryEntry`), `importAll` (Migration). Getestet mit gemocktem `fetch` (`profile-store.service.spec.ts`).
+Einzige Persistenz-Kapsel der Profil-Bibliothek — spricht das Backend per nativem `fetch` an ([ADR 0007](adr/0007-datenbank-backend.md)). `entries` (Signal, reaktive Index-Fassade fürs Dashboard), `refresh` (GET `/api/profiles`), `load` (GET, 404→null), `upsert`/`create`/`duplicate`/`rename`/`delete` (async, pflegen `entries` mit dem vom Server gelieferten `LibraryEntry`), `importAll` (Migration), dazu die Versions-API `listVersions`/`createVersion`/`restoreVersion`/`deleteVersion` (`/api/profiles/:id/versions…`; Schreib-Calls pflegen `entries`, der Entry trägt `nVersionen`/`letzteVersionNr`/`geaendert` fürs Kennzeichen „geändert seit vX"). Getestet mit gemocktem `fetch` (`profile-store.service.spec.ts`).
 
 ## MigrationService
 

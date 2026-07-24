@@ -3,6 +3,7 @@ import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { MessagePicker } from '../message-picker/message-picker';
 import { Search } from '../search/search';
 import { Menu } from '../../shared/menu/menu';
@@ -23,9 +24,11 @@ export class Toolbar {
   private readonly nav = inject(NavService);
   private readonly guided = inject(GuidedService);
   private readonly toast = inject(ToastService);
+  private readonly store = inject(ProfileStoreService);
 
   readonly metaClick = output<void>();
   readonly statusClick = output<void>();
+  readonly versionenClick = output<void>();
   readonly hinweiseClick = output<void>();
   readonly saveClick = output<void>();
   readonly excelClick = output<void>();
@@ -52,6 +55,17 @@ export class Toolbar {
     }
     const { nStatus, nAusp } = this.state.fortschritt();
     return nStatus ? `${nStatus} Festlegungen${nAusp ? ' · ' + nAusp + ' Ausprägungen' : ''}` : '';
+  });
+
+  /**
+   * Entwurfs-Kennzeichen "geändert seit vX": der Arbeitsstand ist in keiner
+   * Version eingefroren. Reaktiv aus dem Bibliotheks-Index — jeder Autosave
+   * liefert den frischen Entry (inkl. geaendert-Flag) vom Server zurueck.
+   */
+  protected readonly versionsStand = computed(() => {
+    const id = this.state.activeProfileId();
+    const e = id ? this.store.entries().find((x) => x.id === id) : undefined;
+    return e?.geaendert && e.letzteVersionNr ? `geändert seit v${e.letzteVersionNr}` : '';
   });
 
   protected onName(e: Event): void {
