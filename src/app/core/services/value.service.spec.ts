@@ -100,7 +100,12 @@ describe('ValueService.placeholderFor', () => {
     state.idx.set(parser.buildIndexFrom([{ file: 'xjustiz_0000_test.xsd', dom }]).idx);
   });
 
-  const leaf = (name: string, typeName: string) => ({ name, path: 'm/' + name, typeName, codelist: null });
+  const leaf = (name: string, typeName: string) => ({
+    name,
+    path: 'm/' + name,
+    typeName,
+    codelist: null,
+  });
 
   it('Type.GDS.Datumsangabe bekommt ein pattern-konformes Datum', () => {
     expect(svc.placeholderFor(leaf('geburtsdatum', 'Type.GDS.Datumsangabe'))).toBe('2026-01-01');
@@ -108,7 +113,9 @@ describe('ValueService.placeholderFor', () => {
 
   it('UUID-Typ bekommt einen pattern-konformen Wert', () => {
     const v = svc.placeholderFor(leaf('uuid', 'Type.GDS.Xdomea.stringUUIDType'));
-    expect(/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/.test(v)).toBeTrue();
+    expect(
+      /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/.test(v),
+    ).toBeTrue();
   });
 
   it('double und duration sind als Builtins abgedeckt', () => {
@@ -145,8 +152,11 @@ describe('ValueService.placeholderFor', () => {
 
     it('prueft Codelisten-Werte gegen die geladene Liste', () => {
       const cl: CodelistInfo = {
-        typeName: 'Code.Test', nameLang: 'Teststaaten', kennung: 'urn:test:staaten',
-        beschreibung: '', werte: [{ value: 'DE', label: 'Deutschland' }],
+        typeName: 'Code.Test',
+        nameLang: 'Teststaaten',
+        kennung: 'urn:test:staaten',
+        beschreibung: '',
+        werte: [{ value: 'DE', label: 'Deutschland' }],
       };
       const node = { name: 'staat', path: 'm/staat', typeName: 'Code.Test', codelist: cl };
       expect(svc.wertProblem(node, 'DE')).toBeNull();

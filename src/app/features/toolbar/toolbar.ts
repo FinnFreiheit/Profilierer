@@ -95,9 +95,7 @@ export class Toolbar {
 
   protected prefillMandatory(): void {
     const n = this.nav.prefillMandatoryStatus();
-    this.toast.show(
-      n ? n + ' Pflichtelemente vorbelegt' : 'Keine weiteren Pflichtelemente offen',
-    );
+    this.toast.show(n ? n + ' Pflichtelemente vorbelegt' : 'Keine weiteren Pflichtelemente offen');
   }
 
   /** Nachrichten-Modus: alle offenen Pflichtwerte typkonform mit Dummys befuellen. */

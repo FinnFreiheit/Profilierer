@@ -7,15 +7,39 @@ import { XsdParserService } from './xsd-parser.service';
 
 /** Typgerechte Beispielwerte fuer Blaetter (XS_BUILTIN, Z.1997-2000). */
 const XS_BUILTIN: Record<string, string> = {
-  date: '2026-01-01', dateTime: '2026-01-01T12:00:00', time: '12:00:00',
-  integer: '1', int: '1', nonNegativeInteger: '1', positiveInteger: '1', long: '1', decimal: '0.00',
-  double: '0.0', float: '0.0', short: '1', byte: '1',
-  unsignedLong: '1', unsignedInt: '1', unsignedShort: '1', unsignedByte: '1',
-  negativeInteger: '-1', nonPositiveInteger: '0', duration: 'P1D',
-  boolean: 'true', gYear: '2026', gYearMonth: '2026-01', gMonthDay: '--01-01',
-  gDay: '---01', gMonth: '--01', anyURI: 'https://beispiel.example', language: 'de',
-  token: 'Beispieltext', string: 'Beispieltext', normalizedString: 'Beispieltext',
-  base64Binary: 'QmVpc3BpZWw=', hexBinary: '0F',
+  date: '2026-01-01',
+  dateTime: '2026-01-01T12:00:00',
+  time: '12:00:00',
+  integer: '1',
+  int: '1',
+  nonNegativeInteger: '1',
+  positiveInteger: '1',
+  long: '1',
+  decimal: '0.00',
+  double: '0.0',
+  float: '0.0',
+  short: '1',
+  byte: '1',
+  unsignedLong: '1',
+  unsignedInt: '1',
+  unsignedShort: '1',
+  unsignedByte: '1',
+  negativeInteger: '-1',
+  nonPositiveInteger: '0',
+  duration: 'P1D',
+  boolean: 'true',
+  gYear: '2026',
+  gYearMonth: '2026-01',
+  gMonthDay: '--01-01',
+  gDay: '---01',
+  gMonth: '--01',
+  anyURI: 'https://beispiel.example',
+  language: 'de',
+  token: 'Beispieltext',
+  string: 'Beispieltext',
+  normalizedString: 'Beispieltext',
+  base64Binary: 'QmVpc3BpZWw=',
+  hexBinary: '0F',
 };
 
 /** Format-Pruefungen fuer eingegebene Werte der gaengigen Builtins (lexikalischer Raum, vereinfacht). */
@@ -23,16 +47,28 @@ const XS_CHECK: Record<string, RegExp> = {
   date: /^-?\d{4,}-\d{2}-\d{2}(Z|[+-]\d{2}:\d{2})?$/,
   dateTime: /^-?\d{4,}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/,
   time: /^\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/,
-  integer: /^[+-]?\d+$/, int: /^[+-]?\d+$/, long: /^[+-]?\d+$/, short: /^[+-]?\d+$/, byte: /^[+-]?\d+$/,
-  nonNegativeInteger: /^\+?\d+$/, positiveInteger: /^\+?0*[1-9]\d*$/,
-  negativeInteger: /^-0*[1-9]\d*$/, nonPositiveInteger: /^(-\d+|\+?0+)$/,
-  unsignedLong: /^\+?\d+$/, unsignedInt: /^\+?\d+$/, unsignedShort: /^\+?\d+$/, unsignedByte: /^\+?\d+$/,
+  integer: /^[+-]?\d+$/,
+  int: /^[+-]?\d+$/,
+  long: /^[+-]?\d+$/,
+  short: /^[+-]?\d+$/,
+  byte: /^[+-]?\d+$/,
+  nonNegativeInteger: /^\+?\d+$/,
+  positiveInteger: /^\+?0*[1-9]\d*$/,
+  negativeInteger: /^-0*[1-9]\d*$/,
+  nonPositiveInteger: /^(-\d+|\+?0+)$/,
+  unsignedLong: /^\+?\d+$/,
+  unsignedInt: /^\+?\d+$/,
+  unsignedShort: /^\+?\d+$/,
+  unsignedByte: /^\+?\d+$/,
   decimal: /^[+-]?(\d+(\.\d*)?|\.\d+)$/,
   double: /^([+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?|-?INF|NaN)$/,
   float: /^([+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?|-?INF|NaN)$/,
   boolean: /^(true|false|0|1)$/,
-  gYear: /^-?\d{4,}$/, gYearMonth: /^-?\d{4,}-\d{2}$/,
-  gMonthDay: /^--\d{2}-\d{2}$/, gDay: /^---\d{2}$/, gMonth: /^--\d{2}$/,
+  gYear: /^-?\d{4,}$/,
+  gYearMonth: /^-?\d{4,}-\d{2}$/,
+  gMonthDay: /^--\d{2}-\d{2}$/,
+  gDay: /^---\d{2}$/,
+  gMonth: /^--\d{2}$/,
   duration: /^-?P(?=.)(\d+Y)?(\d+M)?(\d+D)?(T(?=.)(\d+H)?(\d+M)?(\d+(\.\d+)?S)?)?$/,
   hexBinary: /^([0-9A-Fa-f]{2})*$/,
 };
@@ -85,7 +121,7 @@ export class ValueService {
     if (!cl) return null;
     if (cl.version) return cl.version;
     const x = this.state.codelists()[cl.kennung];
-    return x ? x.version ?? null : null;
+    return x ? (x.version ?? null) : null;
   }
 
   /** placeholderFor (Z.2001-2040): Beispielwert bzw. typgerechter Platzhalter. */
@@ -126,7 +162,10 @@ export class ValueService {
       }
     }
     if (n.codelist) {
-      if (p.werte && p.werte.length) return String(p.werte[0]).split(/\s+[—–-]\s+|\t/)[0]!.trim();
+      if (p.werte && p.werte.length)
+        return String(p.werte[0])
+          .split(/\s+[—–-]\s+|\t/)[0]!
+          .trim();
       const eff = this.clWerte(n.codelist);
       if (eff && eff.length) return eff[0]!.value;
       return 'CODE';
@@ -168,12 +207,17 @@ export class ValueService {
     const res = this.resolveType(n.typeName);
     const tn = n.typeName ?? 'des Feldes';
     if (res.enumWerte && res.enumWerte.length)
-      return res.enumWerte.some((e) => e.value === w) ? null : `„${w}" ist kein zulässiger Wert von ${tn}`;
+      return res.enumWerte.some((e) => e.value === w)
+        ? null
+        : `„${w}" ist kein zulässiger Wert von ${tn}`;
     if (res.patterns) {
       const rxs = res.patterns.map(compileXsdPattern).filter((r): r is RegExp => !!r);
       if (rxs.length && !rxs.some((r) => r.test(w)))
         return `Entspricht nicht dem Datentyp ${tn} — erwartet z. B. „${konformerBeispielwert(
-          res.patterns, Object.values(XS_BUILTIN), XS_BUILTIN[res.builtin ?? ''] ?? 'Beispieltext')}"`;
+          res.patterns,
+          Object.values(XS_BUILTIN),
+          XS_BUILTIN[res.builtin ?? ''] ?? 'Beispieltext',
+        )}"`;
       return null;
     }
     if (res.builtin) {

@@ -21,7 +21,7 @@ export interface DiffEntry {
 export interface DiffAnc {
   neu: number;
   entfernt: number;
-  'geändert': number;
+  geändert: number;
 }
 
 /** Ergebnis des Vergleichs zweier Schema-Versionen (computeDiff). */

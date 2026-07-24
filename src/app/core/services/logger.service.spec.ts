@@ -47,7 +47,12 @@ describe('LoggerService', () => {
   it('spiegelt in die Konsole mit [xjp]-Praefix und rohem Detail', () => {
     const err = new Error('kaputt');
     log.error('XRepository', 'Abruf fehlgeschlagen', err);
-    expect(console.error).toHaveBeenCalledWith('[xjp]', 'XRepository:', 'Abruf fehlgeschlagen', err);
+    expect(console.error).toHaveBeenCalledWith(
+      '[xjp]',
+      'XRepository:',
+      'Abruf fehlgeschlagen',
+      err,
+    );
     log.info('Test', 'ohne Detail');
     expect(console.info).toHaveBeenCalledWith('[xjp]', 'Test:', 'ohne Detail');
   });

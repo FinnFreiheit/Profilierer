@@ -27,7 +27,11 @@ export function frageTestnachrichtName(vorschlag: string): string | null {
 }
 
 /** Basis-Eingabedaten eines Testspeicher-Eintrags aus XML + Root-Metadaten. */
-export function testmessageInput(name: string, xml: string, meta: TestmessageMeta): TestmessageInput {
+export function testmessageInput(
+  name: string,
+  xml: string,
+  meta: TestmessageMeta,
+): TestmessageInput {
   return {
     name,
     xml,
@@ -62,8 +66,5 @@ function leseVersion(root: Element): string | undefined {
     const v = el?.getAttribute('xjustizVersion')?.trim();
     return v || undefined;
   };
-  return (
-    vom(root) ??
-    vom(root.getElementsByTagNameNS('*', 'nachrichtenkopf')[0])
-  );
+  return vom(root) ?? vom(root.getElementsByTagNameNS('*', 'nachrichtenkopf')[0]);
 }

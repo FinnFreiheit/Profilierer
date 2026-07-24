@@ -36,10 +36,7 @@ describe('ValidationMarkerService', () => {
 
   it('Fehler ohne Zeile oder vor der ersten gemappten Zeile bleiben ohne Pfad', () => {
     const eintraege = svc.markiere(
-      [
-        { text: 'ohne Fundstelle' },
-        { text: 'Zeile 1: Deklaration', zeile: 1 },
-      ],
+      [{ text: 'ohne Fundstelle' }, { text: 'Zeile 1: Deklaration', zeile: 1 }],
       karte,
     );
     expect(eintraege[0]!.pfad).toBeUndefined();

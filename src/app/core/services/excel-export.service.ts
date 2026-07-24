@@ -94,8 +94,10 @@ export class ExcelExportService {
     const hauptZeilen: ExcelZeile[] = [];
     this.sammleZeilen(kinder, 0, hauptZeilen, (n) => gdsKinder.includes(n));
     this.schreibeStrukturSheet(
-      wb, sheetName(this.state.meta().name || 'Nachricht'),
-      this.state.msgName() || root.name, hauptZeilen,
+      wb,
+      sheetName(this.state.meta().name || 'Nachricht'),
+      this.state.msgName() || root.name,
+      hauptZeilen,
     );
 
     // Je ein Typ-Sheet pro GDS-Kind (voll ausgeklappt).
@@ -107,14 +109,19 @@ export class ExcelExportService {
 
     // Codelisten der Fachdaten (nicht ausgeschlossen) — vollstaendige Werte.
     const codelisten = new Map<string, CodelistInfo>();
-    this.sammleCodelisten(kinder.filter((c) => !gdsKinder.includes(c)), codelisten);
-    for (const cl of codelisten.values()) this.schreibeCodelistSheet(wb, sheetName('CL ' + clKurzname(cl)), cl);
+    this.sammleCodelisten(
+      kinder.filter((c) => !gdsKinder.includes(c)),
+      codelisten,
+    );
+    for (const cl of codelisten.values())
+      this.schreibeCodelistSheet(wb, sheetName('CL ' + clKurzname(cl)), cl);
 
     this.schreibeMetaSheet(wb, sheetName('Szenario'));
 
     const buf = await wb.xlsx.writeBuffer();
     this.dl.download(
-      this.dl.profilFilename('xlsx'), buf,
+      this.dl.profilFilename('xlsx'),
+      buf,
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
     this.toast.show('Excel exportiert.');
@@ -128,8 +135,11 @@ export class ExcelExportService {
    * auf dieser Ebene (fuer die GDS-Kinder der Wurzel im Hauptsheet).
    */
   private sammleZeilen(
-    kinder: TreeNode[], tiefe: number, zeilen: ExcelZeile[],
-    kollabiert?: (n: TreeNode) => boolean, maxTiefe = 30,
+    kinder: TreeNode[],
+    tiefe: number,
+    zeilen: ExcelZeile[],
+    kollabiert?: (n: TreeNode) => boolean,
+    maxTiefe = 30,
   ): void {
     for (const n of kinder) {
       // Vorab expandieren: erst dabei wird n.model gesetzt ([choice]-Marker).
@@ -138,14 +148,19 @@ export class ExcelExportService {
       const k = this.state.effKard(n);
       const status = this.statusText(n.path, p);
       zeilen.push({
-        art: 'el', tiefe, text: n.name,
+        art: 'el',
+        tiefe,
+        text: n.name,
         // Auch echte Elemente mit choice-Inhalt (auswahl_*) als [choice] markieren;
         // Schema-Erweiterungen deutlich kennzeichnen.
         typ: n.erweiterung
           ? '[Erweiterung] ' + (n.typeName || 'Container')
-          : n.synthetic ? `[${n.model}]` : n.typeName || (n.model === 'choice' ? '[choice]' : ''),
+          : n.synthetic
+            ? `[${n.model}]`
+            : n.typeName || (n.model === 'choice' ? '[choice]' : ''),
         anzahl: kurzKard(n.min, n.max) + (k.changed ? '\n' + kurzKard(k.min, k.max) : ''),
-        status, testdaten: p.beispiel || '',
+        status,
+        testdaten: p.beispiel || '',
         hinweis: (!p.hinweisErledigt && p.hinweis) || '',
       });
       if (n.doc) zeilen.push({ art: 'desc', tiefe, text: n.doc, status: status ? '.' : '' });
@@ -156,9 +171,13 @@ export class ExcelExportService {
           const cn = this.tree.ctxNode(n, a.id);
           const ap = this.state.elemente()[cn.path] ?? {};
           zeilen.push({
-            art: 'el', tiefe: tiefe + 1, text: `${n.name} (${a.name})`,
-            typ: n.typeName || '', anzahl: kurzKard(ap.min || '1', ap.max || '1'),
-            status: this.statusText(cn.path, ap), testdaten: ap.beispiel || '',
+            art: 'el',
+            tiefe: tiefe + 1,
+            text: `${n.name} (${a.name})`,
+            typ: n.typeName || '',
+            anzahl: kurzKard(ap.min || '1', ap.max || '1'),
+            status: this.statusText(cn.path, ap),
+            testdaten: ap.beispiel || '',
             hinweis: (!ap.hinweisErledigt && ap.hinweis) || '',
           });
           this.sammleZeilen(this.tree.kinder(cn), tiefe + 2, zeilen, undefined, maxTiefe);
@@ -174,9 +193,10 @@ export class ExcelExportService {
     const st = this.state.statusOf(pfad);
     let s = [st?.name, p.anmerkung].filter(Boolean).join(', ');
     if (p.werte && p.werte.length) {
-      const w = p.werte.length <= 6
-        ? 'Werte: ' + p.werte.join(', ')
-        : `Werte eingeschränkt (${p.werte.length} zulässig)`;
+      const w =
+        p.werte.length <= 6
+          ? 'Werte: ' + p.werte.join(', ')
+          : `Werte eingeschränkt (${p.werte.length} zulässig)`;
       s = s ? s + '\n' + w : w;
     }
     if (p.refZiel) {
@@ -187,11 +207,16 @@ export class ExcelExportService {
   }
 
   /** Codelisten unterhalb der Fachdaten, deren Element nicht ausgeschlossen ist. */
-  private sammleCodelisten(kinder: TreeNode[], gefunden: Map<string, CodelistInfo>, tiefe = 0): void {
+  private sammleCodelisten(
+    kinder: TreeNode[],
+    gefunden: Map<string, CodelistInfo>,
+    tiefe = 0,
+  ): void {
     for (const n of kinder) {
       if (tiefe > 30 || n.recursive) continue;
       const ausgeschlossen =
-        this.state.statusOf(n.path)?.wirkung === 'ausgeschlossen' || this.state.inheritedExcluded(n.path);
+        this.state.statusOf(n.path)?.wirkung === 'ausgeschlossen' ||
+        this.state.inheritedExcluded(n.path);
       if (ausgeschlossen) continue;
       if (n.codelist) {
         const key = n.codelist.kennung || n.codelist.typeName;
@@ -205,7 +230,12 @@ export class ExcelExportService {
   }
 
   /** Ein Struktur-Sheet im NGem-Layout (Einrueckung ueber echte Spalten). */
-  private schreibeStrukturSheet(wb: Workbook, name: string, titel: string, zeilen: ExcelZeile[]): void {
+  private schreibeStrukturSheet(
+    wb: Workbook,
+    name: string,
+    titel: string,
+    zeilen: ExcelZeile[],
+  ): void {
     const ws = wb.addWorksheet(name);
     const meta = this.state.meta();
     const profilName = meta.name || 'Szenario';
@@ -241,12 +271,24 @@ export class ExcelExportService {
     for (let c = 1; c <= colAnzahl; c++)
       ws.getCell(3, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_HEADER } };
     zelle(3, colStatus, profilName + (meta.beschreibung ? '\n' + meta.beschreibung : ''), true);
-    ws.getCell(3, colStatus).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_SZENARIO } };
+    ws.getCell(3, colStatus).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: XL_SZENARIO },
+    };
     zelle(3, colTest, 'Testdaten\n' + profilName, true);
-    ws.getCell(3, colTest).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_TESTDATEN } };
+    ws.getCell(3, colTest).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: XL_TESTDATEN },
+    };
     if (colHinweis) {
       zelle(3, colHinweis, 'Hinweise', true);
-      ws.getCell(3, colHinweis).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_HINWEIS } };
+      ws.getCell(3, colHinweis).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: XL_HINWEIS },
+      };
     }
     for (const c of colHinweis ? [colStatus, colTest, colHinweis] : [colStatus, colTest])
       ws.getCell(3, c).alignment = { wrapText: true, vertical: 'top' };
@@ -315,7 +357,11 @@ export class ExcelExportService {
       while (j < zeilen.length && zeilen[j]!.art !== 'el') j++;
       if (j >= zeilen.length || zeilen[j]!.tiefe <= z.tiefe) continue; // Blatt
       let ende = j;
-      while (ende < zeilen.length && !(zeilen[ende]!.art === 'el' && zeilen[ende]!.tiefe <= z.tiefe)) ende++;
+      while (
+        ende < zeilen.length &&
+        !(zeilen[ende]!.art === 'el' && zeilen[ende]!.tiefe <= z.tiefe)
+      )
+        ende++;
       const farbe = XL_STREIFEN[z.tiefe % XL_STREIFEN.length]!;
       for (let rr = 4 + i; rr < 4 + ende; rr++) fuelle(rr, z.tiefe + 1, farbe);
       const bandBis = zeilen[i + 1]?.art === 'desc' ? i + 1 : i;
@@ -324,7 +370,11 @@ export class ExcelExportService {
     }
     // Die Szenariospalte ist in der Referenz durchgaengig gefuellt.
     for (let rr = 4; rr < r; rr++)
-      ws.getCell(rr, colStatus).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_SZENARIO } };
+      ws.getCell(rr, colStatus).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: XL_SZENARIO },
+      };
   }
 
   /** Ein Codelisten-Sheet: Titelzeile, Header code|wert, vollstaendige Werte. */
@@ -335,7 +385,10 @@ export class ExcelExportService {
     const titel = ws.getCell(1, 1);
     titel.value = 'Codeliste ' + (cl.typeName || cl.nameLang || cl.kennung);
     titel.font = { ...XL_FONT, bold: true };
-    for (const [c, v] of [[1, 'code'], [2, 'wert']] as const) {
+    for (const [c, v] of [
+      [1, 'code'],
+      [2, 'wert'],
+    ] as const) {
       const cell = ws.getCell(2, c);
       cell.value = v;
       cell.font = { ...XL_FONT, bold: true };
@@ -367,8 +420,10 @@ export class ExcelExportService {
     ws.getColumn(2).width = 70;
     const meta = this.state.meta();
     const wirkTxt: Record<Wirkung, string> = {
-      pflicht: 'muss vorkommen', optional: 'darf vorkommen',
-      ausgeschlossen: 'darf nicht vorkommen', markierung: 'nur Markierung',
+      pflicht: 'muss vorkommen',
+      optional: 'darf vorkommen',
+      ausgeschlossen: 'darf nicht vorkommen',
+      markierung: 'nur Markierung',
     };
     const paare: [string, string][] = [
       ['XJustiz Profilierer', ''],

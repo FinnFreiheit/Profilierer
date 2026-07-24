@@ -57,7 +57,10 @@ export class XmlValidationService {
   /** Instanz gegen das zur Nachricht passende Schema pruefen. */
   async validiere(xmlText: string): Promise<XmlValidierung> {
     const meta = parseTestmessage(xmlText);
-    if (!meta) return this.ohneZeile('invalide', ['Kein lesbares XJustiz-XML (Wurzelelement `nachricht.*` fehlt).']);
+    if (!meta)
+      return this.ohneZeile('invalide', [
+        'Kein lesbares XJustiz-XML (Wurzelelement `nachricht.*` fehlt).',
+      ]);
 
     const schemata = await this.schemataFuer(meta.nachricht, meta.xjustizVersion);
     if (!schemata) {
@@ -70,7 +73,9 @@ export class XmlValidationService {
 
     const haupt = schemata.find((d) => d.contents.includes(`name="${meta.nachricht}"`));
     if (!haupt) {
-      return this.ohneZeile('unpruefbar', [`Die Nachricht „${meta.nachricht}" ist im verfügbaren Schema nicht deklariert.`]);
+      return this.ohneZeile('unpruefbar', [
+        `Die Nachricht „${meta.nachricht}" ist im verfügbaren Schema nicht deklariert.`,
+      ]);
     }
 
     try {
@@ -83,10 +88,15 @@ export class XmlValidationService {
         maxMemoryPages: memoryPages.MiB * 512,
       });
       if (ergebnis.valid) return { status: 'valide', fehler: [], fehlerDetails: [] };
-      const details = ergebnis.errors.map((e) => ({ text: this.lesbar(e), zeile: e.loc?.lineNumber }));
+      const details = ergebnis.errors.map((e) => ({
+        text: this.lesbar(e),
+        zeile: e.loc?.lineNumber,
+      }));
       return { status: 'invalide', fehler: details.map((f) => f.text), fehlerDetails: details };
     } catch (e) {
-      return this.ohneZeile('unpruefbar', ['Validierung fehlgeschlagen: ' + (e instanceof Error ? e.message : String(e))]);
+      return this.ohneZeile('unpruefbar', [
+        'Validierung fehlgeschlagen: ' + (e instanceof Error ? e.message : String(e)),
+      ]);
     }
   }
 
@@ -154,7 +164,9 @@ export class XmlValidationService {
         const v = (await this.verfuegbareVersionen()).find((x) => x.id === id);
         if (!v) throw new Error('Version nicht hinterlegt: ' + id);
         const files = await this.bundled.files(v);
-        return Promise.all(files.map(async (f) => ({ fileName: f.name, contents: await f.text() })));
+        return Promise.all(
+          files.map(async (f) => ({ fileName: f.name, contents: await f.text() })),
+        );
       })();
       p.catch(() => this.bundleCache.delete(id));
       this.bundleCache.set(id, p);

@@ -4,34 +4,34 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 
 ## Überblick
 
-| Service | Verantwortung |
-|---|---|
-| `StateService` | Signals-Store: gesamter Zustand + Profil-Mutationen (Kern) |
-| `XsdParserService` | XSD parsen/indexieren, Codelisten-/Typ-Auflösung |
-| `TreeService` | Element-Baum lazy aufbauen, Ausprägungs-Kontexte, Flatten für Diff |
-| `NavService` | Nachricht laden, Auf-/Zuklappen, Auswahl, Pfeiltasten, Sprünge |
-| `ValueService` | Codelisten-Werte + typgerechte Beispiel-/Platzhalterwerte |
-| `CodelistService` | Genericode-Parsing, ZIP-/Datei-Import, XRepository, Cache |
-| `ExportService` | Schematron-, Beispiel-XML-Export, Druckzeilen (+ Guard für offene Entscheidungen) |
-| `ExcelExportService` | Excel-Export im NGem-Abstimmungslayout (ExcelJS, dynamisch geladen) |
-| `GuidedService` | Geführter Modus: offene Entscheidungspunkte, Fortschritt, Sprung zum nächsten Punkt |
-| `DiffService` | Versionsvergleich (flach), Diff-Karte, Vergleichsordner laden |
-| `BundledSchemaService` | Im Projekt hinterlegte Schemaversionen (public/schemas/) per fetch laden |
-| `InstanceImportService` | Bestehende XJustiz-Nachricht (XML) zurück ins Profil-Modell binden |
-| `InstanceExportService` | Bearbeitete Nachricht getreu re-exportieren (Original-DOM + Modell-Änderungen) |
-| `TestmessageStoreService` | Testdaten-Speicher: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal |
-| `TestmessageGenerationService` | Testnachricht aus einem Bibliotheksprofil erzeugen (Schema sicherstellen, State-Swap) |
-| `TestmessageCreateService` | Testnachricht geführt aus einem Schema erstellen (Session, Entwurf speichern/fortsetzen) |
-| `XmlValidationService` | XSD-Validierung von Instanzen im Browser (xmllint-wasm, lazy; Schemaquelle: geladener Stand oder hinterlegte Version) |
-| `ValidationReportService` | Zustand des Validierungsbericht-Dialogs (blockierte Exporte/Uploads mit Fehlerliste) |
-| `ValidationMarkerService` | Fehlerzeilen → Baumpfade auflösen, Baum-Marker setzen, Erweiterungs-Fehler klassifizieren |
-| `ErweiterungDialogService` | Zustand des Erweiterungs-Dialogs (Anlage einer Schema-Erweiterung aus Baum/Detailpanel) |
-| `PersistenceService` | XSD laden, Autosave (async, Race-Schutz), Profil öffnen/anlegen, Datei-Import/-Export |
-| `ProfileStoreService` | Profil-Bibliothek: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal |
-| `MigrationService` | Einmalige Übernahme der localStorage-Bibliothek ins Backend |
-| `DownloadService` | Blob-Download + Profil-Dateinamen |
-| `SearchService` | Baum-Suchindex + Ranking |
-| `ToastService` | Kurzmeldungen (Signal), `showError`/`fail`-Fehlerhelfer |
+| Service                        | Verantwortung                                                                                                         |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `StateService`                 | Signals-Store: gesamter Zustand + Profil-Mutationen (Kern)                                                            |
+| `XsdParserService`             | XSD parsen/indexieren, Codelisten-/Typ-Auflösung                                                                      |
+| `TreeService`                  | Element-Baum lazy aufbauen, Ausprägungs-Kontexte, Flatten für Diff                                                    |
+| `NavService`                   | Nachricht laden, Auf-/Zuklappen, Auswahl, Pfeiltasten, Sprünge                                                        |
+| `ValueService`                 | Codelisten-Werte + typgerechte Beispiel-/Platzhalterwerte                                                             |
+| `CodelistService`              | Genericode-Parsing, ZIP-/Datei-Import, XRepository, Cache                                                             |
+| `ExportService`                | Schematron-, Beispiel-XML-Export, Druckzeilen (+ Guard für offene Entscheidungen)                                     |
+| `ExcelExportService`           | Excel-Export im NGem-Abstimmungslayout (ExcelJS, dynamisch geladen)                                                   |
+| `GuidedService`                | Geführter Modus: offene Entscheidungspunkte, Fortschritt, Sprung zum nächsten Punkt                                   |
+| `DiffService`                  | Versionsvergleich (flach), Diff-Karte, Vergleichsordner laden                                                         |
+| `BundledSchemaService`         | Im Projekt hinterlegte Schemaversionen (public/schemas/) per fetch laden                                              |
+| `InstanceImportService`        | Bestehende XJustiz-Nachricht (XML) zurück ins Profil-Modell binden                                                    |
+| `InstanceExportService`        | Bearbeitete Nachricht getreu re-exportieren (Original-DOM + Modell-Änderungen)                                        |
+| `TestmessageStoreService`      | Testdaten-Speicher: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal                                            |
+| `TestmessageGenerationService` | Testnachricht aus einem Bibliotheksprofil erzeugen (Schema sicherstellen, State-Swap)                                 |
+| `TestmessageCreateService`     | Testnachricht geführt aus einem Schema erstellen (Session, Entwurf speichern/fortsetzen)                              |
+| `XmlValidationService`         | XSD-Validierung von Instanzen im Browser (xmllint-wasm, lazy; Schemaquelle: geladener Stand oder hinterlegte Version) |
+| `ValidationReportService`      | Zustand des Validierungsbericht-Dialogs (blockierte Exporte/Uploads mit Fehlerliste)                                  |
+| `ValidationMarkerService`      | Fehlerzeilen → Baumpfade auflösen, Baum-Marker setzen, Erweiterungs-Fehler klassifizieren                             |
+| `ErweiterungDialogService`     | Zustand des Erweiterungs-Dialogs (Anlage einer Schema-Erweiterung aus Baum/Detailpanel)                               |
+| `PersistenceService`           | XSD laden, Autosave (async, Race-Schutz), Profil öffnen/anlegen, Datei-Import/-Export                                 |
+| `ProfileStoreService`          | Profil-Bibliothek: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal                                             |
+| `MigrationService`             | Einmalige Übernahme der localStorage-Bibliothek ins Backend                                                           |
+| `DownloadService`              | Blob-Download + Profil-Dateinamen                                                                                     |
+| `SearchService`                | Baum-Suchindex + Ranking                                                                                              |
+| `ToastService`                 | Kurzmeldungen (Signal), `showError`/`fail`-Fehlerhelfer                                                               |
 
 ## StateService — der Kern
 

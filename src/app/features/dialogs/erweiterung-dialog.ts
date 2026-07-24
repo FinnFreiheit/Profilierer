@@ -41,7 +41,8 @@ export class ErweiterungDialog {
   protected readonly nameProblem = computed<string | null>(() => {
     const n = this.eName().trim();
     if (!n) return 'Name fehlt.';
-    if (!ERW_NAME_MUSTER.test(n)) return 'Kein gültiger XML-Elementname (Buchstabe/_ am Anfang, keine Leer- oder Sonderzeichen).';
+    if (!ERW_NAME_MUSTER.test(n))
+      return 'Kein gültiger XML-Elementname (Buchstabe/_ am Anfang, keine Leer- oder Sonderzeichen).';
     return null;
   });
 
@@ -79,7 +80,11 @@ export class ErweiterungDialog {
     if (!a || this.nameProblem()) return;
     const wahl = this.eTypWahl();
     const datentyp =
-      wahl === 'container' ? undefined : wahl === 'sonstig' ? this.eTypFrei().trim() || undefined : wahl;
+      wahl === 'container'
+        ? undefined
+        : wahl === 'sonstig'
+          ? this.eTypFrei().trim() || undefined
+          : wahl;
     const min = this.eMin().trim() || '1';
     const maxRoh = this.eMax().trim() || '1';
     const max = maxRoh === '*' ? 'unbounded' : maxRoh;

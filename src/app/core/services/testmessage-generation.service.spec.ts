@@ -71,9 +71,15 @@ describe('TestmessageGenerationService', () => {
           },
         },
         // Echte PersistenceService-Instanz vermeiden (effect/fetch im Konstruktor).
-        { provide: PersistenceService, useValue: { flushAutosave: () => (++flushed, Promise.resolve()) } },
+        {
+          provide: PersistenceService,
+          useValue: { flushAutosave: () => (++flushed, Promise.resolve()) },
+        },
         { provide: BundledSchemaService, useValue: {} },
-        { provide: DownloadService, useValue: { download: () => {}, profilFilename: (e: string) => e } },
+        {
+          provide: DownloadService,
+          useValue: { download: () => {}, profilFilename: (e: string) => e },
+        },
         { provide: ToastService, useValue: { show: () => {} } },
       ],
     });
@@ -132,7 +138,9 @@ describe('TestmessageGenerationService', () => {
   it('wirft bei unbekannter Nachricht und restauriert trotzdem', async () => {
     profilDoc = fixtureDoc('nachricht.unbekannt.9999');
     const prev = praeparierePrevEditor();
-    await expectAsync(svc.erzeugeAusProfil(ENTRY)).toBeRejectedWithError(/nicht im geladenen Schema/);
+    await expectAsync(svc.erzeugeAusProfil(ENTRY)).toBeRejectedWithError(
+      /nicht im geladenen Schema/,
+    );
     expect(created.length).toBe(0);
     expect(state.elemente()).toBe(prev.elemente);
     expect(state.activeProfileId()).toBe('prev');

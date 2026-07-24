@@ -22,7 +22,7 @@ describe('ProfileStoreService (HTTP)', () => {
   beforeEach(() => {
     handlers = { 'GET api/profiles': () => json([]) }; // Default: Constructor-refresh
     spyOn(window, 'fetch').and.callFake((input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === 'string' ? input : (input as Request).url ?? String(input);
+      const url = typeof input === 'string' ? input : ((input as Request).url ?? String(input));
       const method = (init?.method || 'GET').toUpperCase();
       const h = handlers[`${method} ${url}`];
       return Promise.resolve(
@@ -100,7 +100,10 @@ describe('ProfileStoreService (HTTP)', () => {
 
   it('listVersions liefert die Versionsliste', async () => {
     handlers['GET api/profiles/x/versions'] = () =>
-      json([{ id: 'v2', nr: 2, erstellt: 200 }, { id: 'v1', nr: 1, kommentar: 'k', automatisch: true, erstellt: 100 }]);
+      json([
+        { id: 'v2', nr: 2, erstellt: 200 },
+        { id: 'v1', nr: 1, kommentar: 'k', automatisch: true, erstellt: 100 },
+      ]);
     const liste = await store.listVersions('x');
     expect(liste.map((v) => v.nr)).toEqual([2, 1]);
     expect(liste[1]!.automatisch).toBeTrue();
@@ -130,7 +133,10 @@ describe('ProfileStoreService (HTTP)', () => {
 
   it('restoreVersion liefert das Dokument und aktualisiert den Entry', async () => {
     handlers['POST api/profiles/x/versions/v1/restore'] = () =>
-      json({ entry: entry('x', { name: 'Alt', nVersionen: 2, letzteVersionNr: 2, aktualisiert: 950 }), doc: doc('Alt') });
+      json({
+        entry: entry('x', { name: 'Alt', nVersionen: 2, letzteVersionNr: 2, aktualisiert: 950 }),
+        doc: doc('Alt'),
+      });
     const restored = await store.restoreVersion('x', 'v1');
     expect(restored.meta.name).toBe('Alt');
     expect(store.entries()[0]!.letzteVersionNr).toBe(2);

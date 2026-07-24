@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { PersistenceService } from '../../core/services/persistence.service';
@@ -63,7 +70,9 @@ export class VersionsDialog {
         kommentar: this.kommentar().trim() || undefined,
       });
       this.kommentar.set('');
-      this.toast.show(out.version ? `Version v${out.version.nr} angelegt.` : 'Stand bereits gesichert.');
+      this.toast.show(
+        out.version ? `Version v${out.version.nr} angelegt.` : 'Stand bereits gesichert.',
+      );
       await this.ladeListe();
     } catch {
       this.toast.show('Version konnte nicht angelegt werden — Backend nicht erreichbar.');

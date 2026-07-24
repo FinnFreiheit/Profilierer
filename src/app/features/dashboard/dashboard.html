@@ -39,7 +39,9 @@
               >
             }
             @if (e.nVersionen) {
-              <span class="pill" title="Eingefrorene Stände — Verwaltung über „Versionen…“ im Editor"
+              <span
+                class="pill"
+                title="Eingefrorene Stände — Verwaltung über „Versionen…“ im Editor"
                 >{{ e.nVersionen }} Version{{ e.nVersionen === 1 ? '' : 'en' }}</span
               >
             }
@@ -55,7 +57,9 @@
             <span class="dcTools">
               <button title="Umbenennen" (click)="openRename(e.id, $event)">Umbenennen</button>
               <button title="Als Kopie anlegen" (click)="duplicate(e.id, $event)">Kopie</button>
-              <button title="Als Datei exportieren" (click)="exportEntry(e.id, $event)">Export</button>
+              <button title="Als Datei exportieren" (click)="exportEntry(e.id, $event)">
+                Export
+              </button>
               <button class="del" title="Löschen" (click)="remove(e.id, $event)">Löschen</button>
             </span>
           </div>

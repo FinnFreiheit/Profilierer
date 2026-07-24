@@ -27,7 +27,11 @@
       <span class="mv" [class.ghost]="mv.ghost">{{ mv.text }}</span>
     }
     @if (hasNext()) {
-      <button class="togBtn" [title]="isOpen() ? 'Ast zuklappen' : 'Ast aufklappen'" (click)="onToggle($event)">
+      <button
+        class="togBtn"
+        [title]="isOpen() ? 'Ast zuklappen' : 'Ast aufklappen'"
+        (click)="onToggle($event)"
+      >
         {{ isOpen() ? '−' : '+' }}
       </button>
     }
@@ -70,8 +74,8 @@
   }
 
   <div class="kard" [style.color]="v.kardColor">
-    {{ v.statusName ? v.statusName + ' · ' : '' }}{{ v.kardText
-    }}@if (v.standardHint; as sh) {
+    {{ v.statusName ? v.statusName + ' · ' : '' }}{{ v.kardText }}
+    @if (v.standardHint; as sh) {
       <span style="color: var(--muted)"> (Standard: {{ sh }})</span>
     }
   </div>
@@ -83,7 +87,9 @@
   @if (v.tags.length) {
     <div class="tags">
       @for (t of v.tags; track $index) {
-        <span class="tag {{ t.cls }}" [title]="t.title || ''" (click)="onTag(t, $event)">{{ t.text }}</span>
+        <span class="tag {{ t.cls }}" [title]="t.title || ''" (click)="onTag(t, $event)">{{
+          t.text
+        }}</span>
       }
     </div>
   }
@@ -91,17 +97,33 @@
   @if (v.showHide) {
     <button
       class="hideBtn"
-      [title]="v.hideIsExcl ? 'Wieder einblenden (Status entfernen)' : 'Ausblenden — Element wird im Szenario nicht angegeben'"
+      [title]="
+        v.hideIsExcl
+          ? 'Wieder einblenden (Status entfernen)'
+          : 'Ausblenden — Element wird im Szenario nicht angegeben'
+      "
       (click)="onHide($event)"
     >
       {{ v.hideIsExcl ? '↺' : '✕' }}
     </button>
   }
   @if (v.showDelAusp) {
-    <button class="hideBtn delBtn" title="Ausprägung löschen (samt Unter-Profilierung)" (click)="onDelAusp($event)">✕</button>
+    <button
+      class="hideBtn delBtn"
+      title="Ausprägung löschen (samt Unter-Profilierung)"
+      (click)="onDelAusp($event)"
+    >
+      ✕
+    </button>
   }
   @if (v.showDelErw) {
-    <button class="hideBtn delBtn" title="Schema-Erweiterung löschen (samt Unterelementen)" (click)="onDelErw($event)">✕</button>
+    <button
+      class="hideBtn delBtn"
+      title="Schema-Erweiterung löschen (samt Unterelementen)"
+      (click)="onDelErw($event)"
+    >
+      ✕
+    </button>
   }
   @if (v.showDup) {
     <button class="dupBtn" [title]="v.dupTitle" (click)="onDup($event)">⧉</button>
@@ -127,7 +149,9 @@
     }
     @for (ph of phantoms(); track ph.tech) {
       <div class="box phantom" title="Dieses Element existiert erst in der Vergleichsversion.">
-        <div class="bt"><span class="bname">{{ ph.name }}</span></div>
+        <div class="bt">
+          <span class="bname">{{ ph.name }}</span>
+        </div>
         <div class="tech">{{ ph.tech }}</div>
         <div class="kard" style="color: #0f6e56">{{ ph.kard }}</div>
       </div>

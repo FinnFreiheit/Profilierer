@@ -1,14 +1,24 @@
 <dialog #dlg id="hinweiseDlg">
   <h3 style="margin-top: 0">Interne Hinweise</h3>
   <p style="font-size: 12.5px; color: var(--muted); margin-top: 0">
-    {{ state.nOffeneHinweise() }} offen / {{ state.hinweisEintraege().length }} gesamt — Klick springt zum Element.
+    {{ state.nOffeneHinweise() }} offen / {{ state.hinweisEintraege().length }} gesamt — Klick
+    springt zum Element.
   </p>
   <div class="validFehler hinweisListe">
     @for (e of state.hinweisEintraege(); track e.pfad) {
-      <div class="vfItem klickbar hwItem" [class.hwErledigt]="e.erledigt"
-        title="Zum Element springen" (click)="springe(e.pfad)">
-        <input type="checkbox" title="Hinweis abarbeiten" [checked]="e.erledigt"
-          (click)="$event.stopPropagation()" (change)="toggleErledigt(e.pfad, $event)" />
+      <div
+        class="vfItem klickbar hwItem"
+        [class.hwErledigt]="e.erledigt"
+        title="Zum Element springen"
+        (click)="springe(e.pfad)"
+      >
+        <input
+          type="checkbox"
+          title="Hinweis abarbeiten"
+          [checked]="e.erledigt"
+          (click)="$event.stopPropagation()"
+          (change)="toggleErledigt(e.pfad, $event)"
+        />
         <div class="hwBody">
           <div class="hwTitel">{{ label(e.pfad) }}</div>
           <div class="hwText">{{ e.text }}</div>

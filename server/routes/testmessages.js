@@ -43,7 +43,14 @@ export function testmessagesRouter(db) {
     const { notiz, name, xml, entwurf, fortschritt, entscheidungen } = req.body ?? {};
     if (xml !== undefined && (typeof xml !== 'string' || !xml.trim()))
       return res.status(400).json({ error: 'kein XML' });
-    const entry = db.tmUpdate(req.params.id, { notiz, name, xml, entwurf, fortschritt, entscheidungen });
+    const entry = db.tmUpdate(req.params.id, {
+      notiz,
+      name,
+      xml,
+      entwurf,
+      fortschritt,
+      entscheidungen,
+    });
     if (!entry) return res.status(404).json({ error: 'nicht gefunden' });
     res.json({ entry });
   });

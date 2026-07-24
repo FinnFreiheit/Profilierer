@@ -39,7 +39,11 @@ export class MigrationService {
     try {
       await this.store.refresh();
     } catch (e) {
-      this.log.warn('Migration', 'Backend nicht erreichbar — Migration wird beim nächsten Start erneut versucht', e);
+      this.log.warn(
+        'Migration',
+        'Backend nicht erreichbar — Migration wird beim nächsten Start erneut versucht',
+        e,
+      );
       return;
     }
 
@@ -86,7 +90,11 @@ export class MigrationService {
       }
     } catch (e) {
       // Defekter localStorage → nichts migrieren.
-      this.log.warn('Migration', 'localStorage-Bibliothek nicht lesbar — Migration übersprungen', e);
+      this.log.warn(
+        'Migration',
+        'localStorage-Bibliothek nicht lesbar — Migration übersprungen',
+        e,
+      );
     }
     return items;
   }

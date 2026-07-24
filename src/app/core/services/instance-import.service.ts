@@ -54,7 +54,8 @@ export class InstanceImportService {
    */
   importXml(xmlText: string, quellName?: string): void {
     const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
-    if (doc.getElementsByTagName('parsererror').length) throw new Error('XML nicht lesbar (Parserfehler).');
+    if (doc.getElementsByTagName('parsererror').length)
+      throw new Error('XML nicht lesbar (Parserfehler).');
     const rootEl = doc.documentElement;
     if (!rootEl) throw new Error('Leeres XML.');
     const msgName = rootEl.localName;
@@ -102,7 +103,8 @@ export class InstanceImportService {
 
   /** XJustiz-Version aus dem `xjustizVersion`-Attribut (Wurzel oder Nachrichtenkopf). */
   private leseVersion(rootEl: Element): string | null {
-    const vom = (el: Element | null | undefined): string | null => el?.getAttribute('xjustizVersion')?.trim() || null;
+    const vom = (el: Element | null | undefined): string | null =>
+      el?.getAttribute('xjustizVersion')?.trim() || null;
     return vom(rootEl) ?? vom(rootEl.getElementsByTagNameNS('*', 'nachrichtenkopf')[0]);
   }
 
@@ -126,7 +128,12 @@ export class InstanceImportService {
     }
   }
 
-  private bindElement(child: TreeNode, matches: Element[], opened: Set<string>, depth: number): void {
+  private bindElement(
+    child: TreeNode,
+    matches: Element[],
+    opened: Set<string>,
+    depth: number,
+  ): void {
     if (matches.length >= 2 && this.tree.isRepeatable(child)) {
       opened.add(child.path);
       matches.forEach((m, i) => {

@@ -104,7 +104,10 @@ test('Deckel: Automatik-Versionen auf 10 begrenzt, manuelle bleiben', () => {
   const autos = liste.filter((v) => v.automatisch);
   assert.equal(autos.length, 10);
   // Die juengsten 10 (v4..v13) bleiben.
-  assert.deepEqual(autos.map((v) => v.nr).sort((a, b) => a - b), [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+  assert.deepEqual(
+    autos.map((v) => v.nr).sort((a, b) => a - b),
+    [4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+  );
   // Die manuelle Version ueberlebt den Deckel.
   assert.ok(liste.some((v) => v.id === m.version.id));
   db.close();

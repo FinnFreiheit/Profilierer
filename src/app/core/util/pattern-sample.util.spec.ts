@@ -14,7 +14,8 @@ describe('sampleFromPattern', () => {
   });
 
   it('erzeugt eine gueltige UUID (Type.GDS.Xdomea.stringUUIDType)', () => {
-    const p = '[0-9|A-F|a-f]{8}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{12}';
+    const p =
+      '[0-9|A-F|a-f]{8}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{12}';
     expect(passt(sampleFromPattern(p), p)).toBeTrue();
   });
 
@@ -52,7 +53,8 @@ describe('konformerBeispielwert', () => {
   });
 
   it('generiert aus dem Pattern, wenn kein Kandidat passt', () => {
-    const p = '[0-9|A-F|a-f]{8}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{12}';
+    const p =
+      '[0-9|A-F|a-f]{8}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{12}';
     const s = konformerBeispielwert([p], KANDIDATEN, 'Beispieltext');
     expect(passt(s, p)).toBeTrue();
   });

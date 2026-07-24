@@ -2,7 +2,11 @@
   <app-message-picker></app-message-picker>
 
   @if (isSchemaView()) {
-    <span class="pill" title="Reine Schema-Ansicht — Nachricht wählen, Aufbau betrachten, Elemente suchen. Es wird nichts gespeichert.">Schema-Ansicht</span>
+    <span
+      class="pill"
+      title="Reine Schema-Ansicht — Nachricht wählen, Aufbau betrachten, Elemente suchen. Es wird nichts gespeichert."
+      >Schema-Ansicht</span
+    >
   }
 
   @if (!state.readOnly() && !isMessage() && !isCreate()) {
@@ -17,94 +21,186 @@
       />
       <button title="Autor, Beschreibung, Datum" (click)="metaClick.emit()">Details…</button>
       <button title="Statusstufen konfigurieren" (click)="statusClick.emit()">Status…</button>
-      <button title="Stände sichern und wiederherstellen" (click)="versionenClick.emit()">Versionen…</button>
+      <button title="Stände sichern und wiederherstellen" (click)="versionenClick.emit()">
+        Versionen…
+      </button>
     </div>
   }
 
   <span id="fortschritt">{{ fortschrittText() }}</span>
   @if (!isMessage() && !isCreate() && versionsStand()) {
-    <span class="pill" title="Der Arbeitsstand ist in keiner Version eingefroren — im Versionen-Dialog sichern">{{ versionsStand() }}</span>
+    <span
+      class="pill"
+      title="Der Arbeitsstand ist in keiner Version eingefroren — im Versionen-Dialog sichern"
+      >{{ versionsStand() }}</span
+    >
   }
-  <span id="autosaveInfo" [class.warn]="state.autosaveInfo().startsWith('⚠')">{{ state.autosaveInfo() }}</span>
+  <span id="autosaveInfo" [class.warn]="state.autosaveInfo().startsWith('⚠')">{{
+    state.autosaveInfo()
+  }}</span>
   <span class="spacer"></span>
 
   <app-search></app-search>
 
   <app-menu label="Ansicht" #ansicht>
     @if (!state.readOnly() && !isMessage()) {
-      <label class="menuItem" [title]="isCreate()
-          ? 'Geführt durch alle offenen Punkte der Testnachricht (Pflichtwerte, Aufnahmen, Auswahlen)'
-          : 'Geführt durch alle offenen Entscheidungen der Profilierung'">
-        <input type="checkbox" [disabled]="!hasRoot()" [checked]="state.guided()"
-          (change)="state.guided.set(checked($event))" /> Geführt
+      <label
+        class="menuItem"
+        [title]="
+          isCreate()
+            ? 'Geführt durch alle offenen Punkte der Testnachricht (Pflichtwerte, Aufnahmen, Auswahlen)'
+            : 'Geführt durch alle offenen Entscheidungen der Profilierung'
+        "
+      >
+        <input
+          type="checkbox"
+          [disabled]="!hasRoot()"
+          [checked]="state.guided()"
+          (change)="state.guided.set(checked($event))"
+        />
+        Geführt
       </label>
     }
     @if (!isSchemaView()) {
-      <label class="menuItem" [title]="isMessage()
-          ? 'Nachricht nur betrachten (Häkchen entfernen zum Bearbeiten der Werte)'
-          : 'Nachricht nur betrachten — ohne Profilier-Bedienelemente, Werte gesperrt'">
-        <input type="checkbox" [disabled]="!hasRoot()" [checked]="state.readOnly()"
-          (change)="state.readOnly.set(checked($event))" />
+      <label
+        class="menuItem"
+        [title]="
+          isMessage()
+            ? 'Nachricht nur betrachten (Häkchen entfernen zum Bearbeiten der Werte)'
+            : 'Nachricht nur betrachten — ohne Profilier-Bedienelemente, Werte gesperrt'
+        "
+      >
+        <input
+          type="checkbox"
+          [disabled]="!hasRoot()"
+          [checked]="state.readOnly()"
+          (change)="state.readOnly.set(checked($event))"
+        />
         {{ isMessage() ? 'Nur betrachten (sonst bearbeiten)' : 'Nur betrachten' }}
       </label>
     }
     <label class="menuItem" title="Versionsunterschiede im Baum markieren">
-      <input type="checkbox" [disabled]="!hasIdxB()" [checked]="state.showDiff()"
-        (change)="state.showDiff.set(checked($event))" /> Diff
+      <input
+        type="checkbox"
+        [disabled]="!hasIdxB()"
+        [checked]="state.showDiff()"
+        (change)="state.showDiff.set(checked($event))"
+      />
+      Diff
     </label>
-    <label class="menuItem" title="Aktiver Pfad und seine Kinder in voller Größe, alles andere als Kompakt-Chips">
-      <input type="checkbox" [checked]="state.focusMode()"
-        (change)="state.focusMode.set(checked($event))" /> Fokus
+    <label
+      class="menuItem"
+      title="Aktiver Pfad und seine Kinder in voller Größe, alles andere als Kompakt-Chips"
+    >
+      <input
+        type="checkbox"
+        [checked]="state.focusMode()"
+        (change)="state.focusMode.set(checked($event))"
+      />
+      Fokus
     </label>
     <label class="menuItem">
-      <input type="checkbox" [checked]="state.showTech()"
-        (change)="state.showTech.set(checked($event))" /> Technik
+      <input
+        type="checkbox"
+        [checked]="state.showTech()"
+        (change)="state.showTech.set(checked($event))"
+      />
+      Technik
     </label>
     <label class="menuItem">
-      <input type="checkbox" [checked]="state.showRefs()"
-        (change)="state.showRefs.set(checked($event))" /> Verweise
+      <input
+        type="checkbox"
+        [checked]="state.showRefs()"
+        (change)="state.showRefs.set(checked($event))"
+      />
+      Verweise
     </label>
-    <label class="menuItem" title="Blätter auf eine bündige Wertespalte ausrichten (aus: Blatt direkt am Elternknoten, kurze Wege)">
-      <input type="checkbox" [checked]="state.alignLeaves()"
-        (change)="state.alignLeaves.set(checked($event))" /> Blätter ausrichten
+    <label
+      class="menuItem"
+      title="Blätter auf eine bündige Wertespalte ausrichten (aus: Blatt direkt am Elternknoten, kurze Wege)"
+    >
+      <input
+        type="checkbox"
+        [checked]="state.alignLeaves()"
+        (change)="state.alignLeaves.set(checked($event))"
+      />
+      Blätter ausrichten
     </label>
     @if (!isSchemaView()) {
       <label class="menuItem">
-        <input type="checkbox" [checked]="state.onlyProfile()"
-          (change)="state.onlyProfile.set(checked($event))" /> nur Profil
+        <input
+          type="checkbox"
+          [checked]="state.onlyProfile()"
+          (change)="state.onlyProfile.set(checked($event))"
+        />
+        nur Profil
       </label>
-      <label class="menuItem" title="Nur Elemente mit Wert/Inhalt zeigen statt des gesamten Standards">
-        <input type="checkbox" [checked]="state.onlyValues()"
-          (change)="toggleOnlyValues(checked($event))" /> nur Werte
+      <label
+        class="menuItem"
+        title="Nur Elemente mit Wert/Inhalt zeigen statt des gesamten Standards"
+      >
+        <input
+          type="checkbox"
+          [checked]="state.onlyValues()"
+          (change)="toggleOnlyValues(checked($event))"
+        />
+        nur Werte
       </label>
     }
     <div class="menuSep"></div>
-    <button class="menuItem" [disabled]="!hasRoot()" (click)="ansicht.close(); expand()">Alles ausklappen</button>
-    <button class="menuItem" [disabled]="!hasRoot()" (click)="ansicht.close(); collapse()">Zuklappen</button>
+    <button class="menuItem" [disabled]="!hasRoot()" (click)="ansicht.close(); expand()">
+      Alles ausklappen
+    </button>
+    <button class="menuItem" [disabled]="!hasRoot()" (click)="ansicht.close(); collapse()">
+      Zuklappen
+    </button>
     @if (!state.readOnly() && !isMessage() && !isCreate()) {
-      <button class="menuItem" [disabled]="!hasRoot()" title="Alle Pflichtelemente als „zwingend“ vorbelegen"
-        (click)="ansicht.close(); prefillMandatory()">Pflicht vorbelegen</button>
+      <button
+        class="menuItem"
+        [disabled]="!hasRoot()"
+        title="Alle Pflichtelemente als „zwingend“ vorbelegen"
+        (click)="ansicht.close(); prefillMandatory()"
+      >
+        Pflicht vorbelegen
+      </button>
     }
   </app-menu>
 
   <div class="toolgroup">
     @if (!isMessage() && !isCreate() && state.hinweisEintraege().length) {
-      <button title="Übersicht aller internen Hinweise — Klick springt zum Element"
-        (click)="hinweiseClick.emit()">Hinweise ({{ state.nOffeneHinweise() }})</button>
+      <button
+        title="Übersicht aller internen Hinweise — Klick springt zum Element"
+        (click)="hinweiseClick.emit()"
+      >
+        Hinweise ({{ state.nOffeneHinweise() }})
+      </button>
     }
     @if ((isCreate() || isMessage()) && !state.readOnly()) {
-      <button [disabled]="!hasRoot()"
+      <button
+        [disabled]="!hasRoot()"
         title="Alle offenen Pflichtfelder typkonform mit Dummy-Werten befüllen (UUID, Datum, Pattern, Codeliste)"
-        (click)="fillPflicht()">Offene Pflichtfelder füllen</button>
+        (click)="fillPflicht()"
+      >
+        Offene Pflichtfelder füllen
+      </button>
     }
     @if (isCreate()) {
-      <button class="primary" [disabled]="!hasRoot()"
+      <button
+        class="primary"
+        [disabled]="!hasRoot()"
         title="Stand im Testdaten-Speicher sichern — unvollständige Nachrichten werden als Entwurf gekennzeichnet"
-        (click)="saveCreateClick.emit()">Speichern</button>
+        (click)="saveCreateClick.emit()"
+      >
+        Speichern
+      </button>
     } @else if (isMessage()) {
-      <button [disabled]="!hasRoot()"
+      <button
+        [disabled]="!hasRoot()"
         title="Die (bearbeitete) Nachricht als neue Testnachricht im Testdaten-Speicher ablegen"
-        (click)="saveMessageClick.emit()">Als neue Nachricht speichern</button>
+        (click)="saveMessageClick.emit()"
+      >
+        Als neue Nachricht speichern
+      </button>
     } @else if (!state.readOnly()) {
       <button [disabled]="!hasRoot()" (click)="saveClick.emit()">Speichern</button>
       <app-menu label="Export" [disabled]="!hasRoot()" #exportMenu>

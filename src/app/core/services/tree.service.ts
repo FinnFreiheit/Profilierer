@@ -33,9 +33,23 @@ export class TreeService {
   /** makeNode (Z.460-466): Knoten mit Defaults. */
   private makeNode(o: Partial<TreeNode>): TreeNode {
     return {
-      id: ++this.nodeId, path: '', name: '', min: '1', max: '1', doc: '', typeName: null,
-      xsdEl: null, model: null, children: null, parent: null, depth: 0,
-      synthetic: false, recursive: false, codelist: null, typeStack: [], inChoice: false,
+      id: ++this.nodeId,
+      path: '',
+      name: '',
+      min: '1',
+      max: '1',
+      doc: '',
+      typeName: null,
+      xsdEl: null,
+      model: null,
+      children: null,
+      parent: null,
+      depth: 0,
+      synthetic: false,
+      recursive: false,
+      codelist: null,
+      typeStack: [],
+      inChoice: false,
       ...o,
     };
   }
@@ -67,8 +81,7 @@ export class TreeService {
         n,
         Array.from(n.groupEl.children).filter(
           (c) =>
-            c.namespaceURI === XS &&
-            ['element', 'choice', 'sequence', 'any'].includes(c.localName),
+            c.namespaceURI === XS && ['element', 'choice', 'sequence', 'any'].includes(c.localName),
         ),
         n.model === 'choice',
       );
@@ -125,7 +138,9 @@ export class TreeService {
           parent: n,
           depth: n.depth + 1,
           path:
-            n.path + '/' + (p.localName === 'choice' ? '_auswahl' : '_gruppe') +
+            n.path +
+            '/' +
+            (p.localName === 'choice' ? '_auswahl' : '_gruppe') +
             (dup > 0 ? '#' + dup : ''),
           min: p.getAttribute('minOccurs') || '1',
           max: p.getAttribute('maxOccurs') || '1',
@@ -228,7 +243,12 @@ export class TreeService {
       const n = it.node;
       const ausps = this.state.auspsOf(n.path);
       if (ausps && ausps.length)
-        return ausps.map((a) => ({ kind: 'ausp', parentNode: n, ausp: a, path: n.path + '@' + a.id }));
+        return ausps.map((a) => ({
+          kind: 'ausp',
+          parentNode: n,
+          ausp: a,
+          path: n.path + '@' + a.id,
+        }));
       if (n.recursive) return [];
       return this.kinder(n).map((c) => ({ kind: 'el', node: c }));
     }
@@ -242,7 +262,10 @@ export class TreeService {
    * Nachricht gegen einen bestimmten Index — fuer den Versionsvergleich. Baut
    * einen eigenen Wegwerf-Baum und stellt den aktiven Index danach wieder her.
    */
-  flattenSchema(msgName: string, idx: XsdIndex): Map<string, { kard: string; typ: string; cl: string }> | null {
+  flattenSchema(
+    msgName: string,
+    idx: XsdIndex,
+  ): Map<string, { kard: string; typ: string; cl: string }> | null {
     const prevIdx = this.idx;
     const prevNodeId = this.nodeId;
     const prevCtx = this.ctxCache;

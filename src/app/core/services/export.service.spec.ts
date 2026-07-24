@@ -86,7 +86,9 @@ describe('ExportService (Schematron)', () => {
     svc.exportSchematron();
     expect(sch()).toContain('<!-- Festlegung zu "az": nur bei Auslandsbezug -->');
     // Kommentar steht vor der zugehoerigen Regel (gleicher Kontext wie der Pflicht-Assert).
-    expect(sch().indexOf('Festlegung zu "az"')).toBeLessThan(sch().indexOf('<sch:assert test="xj:az">'));
+    expect(sch().indexOf('Festlegung zu "az"')).toBeLessThan(
+      sch().indexOf('<sch:assert test="xj:az">'),
+    );
   });
 
   it('gibt Festlegungen ohne pruefbare Regel als Kommentar mit Kontext aus', () => {
@@ -99,7 +101,9 @@ describe('ExportService (Schematron)', () => {
   it('entschaerft "--" in Kommentaren (XML-Kommentar-Verbot)', () => {
     state.setElementProfile(`${M}/az`, { status: 's1', anmerkung: 'A -- B ---- C' });
     svc.exportSchematron();
-    const kommentar = sch().split('\n').find((l) => l.includes('Festlegung zu "az"'))!;
+    const kommentar = sch()
+      .split('\n')
+      .find((l) => l.includes('Festlegung zu "az"'))!;
     const inner = kommentar.replace(/^\s*<!--\s?/, '').replace(/\s?-->\s*$/, '');
     expect(inner).not.toContain('--'); // Kommentar-Inhalt ohne verbotenes Doppelminus
     expect(kommentar).toContain('A – B – C');
@@ -298,7 +302,12 @@ describe('ExportService (Schematron)', () => {
   describe('Schema-Erweiterungen', () => {
     it('Beispiel-XML enthaelt Erweiterungen immer — auch min=0 ohne Beispielwert, verschachtelt', () => {
       const id = state.addErweiterung(M, { name: 'zusatzBlock', min: '0', max: '1' });
-      state.addErweiterung(`${M}/~${id}`, { name: 'zusatzFeld', min: '0', max: '1', datentyp: 'string' });
+      state.addErweiterung(`${M}/~${id}`, {
+        name: 'zusatzFeld',
+        min: '0',
+        max: '1',
+        datentyp: 'string',
+      });
       const res = svc.buildBeispielXmlMitPfaden()!;
       expect(res.xml).toContain('<zusatzBlock>');
       expect(res.xml).toMatch(/<zusatzFeld>.+<\/zusatzFeld>/); // typkonformer Platzhalter
@@ -309,7 +318,11 @@ describe('ExportService (Schematron)', () => {
 
     it('Schematron: dokumentierender Kommentar statt Assert', () => {
       const id = state.addErweiterung(M, {
-        name: 'zusatzAngabe', beschreibung: 'Nachtrag', min: '1', max: '1', datentyp: 'string',
+        name: 'zusatzAngabe',
+        beschreibung: 'Nachtrag',
+        min: '1',
+        max: '1',
+        datentyp: 'string',
       });
       state.setElementProfile(`${M}/~${id}`, { status: 's1' });
       svc.exportSchematron();
@@ -367,4 +380,3 @@ describe('ExportService (Schematron)', () => {
     });
   });
 });
-

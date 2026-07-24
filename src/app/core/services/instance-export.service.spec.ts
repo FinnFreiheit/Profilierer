@@ -117,7 +117,9 @@ describe('InstanceExportService', () => {
     imp.importXml(INSTANCE, 'quelle.xml');
     state.setElementProfile(`${M}/vorname`, { beispiel: 'Erika' });
     const doc = new DOMParser().parseFromString(
-      exp.buildInstanceXml(state.messageEdit()!, false), 'application/xml');
+      exp.buildInstanceXml(state.messageEdit()!, false),
+      'application/xml',
+    );
     expect(txt(doc, 'vorname')).toBe('Erika');
     expect(betNamen(doc)).toEqual(['A', 'B']);
   });
@@ -137,7 +139,9 @@ describe('InstanceExportService', () => {
     const ausps = state.auspsOf(`${M}/beteiligung`)!;
     state.removeAusp(`${M}/beteiligung`, ausps[1]!.id); // "B" entfernen
     const doc = new DOMParser().parseFromString(
-      exp.buildInstanceXml(state.messageEdit()!, false), 'application/xml');
+      exp.buildInstanceXml(state.messageEdit()!, false),
+      'application/xml',
+    );
     expect(betNamen(doc)).toEqual(['A']);
   });
 
@@ -146,7 +150,9 @@ describe('InstanceExportService', () => {
     const ausps = state.auspsOf(`${M}/beteiligung`)!;
     state.removeAusp(`${M}/beteiligung`, ausps[0]!.id); // "A" (Vorkommen 1) entfernen
     const doc = new DOMParser().parseFromString(
-      exp.buildInstanceXml(state.messageEdit()!, false), 'application/xml');
+      exp.buildInstanceXml(state.messageEdit()!, false),
+      'application/xml',
+    );
     // Verbleibt Vorkommen 2 mit Wert "B" — der Wert-Patch korrigiert das Positions-Mapping.
     expect(betNamen(doc)).toEqual(['B']);
   });
@@ -156,16 +162,19 @@ describe('InstanceExportService', () => {
     const neu = state.addAusp(`${M}/beteiligung`, 'Vorkommen 3');
     state.setElementProfile(`${M}/beteiligung@${neu}/name`, { beispiel: 'C' });
     const doc = new DOMParser().parseFromString(
-      exp.buildInstanceXml(state.messageEdit()!, false), 'application/xml');
+      exp.buildInstanceXml(state.messageEdit()!, false),
+      'application/xml',
+    );
     expect(betNamen(doc)).toEqual(['A', 'B', 'C']);
   });
 
   it('fügt ein neues optionales Blatt an schema-korrekter Position ein', () => {
     imp.importXml(INSTANCE, 'quelle.xml');
     state.setElementProfile(`${M}/spitzname`, { beispiel: 'Maxi' });
-    const root = new DOMParser()
-      .parseFromString(exp.buildInstanceXml(state.messageEdit()!, false), 'application/xml')
-      .documentElement;
+    const root = new DOMParser().parseFromString(
+      exp.buildInstanceXml(state.messageEdit()!, false),
+      'application/xml',
+    ).documentElement;
     const namen = Array.from(root.children).map((c) => c.localName);
     // spitzname steht laut Schema zwischen vorname und beteiligung.
     expect(namen.indexOf('spitzname')).toBeGreaterThan(namen.indexOf('vorname'));
@@ -180,7 +189,9 @@ describe('InstanceExportService', () => {
     imp.importXml(INSTANCE, 'quelle.xml');
     state.setElementProfile(`${M}/kontakt/_auswahl/email`, { beispiel: 'neu@example.org' });
     const doc = new DOMParser().parseFromString(
-      exp.buildInstanceXml(state.messageEdit()!, false), 'application/xml');
+      exp.buildInstanceXml(state.messageEdit()!, false),
+      'application/xml',
+    );
     expect(txt(doc, 'email')).toBe('neu@example.org');
     expect(doc.getElementsByTagName('telefon').length).toBe(0);
   });

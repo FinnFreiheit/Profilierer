@@ -10,7 +10,12 @@ const docWith = (over = {}) => ({
   meta: { name: 'P', nachricht: 'nachricht.x', xjustizVersion: '3.6.2' },
   statuses: [],
   elemente: { a: { status: 's1' }, b: { status: 's1' }, c: {} },
-  auspraegungen: { x: [{ id: '1', name: 'F' }, { id: '2', name: 'G' }] },
+  auspraegungen: {
+    x: [
+      { id: '1', name: 'F' },
+      { id: '2', name: 'G' },
+    ],
+  },
   erweiterungen: { y: [{ id: 'x1', name: 'zusatz', min: '1', max: '1' }] },
   ...over,
 });
@@ -58,11 +63,17 @@ test('Migration: n_erw-Spalte wird an einer Alt-DB nachgezogen', () => {
   const file = join(mkdtempSync(join(tmpdir(), 'xjp-test-')), 'profil.db');
   const db = openDb(file);
   db._db.exec('ALTER TABLE profiles DROP COLUMN n_erw');
-  const cols = db._db.prepare('PRAGMA table_info(profiles)').all().map((c) => c.name);
+  const cols = db._db
+    .prepare('PRAGMA table_info(profiles)')
+    .all()
+    .map((c) => c.name);
   assert.ok(!cols.includes('n_erw'));
   db.close();
   const db2 = openDb(file);
-  const cols2 = db2._db.prepare('PRAGMA table_info(profiles)').all().map((c) => c.name);
+  const cols2 = db2._db
+    .prepare('PRAGMA table_info(profiles)')
+    .all()
+    .map((c) => c.name);
   assert.ok(cols2.includes('n_erw'));
   // Profil ohne erweiterungen-Feld (Altbestand) zaehlt 0.
   const { entry } = db2.create(docWith({ erweiterungen: undefined }));
@@ -73,7 +84,10 @@ test('Migration: n_erw-Spalte wird an einer Alt-DB nachgezogen', () => {
 test('upsert aktualisiert Index-Spalten und Fortschritt', () => {
   const db = openDb(':memory:');
   const { id } = db.create(docWith());
-  const entry = db.upsert(id, docWith({ elemente: { a: { status: 's1' } }, meta: { name: 'Neu' } }));
+  const entry = db.upsert(
+    id,
+    docWith({ elemente: { a: { status: 's1' } }, meta: { name: 'Neu' } }),
+  );
   assert.equal(entry.name, 'Neu');
   assert.equal(entry.nStatus, 1);
   assert.equal(db.list().length, 1); // kein Duplikat
@@ -84,7 +98,10 @@ test('list ist nach aktualisiert absteigend sortiert', () => {
   const db = openDb(':memory:');
   db.upsert('alt', docWith(), 1000);
   db.upsert('neu', docWith(), 2000);
-  assert.deepEqual(db.list().map((e) => e.id), ['neu', 'alt']);
+  assert.deepEqual(
+    db.list().map((e) => e.id),
+    ['neu', 'alt'],
+  );
   db.close();
 });
 
@@ -128,7 +145,10 @@ test('importAll erhält id und aktualisiert-Zeitstempel', () => {
   ]);
   assert.equal(n, 2);
   const list = db.list();
-  assert.deepEqual(list.map((e) => e.id), ['fixed-2', 'fixed-1']);
+  assert.deepEqual(
+    list.map((e) => e.id),
+    ['fixed-2', 'fixed-1'],
+  );
   assert.equal(list[0].aktualisiert, 2000);
   db.close();
 });

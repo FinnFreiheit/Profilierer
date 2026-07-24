@@ -13,8 +13,13 @@
     (click)="$event.stopPropagation()"
   >
     <div class="head">
-      <input id="msgSearch" type="text" placeholder="Nachricht suchen (Name oder Beschreibung)…"
-        [value]="filter()" (input)="onFilter($event)" />
+      <input
+        id="msgSearch"
+        type="text"
+        placeholder="Nachricht suchen (Name oder Beschreibung)…"
+        [value]="filter()"
+        (input)="onFilter($event)"
+      />
     </div>
     <div id="msgList">
       @for (g of groups(); track g.file) {

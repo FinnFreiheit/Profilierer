@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  viewChild,
+} from '@angular/core';
 import { ValidationReportService } from '../../core/services/validation-report.service';
 import { NavService } from '../../core/services/nav.service';
 import { ReportEintrag } from '../../models/validation.model';

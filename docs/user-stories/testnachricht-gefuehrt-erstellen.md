@@ -50,7 +50,7 @@ Bereits vorhanden und wiederverwendbar:
   **Nachricht** (durchsuchbar). Danach direkt im Baum-Editor mit aktiver
   Führung.
 - **Startzustand: leerer Baum.** Keine Vorbelegung mit Platzhalterwerten.
-  Pflichtstrukturen (`min≥1`) sind automatisch *vorhanden* (bei `min≥2`
+  Pflichtstrukturen (`min≥1`) sind automatisch _vorhanden_ (bei `min≥2`
   entsprechend mehrfach), aber **jedes Pflichtfeld muss aktiv befüllt werden**.
 
 **Entscheidungstypen des Durchlaufs**
@@ -97,7 +97,7 @@ Bereits vorhanden und wiederverwendbar:
 - **Explizites Speichern** (kein Autosave): Der Speicherpunkt ist zugleich der
   Moment, in dem das Entwurfs-Kennzeichen neu berechnet wird.
 - **Anlegen, dann aktualisieren:** Das erste Speichern fragt den Namen ab
-  (Vorschlag „*Nachrichtenname* — Testnachricht.xml") und legt den Eintrag an;
+  (Vorschlag „_Nachrichtenname_ — Testnachricht.xml") und legt den Eintrag an;
   jedes weitere Speichern derselben Sitzung **aktualisiert denselben Eintrag**
   (XML, Entscheidungsstand, Kennzeichen). Das bisherige „immer neu" bleibt für
   den Altfall (hochgeladene Nachricht bearbeiten) unverändert.
@@ -191,7 +191,7 @@ Bereits vorhanden und wiederverwendbar:
 
 ### H. Speichern, Entwurf, Fortsetzen
 
-- Erstes Speichern: Namensabfrage (Vorschlag „*Nachricht* —
+- Erstes Speichern: Namensabfrage (Vorschlag „_Nachricht_ —
   Testnachricht.xml"), Eintrag entsteht im Testspeicher. Weitere
   Speichervorgänge derselben Sitzung **aktualisieren** diesen Eintrag.
 - Unvollständige Einträge tragen auf der Kachel „**Entwurf — unvollständig**"
@@ -211,7 +211,7 @@ Bereits vorhanden und wiederverwendbar:
 - **Geführtes Nachbearbeiten** hochgeladener oder aus Profilierungen erzeugter
   Nachrichten (Initialisierung des Entscheidungsstands aus dem Ist-Zustand).
 - **Echte XSD-Validierung** der erzeugten Datei (Backend-Ausbau, eigene Story).
-- Profilierungs-Bezug (Testnachricht *gegen eine Profilierung* erzeugen/prüfen)
+- Profilierungs-Bezug (Testnachricht _gegen eine Profilierung_ erzeugen/prüfen)
   — „Aus Profilierung erzeugen" bleibt unverändert bestehen.
 
 ## Betroffene Bausteine (Orientierung, kein Auftrag)

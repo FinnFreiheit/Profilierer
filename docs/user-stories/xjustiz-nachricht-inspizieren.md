@@ -8,11 +8,11 @@ Der ursprüngliche Satz — „Der Anwender soll in der Lage sein, eine XJustiz-
 inspizieren (Übersicht über Inhalt und Struktur, übersichtlich)" — bündelt zwei
 gegensätzliche Bedürfnisse an dieselbe Baum-Ansicht:
 
-| | **Struktur überblicken** | **Inhalt überblicken** |
-|---|---|---|
-| Frage des Anwenders | „Wie ist die Nachricht aufgebaut?" | „Welche Werte stehen konkret drin?" |
-| Braucht | Hierarchie, Fokus, Zuklappen, Verweislinien | Werte im Baum, „nur Werte", Inhaltssuche |
-| Heute vorhanden | ja | teils — Inhaltssuche und Auto-Expand fehlen |
+|                     | **Struktur überblicken**                    | **Inhalt überblicken**                      |
+| ------------------- | ------------------------------------------- | ------------------------------------------- |
+| Frage des Anwenders | „Wie ist die Nachricht aufgebaut?"          | „Welche Werte stehen konkret drin?"         |
+| Braucht             | Hierarchie, Fokus, Zuklappen, Verweislinien | Werte im Baum, „nur Werte", Inhaltssuche    |
+| Heute vorhanden     | ja                                          | teils — Inhaltssuche und Auto-Expand fehlen |
 
 Zentrale Randbedingung: Das Werkzeug ist heute primär ein **Profilierer**, kein
 **Betrachter**. Eine importierte Instanz landet in derselben Baum-/Detail-Infrastruktur,
@@ -37,7 +37,7 @@ Kernlücken für reines Inspizieren:
 
 ## Epic
 
-> **Als** Anwender (fachlich *oder* technisch), der eine konkrete XJustiz-Nachricht
+> **Als** Anwender (fachlich _oder_ technisch), der eine konkrete XJustiz-Nachricht
 > verstehen will,
 > **möchte ich** sie in einer aufgeräumten, nicht-editierbaren Baum-Ansicht öffnen, gezielt
 > zwischen Fach- und Technikblick wechseln und sowohl Struktur als auch belegte Werte
@@ -155,10 +155,10 @@ umschaltbar, der gewählte Zustand bleibt beim Navigieren erhalten.
 2. **Detailpanel im Read-Only:** Codelisten-Werte werden aufgelöst angezeigt (Story 4);
    offen bleibt, ob Verweisziele weiterhin anklickbar zum Navigieren sind (nur nicht
    editierbar).
-4. **Code-Auflösung — Ladezeitpunkt:** alle genutzten Codelisten gebündelt beim Import
+3. **Code-Auflösung — Ladezeitpunkt:** alle genutzten Codelisten gebündelt beim Import
    vorab laden (schneller sichtbar, mehr Netz/Startlast) oder pro sichtbarem Code lazy
    nachladen?
-3. **Werte-Highlight im Baum:** Suchtreffer nur anspringen oder dauerhaft im Baum markieren
+4. **Werte-Highlight im Baum:** Suchtreffer nur anspringen oder dauerhaft im Baum markieren
    (Filter „nur Treffer")?
 
 ## Betroffene Bausteine (Orientierung, kein Auftrag)

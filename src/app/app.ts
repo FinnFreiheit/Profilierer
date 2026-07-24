@@ -36,7 +36,11 @@ import { LoggerService } from './core/services/logger.service';
 import { DownloadService } from './core/services/download.service';
 import { ValidationDialog } from './features/dialogs/validation-dialog';
 import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
-import { frageTestnachrichtName, parseTestmessage, testmessageInput } from './core/util/testmessage.util';
+import {
+  frageTestnachrichtName,
+  parseTestmessage,
+  testmessageInput,
+} from './core/util/testmessage.util';
 
 @Component({
   selector: 'app-root',
@@ -100,7 +104,11 @@ export class App implements OnInit {
   /** Fehlerprotokoll (Logger-Ringpuffer) als Textdatei herunterladen. */
   protected exportLog(): void {
     const stempel = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-    this.download.download(`xjp-log_${stempel}.txt`, this.logger.exportText(), 'text/plain;charset=utf-8');
+    this.download.download(
+      `xjp-log_${stempel}.txt`,
+      this.logger.exportText(),
+      'text/plain;charset=utf-8',
+    );
   }
 
   /**
@@ -307,7 +315,8 @@ export class App implements OnInit {
     // Einzelne .xml: XJustiz-Nachricht (nachricht.*) vs. Genericode-Codeliste unterscheiden.
     if (files.length === 1 && /\.xml$/i.test(files[0]!.name)) {
       const text = await files[0]!.text();
-      if (InstanceImportService.rootMessageName(text)) this.importInstanceText(text, files[0]!.name);
+      if (InstanceImportService.rootMessageName(text))
+        this.importInstanceText(text, files[0]!.name);
       else this.onCodelistFiles(files);
       return;
     }

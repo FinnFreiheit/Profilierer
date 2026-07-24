@@ -8,9 +8,23 @@ import { XsdIndex } from '../../models/xsd-index.model';
 
 function node(path: string, over: Partial<TreeNode> = {}): TreeNode {
   return {
-    id: 1, path, name: path.split('/').pop() ?? path, min: '1', max: '1', doc: '',
-    typeName: null, xsdEl: null, model: null, children: null, parent: null, depth: 0,
-    synthetic: false, recursive: false, codelist: null, typeStack: [], inChoice: false,
+    id: 1,
+    path,
+    name: path.split('/').pop() ?? path,
+    min: '1',
+    max: '1',
+    doc: '',
+    typeName: null,
+    xsdEl: null,
+    model: null,
+    children: null,
+    parent: null,
+    depth: 0,
+    synthetic: false,
+    recursive: false,
+    codelist: null,
+    typeStack: [],
+    inChoice: false,
     ...over,
   };
 }

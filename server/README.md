@@ -16,10 +16,10 @@ Entwicklung (ng serve + Backend parallel): im Root `npm run dev`.
 
 ## Konfiguration (Env)
 
-| Variable | Default | Zweck |
-|---|---|---|
-| `XJP_PORT` | `3001` | HTTP-Port |
-| `XJP_DB` | `server/data/profiles.db` | SQLite-Datei (WAL-Modus) |
+| Variable   | Default                   | Zweck                    |
+| ---------- | ------------------------- | ------------------------ |
+| `XJP_PORT` | `3001`                    | HTTP-Port                |
+| `XJP_DB`   | `server/data/profiles.db` | SQLite-Datei (WAL-Modus) |
 
 ## API
 

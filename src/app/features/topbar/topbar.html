@@ -1,5 +1,9 @@
 <div id="topbar">
-  <button class="homeBtn" title="Zurück zur Übersicht der Profilierungen" (click)="homeClick.emit()">
+  <button
+    class="homeBtn"
+    title="Zurück zur Übersicht der Profilierungen"
+    (click)="homeClick.emit()"
+  >
     ← Übersicht
   </button>
   <h1><span>XJustiz</span> Profilierer</h1>
@@ -7,7 +11,14 @@
   <span class="spacer"></span>
 
   <input #xsdInput type="file" webkitdirectory multiple class="hidden" (change)="onXsd($event)" />
-  <input #clInput type="file" multiple accept=".xml,.zip" class="hidden" (change)="onCodelist($event)" />
+  <input
+    #clInput
+    type="file"
+    multiple
+    accept=".xml,.zip"
+    class="hidden"
+    (change)="onCodelist($event)"
+  />
   <input #profilInput type="file" accept=".json" class="hidden" (change)="onProfile($event)" />
   <input #nachrichtInput type="file" accept=".xml" class="hidden" (change)="onInstance($event)" />
 
@@ -28,24 +39,54 @@
     </select>
   }
   <app-menu label="Laden" #laden>
-    <button class="menuItem" title="Eigenen Ordner mit XJustiz-Schemadateien laden"
-      (click)="laden.close(); pick(xsdInput)">Eigener XSD-Ordner…</button>
-    <button class="menuItem" [disabled]="!hasIdx()"
+    <button
+      class="menuItem"
+      title="Eigenen Ordner mit XJustiz-Schemadateien laden"
+      (click)="laden.close(); pick(xsdInput)"
+    >
+      Eigener XSD-Ordner…
+    </button>
+    <button
+      class="menuItem"
+      [disabled]="!hasIdx()"
       title="Alle vom Standard genutzten Codelisten über die XRepository-REST-Schnittstelle abrufen"
-      (click)="laden.close(); xrepClick.emit()">Codelisten: XRepository</button>
-    <button class="menuItem" title="Genericode-Dateien oder ZIP aus Dateien laden"
-      (click)="laden.close(); pick(clInput)">Codelisten: Datei…</button>
+      (click)="laden.close(); xrepClick.emit()"
+    >
+      Codelisten: XRepository
+    </button>
+    <button
+      class="menuItem"
+      title="Genericode-Dateien oder ZIP aus Dateien laden"
+      (click)="laden.close(); pick(clInput)"
+    >
+      Codelisten: Datei…
+    </button>
     <div class="menuSep"></div>
-    <button class="menuItem" [disabled]="!hasIdx()"
+    <button
+      class="menuItem"
+      [disabled]="!hasIdx()"
       title="Zweiten XSD-Ordner (andere XJustiz-Version) laden und Unterschiede anzeigen"
-      (click)="laden.close(); diffClick.emit()">{{ diffLabel() }}</button>
+      (click)="laden.close(); diffClick.emit()"
+    >
+      {{ diffLabel() }}
+    </button>
     <div class="menuSep"></div>
     <button class="menuItem" (click)="laden.close(); pick(profilInput)">Profil laden…</button>
-    <button class="menuItem" [disabled]="!hasIdx()"
+    <button
+      class="menuItem"
+      [disabled]="!hasIdx()"
       title="Bestehende XJustiz-Nachricht (XML) laden und als Testnachricht anzeigen"
-      (click)="laden.close(); pick(nachrichtInput)">Nachricht laden…</button>
+      (click)="laden.close(); pick(nachrichtInput)"
+    >
+      Nachricht laden…
+    </button>
     <div class="menuSep"></div>
-    <button class="menuItem" title="Protokoll der letzten Fehler und Warnungen als Textdatei speichern (für Fehlermeldungen)"
-      (click)="laden.close(); logExportClick.emit()">Fehlerprotokoll speichern…</button>
+    <button
+      class="menuItem"
+      title="Protokoll der letzten Fehler und Warnungen als Textdatei speichern (für Fehlermeldungen)"
+      (click)="laden.close(); logExportClick.emit()"
+    >
+      Fehlerprotokoll speichern…
+    </button>
   </app-menu>
 </div>

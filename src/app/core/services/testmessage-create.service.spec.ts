@@ -172,7 +172,9 @@ describe('TestmessageCreateService', () => {
       pruefung = {
         status: 'invalide',
         fehler: ['nicht erwartet'],
-        fehlerDetails: [{ text: "Element 'zusatzAngabe': This element is not expected.", zeile: 3 }],
+        fehlerDetails: [
+          { text: "Element 'zusatzAngabe': This element is not expected.", zeile: 3 },
+        ],
       };
       spyOn(window, 'prompt').and.returnValue('X.xml');
       guided.fuellePflichtfelder();
@@ -206,7 +208,11 @@ describe('TestmessageCreateService', () => {
         },
       };
       await svc.fortsetzen({
-        id: 'id-alt', name: 'Entwurf.xml', groesse: 1, hochgeladen: 0, aktualisiert: 0,
+        id: 'id-alt',
+        name: 'Entwurf.xml',
+        groesse: 1,
+        hochgeladen: 0,
+        aktualisiert: 0,
       });
       expect(state.msgName()).toBe(M);
       expect(state.elemente()[`${M}/kopf`]?.beispiel).toBe('Az 1');

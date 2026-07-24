@@ -72,7 +72,11 @@ export class SearchService {
     for (const e of idx) {
       const hay = (e.label + ' ' + e.tech).toLowerCase();
       if (hay.split(/[\s:›]+/).some((w) => w.startsWith(q))) starts.push(e);
-      else if (hay.includes(q) || e.doc.toLowerCase().includes(q) || e.value.toLowerCase().includes(q))
+      else if (
+        hay.includes(q) ||
+        e.doc.toLowerCase().includes(q) ||
+        e.value.toLowerCase().includes(q)
+      )
         contains.push(e);
       if (starts.length > 40) break;
     }

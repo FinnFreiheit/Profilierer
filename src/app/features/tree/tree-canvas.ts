@@ -333,7 +333,12 @@ export class TreeCanvas {
       }
       return null;
     };
-    const refCurve = (from: HTMLElement, to: HTMLElement, strong: boolean, exact: boolean): PathSpec => {
+    const refCurve = (
+      from: HTMLElement,
+      to: HTMLElement,
+      strong: boolean,
+      exact: boolean,
+    ): PathSpec => {
       const fr = from.getBoundingClientRect();
       const tr = to.getBoundingClientRect();
       const x1 = fr.right - cr.left;

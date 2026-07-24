@@ -115,7 +115,11 @@ describe('TreeService', () => {
     it('kinder haengt Erweiterungs-Knoten hinter die Schema-Kinder', () => {
       const root = tree.buildRoot('nachricht.test.0001', idx);
       const id = state.addErweiterung(root.path, {
-        name: 'zusatzAngabe', beschreibung: 'fehlt im Schema', min: '0', max: '1', datentyp: 'string',
+        name: 'zusatzAngabe',
+        beschreibung: 'fehlt im Schema',
+        min: '0',
+        max: '1',
+        datentyp: 'string',
       });
       const kids = tree.kinder(root);
       expect(kids.map((k) => k.name)).toEqual(['beteiligung', 'datum', 'zusatzAngabe']);
@@ -133,7 +137,12 @@ describe('TreeService', () => {
       const root = tree.buildRoot('nachricht.test.0001', idx);
       const bet = tree.kinder(root)[0]!;
       const aid = state.addAusp(bet.path, 'Notar');
-      state.addErweiterung(bet.path + '@' + aid, { name: 'rolleNeu', min: '1', max: '1', datentyp: 'token' });
+      state.addErweiterung(bet.path + '@' + aid, {
+        name: 'rolleNeu',
+        min: '1',
+        max: '1',
+        datentyp: 'token',
+      });
       const items = tree.childItems({ kind: 'el', node: bet });
       const inner = tree.childItems(items[0]!);
       expect(inner.map((k) => (k.kind === 'el' ? k.node.name : ''))).toEqual(['name', 'rolleNeu']);
@@ -142,14 +151,24 @@ describe('TreeService', () => {
     it('isLeaf/itemHasKids: Container-Erweiterung aufklappbar, Wert-Erweiterung Blatt', () => {
       const root = tree.buildRoot('nachricht.test.0001', idx);
       const cid = state.addErweiterung(root.path, { name: 'block', min: '1', max: '1' });
-      const wid = state.addErweiterung(root.path, { name: 'feld', min: '1', max: '1', datentyp: 'date' });
+      const wid = state.addErweiterung(root.path, {
+        name: 'feld',
+        min: '1',
+        max: '1',
+        datentyp: 'date',
+      });
       const [container, wert] = tree.kinder(root).slice(-2);
       expect(tree.isLeaf(container!)).toBeFalse();
       expect(tree.itemHasKids({ kind: 'el', node: container! })).toBeTrue();
       expect(tree.isLeaf(wert!)).toBeTrue();
       expect(tree.itemHasKids({ kind: 'el', node: wert! })).toBeFalse();
       // Verschachtelt: Kind unter dem Container erscheint.
-      state.addErweiterung(root.path + '/~' + cid, { name: 'kind', min: '1', max: '1', datentyp: 'string' });
+      state.addErweiterung(root.path + '/~' + cid, {
+        name: 'kind',
+        min: '1',
+        max: '1',
+        datentyp: 'string',
+      });
       expect(tree.kinder(container!).map((k) => k.name)).toEqual(['kind']);
       expect(root.path + '/~' + wid).toContain('/~'); // Pfadschema
     });
@@ -157,7 +176,12 @@ describe('TreeService', () => {
     it('kinder liefert nach add/remove frische Knoten (kein Cache-Staleness)', () => {
       const root = tree.buildRoot('nachricht.test.0001', idx);
       expect(tree.kinder(root).length).toBe(2);
-      const id = state.addErweiterung(root.path, { name: 'neu', min: '1', max: '1', datentyp: 'string' });
+      const id = state.addErweiterung(root.path, {
+        name: 'neu',
+        min: '1',
+        max: '1',
+        datentyp: 'string',
+      });
       expect(tree.kinder(root).length).toBe(3);
       state.removeErweiterung(root.path, id);
       expect(tree.kinder(root).length).toBe(2);

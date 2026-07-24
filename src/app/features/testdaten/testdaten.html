@@ -29,7 +29,11 @@
         </div>
         <div id="dashGrid">
           @for (e of g.items; track e.id) {
-            <div class="dashCard" [title]="e.gefuehrt ? 'Geführt fortsetzen' : 'Im Baum öffnen'" (click)="openEntry(e)">
+            <div
+              class="dashCard"
+              [title]="e.gefuehrt ? 'Geführt fortsetzen' : 'Im Baum öffnen'"
+              (click)="openEntry(e)"
+            >
               <div class="dcName">{{ e.name }}</div>
               @if (e.nachricht) {
                 <div class="dcMsg">{{ e.nachricht }}</div>
@@ -49,7 +53,9 @@
                   <span class="pill pillMuted">Version unbekannt</span>
                 }
                 @if (e.fortschritt) {
-                  <span class="dcProg">{{ e.fortschritt.x }} von {{ e.fortschritt.y }} entschieden</span>
+                  <span class="dcProg"
+                    >{{ e.fortschritt.x }} von {{ e.fortschritt.y }} entschieden</span
+                  >
                 }
                 <span class="dcProg">{{ groesse(e) }}</span>
               </div>
@@ -59,8 +65,15 @@
               <div class="dcFoot">
                 <span class="dcDate">{{ datum(e) }}</span>
                 <span class="dcTools">
-                  <button title="Name und Beschreibung bearbeiten" (click)="openEdit(e, $event)">Bearbeiten</button>
-                  <button title="Schemavalidierung ausführen und Befund anzeigen" (click)="pruefe(e, $event)">Prüfbericht</button>
+                  <button title="Name und Beschreibung bearbeiten" (click)="openEdit(e, $event)">
+                    Bearbeiten
+                  </button>
+                  <button
+                    title="Schemavalidierung ausführen und Befund anzeigen"
+                    (click)="pruefe(e, $event)"
+                  >
+                    Prüfbericht
+                  </button>
                   <button title="XML herunterladen" (click)="download(e, $event)">Download</button>
                   <button class="del" title="Löschen" (click)="remove(e, $event)">Löschen</button>
                 </span>
@@ -91,8 +104,8 @@
 <dialog #uploadDlg id="uploadDlg">
   <h3 style="margin-top: 0">Testnachrichten hochladen</h3>
   <p class="dashSub" style="margin-top: 0">
-    Nur XJustiz-Instanzen (Wurzelelement <code>nachricht.*</code>). Nachrichtenname
-    und Fachmodul werden automatisch erkannt; andere Dateien werden abgelehnt.
+    Nur XJustiz-Instanzen (Wurzelelement <code>nachricht.*</code>). Nachrichtenname und Fachmodul
+    werden automatisch erkannt; andere Dateien werden abgelehnt.
   </p>
   <input type="file" accept=".xml" multiple (change)="onFiles($event)" />
   <div style="text-align: right; margin-top: 12px">
@@ -104,9 +117,8 @@
   <h3 style="margin-top: 0">Neue Testnachricht erstellen</h3>
   @if (!createVersion()) {
     <p class="dashSub" style="margin-top: 0">
-      Schritt 1 von 2: XJustiz-Version wählen. Anschließend wird die Nachricht im
-      Baum-Editor <b>geführt</b> befüllt — Pflichtfelder, Auswahlen und optionale
-      Elemente Schritt für Schritt.
+      Schritt 1 von 2: XJustiz-Version wählen. Anschließend wird die Nachricht im Baum-Editor
+      <b>geführt</b> befüllt — Pflichtfelder, Auswahlen und optionale Elemente Schritt für Schritt.
     </p>
     @if (versionOptionen().length) {
       @for (v of versionOptionen(); track v.id) {
@@ -161,8 +173,8 @@
 <dialog #genDlg id="genDlg">
   <h3 style="margin-top: 0">Testnachricht aus Profilierung erzeugen</h3>
   <p class="dashSub" style="margin-top: 0">
-    Erzeugt eine Beispielnachricht mit Platzhalter- und Beispielwerten aus einer
-    gespeicherten Profilierung und legt sie im Testdatenspeicher ab.
+    Erzeugt eine Beispielnachricht mit Platzhalter- und Beispielwerten aus einer gespeicherten
+    Profilierung und legt sie im Testdatenspeicher ab.
   </p>
   @if (profilKandidaten().length) {
     <div style="max-height: 50vh; overflow: auto">

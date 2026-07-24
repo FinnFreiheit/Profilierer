@@ -68,7 +68,7 @@ export class DetailPanel {
     const kmax = isAusp ? '1' : n.max === 'unbounded' ? '*' : n.max;
 
     const showAusps = !isAusp && this.tree.isRepeatable(n) && !n.synthetic;
-    const auspList = showAusps ? this.state.auspsOf(path) ?? [] : [];
+    const auspList = showAusps ? (this.state.auspsOf(path) ?? []) : [];
 
     // Blatt-Eigenschaft des ausgewaehlten Items (Ausprägung: ihr Kontext-Knoten).
     const leaf = isAusp
@@ -81,7 +81,9 @@ export class DetailPanel {
       kennung: string;
       geladen: boolean;
       version: string | null;
-      eff: { value: string; label: string; checked: boolean; belegt: boolean; search: string }[] | null;
+      eff:
+        | { value: string; label: string; checked: boolean; belegt: boolean; search: string }[]
+        | null;
       restricted: boolean;
       allowedCount: number;
       total: number;
@@ -140,7 +142,7 @@ export class DetailPanel {
     }
 
     // Schema-Erweiterung: Eigenschaften direkt editierbar (US Schema-Erweiterung).
-    const e = !isAusp ? it.node.erweiterung ?? null : null;
+    const e = !isAusp ? (it.node.erweiterung ?? null) : null;
     const erw = e
       ? {
           name: e.name,
@@ -169,7 +171,10 @@ export class DetailPanel {
       title: pretty(n.name),
       sub: n.erweiterung
         ? n.name + (n.typeName ? ' : ' + n.typeName : ' (Container)') + ' · Schema-Erweiterung'
-        : n.name + (n.typeName ? ' : ' + n.typeName : '') + ' · Standard: ' + kardText(n.min, n.max),
+        : n.name +
+          (n.typeName ? ' : ' + n.typeName : '') +
+          ' · Standard: ' +
+          kardText(n.min, n.max),
       subKard: fmtKard(n.min, n.max),
       doc: !isAusp ? n.doc : '',
       statusButtons,
@@ -297,7 +302,9 @@ export class DetailPanel {
 
     const wertOffen =
       (punkt?.art === 'wert' ||
-        ((punkt?.art === 'element' || punkt?.art === 'auspraegung') && punkt.leaf && w === 'pflicht')) &&
+        ((punkt?.art === 'element' || punkt?.art === 'auspraegung') &&
+          punkt.leaf &&
+          w === 'pflicht')) &&
       !this.guided.wertOk(path);
 
     return {
@@ -386,7 +393,9 @@ export class DetailPanel {
     if (cur.has(value)) cur.delete(value);
     else cur.add(value);
     const sel = all.filter((v) => cur.has(v));
-    this.state.setElementProfile(this.path(), { werte: sel.length === all.length ? undefined : sel });
+    this.state.setElementProfile(this.path(), {
+      werte: sel.length === all.length ? undefined : sel,
+    });
   }
 
   protected clAll(): void {
@@ -478,7 +487,9 @@ export class DetailPanel {
     const ctx = this.erwKontext();
     const it = this.state.selItem();
     if (!ctx || !it || it.kind !== 'el' || !it.node.erweiterung) return;
-    if (confirm('Schema-Erweiterung „' + it.node.erweiterung.name + '" samt Unterelementen löschen?'))
+    if (
+      confirm('Schema-Erweiterung „' + it.node.erweiterung.name + '" samt Unterelementen löschen?')
+    )
       this.state.removeErweiterung(ctx.parentPath, ctx.id);
   }
 
@@ -519,7 +530,12 @@ export class DetailPanel {
     const n = it.kind === 'el' ? it.node : this.tree.ctxNode(it.parentNode, it.ausp.id);
     const path = this.path();
     this.state.setElementProfile(path, {
-      beispiel: this.values.dummyFor({ name: n.name, path, typeName: n.typeName, codelist: n.codelist }),
+      beispiel: this.values.dummyFor({
+        name: n.name,
+        path,
+        typeName: n.typeName,
+        codelist: n.codelist,
+      }),
     });
   }
 
@@ -570,7 +586,9 @@ export class DetailPanel {
     if (!kennung) return;
     try {
       const cl = await this.codelistSvc.fetchSingleCodelist(kennung);
-      this.toast.show(`Codeliste „${cl.name || cl.kennung}" geladen (V ${cl.version}, ${cl.werte.length} Werte).`);
+      this.toast.show(
+        `Codeliste „${cl.name || cl.kennung}" geladen (V ${cl.version}, ${cl.werte.length} Werte).`,
+      );
     } catch (e) {
       this.toast.show(
         'Abruf fehlgeschlagen: ' +

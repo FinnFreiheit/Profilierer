@@ -97,8 +97,9 @@ export class Testdaten {
 
   private matches(e: TestmessageEntry, q: string): boolean {
     if (!q) return true;
-    return [e.name, e.nachricht, e.fachmodul, e.notiz]
-      .some((v) => (v || '').toLowerCase().includes(q));
+    return [e.name, e.nachricht, e.fachmodul, e.notiz].some((v) =>
+      (v || '').toLowerCase().includes(q),
+    );
   }
 
   /** Zurueck zur Profil-Bibliothek. */
@@ -118,7 +119,9 @@ export class Testdaten {
    * Fremdschema (Ordner-Upload), falls vorhanden.
    */
   protected readonly versionOptionen = computed<{ id: string; label: string }[]>(() => {
-    const opts = this.state.bundledVersions().map((v) => ({ id: v.id, label: v.label || 'XJustiz ' + v.id }));
+    const opts = this.state
+      .bundledVersions()
+      .map((v) => ({ id: v.id, label: v.label || 'XJustiz ' + v.id }));
     const cur = this.state.version();
     if (this.state.idx() && !this.state.activeBundle() && cur && !opts.some((o) => o.id === cur)) {
       opts.push({ id: cur, label: `aktuell geladenes Schema (XJustiz ${cur})` });
@@ -221,7 +224,9 @@ export class Testdaten {
   // ── Aus Profilierung erzeugen ───────────────────────────────────────
 
   protected openGenerate(): void {
-    void this.profiles.refresh().catch(this.toast.fail('Profile konnten nicht geladen werden — Backend nicht erreichbar.'));
+    void this.profiles
+      .refresh()
+      .catch(this.toast.fail('Profile konnten nicht geladen werden — Backend nicht erreichbar.'));
     this.genDlg().nativeElement.showModal();
   }
 
@@ -304,7 +309,8 @@ export class Testdaten {
     this.toast.show(teile.join(', ') || 'Nichts hochgeladen.');
     if (invalide.length)
       this.report.zeige('Upload abgelehnt — Nachricht nicht schema-valide', invalide);
-    if (ok && !abgelehnt.length && !invalide.length && !fehler) this.uploadDlg().nativeElement.close();
+    if (ok && !abgelehnt.length && !invalide.length && !fehler)
+      this.uploadDlg().nativeElement.close();
   }
 
   // ── Prüfbericht ─────────────────────────────────────────────────────
@@ -326,7 +332,8 @@ export class Testdaten {
       if (pruefung.status === 'valide') {
         this.toast.show(`„${e.name}" ist schema-valide.`);
       } else {
-        const grund = pruefung.status === 'invalide' ? 'nicht schema-valide' : 'Validität nicht prüfbar';
+        const grund =
+          pruefung.status === 'invalide' ? 'nicht schema-valide' : 'Validität nicht prüfbar';
         this.report.zeige(`Prüfbericht „${e.name}" — ${grund}`, pruefung.fehler);
       }
     } catch (err) {
@@ -366,7 +373,10 @@ export class Testdaten {
       if (xml == null) return;
       const pruefung = await this.validator.validiere(xml);
       if (pruefung.status !== 'valide') {
-        this.report.zeige(`Download blockiert — „${e.name}" ist nicht schema-valide`, pruefung.fehler);
+        this.report.zeige(
+          `Download blockiert — „${e.name}" ist nicht schema-valide`,
+          pruefung.fehler,
+        );
         return;
       }
       this.dl.download(e.name || (e.nachricht ?? 'testnachricht') + '.xml', xml, 'application/xml');
@@ -378,7 +388,9 @@ export class Testdaten {
   protected remove(e: TestmessageEntry, ev: Event): void {
     ev.stopPropagation();
     if (confirm(`Testnachricht „${e.name}" wirklich löschen?`))
-      void this.store.delete(e.id).catch(this.toast.fail('Löschen fehlgeschlagen — Backend nicht erreichbar.'));
+      void this.store
+        .delete(e.id)
+        .catch(this.toast.fail('Löschen fehlgeschlagen — Backend nicht erreichbar.'));
   }
 
   // ── Anzeige-Helfer ──────────────────────────────────────────────────

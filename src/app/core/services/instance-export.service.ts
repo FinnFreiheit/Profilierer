@@ -146,7 +146,8 @@ export class InstanceExportService {
     const placed: Element[] = [];
     ausps.forEach((a, i) => {
       let occ = matches[i] ?? null;
-      if (!occ) occ = (template ? template.cloneNode(true) : this.generate(child, depth)) as Element;
+      if (!occ)
+        occ = (template ? template.cloneNode(true) : this.generate(child, depth)) as Element;
       const cn = this.tree.ctxNode(child, a.id);
       this.patchNode(cn, occ, depth + 1);
       placed.push(occ);
@@ -200,7 +201,10 @@ export class InstanceExportService {
     const el = this.createEl(node.name);
     if (this.tree.isLeaf(node)) {
       const v = this.values.placeholderFor({
-        name: node.name, path: node.path, typeName: node.typeName, codelist: node.codelist,
+        name: node.name,
+        path: node.path,
+        typeName: node.typeName,
+        codelist: node.codelist,
       });
       if (node.codelist) {
         if (node.codelist.kennung) el.setAttribute('listURI', node.codelist.kennung);
@@ -294,9 +298,7 @@ export class InstanceExportService {
   /** Neues Element im Ziel-Dokument, im Namespace/Präfix der Quell-Nachricht. */
   private createEl(name: string): Element {
     const qname = this.prefix ? `${this.prefix}:${name}` : name;
-    return this.ns
-      ? this.outDoc.createElementNS(this.ns, qname)
-      : this.outDoc.createElement(name);
+    return this.ns ? this.outDoc.createElementNS(this.ns, qname) : this.outDoc.createElement(name);
   }
 
   /** XOEV-Code: das code-Element ist unqualifiziert (form="unqualified"). */
@@ -314,7 +316,8 @@ export class InstanceExportService {
     const pre1 = path + '/';
     const pre2 = path + '@';
     for (const k of Object.keys(this.state.elemente())) {
-      if ((k.startsWith(pre1) || k.startsWith(pre2)) && this.state.elemente()[k]!.beispiel) return true;
+      if ((k.startsWith(pre1) || k.startsWith(pre2)) && this.state.elemente()[k]!.beispiel)
+        return true;
     }
     for (const k of Object.keys(this.state.auspraegungen())) {
       if (k === path || k.startsWith(pre1) || k.startsWith(pre2)) return true;
@@ -341,7 +344,7 @@ export class InstanceExportService {
       const kinder = Array.from(el.children);
       const tag = el.tagName;
       if (kinder.length === 0) {
-        const text = (el.textContent ?? '');
+        const text = el.textContent ?? '';
         if (text.trim() === '') lines.push(`${pad}<${tag}${attrs}/>`);
         else lines.push(`${pad}<${tag}${attrs}>${this.escText(text)}</${tag}>`);
         return;

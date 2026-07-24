@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, output, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  inject,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { DiffService } from '../../core/services/diff.service';
 import { NavService } from '../../core/services/nav.service';
@@ -8,8 +17,12 @@ import { DiffEntry, DiffResult } from '../../models/diff.model';
 import { BundledVersion } from '../../models/schema-bundle.model';
 import { pretty } from '../../core/util/pretty.util';
 
-export const DIFF_FARBEN: Record<string, string> = { neu: '#1e7d3e', entfernt: '#b23a3a', 'geändert': '#8a6d0b' };
-export const DIFF_SYM: Record<string, string> = { neu: '+', entfernt: '−', 'geändert': '~' };
+export const DIFF_FARBEN: Record<string, string> = {
+  neu: '#1e7d3e',
+  entfernt: '#b23a3a',
+  geändert: '#8a6d0b',
+};
+export const DIFF_SYM: Record<string, string> = { neu: '+', entfernt: '−', geändert: '~' };
 
 /**
  * Versionsvergleich-Dialog (openDiffDlg/renderDiffList, Profilierer.html

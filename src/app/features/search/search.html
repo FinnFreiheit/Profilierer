@@ -11,13 +11,26 @@
     (keydown)="onKeydown($event)"
   />
   @if (open()) {
-    <div id="searchPanel" class="open" style="position: absolute; top: calc(100% + 4px)" [style.left.px]="panelLeft()">
+    <div
+      id="searchPanel"
+      class="open"
+      style="position: absolute; top: calc(100% + 4px)"
+      [style.left.px]="panelLeft()"
+    >
       @for (h of hits(); track h.path; let i = $index) {
         <div class="srItem" [class.hot]="i === 0" (mousedown)="pick(h.path)">
           <div class="sl">
             {{ h.label }}
             @if (h.tech && h.tech !== h.label) {
-              <span style="font-weight: 400; color: var(--muted); font-family: var(--mono); font-size: 11px">{{ h.tech }}</span>
+              <span
+                style="
+                  font-weight: 400;
+                  color: var(--muted);
+                  font-family: var(--mono);
+                  font-size: 11px;
+                "
+                >{{ h.tech }}</span
+              >
             }
           </div>
           @if (h.crumb) {

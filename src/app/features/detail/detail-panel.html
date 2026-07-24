@@ -7,7 +7,12 @@
         @if (ro()) {
           <div class="docbox">{{ v.auspName }}</div>
         } @else {
-          <input type="text" style="width: 100%" [value]="v.auspName" (change)="onAuspNameSelf($event)" />
+          <input
+            type="text"
+            style="width: 100%"
+            [value]="v.auspName"
+            (change)="onAuspNameSelf($event)"
+          />
         }
       </div>
       <div class="sub">Ausprägung von {{ v.parentName }}</div>
@@ -18,9 +23,14 @@
           <span class="tag t-ext" style="vertical-align: middle">Schema-Erweiterung</span>
         }
       </h3>
-      <div class="sub">{{ v.sub }} <span style="color: #aaa">({{ v.subKard }})</span></div>
+      <div class="sub">
+        {{ v.sub }} <span style="color: #aaa">({{ v.subKard }})</span>
+      </div>
       @if (v.doc && !v.erw) {
-        <div class="dsec"><label>Beschreibung (Standard)</label><div class="docbox">{{ v.doc }}</div></div>
+        <div class="dsec">
+          <label>Beschreibung (Standard)</label>
+          <div class="docbox">{{ v.doc }}</div>
+        </div>
       }
     }
 
@@ -42,7 +52,12 @@
             ></textarea>
             <label>Kardinalität</label>
             <div class="erwKard">
-              <input type="text" [value]="erw.min" (change)="setErwField('min', $event)" title="min" />
+              <input
+                type="text"
+                [value]="erw.min"
+                (change)="setErwField('min', $event)"
+                title="min"
+              />
               <span>..</span>
               <input
                 type="text"
@@ -61,7 +76,12 @@
                 <option value="container">Container (enthält Unterelemente)</option>
               </select>
               @if (erw.typWahl === 'sonstig') {
-                <input type="text" placeholder="eigener Typ" [value]="erw.typFrei" (change)="onErwTypFrei($event)" />
+                <input
+                  type="text"
+                  placeholder="eigener Typ"
+                  [value]="erw.typFrei"
+                  (change)="onErwTypFrei($event)"
+                />
               }
             </div>
           </div>
@@ -73,7 +93,10 @@
           </div>
         </div>
       } @else if (erw.beschreibung) {
-        <div class="dsec"><label>Beschreibung</label><div class="docbox">{{ erw.beschreibung }}</div></div>
+        <div class="dsec">
+          <label>Beschreibung</label>
+          <div class="docbox">{{ erw.beschreibung }}</div>
+        </div>
       }
     }
 
@@ -81,7 +104,9 @@
       <div class="dsec guidedSec">
         <label>
           Geführte Entscheidung
-          @if (g.offen) { <span class="gOffen">offen</span> }
+          @if (g.offen) {
+            <span class="gOffen">offen</span>
+          }
         </label>
 
         @if (g.isChoice) {
@@ -93,7 +118,9 @@
             </label>
           }
           @if (g.synthChoice && g.minChoice !== '0' && !g.bestaetigt) {
-            <button class="gBestaetigen" (click)="bestaetigeAuswahl()">Alternativen bestätigen</button>
+            <button class="gBestaetigen" (click)="bestaetigeAuswahl()">
+              Alternativen bestätigen
+            </button>
           }
         }
         @if (!g.synthChoice) {
@@ -105,7 +132,13 @@
                 [style.background]="d.active ? d.farbe : null"
                 [style.border-color]="d.active ? d.farbe : d.disabled ? null : d.farbe + '66'"
                 [style.color]="d.active ? '#fff' : d.disabled ? null : d.farbe"
-                [title]="d.disabled ? 'Keine Statusstufe mit passender Wirkung konfiguriert — unter Status… anlegen' : d.active ? 'Erneut klicken: zurück auf „wie Standard“ (Taste ' + d.taste + ')' : 'Taste ' + d.taste"
+                [title]="
+                  d.disabled
+                    ? 'Keine Statusstufe mit passender Wirkung konfiguriert — unter Status… anlegen'
+                    : d.active
+                      ? 'Erneut klicken: zurück auf „wie Standard“ (Taste ' + d.taste + ')'
+                      : 'Taste ' + d.taste
+                "
                 (click)="!d.disabled && setStatus(d.active ? '' : d.id)"
               >
                 {{ d.label }}
@@ -138,14 +171,23 @@
       <div class="dsec guidedSec">
         <label>
           Geführte Entscheidung
-          @if (g.offen) { <span class="gOffen">offen</span> }
+          @if (g.offen) {
+            <span class="gOffen">offen</span>
+          }
         </label>
 
         @if (g.art === 'auswahl') {
-          <div class="gHint">Genau eine Alternative wählen — nur der gewählte Zweig wird Teil der Nachricht.</div>
+          <div class="gHint">
+            Genau eine Alternative wählen — nur der gewählte Zweig wird Teil der Nachricht.
+          </div>
           @for (z of g.zweige; track z.path) {
             <label class="gZweig">
-              <input type="radio" name="givZweig" [checked]="z.gewaehlt" (change)="waehleZweig(z.path)" />
+              <input
+                type="radio"
+                name="givZweig"
+                [checked]="z.gewaehlt"
+                (change)="waehleZweig(z.path)"
+              />
               {{ z.label }}
             </label>
           }
@@ -154,17 +196,29 @@
         @if (g.art === 'element') {
           <div class="gHint">Optionales Element — kommt es in dieser Testnachricht vor?</div>
           <div class="statusBtns">
-            <button [class.active]="g.aufgenommen" [class.gAuf]="true"
+            <button
+              [class.active]="g.aufgenommen"
+              [class.gAuf]="true"
               title="Element aufnehmen und befüllen (erneut klicken: Entscheidung zurücknehmen)"
-              (click)="aufnahme(true)">aufnehmen</button>
-            <button [class.active]="g.weggelassen" [class.gWeg]="true"
+              (click)="aufnahme(true)"
+            >
+              aufnehmen
+            </button>
+            <button
+              [class.active]="g.weggelassen"
+              [class.gWeg]="true"
               title="Element weglassen — der Teilbaum wird übersprungen (erneut klicken: zurücknehmen)"
-              (click)="aufnahme(false)">weglassen</button>
+              (click)="aufnahme(false)"
+            >
+              weglassen
+            </button>
           </div>
         }
 
         @if (g.art === 'wert') {
-          <div class="gHint">Pflichtfeld — ein typkonformer Wert ist erforderlich (unten eingeben oder würfeln).</div>
+          <div class="gHint">
+            Pflichtfeld — ein typkonformer Wert ist erforderlich (unten eingeben oder würfeln).
+          </div>
         }
         @if (g.wertOffen && g.art !== 'wert') {
           <div class="gHint">Für dieses Blatt fehlt noch ein typkonformer Wert.</div>
@@ -211,9 +265,19 @@
         <div class="dsec">
           <label>Kardinalität im Szenario</label>
           <div class="kardRow">
-            <input type="text" [placeholder]="v.kminPlaceholder" [value]="v.minValue" (change)="setField('min', $event)" />
+            <input
+              type="text"
+              [placeholder]="v.kminPlaceholder"
+              [value]="v.minValue"
+              (change)="setField('min', $event)"
+            />
             bis
-            <input type="text" [placeholder]="v.kmaxPlaceholder" [value]="v.maxValue" (change)="setField('max', $event)" />
+            <input
+              type="text"
+              [placeholder]="v.kmaxPlaceholder"
+              [value]="v.maxValue"
+              (change)="setField('max', $event)"
+            />
             <span style="color: var(--muted); font-size: 12px">leer = {{ v.kardHint }}</span>
           </div>
         </div>
@@ -232,9 +296,11 @@
         } @else {
           <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
             @if (msgMode()) {
-              Wiederholbares Element — jedes Vorkommen wird einzeln befüllt; „⧉" kopiert ein Vorkommen samt Werten.
+              Wiederholbares Element — jedes Vorkommen wird einzeln befüllt; „⧉" kopiert ein
+              Vorkommen samt Werten.
             } @else {
-              Benannte Fälle dieses Elements mit je eigener Profilierung — z. B. mehrere Beteiligte mit verschiedenen Rollen.
+              Benannte Fälle dieses Elements mit je eigener Profilierung — z. B. mehrere Beteiligte
+              mit verschiedenen Rollen.
             }
           </div>
           <div id="auspList">
@@ -242,9 +308,16 @@
               <div class="auspRow">
                 <input type="text" [value]="a.name" (change)="renameAuspRow(a.id, $event)" />
                 @if (msgMode()) {
-                  <button title="Vorkommen samt Werten kopieren" (click)="copyVorkommen(a.id)">⧉</button>
+                  <button title="Vorkommen samt Werten kopieren" (click)="copyVorkommen(a.id)">
+                    ⧉
+                  </button>
                 }
-                <button [title]="msgMode() ? 'Vorkommen löschen' : 'Ausprägung löschen'" (click)="delAuspRow(a.id)">✕</button>
+                <button
+                  [title]="msgMode() ? 'Vorkommen löschen' : 'Ausprägung löschen'"
+                  (click)="delAuspRow(a.id)"
+                >
+                  ✕
+                </button>
               </div>
             }
           </div>
@@ -268,7 +341,14 @@
           }
         </label>
         @if (cl.kennung) {
-          <div style="font-size: 11.5px; color: var(--muted); margin-bottom: 5px; font-family: var(--mono)">
+          <div
+            style="
+              font-size: 11.5px;
+              color: var(--muted);
+              margin-bottom: 5px;
+              font-family: var(--mono);
+            "
+          >
             {{ cl.kennung }}
           </div>
         }
@@ -278,7 +358,11 @@
               <a (click)="clAll()">alle</a>
               <a (click)="clNone()">keine</a>
               <span style="color: var(--muted)">
-                {{ cl.restricted ? cl.allowedCount + ' von ' + cl.total + ' zugelassen' : 'keine Einschränkung' }}
+                {{
+                  cl.restricted
+                    ? cl.allowedCount + ' von ' + cl.total + ' zugelassen'
+                    : 'keine Einschränkung'
+                }}
               </span>
             </div>
           }
@@ -288,25 +372,45 @@
             </div>
           }
           @if (cl.showFilter) {
-            <input type="text" placeholder="Werte filtern…" style="width: 100%; margin-bottom: 5px"
-              [value]="clFilter()" (input)="onClFilter($event)" />
+            <input
+              type="text"
+              placeholder="Werte filtern…"
+              style="width: 100%; margin-bottom: 5px"
+              [value]="clFilter()"
+              (input)="onClFilter($event)"
+            />
           }
           <div class="clWrap">
             @for (w of filteredEff(); track w.value) {
               @if (ro()) {
-                <div class="clRow" [class.belegt]="w.belegt" [title]="w.belegt ? 'In dieser Nachricht belegter Wert' : ''">
-                  <code>{{ w.value }}</code><span>{{ w.label }}</span>
+                <div
+                  class="clRow"
+                  [class.belegt]="w.belegt"
+                  [title]="w.belegt ? 'In dieser Nachricht belegter Wert' : ''"
+                >
+                  <code>{{ w.value }}</code
+                  ><span>{{ w.label }}</span>
                 </div>
               } @else if (msgMode()) {
-                <div class="clRow clPick" [class.belegt]="w.belegt"
+                <div
+                  class="clRow clPick"
+                  [class.belegt]="w.belegt"
                   [title]="w.belegt ? 'Aktuell belegter Wert' : 'Als Wert übernehmen'"
-                  (click)="setWertAusListe(w.value)">
-                  <code>{{ w.value }}</code><span>{{ w.label }}</span>
+                  (click)="setWertAusListe(w.value)"
+                >
+                  <code>{{ w.value }}</code
+                  ><span>{{ w.label }}</span>
                 </div>
               } @else {
                 <label class="clRow" [class.belegt]="w.belegt">
-                  <input type="checkbox" class="clv" [checked]="w.checked" (change)="toggleWert(w.value)" />
-                  <code>{{ w.value }}</code><span>{{ w.label }}</span>
+                  <input
+                    type="checkbox"
+                    class="clv"
+                    [checked]="w.checked"
+                    (change)="toggleWert(w.value)"
+                  />
+                  <code>{{ w.value }}</code
+                  ><span>{{ w.label }}</span>
                 </label>
               }
             }
@@ -314,13 +418,19 @@
         } @else {
           <div class="extern">Werte extern gepflegt (Code-Typ 3, XRepository).</div>
           @if (!ro()) {
-            <div style="margin: 6px 0"><button (click)="fetchSingle()">Diese Liste aus dem XRepository laden</button></div>
+            <div style="margin: 6px 0">
+              <button (click)="fetchSingle()">Diese Liste aus dem XRepository laden</button>
+            </div>
             @if (!msgMode()) {
               <div style="font-size: 12px; color: var(--muted); margin-bottom: 4px">
-                Oder alle Listen auf einmal über „Codelisten: XRepository" in der Kopfzeile. Bis dahin: zulässige Werte als
-                Text, ein Wert pro Zeile:
+                Oder alle Listen auf einmal über „Codelisten: XRepository" in der Kopfzeile. Bis
+                dahin: zulässige Werte als Text, ein Wert pro Zeile:
               </div>
-              <textarea placeholder="2001 — Genehmigung Grundstücksgeschäft" [value]="cl.manualText" (change)="onManualWerte($event)"></textarea>
+              <textarea
+                placeholder="2001 — Genehmigung Grundstücksgeschäft"
+                [value]="cl.manualText"
+                (change)="onManualWerte($event)"
+              ></textarea>
             }
           }
         }
@@ -350,8 +460,8 @@
           </div>
           @if (!ref.options.length || ref.options.length === 1) {
             <div style="font-size: 12px; color: var(--muted); margin-top: 4px">
-              Noch keine passenden Ausprägungen angelegt — erst das Zielelement (z. B. Beteiligung) duplizieren/benennen,
-              dann hier zuordnen.
+              Noch keine passenden Ausprägungen angelegt — erst das Zielelement (z. B. Beteiligung)
+              duplizieren/benennen, dann hier zuordnen.
             </div>
           }
         }
@@ -362,14 +472,26 @@
       @if (!isCreate()) {
         <div class="dsec">
           <label>Fachliche Anmerkung</label>
-          <textarea placeholder="Ausfüllhinweis, juristische Erläuterung, offene Frage…" [value]="v.anmerkung" (change)="setField('anmerkung', $event)"></textarea>
+          <textarea
+            placeholder="Ausfüllhinweis, juristische Erläuterung, offene Frage…"
+            [value]="v.anmerkung"
+            (change)="setField('anmerkung', $event)"
+          ></textarea>
         </div>
         <div class="dsec">
           <label>Interner Hinweis</label>
-          <textarea placeholder="Abzuarbeitende Review-Notiz — Excel-Export nur solange offen, nie im XML" [value]="v.hinweis" (change)="setHinweis($event)"></textarea>
+          <textarea
+            placeholder="Abzuarbeitende Review-Notiz — Excel-Export nur solange offen, nie im XML"
+            [value]="v.hinweis"
+            (change)="setHinweis($event)"
+          ></textarea>
           @if (v.hinweis) {
             <label class="hinweisErledigt">
-              <input type="checkbox" [checked]="v.hinweisErledigt" (change)="toggleHinweisErledigt($event)" />
+              <input
+                type="checkbox"
+                [checked]="v.hinweisErledigt"
+                (change)="toggleHinweisErledigt($event)"
+              />
               erledigt
             </label>
           }
@@ -379,12 +501,25 @@
         <div class="dsec">
           <label>{{ msgMode() ? 'Wert' : 'Beispielwert' }}</label>
           <div class="wertRow">
-            <textarea style="min-height: 40px"
-              [placeholder]="msgMode() ? 'Wert dieses Feldes in der Testnachricht' : 'konkretes Beispiel — wird für die Beispiel-XML verwendet'"
-              [class.invalid]="v.beispielProblem" [value]="v.beispiel" (change)="setField('beispiel', $event)"></textarea>
+            <textarea
+              style="min-height: 40px"
+              [placeholder]="
+                msgMode()
+                  ? 'Wert dieses Feldes in der Testnachricht'
+                  : 'konkretes Beispiel — wird für die Beispiel-XML verwendet'
+              "
+              [class.invalid]="v.beispielProblem"
+              [value]="v.beispiel"
+              (change)="setField('beispiel', $event)"
+            ></textarea>
             @if (msgMode() && v.leaf) {
-              <button class="wuerfel" title="Typkonformen Dummy-Wert erzeugen (UUID, Datum, Pattern, Codeliste)"
-                (click)="wuerfeln()">Würfeln</button>
+              <button
+                class="wuerfel"
+                title="Typkonformen Dummy-Wert erzeugen (UUID, Datum, Pattern, Codeliste)"
+                (click)="wuerfeln()"
+              >
+                Würfeln
+              </button>
             }
           </div>
           @if (v.beispielProblem) {
@@ -394,12 +529,20 @@
       }
     } @else {
       @if (v.anmerkung) {
-        <div class="dsec"><label>Fachliche Anmerkung</label><div class="docbox">{{ v.anmerkung }}</div></div>
+        <div class="dsec">
+          <label>Fachliche Anmerkung</label>
+          <div class="docbox">{{ v.anmerkung }}</div>
+        </div>
       }
       @if (v.hinweis) {
         <div class="dsec">
           <label>Interner Hinweis</label>
-          <div class="docbox">{{ v.hinweis }}@if (v.hinweisErledigt) {<span style="color: var(--muted)"> (erledigt)</span>}</div>
+          <div class="docbox">
+            {{ v.hinweis }}
+            @if (v.hinweisErledigt) {
+              <span style="color: var(--muted)"> (erledigt)</span>
+            }
+          </div>
         </div>
       }
       @if (v.beispiel) {
@@ -407,7 +550,8 @@
           <label>Beispielwert</label>
           <div class="docbox">
             @if (v.beispielLabel) {
-              <code class="codeval">{{ v.beispiel }}</code> <span style="color: var(--muted)">{{ v.beispielLabel }}</span>
+              <code class="codeval">{{ v.beispiel }}</code>
+              <span style="color: var(--muted)">{{ v.beispielLabel }}</span>
             } @else {
               {{ v.beispiel }}
             }

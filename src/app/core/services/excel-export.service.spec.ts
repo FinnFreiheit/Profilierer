@@ -113,7 +113,9 @@ describe('ExcelExportService (NGem-Layout)', () => {
 
   it('Szenariozelle: Statusname mit angehaengter Anmerkung; Testdaten aus Beispiel', async () => {
     state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, {
-      status: 's1', anmerkung: 'Wert 001', beispiel: '12345/2026',
+      status: 's1',
+      anmerkung: 'Wert 001',
+      beispiel: '12345/2026',
     });
     const wb = await exportiert();
     const haupt = inhalt(wb, 'Notar an Gemeinde');
@@ -126,7 +128,9 @@ describe('ExcelExportService (NGem-Layout)', () => {
     const ws1 = wb1.getWorksheet('Notar an Gemeinde')!;
     let beschrZeile = 0;
     ws1.eachRow((row, nr) => {
-      row.eachCell((c) => { if (String(c.value).startsWith('Das amtliche Aktenzeichen')) beschrZeile = nr; });
+      row.eachCell((c) => {
+        if (String(c.value).startsWith('Das amtliche Aktenzeichen')) beschrZeile = nr;
+      });
     });
     expect(beschrZeile).toBeGreaterThan(0);
     // Ohne Status: kein Fueller. Statusspalte = letzte Spalte - 1 (vor Testdaten).
@@ -142,7 +146,11 @@ describe('ExcelExportService (NGem-Layout)', () => {
 
   it('Schema-Erweiterungen erscheinen mit [Erweiterung]-Typ in der Struktur', async () => {
     const id = state.addErweiterung(`${M2}/fachdaten`, {
-      name: 'zusatzAngabe', beschreibung: 'Nachbeauftragung', min: '0', max: '1', datentyp: 'string',
+      name: 'zusatzAngabe',
+      beschreibung: 'Nachbeauftragung',
+      min: '0',
+      max: '1',
+      datentyp: 'string',
     });
     state.addErweiterung(`${M2}/fachdaten/~${id}`, { name: 'unterFeld', min: '1', max: '1' });
     const wb = await exportiert();
@@ -154,7 +162,9 @@ describe('ExcelExportService (NGem-Layout)', () => {
   });
 
   it('offener Hinweis erscheint in der Zusatzspalte "Hinweise"', async () => {
-    state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, { hinweis: 'Mit Registergericht klären' });
+    state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, {
+      hinweis: 'Mit Registergericht klären',
+    });
     const wb = await exportiert();
     const haupt = inhalt(wb, 'Notar an Gemeinde');
     expect(haupt).toContain('Hinweise');
@@ -163,7 +173,8 @@ describe('ExcelExportService (NGem-Layout)', () => {
 
   it('erledigte Hinweise werden nicht exportiert; ohne Hinweise keine Zusatzspalte', async () => {
     state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, {
-      hinweis: 'Mit Registergericht klären', hinweisErledigt: true,
+      hinweis: 'Mit Registergericht klären',
+      hinweisErledigt: true,
     });
     const wb = await exportiert();
     const haupt = inhalt(wb, 'Notar an Gemeinde');

@@ -74,15 +74,26 @@ export function openDb(path) {
   // Migration: Spalten der gefuehrten Testnachricht-Erstellung nachziehen
   // (entwurf-Kennzeichen, Fortschritt "x von y" als JSON, Entscheidungsstand).
   {
-    const cols = new Set(db.prepare('PRAGMA table_info(testmessages)').all().map((c) => c.name));
+    const cols = new Set(
+      db
+        .prepare('PRAGMA table_info(testmessages)')
+        .all()
+        .map((c) => c.name),
+    );
     if (!cols.has('entwurf')) db.exec('ALTER TABLE testmessages ADD COLUMN entwurf INTEGER');
     if (!cols.has('fortschritt')) db.exec('ALTER TABLE testmessages ADD COLUMN fortschritt TEXT');
-    if (!cols.has('entscheidungen')) db.exec('ALTER TABLE testmessages ADD COLUMN entscheidungen TEXT');
+    if (!cols.has('entscheidungen'))
+      db.exec('ALTER TABLE testmessages ADD COLUMN entscheidungen TEXT');
   }
 
   // Migration: Index-Spalte fuer Schema-Erweiterungen (Dashboard-Badge) nachziehen.
   {
-    const cols = new Set(db.prepare('PRAGMA table_info(profiles)').all().map((c) => c.name));
+    const cols = new Set(
+      db
+        .prepare('PRAGMA table_info(profiles)')
+        .all()
+        .map((c) => c.name),
+    );
     if (!cols.has('n_erw')) db.exec('ALTER TABLE profiles ADD COLUMN n_erw INTEGER');
     if (!cols.has('doc_hash')) db.exec('ALTER TABLE profiles ADD COLUMN doc_hash TEXT');
   }
@@ -293,7 +304,7 @@ export function openDb(path) {
       const doc = this.load(id);
       if (!doc) return null;
       const copy = structuredClone(doc);
-      copy.meta = { ...(copy.meta ?? {}), name: ((copy.meta?.name || '(ohne Namen)') + ' (Kopie)') };
+      copy.meta = { ...(copy.meta ?? {}), name: (copy.meta?.name || '(ohne Namen)') + ' (Kopie)' };
       return this.create(copy);
     },
 
@@ -442,7 +453,20 @@ export function openDb(path) {
     },
 
     /** Neue Testnachricht; id serverseitig vergeben. Gibt { id, entry }. */
-    tmCreate({ name, xml, nachricht, fachmodul, xjustizVersion, groesse, entwurf, fortschritt, entscheidungen }, ts) {
+    tmCreate(
+      {
+        name,
+        xml,
+        nachricht,
+        fachmodul,
+        xjustizVersion,
+        groesse,
+        entwurf,
+        fortschritt,
+        entscheidungen,
+      },
+      ts,
+    ) {
       const id = randomUUID();
       const stamp = ts ?? Date.now();
       stmt.tmInsert.run({
@@ -473,14 +497,20 @@ export function openDb(path) {
       const next = {
         xml: nextXml,
         groesse: xml !== undefined ? nextXml.length : row.groesse,
-        notiz: notiz !== undefined ? (notiz || null) : row.notiz,
-        name: name !== undefined ? (name || null) : row.name,
+        notiz: notiz !== undefined ? notiz || null : row.notiz,
+        name: name !== undefined ? name || null : row.name,
         entwurf: entwurf !== undefined ? (entwurf ? 1 : null) : row.entwurf,
         fortschritt:
-          fortschritt !== undefined ? (fortschritt ? JSON.stringify(fortschritt) : null) : row.fortschritt,
+          fortschritt !== undefined
+            ? fortschritt
+              ? JSON.stringify(fortschritt)
+              : null
+            : row.fortschritt,
         entscheidungen:
           entscheidungen !== undefined
-            ? (entscheidungen ? JSON.stringify(entscheidungen) : null)
+            ? entscheidungen
+              ? JSON.stringify(entscheidungen)
+              : null
             : row.entscheidungen,
         aktualisiert: ts ?? Date.now(),
       };
@@ -501,7 +531,9 @@ export function openDb(path) {
      */
     tmBackfillVersionen() {
       const offen = db
-        .prepare(`SELECT id, xml FROM testmessages WHERE xjustiz_version IS NULL OR xjustiz_version = ''`)
+        .prepare(
+          `SELECT id, xml FROM testmessages WHERE xjustiz_version IS NULL OR xjustiz_version = ''`,
+        )
         .all();
       const set = db.prepare(`UPDATE testmessages SET xjustiz_version = ? WHERE id = ?`);
       let n = 0;

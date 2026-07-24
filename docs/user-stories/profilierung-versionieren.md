@@ -26,7 +26,7 @@ Bibliothekseintrag (`PersistenceService` → `ProfileStoreService` → Backend).
    Bibliothekseintrag bleibt derselbe. Vor dem Wiederherstellen wird der aktuelle
    Arbeitsstand automatisch als **Sicherheits-Version** gesichert — auch das
    Zurückspringen selbst ist damit reversibel.
-3. **„Entwurf" ist implizit:** „Version anlegen" vor dem Arbeiten *ist* die Aussage
+3. **„Entwurf" ist implizit:** „Version anlegen" vor dem Arbeiten _ist_ die Aussage
    „ab jetzt Entwurf". Kein separater Entwurf-Schalter; sichtbar als Kennzeichen
    „geändert seit vX", sobald der Arbeitsstand von der letzten Version abweicht.
 4. **Metadaten:** fortlaufende Nummer (v1, v2, …) und Zeitstempel automatisch;

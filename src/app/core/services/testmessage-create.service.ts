@@ -1,7 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { TreeNode } from '../../models/node.model';
 import { GuidedMessageState, TestmessageEntry } from '../../models/testmessage.model';
-import { frageTestnachrichtName, parseTestmessage, testmessageInput } from '../util/testmessage.util';
+import {
+  frageTestnachrichtName,
+  parseTestmessage,
+  testmessageInput,
+} from '../util/testmessage.util';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
@@ -70,7 +74,8 @@ export class TestmessageCreateService {
    */
   async fortsetzen(entry: TestmessageEntry): Promise<void> {
     const stand = await this.store.loadEntscheidungen(entry.id);
-    if (!stand) throw new Error('Kein Entscheidungsstand gespeichert — Nachricht wird nur geöffnet.');
+    if (!stand)
+      throw new Error('Kein Entscheidungsstand gespeichert — Nachricht wird nur geöffnet.');
     await this.persistence.flushAutosave();
     this.state.activeProfileId.set(null);
     await this.generator.ensureSchema(stand.xjustizVersion ?? entry.xjustizVersion);
@@ -170,7 +175,10 @@ export class TestmessageCreateService {
     }
     if (fehlerEintraege) {
       this.toast.show('Als Entwurf gespeichert — die Nachricht ist nicht schema-valide.');
-      this.report.zeigeMitPfaden('Als Entwurf gespeichert — Nachricht nicht schema-valide', fehlerEintraege);
+      this.report.zeigeMitPfaden(
+        'Als Entwurf gespeichert — Nachricht nicht schema-valide',
+        fehlerEintraege,
+      );
     } else {
       this.toast.show(
         entwurf

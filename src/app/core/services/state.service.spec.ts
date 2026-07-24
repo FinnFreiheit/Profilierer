@@ -4,9 +4,23 @@ import { TreeItem, TreeNode } from '../../models/node.model';
 
 function node(path: string, over: Partial<TreeNode> = {}): TreeNode {
   return {
-    id: 1, path, name: path.split('/').pop() ?? path, min: '1', max: '1', doc: '',
-    typeName: null, xsdEl: null, model: null, children: null, parent: null, depth: 0,
-    synthetic: false, recursive: false, codelist: null, typeStack: [], inChoice: false,
+    id: 1,
+    path,
+    name: path.split('/').pop() ?? path,
+    min: '1',
+    max: '1',
+    doc: '',
+    typeName: null,
+    xsdEl: null,
+    model: null,
+    children: null,
+    parent: null,
+    depth: 0,
+    synthetic: false,
+    recursive: false,
+    codelist: null,
+    typeStack: [],
+    inChoice: false,
     ...over,
   };
 }
@@ -123,7 +137,12 @@ describe('StateService', () => {
   describe('Schema-Erweiterungen', () => {
     it('addErweiterung haengt an und liefert die id (neue Map-Referenz)', () => {
       const before = s.erweiterungen();
-      const id = s.addErweiterung('m/a', { name: 'zusatz', min: '0', max: '1', datentyp: 'string' });
+      const id = s.addErweiterung('m/a', {
+        name: 'zusatz',
+        min: '0',
+        max: '1',
+        datentyp: 'string',
+      });
       expect(s.erweiterungen()).not.toBe(before);
       const list = s.erweiterungenOf('m/a')!;
       expect(list.length).toBe(1);
@@ -145,7 +164,12 @@ describe('StateService', () => {
       const id = s.addErweiterung('m/a', { name: 'container', min: '1', max: '1' });
       const pfad = 'm/a/~' + id;
       // Unter-Erweiterung, Profil-Eintraege, Auspraegung, Auswahl und Oeffnung.
-      const kindId = s.addErweiterung(pfad, { name: 'kind', min: '1', max: '1', datentyp: 'string' });
+      const kindId = s.addErweiterung(pfad, {
+        name: 'kind',
+        min: '1',
+        max: '1',
+        datentyp: 'string',
+      });
       s.setElementProfile(pfad, { status: 's1' });
       s.setElementProfile(pfad + '/~' + kindId, { beispiel: 'x' });
       s.auspraegungen.update((m) => ({ ...m, [pfad]: [{ id: 'a1', name: 'A' }] }));

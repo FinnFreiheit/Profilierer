@@ -50,9 +50,24 @@ function makeIndex(parser: XsdParserService): { idx: XsdIndex; version: string; 
 
 function node(typeName: string | null, over: Partial<TreeNode> = {}): TreeNode {
   return {
-    id: 1, path: 'x', name: 'x', min: '1', max: '1', doc: '', typeName, xsdEl: null, model: null,
-    children: null, parent: null, depth: 0, synthetic: false, recursive: false, codelist: null,
-    typeStack: [], inChoice: false, ...over,
+    id: 1,
+    path: 'x',
+    name: 'x',
+    min: '1',
+    max: '1',
+    doc: '',
+    typeName,
+    xsdEl: null,
+    model: null,
+    children: null,
+    parent: null,
+    depth: 0,
+    synthetic: false,
+    recursive: false,
+    codelist: null,
+    typeStack: [],
+    inChoice: false,
+    ...over,
   };
 }
 

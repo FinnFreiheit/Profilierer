@@ -318,7 +318,13 @@ export class StateService {
    */
   private isEmptyProfile(p: ElementProfile): boolean {
     return (
-      !p.status && !p.anmerkung && !p.beispiel && !p.min && !p.max && !p.refZiel && !p.werte &&
+      !p.status &&
+      !p.anmerkung &&
+      !p.beispiel &&
+      !p.min &&
+      !p.max &&
+      !p.refZiel &&
+      !p.werte &&
       !p.hinweis
     );
   }
@@ -558,7 +564,9 @@ export class StateService {
   auspLabel(auspPath: string): string {
     const i = auspPath.lastIndexOf('@');
     if (i < 0) return auspPath;
-    const a = (this.auspsOf(auspPath.slice(0, i)) ?? []).find((x) => x.id === auspPath.slice(i + 1));
+    const a = (this.auspsOf(auspPath.slice(0, i)) ?? []).find(
+      (x) => x.id === auspPath.slice(i + 1),
+    );
     const elName = auspPath.slice(0, i).split('/').pop()!.split('#')[0]!;
     return a ? pretty(elName) + ' „' + a.name + '"' : '(gelöschtes Ziel)';
   }
@@ -607,7 +615,10 @@ export class StateService {
       const next = { ...m };
       for (const [k, v] of Object.entries(m)) {
         if (k.startsWith(fromPrefix)) {
-          next[toPrefix + k.slice(fromPrefix.length)] = { ...v, werte: v.werte ? [...v.werte] : undefined };
+          next[toPrefix + k.slice(fromPrefix.length)] = {
+            ...v,
+            werte: v.werte ? [...v.werte] : undefined,
+          };
         }
       }
       return next;
@@ -672,7 +683,8 @@ export class StateService {
     for (const [path, list] of Object.entries(this.auspraegungen())) {
       const elName = path.split('/').pop()!.split('#')[0]!.split('@')[0]!;
       if (names && !names.includes(elName)) continue;
-      for (const a of list) out.push({ path: path + '@' + a.id, label: pretty(elName) + ' → ' + a.name });
+      for (const a of list)
+        out.push({ path: path + '@' + a.id, label: pretty(elName) + ' → ' + a.name });
     }
     return out;
   }
@@ -682,7 +694,12 @@ export class StateService {
   addStatus(): void {
     this.statuses.update((l) => [
       ...l,
-      { id: 's' + Date.now().toString(36), name: 'neuer Status', farbe: '#378ADD', wirkung: 'markierung' },
+      {
+        id: 's' + Date.now().toString(36),
+        name: 'neuer Status',
+        farbe: '#378ADD',
+        wirkung: 'markierung',
+      },
     ]);
   }
 

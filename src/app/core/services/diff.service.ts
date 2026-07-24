@@ -23,7 +23,8 @@ export class DiffService {
     if (this.state.elemente()[absPath]) return true;
     const p1 = absPath + '/';
     const p2 = absPath + '@';
-    for (const k of Object.keys(this.state.elemente())) if (k.startsWith(p1) || k.startsWith(p2)) return true;
+    for (const k of Object.keys(this.state.elemente()))
+      if (k.startsWith(p1) || k.startsWith(p2)) return true;
     for (const k of Object.keys(this.state.auspraegungen()))
       if (k === absPath || k.startsWith(p1) || k.startsWith(p2)) return true;
     return false;
@@ -51,18 +52,39 @@ export class DiffService {
         for (const [k, va] of A) {
           const vb = B.get(k);
           const abs = msgName + k;
-          if (!vb) res.rows.push({ art: 'entfernt', rel: k, info: '', typ: va.typ, prof: this.profiledUnder(abs) });
+          if (!vb)
+            res.rows.push({
+              art: 'entfernt',
+              rel: k,
+              info: '',
+              typ: va.typ,
+              prof: this.profiledUnder(abs),
+            });
           else {
             const ch: string[] = [];
             if (va.kard !== vb.kard) ch.push('Kardinalität ' + va.kard + ' → ' + vb.kard);
             if (va.typ !== vb.typ) ch.push('Typ ' + (va.typ || '—') + ' → ' + (vb.typ || '—'));
-            else if (va.cl !== vb.cl) ch.push('Codeliste ' + (va.cl || '—') + ' → ' + (vb.cl || '—'));
+            else if (va.cl !== vb.cl)
+              ch.push('Codeliste ' + (va.cl || '—') + ' → ' + (vb.cl || '—'));
             if (ch.length)
-              res.rows.push({ art: 'geändert', rel: k, info: ch.join(' · '), typ: vb.typ || va.typ, prof: this.profiledUnder(abs) });
+              res.rows.push({
+                art: 'geändert',
+                rel: k,
+                info: ch.join(' · '),
+                typ: vb.typ || va.typ,
+                prof: this.profiledUnder(abs),
+              });
           }
         }
         for (const [k, vb] of B)
-          if (!A.has(k)) res.rows.push({ art: 'neu', rel: k, info: 'Kardinalität ' + vb.kard, typ: vb.typ, prof: false });
+          if (!A.has(k))
+            res.rows.push({
+              art: 'neu',
+              rel: k,
+              info: 'Kardinalität ' + vb.kard,
+              typ: vb.typ,
+              prof: false,
+            });
         res.rows.sort((a, b) => a.rel.localeCompare(b.rel));
       }
     }
@@ -78,7 +100,7 @@ export class DiffService {
     this.state.diffMap.set(new Map(d.rows.map((r) => [r.rel, r] as [string, DiffEntry])));
     const anc = new Map<string, DiffAnc>();
     const bump = (p: string, art: DiffArt): void => {
-      const e = anc.get(p) || { neu: 0, entfernt: 0, 'geändert': 0 };
+      const e = anc.get(p) || { neu: 0, entfernt: 0, geändert: 0 };
       e[art]++;
       anc.set(p, e);
     };

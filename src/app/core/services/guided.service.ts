@@ -168,7 +168,13 @@ export class GuidedService {
           // ein gewaehlter Blatt-Zweig braucht (wie Pflicht) einen Wert.
           // Besucht wird er ohnehin nur, wenn gewaehlt bzw. mit Inhalt.
           if (leaf) {
-            punkte.push({ path: n.path, art: 'wert', seq: seqOf.get(n.path)!, leaf: true, pflicht: true });
+            punkte.push({
+              path: n.path,
+              art: 'wert',
+              seq: seqOf.get(n.path)!,
+              leaf: true,
+              pflicht: true,
+            });
             merkeWertNode(n, n.path);
           }
         } else if (optional) {
@@ -176,7 +182,13 @@ export class GuidedService {
           if (leaf) merkeWertNode(n, n.path);
         } else if (leaf) {
           // Unbedingtes Pflicht-Blatt: Wert noetig.
-          punkte.push({ path: n.path, art: 'wert', seq: seqOf.get(n.path)!, leaf: true, pflicht: true });
+          punkte.push({
+            path: n.path,
+            art: 'wert',
+            seq: seqOf.get(n.path)!,
+            leaf: true,
+            pflicht: true,
+          });
           merkeWertNode(n, n.path);
         }
       } else {
@@ -196,7 +208,8 @@ export class GuidedService {
           const cn = this.tree.ctxNode(n, a.id);
           seqOf.set(cn.path, seq++);
           const cnLeaf = this.tree.isLeaf(cn);
-          const cnChoice = !cnLeaf && !cn.recursive && (this.tree.expandNode(cn), cn.model === 'choice');
+          const cnChoice =
+            !cnLeaf && !cn.recursive && (this.tree.expandNode(cn), cn.model === 'choice');
           if (instanz && cnChoice) {
             // Je Vorkommen ein eigener Auswahl-Schritt (verschiedene Zweige moeglich).
             punkte.push({
@@ -358,7 +371,7 @@ export class GuidedService {
     const { punkte, seqOf } = this.walk();
     const offen = punkte.filter((p) => !this.istEntschiedenPunkt(p));
     if (!offen.length) return null;
-    const fromSeq = fromPath != null ? seqOf.get(fromPath) ?? -1 : -1;
+    const fromSeq = fromPath != null ? (seqOf.get(fromPath) ?? -1) : -1;
     return (offen.find((p) => p.seq > fromSeq) ?? offen[0]!).path;
   }
 
@@ -417,7 +430,7 @@ export class GuidedService {
 
   private selSeq(seqOf: Map<string, number>): number {
     const p = this.selPath();
-    return p != null ? seqOf.get(p) ?? -1 : -1;
+    return p != null ? (seqOf.get(p) ?? -1) : -1;
   }
 
   // ── Auswahl-Schritt (choice), Profil-Modus ──────────────────────────
@@ -496,7 +509,12 @@ export class GuidedService {
     }
     // Benanntes (nicht-synthetisches) Auswahl-Element: Aufnahme mit der Wahl.
     const it = this.nav.findItemByPath(auswahlPath);
-    if (it && it.kind === 'el' && !it.node.synthetic && this.state.wirkungOf(auswahlPath) !== 'pflicht') {
+    if (
+      it &&
+      it.kind === 'el' &&
+      !it.node.synthetic &&
+      this.state.wirkungOf(auswahlPath) !== 'pflicht'
+    ) {
       this.state.setElementProfile(auswahlPath, { status: pflicht.id });
     }
   }

@@ -51,17 +51,31 @@ export class CodelistService {
 
     const cols = all('Column').map((c) => c.getAttribute('Id') || '');
     const codeCol = cols.find((c) => c.toLowerCase() === 'code') || cols[0] || 'code';
-    const labelPref = ['wert', 'beschreibung', 'bezeichnung', 'name', 'kurzbezeichnung', 'gericht', 'wertebeschreibung'];
+    const labelPref = [
+      'wert',
+      'beschreibung',
+      'bezeichnung',
+      'name',
+      'kurzbezeichnung',
+      'gericht',
+      'wertebeschreibung',
+    ];
     const labelCol =
-      cols.find((c) => labelPref.includes(c.toLowerCase())) || cols.find((c) => c !== codeCol) || '';
+      cols.find((c) => labelPref.includes(c.toLowerCase())) ||
+      cols.find((c) => c !== codeCol) ||
+      '';
 
     const werte: { value: string; label: string }[] = [];
     for (const row of all('Row')) {
       let code = '';
       let label = '';
-      for (const v of Array.from(row.getElementsByTagName('*')).filter((e) => e.localName === 'Value')) {
+      for (const v of Array.from(row.getElementsByTagName('*')).filter(
+        (e) => e.localName === 'Value',
+      )) {
         const ref = v.getAttribute('ColumnRef') || '';
-        const sv = Array.from(v.getElementsByTagName('*')).find((e) => e.localName === 'SimpleValue');
+        const sv = Array.from(v.getElementsByTagName('*')).find(
+          (e) => e.localName === 'SimpleValue',
+        );
         const txt = sv ? (sv.textContent ?? '').trim() : '';
         if (ref === codeCol) code = txt;
         else if (ref === labelCol && !label) label = txt;
@@ -75,7 +89,10 @@ export class CodelistService {
   mergeCodelist(cl: Codelist): void {
     this.state.codelists.update((m) => {
       const prev = m[cl.kennung];
-      if (!prev || String(cl.version).localeCompare(String(prev.version), undefined, { numeric: true }) >= 0)
+      if (
+        !prev ||
+        String(cl.version).localeCompare(String(prev.version), undefined, { numeric: true }) >= 0
+      )
         return { ...m, [cl.kennung]: cl };
       return m;
     });
@@ -91,7 +108,9 @@ export class CodelistService {
       const entry = zip.files[name]!;
       if (entry.dir || !name.toLowerCase().endsWith('.xml')) continue;
       try {
-        const cl = this.parseGenericode(parser.parseFromString(await entry.async('string'), 'application/xml'));
+        const cl = this.parseGenericode(
+          parser.parseFromString(await entry.async('string'), 'application/xml'),
+        );
         if (cl && cl.werte.length) {
           this.mergeCodelist(cl);
           ok++;
@@ -127,7 +146,9 @@ export class CodelistService {
       }
     }
     this.cacheCodelists();
-    this.toast.show(ok ? ok + ' Codelisten geladen.' : 'Keine Genericode-Codelisten in den Dateien gefunden.');
+    this.toast.show(
+      ok ? ok + ' Codelisten geladen.' : 'Keine Genericode-Codelisten in den Dateien gefunden.',
+    );
   }
 
   // ── XRepository-REST ────────────────────────────────────────────────
@@ -178,7 +199,9 @@ export class CodelistService {
             'Weiterleitungsdienste versuchen? (Zustimmung wird gemerkt)',
         )
       )
-        throw new Error('Direktabruf blockiert (CORS) — ZIP über „Codelisten: Datei…" laden oder über den Dev-Proxy betreiben');
+        throw new Error(
+          'Direktabruf blockiert (CORS) — ZIP über „Codelisten: Datei…" laden oder über den Dev-Proxy betreiben',
+        );
       try {
         localStorage.setItem(CORS_KEY, 'ja');
       } catch {
@@ -244,7 +267,8 @@ export class CodelistService {
       (this.state.standardKennung() || 'urn:xoev-de:blk-ag-it-standards:standard:xjustiz') +
       '_' +
       this.state.version();
-    const url = XREP + '/version_standard/' + encodeURIComponent(kennung) + '/genutzteAktuelleCodelisten';
+    const url =
+      XREP + '/version_standard/' + encodeURIComponent(kennung) + '/genutzteAktuelleCodelisten';
     if (!auto) this.toast.show('Rufe alle genutzten Codelisten ab (kann etwas dauern)…');
     try {
       const resp = await this.xrepFetch(url, auto);
@@ -274,11 +298,17 @@ export class CodelistService {
 
   /** fetchSingleCodelist (Z.948-958): eine einzelne Liste ueber ihre Kennung. */
   async fetchSingleCodelist(kennung: string): Promise<Codelist> {
-    const r = await this.xrepFetch(XREP + '/codeliste/' + encodeURIComponent(kennung) + '/gueltigeVersion');
+    const r = await this.xrepFetch(
+      XREP + '/codeliste/' + encodeURIComponent(kennung) + '/gueltigeVersion',
+    );
     const m = (await r.text()).match(new RegExp(escapeRegExp(kennung) + '_[0-9][^<"\\s]*'));
     if (!m) throw new Error('Versionskennung nicht ermittelbar');
-    const g = await this.xrepFetch(XREP + '/version_codeliste/' + encodeURIComponent(m[0]) + '/genericode');
-    const cl = this.parseGenericode(new DOMParser().parseFromString(await g.text(), 'application/xml'));
+    const g = await this.xrepFetch(
+      XREP + '/version_codeliste/' + encodeURIComponent(m[0]) + '/genericode',
+    );
+    const cl = this.parseGenericode(
+      new DOMParser().parseFromString(await g.text(), 'application/xml'),
+    );
     if (!cl || !cl.werte.length) throw new Error('Genericode nicht lesbar');
     this.mergeCodelist(cl);
     this.cacheCodelists();
@@ -300,7 +330,9 @@ export class CodelistService {
       } catch {
         /* ignore */
       }
-      this.toast.show('Hinweis: Codelisten zu groß für den Browser-Cache — sie gelten nur für diese Sitzung.');
+      this.toast.show(
+        'Hinweis: Codelisten zu groß für den Browser-Cache — sie gelten nur für diese Sitzung.',
+      );
     }
   }
 

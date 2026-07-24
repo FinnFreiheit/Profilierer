@@ -44,7 +44,9 @@ export class ProfileStoreService {
   private async req<T>(path: string, init?: RequestInit): Promise<T> {
     const r = await fetch(API_BASE + path, {
       ...init,
-      headers: init?.body ? { 'content-type': 'application/json', ...init?.headers } : init?.headers,
+      headers: init?.body
+        ? { 'content-type': 'application/json', ...init?.headers }
+        : init?.headers,
     });
     if (!r.ok) throw new Error(`Profil-Backend: ${init?.method ?? 'GET'} ${path} → ${r.status}`);
     if (r.status === 204) return undefined as T;

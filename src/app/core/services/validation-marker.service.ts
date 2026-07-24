@@ -68,7 +68,10 @@ export class ValidationMarkerService {
    * Erweiterungs-bedingte Fehler werden nicht als rote Baum-Marker gesetzt —
    * die Erweiterungs-Kennzeichnung der Box selbst reicht.
    */
-  markiere(fehler: ValidierungsFehler[], zeilenPfade: ReadonlyMap<number, string>): ReportEintrag[] {
+  markiere(
+    fehler: ValidierungsFehler[],
+    zeilenPfade: ReadonlyMap<number, string>,
+  ): ReportEintrag[] {
     const eintraege = this.ordneZu(fehler, zeilenPfade);
 
     const proPfad = new Map<string, string[]>();

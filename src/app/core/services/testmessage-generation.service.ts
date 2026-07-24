@@ -84,7 +84,9 @@ export class TestmessageGenerationService {
       // zurueckgehen (bewusste XSD-Abweichung), machen keinen Entwurf.
       const pruefung = await this.validator.validiere(xml);
       const eintraege =
-        pruefung.status === 'invalide' ? this.marker.ordneZu(pruefung.fehlerDetails, res.zeilenPfade) : [];
+        pruefung.status === 'invalide'
+          ? this.marker.ordneZu(pruefung.fehlerDetails, res.zeilenPfade)
+          : [];
       const nurErweiterungen =
         pruefung.status === 'invalide' && this.marker.nurErweiterungsFehler(eintraege);
       const entwurf = pruefung.status !== 'valide' && !nurErweiterungen;

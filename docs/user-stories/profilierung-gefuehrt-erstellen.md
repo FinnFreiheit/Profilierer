@@ -9,14 +9,14 @@ der XJustiz-Standard eingegrenzt — je Element eine Disposition, dazu bei Bedar
 Kardinalitäten, Codelisten-Werte, Ausprägungen, Anmerkungen. Heute geschieht das
 **frei explorativ**: Der Anwender klickt Kästen im Baum an und entscheidet punktuell.
 
-Daraus folgen die Lücken für ein *vollständiges, verlässliches* Profilieren:
+Daraus folgen die Lücken für ein _vollständiges, verlässliches_ Profilieren:
 
-| | **Heute (frei)** | **Gewünscht (geführt)** |
-|---|---|---|
-| Vorgehen | Kästen frei anklicken, Reihenfolge beliebig | Schritt für Schritt durch das Schema geführt |
-| Vollständigkeit | offen — man sieht nicht, was noch unentschieden ist | Ziel: **zu jedem Knoten/Blatt eine Aussage** |
-| Auswahlen (`choice`) | jeder Zweig einzeln, Widersprüche möglich | Alternativen-Satz bewusst einschränken |
-| Wiederkehrende Bedingungen | jede Anmerkung neu tippen | einmal getippte **Freitexte wiederverwendbar** |
+|                            | **Heute (frei)**                                    | **Gewünscht (geführt)**                        |
+| -------------------------- | --------------------------------------------------- | ---------------------------------------------- |
+| Vorgehen                   | Kästen frei anklicken, Reihenfolge beliebig         | Schritt für Schritt durch das Schema geführt   |
+| Vollständigkeit            | offen — man sieht nicht, was noch unentschieden ist | Ziel: **zu jedem Knoten/Blatt eine Aussage**   |
+| Auswahlen (`choice`)       | jeder Zweig einzeln, Widersprüche möglich           | Alternativen-Satz bewusst einschränken         |
+| Wiederkehrende Bedingungen | jede Anmerkung neu tippen                           | einmal getippte **Freitexte wiederverwendbar** |
 
 Wesentlich: Die **Standard-Statusstufen eines neuen Profils tragen bereits die
 Ziel-Semantik** (`profile-defaults.ts`): `zwingend` → Wirkung `pflicht`,
@@ -33,7 +33,7 @@ Bereits vorhanden und wiederverwendbar:
 - **Pflicht-Vorbelegung:** unbedingte Pflichtelemente automatisch als „zwingend"
   (`NavService.prefillMandatoryStatus`, `TreeService.collectMandatoryPaths`).
 - **Ausschluss-Kaskade (Datenebene):** `StateService.inheritedExcluded`
-  (berechnet, nicht destruktiv) — als *Navigations*-Kaskade zu nutzen.
+  (berechnet, nicht destruktiv) — als _Navigations_-Kaskade zu nutzen.
 - **Ausprägungen:** `addAusp`, `duplicateElement`, eigener Pfad-Raum `path@auspId/…`.
 
 ## Refinement-Entscheidungen
@@ -45,7 +45,7 @@ Bereits vorhanden und wiederverwendbar:
   Vollständigkeit. Freies Klicken bleibt möglich.
 - **Feste drei Dispositionen** je Knoten/Blatt: **zwingend** (`pflicht`),
   **anzugeben wenn vorhanden** (`optional`), **nicht verwendet** (`ausgeschlossen`).
-  In *jedem* Fall trägt eine dieser drei die maschinelle Aussage.
+  In _jedem_ Fall trägt eine dieser drei die maschinelle Aussage.
 - **Freitext verfeinert, ersetzt nie:** Zusätzlich zur Disposition kann eine freie
   Festlegung/Bedingung erfasst werden (`anmerkung`). Kein vierter, eigenständiger
   Entscheidungstyp.
@@ -106,7 +106,7 @@ Bereits vorhanden und wiederverwendbar:
 > erstellt,
 > **möchte ich** eine Nachricht aus den vorhandenen Schemata wählen und dann Knoten
 > für Knoten durch das Schema geführt werden — je Knoten mit den festen
-> Dispositionen *zwingend*, *anzugeben wenn vorhanden* oder *nicht verwendet* und
+> Dispositionen _zwingend_, _anzugeben wenn vorhanden_ oder _nicht verwendet_ und
 > einem optionalen, wiederverwendbaren Freitext —, wobei erzwungene Pflicht
 > automatisch gesetzt ist, „nicht verwendet" den Teilbaum abschneidet, Auswahlen und
 > Ausprägungen bewusst modelliert und die noch offenen Entscheidungen sichtbar
@@ -133,7 +133,7 @@ Bereits vorhanden und wiederverwendbar:
   **anzugeben wenn vorhanden**, **nicht verwendet** (gebunden an die Wirkung
   `pflicht`/`optional`/`ausgeschlossen`).
 - Zusätzlich kann eine **Freitext-Festlegung** erfasst werden, die die Disposition
-  *verfeinert* (z. B. „anzugeben wenn vorhanden — nur bei Auslandsbezug").
+  _verfeinert_ (z. B. „anzugeben wenn vorhanden — nur bei Auslandsbezug").
 - Die Entscheidung wird sofort persistiert (Autosave) und ist im Baum/Detailpanel
   sichtbar; sie ist jederzeit **änderbar**.
 
@@ -189,7 +189,7 @@ Bereits vorhanden und wiederverwendbar:
     **vorherigen** Punkt (auch entschiedene — zum Korrigieren).
   - **z / o / n** setzt die Disposition des aktuellen Punkts (z = zwingend,
     o = anzugeben wenn vorhanden, n = nicht verwendet — aufgelöst über die
-    *Wirkung*, damit umbenannte Stufen greifen) und springt **automatisch zum
+    _Wirkung_, damit umbenannte Stufen greifen) und springt **automatisch zum
     nächsten offenen Punkt**.
   - Die Shortcuts greifen **nicht**, wenn der Fokus in einem Eingabefeld liegt,
     ein Dialog offen ist oder eine Modifier-Taste (Strg/Cmd/Alt) gedrückt ist.

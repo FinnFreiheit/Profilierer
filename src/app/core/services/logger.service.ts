@@ -75,7 +75,8 @@ export class LoggerService {
     const eintrag: LogEintrag = { ts: Date.now(), level, quelle, text };
     if (detail !== undefined) eintrag.detail = this.serialisiere(detail);
     this.puffer.push(eintrag);
-    if (this.puffer.length > MAX_EINTRAEGE) this.puffer.splice(0, this.puffer.length - MAX_EINTRAEGE);
+    if (this.puffer.length > MAX_EINTRAEGE)
+      this.puffer.splice(0, this.puffer.length - MAX_EINTRAEGE);
     if (detail !== undefined) console[level]('[xjp]', quelle + ':', text, detail);
     else console[level]('[xjp]', quelle + ':', text);
   }

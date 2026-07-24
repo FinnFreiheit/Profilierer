@@ -71,7 +71,10 @@ describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
           useValue: {
             load: async () => geladen,
             upsert: async () => {},
-            createVersion: async (id: string, opts?: { kommentar?: string; automatisch?: boolean }) => {
+            createVersion: async (
+              id: string,
+              opts?: { kommentar?: string; automatisch?: boolean },
+            ) => {
               createVersionCalls.push({ id, opts });
               return { skipped: true };
             },
@@ -189,7 +192,9 @@ describe('PersistenceService Profildatei (formatVersion 3, Schema-Erweiterungen)
       providers: [
         {
           provide: DownloadService,
-          useValue: { download: (name: string, content: string) => downloaded.push({ name, content }) },
+          useValue: {
+            download: (name: string, content: string) => downloaded.push({ name, content }),
+          },
         },
         {
           provide: ProfileStoreService,
@@ -213,7 +218,9 @@ describe('PersistenceService Profildatei (formatVersion 3, Schema-Erweiterungen)
       statuses: [],
       elemente: {},
       auspraegungen: {},
-      erweiterungen: { 'm/a': [{ id: 'x1', name: 'zusatz', min: '1', max: '1', datentyp: 'string' }] },
+      erweiterungen: {
+        'm/a': [{ id: 'x1', name: 'zusatz', min: '1', max: '1', datentyp: 'string' }],
+      },
     });
     const json = JSON.parse(downloaded[0]!.content);
     expect(json.formatVersion).toBe(3);
@@ -222,10 +229,16 @@ describe('PersistenceService Profildatei (formatVersion 3, Schema-Erweiterungen)
 
   it('importiert v2-Dateien ohne erweiterungen-Feld als leere Map', async () => {
     const file = new File(
-      [JSON.stringify({
-        app: 'xjustiz-profilierer', formatVersion: 2, meta: { name: 'Alt' },
-        statuses: [], elemente: { 'm/a': { status: 's1' } }, auspraegungen: {},
-      })],
+      [
+        JSON.stringify({
+          app: 'xjustiz-profilierer',
+          formatVersion: 2,
+          meta: { name: 'Alt' },
+          statuses: [],
+          elemente: { 'm/a': { status: 's1' } },
+          auspraegungen: {},
+        }),
+      ],
       'alt.profil.json',
     );
     await svc.loadProfileFile(file);
@@ -236,10 +249,17 @@ describe('PersistenceService Profildatei (formatVersion 3, Schema-Erweiterungen)
   it('importiert v3-Dateien mit erweiterungen (Roundtrip)', async () => {
     const erweiterungen = { 'm/a': [{ id: 'x1', name: 'zusatz', min: '0', max: '1' }] };
     const file = new File(
-      [JSON.stringify({
-        app: 'xjustiz-profilierer', formatVersion: 3, meta: { name: 'Neu' },
-        statuses: [], elemente: {}, auspraegungen: {}, erweiterungen,
-      })],
+      [
+        JSON.stringify({
+          app: 'xjustiz-profilierer',
+          formatVersion: 3,
+          meta: { name: 'Neu' },
+          statuses: [],
+          elemente: {},
+          auspraegungen: {},
+          erweiterungen,
+        }),
+      ],
       'neu.profil.json',
     );
     await svc.loadProfileFile(file);

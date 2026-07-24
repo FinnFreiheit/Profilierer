@@ -78,7 +78,10 @@ export class ExportService {
     const { x, y } = this.guided.fortschritt();
     const offen = y - x;
     if (!offen) return true;
-    if (confirm(`Noch ${offen} offene Entscheidung${offen === 1 ? '' : 'en'} — trotzdem exportieren?`)) return true;
+    if (
+      confirm(`Noch ${offen} offene Entscheidung${offen === 1 ? '' : 'en'} — trotzdem exportieren?`)
+    )
+      return true;
     this.guided.gotoNextOpen();
     this.toast.show('Export abgebrochen — nächste offene Entscheidung ausgewählt.');
     return false;
@@ -161,23 +164,56 @@ export class ExportService {
       const label = x.segs.slice(1).join('/');
       if (p.anmerkung) addComment(parentCtx, `Festlegung zu "${label}": ${p.anmerkung}`);
       if (w === 'ausgeschlossen') {
-        addAssert(parentCtx, `not(${nm})`, `Das Element "${label}" wird in diesem Szenario nicht verwendet.`);
+        addAssert(
+          parentCtx,
+          `not(${nm})`,
+          `Das Element "${label}" wird in diesem Szenario nicht verwendet.`,
+        );
         return;
       }
-      if (w === 'pflicht') addAssert(parentCtx, `${nm}`, `Das Element "${label}" ist in diesem Szenario verpflichtend.`);
-      if (p.min && p.min !== '0') addAssert(parentCtx, `count(${nm}) >= ${parseInt(p.min, 10)}`, `"${label}": mindestens ${p.min}-mal erforderlich.`);
-      if (p.max && p.max !== '*' && p.max !== 'unbounded') addAssert(parentCtx, `count(${nm}) <= ${parseInt(p.max, 10)}`, `"${label}": höchstens ${p.max}-mal zulässig.`);
+      if (w === 'pflicht')
+        addAssert(
+          parentCtx,
+          `${nm}`,
+          `Das Element "${label}" ist in diesem Szenario verpflichtend.`,
+        );
+      if (p.min && p.min !== '0')
+        addAssert(
+          parentCtx,
+          `count(${nm}) >= ${parseInt(p.min, 10)}`,
+          `"${label}": mindestens ${p.min}-mal erforderlich.`,
+        );
+      if (p.max && p.max !== '*' && p.max !== 'unbounded')
+        addAssert(
+          parentCtx,
+          `count(${nm}) <= ${parseInt(p.max, 10)}`,
+          `"${label}": höchstens ${p.max}-mal zulässig.`,
+        );
       if (p.werte && p.werte.length) {
-        const vals = p.werte.map((v) => String(v).split(/\s+[—–-]\s+|\t/)[0]!.trim()).filter(Boolean);
+        const vals = p.werte
+          .map((v) =>
+            String(v)
+              .split(/\s+[—–-]\s+|\t/)[0]!
+              .trim(),
+          )
+          .filter(Boolean);
         const seq = vals.map((v) => `'${v.replace(/'/g, "''")}'`).join(', ');
-        addAssert(selfCtx, x.node.codelist ? `code = (${seq})` : `. = (${seq})`, `"${label}": in diesem Szenario sind nur folgende Werte zulässig: ${vals.join(', ')}.`);
+        addAssert(
+          selfCtx,
+          x.node.codelist ? `code = (${seq})` : `. = (${seq})`,
+          `"${label}": in diesem Szenario sind nur folgende Werte zulässig: ${vals.join(', ')}.`,
+        );
       }
     });
     for (const [selfCtx, minSum] of auspMin) {
       const segs = selfCtx.split('/xj:');
       const name = segs[segs.length - 1];
       const parentCtx = segs.slice(0, -1).join('/xj:') || '/';
-      addAssert(parentCtx, `count(xj:${name}) >= ${minSum}`, `"${name}": laut Szenario sind mindestens ${minSum} Vorkommen vorgesehen (zwingende Ausprägungen).`);
+      addAssert(
+        parentCtx,
+        `count(xj:${name}) >= ${minSum}`,
+        `"${name}": laut Szenario sind mindestens ${minSum} Vorkommen vorgesehen (zwingende Ausprägungen).`,
+      );
     }
     const meta = this.state.meta();
     const msgName = this.state.msgName() || '';
@@ -203,17 +239,23 @@ export class ExportService {
       for (const c of comments.get(ctx) ?? []) sch += `    <!-- ${this.escComment(c)} -->\n`;
       comments.delete(ctx);
       sch += `    <sch:rule context="${esc(ctx)}">\n`;
-      for (const a of asserts) sch += `      <sch:assert test="${esc(a.test)}">${esc(a.msg)}</sch:assert>\n`;
+      for (const a of asserts)
+        sch += `      <sch:assert test="${esc(a.test)}">${esc(a.msg)}</sch:assert>\n`;
       sch += `    </sch:rule>\n`;
     }
     // Festlegungen zu Kontexten ohne pruefbare Regel (z. B. optional + Anmerkung).
     for (const [ctx, texte] of comments) {
-      for (const c of texte) sch += `    <!-- ${this.escComment(c)} (Kontext: ${this.escComment(ctx)}) -->\n`;
+      for (const c of texte)
+        sch += `    <!-- ${this.escComment(c)} (Kontext: ${this.escComment(ctx)}) -->\n`;
     }
     sch += `  </sch:pattern>\n</sch:schema>\n`;
     this.dl.download(this.dl.profilFilename('sch'), sch, 'application/xml');
     const cnt = [...rules.values()].reduce((s, a) => s + a.length, 0);
-    this.toast.show(cnt ? `Schematron exportiert (${cnt} Regeln).` : 'Schematron exportiert (noch keine prüfbaren Festlegungen).');
+    this.toast.show(
+      cnt
+        ? `Schematron exportiert (${cnt} Regeln).`
+        : 'Schematron exportiert (noch keine prüfbaren Festlegungen).',
+    );
   }
 
   /** Text fuer XML-Kommentare entschaerfen: `--` ist dort verboten, `-` am Ende ebenso. */
@@ -293,10 +335,19 @@ export class ExportService {
       const pad = IND.repeat(depth);
       const v = instanz
         ? esc(this.state.elemente()[n.path]?.beispiel ?? '')
-        : esc(this.values.placeholderFor({ name: n.name, path: n.path, typeName: n.typeName, codelist: n.codelist }));
+        : esc(
+            this.values.placeholderFor({
+              name: n.name,
+              path: n.path,
+              typeName: n.typeName,
+              codelist: n.codelist,
+            }),
+          );
       if (n.codelist) {
         const ver = this.values.clVersion(n.codelist) || '~';
-        const attrs = n.codelist.kennung ? ` listURI="${esc(n.codelist.kennung)}" listVersionID="${esc(ver)}"` : '';
+        const attrs = n.codelist.kennung
+          ? ` listURI="${esc(n.codelist.kennung)}" listVersionID="${esc(ver)}"`
+          : '';
         push(`${pad}<${n.name}${attrs}>`, n.path);
         // XOEV-Code: das code-Element ist unqualifiziert (form="unqualified") —
         // xmlns="" nimmt es aus dem Default-Namespace der Nachricht heraus.
@@ -309,13 +360,19 @@ export class ExportService {
     const hasProfilBelow = (path: string): boolean => {
       const pre1 = path + '/';
       const pre2 = path + '@';
-      for (const k of Object.keys(this.state.elemente())) if (k.startsWith(pre1) || k.startsWith(pre2)) return true;
-      for (const k of Object.keys(this.state.auspraegungen())) if (k === path || k.startsWith(pre1) || k.startsWith(pre2)) return true;
+      for (const k of Object.keys(this.state.elemente()))
+        if (k.startsWith(pre1) || k.startsWith(pre2)) return true;
+      for (const k of Object.keys(this.state.auspraegungen()))
+        if (k === path || k.startsWith(pre1) || k.startsWith(pre2)) return true;
       return false;
     };
     const forced = new Set<string>();
     {
-      const refZiele = new Set(Object.values(this.state.elemente()).filter((p) => p.refZiel).map((p) => p.refZiel!));
+      const refZiele = new Set(
+        Object.values(this.state.elemente())
+          .filter((p) => p.refZiel)
+          .map((p) => p.refZiel!),
+      );
       for (const rz of refZiele) {
         const it = this.nav.findItemByPath(rz);
         if (!it || it.kind !== 'ausp') continue;
@@ -328,7 +385,10 @@ export class ExportService {
           if (this.tree.isLeaf(node)) continue;
           this.tree.expandNode(node);
           for (const c of node.children ?? []) {
-            if ((c.name === 'rollennummer' || c.name === 'beteiligtennummer') && this.tree.isLeaf(c)) {
+            if (
+              (c.name === 'rollennummer' || c.name === 'beteiligtennummer') &&
+              this.tree.isLeaf(c)
+            ) {
               found = [...chain, c];
               break;
             }
@@ -449,7 +509,8 @@ export class ExportService {
   private fixedRequiredAttrs(n: TreeNode): string {
     const idx = this.state.idx();
     if (!idx) return '';
-    let ct: Element | null = (n.typeName ? idx.ct[n.typeName] : null) ?? (n.xsdEl ? kid(n.xsdEl, 'complexType') : null);
+    let ct: Element | null =
+      (n.typeName ? idx.ct[n.typeName] : null) ?? (n.xsdEl ? kid(n.xsdEl, 'complexType') : null);
     let out = '';
     const seen = new Set<string>();
     while (ct) {
@@ -473,7 +534,12 @@ export class ExportService {
         for (const a of kids(holder, 'attribute')) {
           const fixed = a.getAttribute('fixed');
           const name = a.getAttribute('name');
-          if (name && fixed != null && a.getAttribute('use') === 'required' && !out.includes(` ${name}="`)) {
+          if (
+            name &&
+            fixed != null &&
+            a.getAttribute('use') === 'required' &&
+            !out.includes(` ${name}="`)
+          ) {
             out += ` ${name}="${esc(fixed)}"`;
           }
         }
@@ -506,7 +572,10 @@ export class ExportService {
         tech: x.kind === 'el' ? x.node.name : '',
         anmerkung: p.anmerkung || '',
         refZiel: p.refZiel ? this.state.auspLabel(p.refZiel) : '',
-        werte: p.werte && p.werte.length ? p.werte.map((v) => String(v).split(/\s+[—–-]\s+/)[0]).join(', ') : '',
+        werte:
+          p.werte && p.werte.length
+            ? p.werte.map((v) => String(v).split(/\s+[—–-]\s+/)[0]).join(', ')
+            : '',
         beispiel: p.beispiel || '',
         kardText: kt,
         statusName: st ? st.name : inh ? 'entfällt' : '',

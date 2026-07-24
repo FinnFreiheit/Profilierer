@@ -19,7 +19,9 @@ const manifestPath = join(base, 'index.json');
 if (!existsSync(base)) {
   mkdirSync(base, { recursive: true });
   console.error(`Kein Schema-Verzeichnis gefunden — angelegt: ${base}`);
-  console.error('Versionsordner (z. B. public/schemas/3.6.2/) mit XSDs anlegen und erneut ausführen.');
+  console.error(
+    'Versionsordner (z. B. public/schemas/3.6.2/) mit XSDs anlegen und erneut ausführen.',
+  );
   process.exit(1);
 }
 
@@ -45,7 +47,10 @@ if (!dirs.length) {
 
 // Reihenfolge: erst die aus der alten index.json bekannten (in alter Reihenfolge),
 // dann neue Ordner alphabetisch.
-const ordered = [...prev.map((v) => v.dir).filter((d) => dirs.includes(d)), ...dirs.filter((d) => !prevByDir.has(d))];
+const ordered = [
+  ...prev.map((v) => v.dir).filter((d) => dirs.includes(d)),
+  ...dirs.filter((d) => !prevByDir.has(d)),
+];
 
 const manifest = ordered.map((dir) => {
   const meta = prevByDir.get(dir) || {};

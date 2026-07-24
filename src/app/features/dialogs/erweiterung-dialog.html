@@ -1,8 +1,8 @@
 <dialog #dlg id="erwDlg" (close)="onClose()">
   <h3 style="margin-top: 0">Schema-Erweiterung anlegen</h3>
   <p class="erwHint">
-    Das Element existiert nicht im XJustiz-Schema und wird als Nachbeauftragung
-    festgehalten. Es wird überall als Erweiterung gekennzeichnet.
+    Das Element existiert nicht im XJustiz-Schema und wird als Nachbeauftragung festgehalten. Es
+    wird überall als Erweiterung gekennzeichnet.
   </p>
   <div class="metaGrid">
     <label>Elementname</label>
@@ -20,7 +20,12 @@
     ></textarea>
     <label>Kardinalität</label>
     <div class="erwKard">
-      <input type="text" [value]="eMin()" (input)="eMin.set($any($event.target).value)" title="min" />
+      <input
+        type="text"
+        [value]="eMin()"
+        (input)="eMin.set($any($event.target).value)"
+        title="min"
+      />
       <span>..</span>
       <input
         type="text"

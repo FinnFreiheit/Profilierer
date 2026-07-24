@@ -157,7 +157,11 @@ export class XsdParserService {
     // erzwingt genau diesen Wert) — sie ueberschreibt die appinfo-Version.
     const fixAttr = (e: Element): string | null => {
       for (const c of Array.from(e.children)) {
-        if (c.namespaceURI === XS && c.localName === 'attribute' && c.getAttribute('name') === 'listVersionID') {
+        if (
+          c.namespaceURI === XS &&
+          c.localName === 'attribute' &&
+          c.getAttribute('name') === 'listVersionID'
+        ) {
           return c.getAttribute('fixed');
         }
         const hit = fixAttr(c);
@@ -170,7 +174,11 @@ export class XsdParserService {
     let codeEl: Element | null = null;
     const walk = (e: Element): void => {
       for (const c of Array.from(e.children)) {
-        if (c.namespaceURI === XS && c.localName === 'element' && c.getAttribute('name') === 'code') {
+        if (
+          c.namespaceURI === XS &&
+          c.localName === 'element' &&
+          c.getAttribute('name') === 'code'
+        ) {
           codeEl = c;
           return;
         }
@@ -195,10 +203,23 @@ export class XsdParserService {
     if (node.codelist) return 'Code';
     let t: string | null = node.typeName;
     const map: Record<string, string> = {
-      date: 'Datum', dateTime: 'Datum + Zeit', time: 'Uhrzeit', integer: 'Zahl', int: 'Zahl',
-      nonNegativeInteger: 'Zahl', positiveInteger: 'Zahl', long: 'Zahl', decimal: 'Zahl',
-      boolean: 'Ja/Nein', gYear: 'Jahr', gYearMonth: 'Monat', anyURI: 'Link', token: 'Text',
-      string: 'Text', normalizedString: 'Text', base64Binary: 'Datei',
+      date: 'Datum',
+      dateTime: 'Datum + Zeit',
+      time: 'Uhrzeit',
+      integer: 'Zahl',
+      int: 'Zahl',
+      nonNegativeInteger: 'Zahl',
+      positiveInteger: 'Zahl',
+      long: 'Zahl',
+      decimal: 'Zahl',
+      boolean: 'Ja/Nein',
+      gYear: 'Jahr',
+      gYearMonth: 'Monat',
+      anyURI: 'Link',
+      token: 'Text',
+      string: 'Text',
+      normalizedString: 'Text',
+      base64Binary: 'Datei',
     };
     const seen = new Set<string>();
     while (t && !seen.has(t)) {

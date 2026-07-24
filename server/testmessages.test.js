@@ -38,7 +38,10 @@ test('tmList ist nach aktualisiert absteigend sortiert', () => {
   const db = openDb(':memory:');
   const a = db.tmCreate(input({ name: 'alt' }), 1000);
   const b = db.tmCreate(input({ name: 'neu' }), 2000);
-  assert.deepEqual(db.tmList().map((e) => e.id), [b.id, a.id]);
+  assert.deepEqual(
+    db.tmList().map((e) => e.id),
+    [b.id, a.id],
+  );
   db.close();
 });
 
@@ -72,7 +75,9 @@ test('tmBackfillVersionen ergänzt fehlende Version aus dem XML', () => {
 
 test('tmBackfillVersionen lässt Nachrichten ohne Versionsattribut unberührt', () => {
   const db = openDb(':memory:');
-  db.tmCreate(input({ xjustizVersion: undefined, xml: '<nachricht.x xmlns="http://www.xjustiz.de"/>' }));
+  db.tmCreate(
+    input({ xjustizVersion: undefined, xml: '<nachricht.x xmlns="http://www.xjustiz.de"/>' }),
+  );
   assert.equal(db.tmBackfillVersionen(), 0);
   assert.equal(db.tmList()[0].xjustizVersion, undefined);
   db.close();
@@ -112,8 +117,13 @@ test('gefuehrte Erstellung: entwurf/fortschritt/entscheidungen Roundtrip', () =>
 
 test('tmUpdate aktualisiert XML/Entwurf/Fortschritt/Entscheidungen selektiv', () => {
   const db = openDb(':memory:');
-  const stand = { msgName: 'n', profil: { meta: {}, statuses: [], elemente: {}, auspraegungen: {} } };
-  const { id } = db.tmCreate(input({ entwurf: true, fortschritt: { x: 1, y: 5 }, entscheidungen: stand }));
+  const stand = {
+    msgName: 'n',
+    profil: { meta: {}, statuses: [], elemente: {}, auspraegungen: {} },
+  };
+  const { id } = db.tmCreate(
+    input({ entwurf: true, fortschritt: { x: 1, y: 5 }, entscheidungen: stand }),
+  );
   // Nur Notiz ändern: gefuehrte Felder bleiben.
   let e = db.tmUpdate(id, { notiz: 'x' });
   assert.equal(e.entwurf, true);
