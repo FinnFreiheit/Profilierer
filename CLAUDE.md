@@ -87,6 +87,10 @@ Issues und Specs leben in den GitHub Issues des Repos (gh-CLI). Siehe `docs/agen
 
 Single-Context: `CONTEXT.md` an der Wurzel (entsteht lazy), ADRs unter `docs/adr/`. Siehe `docs/agents/domain.md`.
 
+### AFK-Queue
+
+`ready-for-agent`-Tickets werden unbeaufsichtigt abgearbeitet: `./scripts/afk-once.sh` (ein Ticket) bzw. `./scripts/afk-loop.sh <n>`; Checkpoint ist der Pull Request. Leitplanken: Git-Hook + Branch-Protection — `main` ändert sich nur über grüne PRs, Commits landen auf `ticket/<n>`-Branches. Siehe `docs/agents/afk.md`.
+
 ## Git
 
 Repository mit `git init` angelegt. Commits knapp und auf Deutsch. Remote `origin` zeigt auf `github.com:FinnFreiheit/Profilierer` (push nach Absprache).
