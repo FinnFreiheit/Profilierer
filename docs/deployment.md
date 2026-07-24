@@ -5,7 +5,7 @@ Wie die App gebaut und betrieben wird. Seit [ADR 0007](adr/0007-datenbank-backen
 ## Build
 
 ```
-. "$HOME/.nvm/nvm.sh"; nvm use 24
+nvm use       # liest .nvmrc (24); entfällt, wenn die Shell schon ≥ 22.12 fährt
 npm ci        # oder: npm install
 npm run build # → dist/xjustiz-profilierer/
 ```

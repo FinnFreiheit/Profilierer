@@ -2,7 +2,7 @@
 
 Werkzeug zur Visualisierung von XJustiz-Nachrichten und zur Erstellung von Profilierungen (Kommunikationsszenarien) — auch für die gemeinsame Arbeit mit Nicht-Technikern.
 
-**Starten:** Angular-Projekt — Node 24 aktivieren (`. "$HOME/.nvm/nvm.sh"; nvm use 24`), dann `npm install` und `npm start` (öffnet `http://localhost:4200`, inkl. XRepository-Dev-Proxy). Die frühere Single-File-Version liegt zur Referenz unter `legacy/Profilierer.html`.
+**Starten:** Angular-Projekt — Node ≥ 22.12 nötig (`.nvmrc` liegt bei, notfalls `nvm use`), dann `npm install` und `npm start` (öffnet `http://localhost:4200`, inkl. XRepository-Dev-Proxy). Die frühere Single-File-Version liegt zur Referenz unter `legacy/Profilierer.html`.
 
 ## Grundidee
 
@@ -13,7 +13,7 @@ Die Nachricht wird als **Kasten-Baum von links nach rechts** dargestellt, mit Ve
 1. **XSD-Ordner laden** — Ordner mit den XJustiz-Schemadateien wählen (z. B. `XJustiz_3_6_2_XSD`), alternativ Dateien per Drag & Drop.
 2. **Nachricht wählen** — durchsuchbare Liste aller `nachricht.*`-Elemente, gruppiert nach Fachmodul.
 3. **Profilieren** — Kasten anklicken, rechts im Detailbereich entscheiden:
-   - **Status** — Stufen sind je Profil frei konfigurierbar (Knopf „Status…": Name, Farbe und *Wirkung*). Vorbelegung: zwingend / anzugeben, wenn vorhanden / nicht verwendet / zu klären. Die Wirkung (Pflicht, optional, ausgeschlossen, nur Markierung) steuert Schematron und Beispiel-XML.
+   - **Status** — Stufen sind je Profil frei konfigurierbar (Knopf „Status…": Name, Farbe und _Wirkung_). Vorbelegung: zwingend / anzugeben, wenn vorhanden / nicht verwendet / zu klären. Die Wirkung (Pflicht, optional, ausgeschlossen, nur Markierung) steuert Schematron und Beispiel-XML.
    - **Kardinalität** im Szenario eingrenzen (z. B. beliebig viele → genau 1).
    - **Ausprägungen** — wiederholbare Elemente bekommen benannte Fälle mit je eigener Unter-Profilierung, z. B. `beteiligung` → „Notar/in", „Betroffene Person". Jede Ausprägung erscheint als eigener Kasten und wird separat durchprofiliert. Der ⧉-Knopf **dupliziert**: ein wiederholbares Element wird in „Fall 1"/„Fall 2" aufgeteilt (bestehende Festlegungen wandern in Fall 1), eine Ausprägung wird samt Unter-Profilierung kopiert — praktisch für strukturgleiche Dokumentblöcke.
    - **Ausblenden** — ✕ am Kasten setzt das Element direkt auf „nicht verwendet" (ausgegraut, ↺ zum Zurückholen).
@@ -23,7 +23,7 @@ Die Nachricht wird als **Kasten-Baum von links nach rechts** dargestellt, mit Ve
 4. **Exportieren**:
    - **Speichern** — Profil als JSON, wieder ladbar (v1-Profile werden migriert; Versionswechsel wird gemeldet).
    - **Excel** — Struktur mit Status-, Kardinalitäts-, Werte-Spalten; Deckblatt mit Statuslegende; Codelisten-Blatt.
-   - **Schematron** — `.sch`-Regeln zusätzlich zur XSD-Validierung. Zwingende Ausprägungen werden als Mindest-Anzahlen geprüft; Festlegungen *innerhalb* einzelner Ausprägungen sind instanzspezifisch und werden bewusst nicht als Regeln erzeugt.
+   - **Schematron** — `.sch`-Regeln zusätzlich zur XSD-Validierung. Zwingende Ausprägungen werden als Mindest-Anzahlen geprüft; Festlegungen _innerhalb_ einzelner Ausprägungen sind instanzspezifisch und werden bewusst nicht als Regeln erzeugt.
    - **Beispiel-XML** — Entwurf einer Beispielnachricht aus dem Profil: Ausprägungen als Instanzen, Beispielwerte bzw. typgerechte Platzhalter, Codelisten-Werte. Platzhalter und `listURI`/`listVersionID` sind fachlich zu prüfen.
    - **Drucken** — Dokumentansicht der Profilierung (auch als PDF), respektiert „nur Profil".
 

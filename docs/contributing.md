@@ -5,13 +5,29 @@ Konventionen für die Weiterentwicklung. Ergänzt [CLAUDE.md](../CLAUDE.md) (Ses
 ## Setup
 
 ```
-. "$HOME/.nvm/nvm.sh"; nvm use 24   # Angular 20 braucht Node ≥ 22.12
+nvm use                             # liest .nvmrc (24); Angular 20 braucht Node ≥ 22.12
 npm install
 npm start                           # ng serve (inkl. XRepository-Dev-Proxy)
 npm run test:ci                     # headless Unit-Tests
 npm run build                       # Produktions-Build
 npm run schemas:manifest            # public/schemas/index.json neu erzeugen
+npm run check                       # volle Pruefkette (das faehrt auch CI)
 ```
+
+## Prüfkette
+
+`npm run check` fährt in dieser Reihenfolge: Lint, Formatprüfung, Frontend-Tests headless, Backend-Tests, Build. Dieselbe Kette läuft in GitHub Actions (`.github/workflows/ci.yml`) bei Push auf `main` und bei jedem Pull Request. Vor dem Push einmal lokal durchlaufen lassen — dann ist CI keine Überraschung.
+
+| Befehl                 | Zweck                                                         |
+| ---------------------- | ------------------------------------------------------------- |
+| `npm run lint`         | ESLint 9 Flat Config (`eslint.config.mjs`, angular-eslint 20) |
+| `npm run lint:fix`     | dasselbe mit `--fix`                                          |
+| `npm run format`       | Prettier über den Bestand schreiben                           |
+| `npm run format:check` | nur prüfen, nichts schreiben                                  |
+
+**Formatierung macht ausschließlich Prettier**, nicht ESLint — `eslint-config-prettier` schaltet die kollidierenden Stilregeln ab. Die Prettier-Konfiguration (`printWidth: 100`, `singleQuote`) steht in der `package.json`, Ausnahmen in `.prettierignore`.
+
+**Barrierefreiheit:** Die drei Template-Regeln `click-events-have-key-events`, `interactive-supports-focus` und `label-has-associated-control` stehen auf `warn` — 68 Treffer aus dem Altbestand, die eigene Arbeit sind. Keine neuen dazu produzieren; Details in [ADR 0011](adr/0011-lint-format-ci.md).
 
 ## Hinterlegte Schemata
 
@@ -34,15 +50,16 @@ Neue Logik in Services mit Unit-Tests absichern (Muster: `*.spec.ts` neben der Q
 
 ## Git
 
-- Branch für jede Änderung; Basis ist `main` bzw. der aktuelle Arbeitsbranch (`master`).
-- Commit-Nachrichten **knapp und auf Deutsch**.
+- Branch für jede Änderung; Basis ist `main`.
+- Commit-Nachrichten **knapp und auf Deutsch**, mit Präfix (`Feature:`, `Bugfix:`, `Doku:`, `Tests:`, `UI:`).
 - Commit-Trailer:
 
   ```
-  Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+  Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
   ```
 
-- Kein Remote gesetzt — bei Bedarf `git remote add origin …`.
+- Remote `origin` zeigt auf `github.com:FinnFreiheit/Profilierer` (Push nach Absprache).
+- Vor dem Push `npm run check` — CI prüft dieselbe Kette.
 
 ## Architektur-Entscheidungen
 

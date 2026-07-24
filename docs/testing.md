@@ -1,6 +1,6 @@
 # Tests
 
-Wie Unit-Tests und End-to-End-Prüfungen laufen. Voraussetzung: Node ≥ 22.12 (Angular 20) — vorher `. "$HOME/.nvm/nvm.sh"; nvm use 24` (siehe [ADR 0005](adr/0005-node24-headless-tests.md)).
+Wie Unit-Tests und End-to-End-Prüfungen laufen. Voraussetzung: Node ≥ 22.12 (Angular 20) — festgelegt in `.nvmrc` und `engines`, notfalls `nvm use` im Projektordner (siehe [ADR 0005](adr/0005-node24-headless-tests.md)).
 
 ## Unit-Tests (headless)
 
@@ -23,6 +23,7 @@ npm run test:server
 - Die Frontend-Unit-Tests (`test:ci`, Karma) und die Server-Tests (node:test) sind bewusst getrennt; die vollständige Prüfkette ist `npm run test:ci && npm run test:server`.
 
 **Abgedeckt** (Spec-Dateien neben den Quellen):
+
 - `StateService` — `setElementProfile`/`pruneP`, Status-Zugriff, `effKard`, `addAusp`, **`removeAusp`-Kaskade**, `toggleOpen`, `fortschritt`.
 - `XsdParserService` — `buildIndexFrom`, `particlesOfCT` (inkl. Vererbung), `enumsOfST`, `codelistOf`, `valueKind` gegen ein Inline-XSD-Fixture.
 - `TreeService` — Aufbau/Expansion, `isLeaf`/`isRepeatable`, Ausprägungs-Kontext.
@@ -40,9 +41,9 @@ Für Integrationsprüfungen dienen kurze Puppeteer-Skripte gegen den laufenden D
   await page.evaluate((files) => {
     const dt = new DataTransfer();
     for (const f of files) dt.items.add(new File([f.text], f.name, { type: 'application/xml' }));
-    document.querySelector('#main').dispatchEvent(
-      new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }),
-    );
+    document
+      .querySelector('#main')
+      .dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
   }, files);
   ```
 
