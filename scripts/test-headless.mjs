@@ -8,8 +8,10 @@ if (!chromeBin) {
   try {
     const puppeteer = (await import('puppeteer')).default;
     chromeBin = await puppeteer.executablePath();
-  } catch (e) {
-    console.error('puppeteer/Chrome nicht gefunden. Erst "npx puppeteer browsers install chrome" ausfuehren.');
+  } catch {
+    console.error(
+      'puppeteer/Chrome nicht gefunden. Erst "npx puppeteer browsers install chrome" ausfuehren.',
+    );
     process.exit(1);
   }
 }

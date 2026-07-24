@@ -1,6 +1,9 @@
 {
   "name": "xjustiz-profilierer",
   "version": "0.0.0",
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -9,6 +12,11 @@
     "test": "ng test",
     "test:ci": "node scripts/test-headless.mjs",
     "test:server": "npm --prefix server test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run lint && npm run format:check && npm run test:ci && npm run test:server && npm run build",
     "schemas:manifest": "node scripts/gen-schema-manifest.mjs",
     "server": "node server/index.js",
     "dev": "concurrently -n web,api -c cyan,green \"npm:start\" \"npm:server\"",
@@ -46,14 +54,19 @@
     "@angular/cli": "^20.3.32",
     "@angular/compiler-cli": "^20.3.0",
     "@types/jasmine": "~5.1.0",
+    "angular-eslint": "^20.7.0",
     "concurrently": "^9.2.4",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
     "jasmine-core": "~5.9.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
+    "prettier": "^3.9.6",
     "puppeteer": "^25.3.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.65.0"
   }
 }

@@ -1,0 +1,8 @@
+dist
+.angular
+node_modules
+server/node_modules
+legacy
+public/schemas
+package-lock.json
+deploy

@@ -102,7 +102,9 @@ export class PersistenceService {
   private loescheNotfallkopie(id: string): void {
     try {
       localStorage.removeItem(NOTFALL_PREFIX + id);
-    } catch { /* ignorieren */ }
+    } catch {
+      /* ignorieren */
+    }
   }
 
   /**
@@ -156,7 +158,11 @@ export class PersistenceService {
       const dom = parser.parseFromString(text, 'application/xml');
       const parseFehler = dom.getElementsByTagName('parsererror');
       if (parseFehler.length) {
-        this.log.warn('Schema', `Parse-Fehler in ${f.name}`, parseFehler[0]?.textContent ?? undefined);
+        this.log.warn(
+          'Schema',
+          `Parse-Fehler in ${f.name}`,
+          parseFehler[0]?.textContent ?? undefined,
+        );
         continue;
       }
       docs.push({ file: f.name, dom });
@@ -327,7 +333,9 @@ export class PersistenceService {
       return false;
     }
     await this.uebernehmeDoc(doc);
-    this.toast.show('Version wiederhergestellt — der vorherige Arbeitsstand ist als Sicherheits-Version gesichert.');
+    this.toast.show(
+      'Version wiederhergestellt — der vorherige Arbeitsstand ist als Sicherheits-Version gesichert.',
+    );
     return true;
   }
 
@@ -446,7 +454,12 @@ export class PersistenceService {
     this.toast.show('Profil gespeichert.');
   }
 
-  /** migrateV1 (Z.1794-1804): altes Format auf v2 heben. */
+  /**
+   * migrateV1 (Z.1794-1804): altes Format auf v2 heben.
+   * `any` ist hier gewollt — die Eingabe ist eine ungetypte v1-JSON-Struktur,
+   * die es als Interface nie gab. Typisierung waere Fiktion.
+   */
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   private migrateV1(data: any): ProfileDoc {
     const st = defaultStatuses();
     const map: Record<string, string> = { pflicht: 's1', ausgeschlossen: 's3' };
@@ -458,6 +471,7 @@ export class PersistenceService {
     }
     return { meta: data.meta || {}, statuses: st, elemente, auspraegungen: {}, erweiterungen: {} };
   }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   /**
    * loadProfileFile (Z.1806-1822): eine Profildatei importieren. Das Profil
@@ -482,7 +496,9 @@ export class PersistenceService {
       const id = await this.store.create(prof);
       await this.openFromLibrary(id);
     } catch (e) {
-      this.toast.show('Profil konnte nicht gelesen werden: ' + (e instanceof Error ? e.message : e));
+      this.toast.show(
+        'Profil konnte nicht gelesen werden: ' + (e instanceof Error ? e.message : e),
+      );
     }
   }
 }

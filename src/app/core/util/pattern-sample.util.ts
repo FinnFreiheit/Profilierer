@@ -33,7 +33,11 @@ export function compileXsdPattern(pattern: string): RegExp | null {
  * "2026-01-01"); sonst ein aus dem Pattern generierter Wert; zuletzt der
  * Fallback unveraendert. Nicht kompilierbare Patterns werden ignoriert.
  */
-export function konformerBeispielwert(patterns: string[], kandidaten: string[], fallback: string): string {
+export function konformerBeispielwert(
+  patterns: string[],
+  kandidaten: string[],
+  fallback: string,
+): string {
   const rx = patterns.map(compileXsdPattern).filter((r): r is RegExp => !!r);
   if (!rx.length) return fallback;
   const passt = (s: string) => rx.some((r) => r.test(s));
@@ -133,16 +137,26 @@ class PatternGenerator {
     if (c === undefined) throw new Error('unerwartetes Ende nach \\');
     this.i++;
     switch (c) {
-      case 'd': return '1';
-      case 'D': return 'A';
-      case 'w': return 'a';
-      case 'W': return '-';
-      case 's': return ' ';
-      case 'S': return 'a';
-      case 'n': return '\n';
-      case 't': return '\t';
-      case 'r': return '\r';
-      case 'p': case 'P': {
+      case 'd':
+        return '1';
+      case 'D':
+        return 'A';
+      case 'w':
+        return 'a';
+      case 'W':
+        return '-';
+      case 's':
+        return ' ';
+      case 'S':
+        return 'a';
+      case 'n':
+        return '\n';
+      case 't':
+        return '\t';
+      case 'r':
+        return '\r';
+      case 'p':
+      case 'P': {
         // \p{L} etc.: Kategorie ueberlesen, Buchstabe als Naeherung.
         if (this.peek() === '{') {
           const end = this.src.indexOf('}', this.i);
@@ -151,7 +165,8 @@ class PatternGenerator {
         }
         return c === 'p' ? 'a' : '-';
       }
-      default: return c; // \- \. \\ usw. woertlich
+      default:
+        return c; // \- \. \\ usw. woertlich
     }
   }
 
@@ -166,7 +181,7 @@ class PatternGenerator {
     while (this.peek() !== ']' || first) {
       if (this.done()) throw new Error('Klasse nicht geschlossen');
       first = false;
-      let c = this.src[this.i]!;
+      const c = this.src[this.i]!;
       if (c === '\\') {
         const e = this.escape();
         // Kurzklassen in der Klasse: repraesentative Zeichen aufnehmen.
@@ -175,7 +190,11 @@ class PatternGenerator {
         continue;
       }
       this.i++;
-      if (this.peek() === '-' && this.src[this.i + 1] !== ']' && this.src[this.i + 1] !== undefined) {
+      if (
+        this.peek() === '-' &&
+        this.src[this.i + 1] !== ']' &&
+        this.src[this.i + 1] !== undefined
+      ) {
         this.i++;
         let hi = this.src[this.i]!;
         if (hi === '\\') hi = this.escape();
@@ -199,9 +218,18 @@ class PatternGenerator {
 
   private quantifier(): [number, number] {
     const c = this.peek();
-    if (c === '?') { this.i++; return [0, 1]; }
-    if (c === '*') { this.i++; return [0, Infinity]; }
-    if (c === '+') { this.i++; return [1, Infinity]; }
+    if (c === '?') {
+      this.i++;
+      return [0, 1];
+    }
+    if (c === '*') {
+      this.i++;
+      return [0, Infinity];
+    }
+    if (c === '+') {
+      this.i++;
+      return [1, Infinity];
+    }
     if (c === '{') {
       const end = this.src.indexOf('}', this.i);
       if (end < 0) throw new Error('{ ohne }');

@@ -105,7 +105,9 @@ export class TreeNode {
     const ausps = this.state.auspsOf(it.node.path);
     if (ausps && ausps.length) return [];
     const msgName = this.state.msgName() || '';
-    const relParent = this.path().replace(/@[^/]+/g, '').slice(msgName.length);
+    const relParent = this.path()
+      .replace(/@[^/]+/g, '')
+      .slice(msgName.length);
     const vB = this.state.idxB()?.version || '?';
     const out: { name: string; tech: string; kard: string }[] = [];
     for (const [rel, r] of diffMap) {
@@ -113,7 +115,11 @@ export class TreeNode {
       const rest = rel.slice(relParent.length + 1);
       if (rest.includes('/')) continue;
       const base = rest.split('#')[0]!;
-      out.push({ name: pretty(base), tech: base + (r.typ ? ' : ' + r.typ : ''), kard: `neu in ${vB}${r.info ? ' · ' + r.info : ''}` });
+      out.push({
+        name: pretty(base),
+        tech: base + (r.typ ? ' : ' + r.typ : ''),
+        kard: `neu in ${vB}${r.info ? ' · ' + r.info : ''}`,
+      });
     }
     return out;
   });
@@ -154,7 +160,12 @@ export class TreeNode {
 
     // Testwert (Z.1243-1257).
     let mv: { text: string; ghost: boolean } | null = null;
-    let vin: { value: string; placeholder: string; listId: string | null; problem: string | null } | null = null;
+    let vin: {
+      value: string;
+      placeholder: string;
+      listId: string | null;
+      problem: string | null;
+    } | null = null;
     let datalist: { id: string; options: { value: string; label: string }[] } | null = null;
     if (isValueBox) {
       const auto = this.values.placeholderFor({
@@ -180,7 +191,12 @@ export class TreeNode {
             pe.beispiel,
           )
         : null;
-      vin = { value: pe.beispiel || '', placeholder: auto, listId: datalist ? listId : null, problem };
+      vin = {
+        value: pe.beispiel || '',
+        placeholder: auto,
+        listId: datalist ? listId : null,
+        problem,
+      };
     }
     // Betrachtungsmodus: Wert nur anzeigen, kein editierbares Eingabefeld.
     // Belegte Blätter bekommen eine read-only Wertezeile; Codes werden dabei
@@ -198,7 +214,6 @@ export class TreeNode {
 
     // Kardinalitaet (Z.1263-1266).
     let kt: string;
-    let kardColor: string;
     let standardHint: string | null = null;
     if (it.kind === 'el') {
       const k = this.state.effKard(n);
@@ -207,7 +222,7 @@ export class TreeNode {
     } else {
       kt = kardText(pe.min || '1', pe.max || '1');
     }
-    kardColor = st ? st.farbe : 'var(--muted)';
+    const kardColor: string = st ? st.farbe : 'var(--muted)';
 
     // Tags (Z.1270-1313, ohne Diff — P7).
     const tags: Tag[] = [];
@@ -228,8 +243,7 @@ export class TreeNode {
       if (n.inChoice) tags.push({ cls: 't-choice', text: 'Alternative' });
       if (n.model === 'choice') tags.push({ cls: 't-choice', text: 'Auswahl' });
       if (n.codelist) tags.push({ cls: 't-code', text: 'Codeliste' });
-      else if (isValueBox && !rk)
-        tags.push({ cls: 't-wert', text: 'Wert: ' + this.valueKind(n) });
+      else if (isValueBox && !rk) tags.push({ cls: 't-wert', text: 'Wert: ' + this.valueKind(n) });
       if (n.recursive) tags.push({ cls: 't-rec', text: 'rekursiv' });
       if (ausps && ausps.length) tags.push({ cls: 't-ausp', text: ausps.length + ' Ausprägungen' });
     } else if (isValueBox && !rk) {
@@ -268,7 +282,11 @@ export class TreeNode {
         if (dr) {
           ownArt = dr.art;
           if (dr.art === 'entfernt')
-            tags.push({ cls: 't-dent', text: `entfällt in ${vB}`, title: `Element ist in Version ${vB} nicht mehr enthalten` });
+            tags.push({
+              cls: 't-dent',
+              text: `entfällt in ${vB}`,
+              title: `Element ist in Version ${vB} nicht mehr enthalten`,
+            });
           else if (dr.art === 'geändert')
             tags.push({ cls: 't-daend', text: `geändert in ${vB}`, title: dr.info });
         }
@@ -277,10 +295,18 @@ export class TreeNode {
       if (anc) {
         const total = anc.neu + anc.entfernt + anc['geändert'];
         if (total) {
-          const det = [anc.neu ? anc.neu + ' neu' : '', anc.entfernt ? anc.entfernt + ' entfernt' : '', anc['geändert'] ? anc['geändert'] + ' geändert' : '']
+          const det = [
+            anc.neu ? anc.neu + ' neu' : '',
+            anc.entfernt ? anc.entfernt + ' entfernt' : '',
+            anc['geändert'] ? anc['geändert'] + ' geändert' : '',
+          ]
             .filter(Boolean)
             .join(', ');
-          tags.push({ cls: 't-dsub', text: `Δ ${total}`, title: `Unterschiede in untergeordneten Elementen: ${det}` });
+          tags.push({
+            cls: 't-dsub',
+            text: `Δ ${total}`,
+            title: `Unterschiede in untergeordneten Elementen: ${det}`,
+          });
         }
       }
       if (ownArt === 'entfernt') dfR = true;
@@ -300,7 +326,11 @@ export class TreeNode {
       }
       const sub = this.state.valAnc()?.get(path);
       if (sub)
-        tags.push({ cls: 't-vsub', text: sub + ' Fehler', title: 'Schemafehler in untergeordneten Elementen' });
+        tags.push({
+          cls: 't-vsub',
+          text: sub + ' Fehler',
+          title: 'Schemafehler in untergeordneten Elementen',
+        });
     }
 
     const isExcl = !!excluded;
@@ -331,12 +361,7 @@ export class TreeNode {
       kardText: kt,
       kardColor,
       standardHint,
-      doc:
-        it.kind === 'el'
-          ? n.doc
-            ? n.doc.split('\n')[0]!
-            : null
-          : pe.anmerkung || null,
+      doc: it.kind === 'el' ? (n.doc ? n.doc.split('\n')[0]! : null) : pe.anmerkung || null,
       tags,
       isValueBox,
       // Buttons (im Betrachtungsmodus ausgeblendet).
