@@ -14,6 +14,7 @@ Zentraler Einstieg in die Entwickler- und Architekturdokumentation. Der **XJusti
 | [Tests](testing.md)                                           | Unit-Tests headless fahren, E2E-Muster, Testdaten                                                                                              |
 | [Betrieb / Deployment](deployment.md)                         | Build, Hosting, die offene Prod-Proxy-Frage                                                                                                    |
 | [Beitragen](contributing.md)                                  | Setup, Konventionen, Commit-/Branch-Stil                                                                                                       |
+| [Workflow](workflow.md)                                       | Spickzettel: mein Anteil im Zyklus Grilling → Spec → Tickets → AFK-Loop → Ernte                                                                |
 | [Architektur-Entscheidungen (ADRs)](adr/README.md)            | Warum wurde etwas so entschieden (Migration, Store, SVG-Linien, Proxy …)                                                                       |
 | [User Stories](user-stories/xjustiz-nachricht-inspizieren.md) | Verfeinerte Anforderungen / Refinement-Ergebnisse (z. B. Nachricht inspizieren)                                                                |
 
