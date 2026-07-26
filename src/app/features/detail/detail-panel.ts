@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  linkedSignal,
+  signal,
+} from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { TreeService } from '../../core/services/tree.service';
 import { ValueService } from '../../core/services/value.service';
@@ -33,7 +40,18 @@ export class DetailPanel {
   private readonly toast = inject(ToastService);
   private readonly erwDialog = inject(ErweiterungDialogService);
 
-  protected readonly clFilter = signal('');
+  /**
+   * Filtertext der Codelisten-Werte. Wird beim Wechsel des selektierten Elements
+   * geleert — sonst filtert ein alter Suchtext unsichtbar weiter, wenn die neue
+   * Liste kein Filterfeld zeigt (≤ 15 Werte), und die Werte-Liste bleibt leer.
+   */
+  protected readonly clFilter = linkedSignal({
+    source: () => {
+      const it = this.state.selItem();
+      return it ? itemPath(it) : '';
+    },
+    computation: () => '',
+  });
   protected readonly erwDatentypen = ERW_DATENTYPEN;
   /** Pfad, fuer den im Datentyp-Select "Sonstiger…" gewaehlt wurde (noch ohne Freitext). */
   private readonly erwSonstig = signal<string | null>(null);
