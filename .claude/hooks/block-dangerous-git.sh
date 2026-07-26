@@ -25,7 +25,7 @@ DANGEROUS_PATTERNS=(
 )
 
 for pattern in "${DANGEROUS_PATTERNS[@]}"; do
-  if echo "$COMMAND" | grep -qE "$pattern"; then
+  if echo "$COMMAND" | grep -qE -e "$pattern"; then
     echo "BLOCKED: '$COMMAND' entspricht dem Muster '$pattern'. Der Benutzer hat diese Operation gesperrt — main wird nur ueber Pull Requests aktualisiert." >&2
     exit 2
   fi
