@@ -30,6 +30,36 @@ export class DispositionService {
   }
 
   /**
+   * Vertiefter "Pflicht vorbelegen"-Lauf (Bestandsreparatur, US 7-8): belegt
+   * das Pflicht-Rueckgrat ab Wurzel vor und steigt zusaetzlich in bereits
+   * aufgenommene Teilbaeume ab (Wirkung `pflicht`/`optional` — optionale
+   * Elemente wie zugelassene Auswahl-Zweige) sowie in alle Auspraegungen
+   * (Pfadraum `…@auspId/…`), um dort die Vorbelegung nachzuholen.
+   * Nutzergesteuert (Ansicht-Menue), keine stille Migration beim Oeffnen.
+   * Gibt die Anzahl neu gesetzter Elemente zurueck (Toast).
+   */
+  pflichtVorbelegen(): number {
+    const root = this.state.root();
+    const pflicht = this.state.pflichtStatus();
+    if (!root || !pflicht) return 0;
+    const paths = new Set<string>(this.tree.collectMandatoryPaths(root));
+    for (const [path, p] of Object.entries(this.state.elemente())) {
+      if (!p.status) continue;
+      const wirkung = this.state.statusById(p.status)?.wirkung;
+      if (wirkung !== 'pflicht' && wirkung !== 'optional') continue;
+      for (const mp of this.sammleRueckgrat(path)) paths.add(mp);
+    }
+    // Eine Auspraegung ist durch ihr Anlegen aufgenommen — jeder Kontextknoten
+    // ist ein Anker.
+    for (const [listPath, list] of Object.entries(this.state.auspraegungen())) {
+      for (const a of list) {
+        for (const mp of this.sammleRueckgrat(listPath + '@' + a.id)) paths.add(mp);
+      }
+    }
+    return this.state.prefillStatus([...paths], pflicht.id);
+  }
+
+  /**
    * Zwingend-Vorbelegung des Pflicht-Rueckgrats unterhalb des Ankers —
    * nicht-destruktiv (vorhandene Status bleiben), Zielstufe ueber die Wirkung
    * `pflicht` aufgeloest (umbenannte Stufen greifen). Gibt die Anzahl neu
@@ -38,9 +68,14 @@ export class DispositionService {
   private kaskadierePflicht(path: string): number {
     const pflicht = this.state.pflichtStatus();
     if (!pflicht) return 0;
+    return this.state.prefillStatus(this.sammleRueckgrat(path), pflicht.id);
+  }
+
+  /** Pfade des Pflicht-Rueckgrats unterhalb des Ankers zum Pfad. */
+  private sammleRueckgrat(path: string): string[] {
     const anker = this.ankerNode(path);
-    if (!anker || anker.recursive) return 0;
-    return this.state.prefillStatus(this.tree.collectMandatoryPaths(anker), pflicht.id);
+    if (!anker || anker.recursive) return [];
+    return this.tree.collectMandatoryPaths(anker);
   }
 
   /** Teilbaum-Anker zum Pfad: Element-Knoten bzw. Auspraegungs-Kontextknoten. */

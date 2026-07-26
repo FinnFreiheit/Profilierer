@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
+import { DispositionService } from '../../core/services/disposition.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
@@ -22,6 +23,7 @@ import { Menu } from '../../shared/menu/menu';
 export class Toolbar {
   protected readonly state = inject(StateService);
   private readonly nav = inject(NavService);
+  private readonly disposition = inject(DispositionService);
   private readonly guided = inject(GuidedService);
   private readonly toast = inject(ToastService);
   private readonly store = inject(ProfileStoreService);
@@ -93,8 +95,13 @@ export class Toolbar {
     if (on) this.state.expandValueBranches();
   }
 
+  /**
+   * "Pflicht vorbelegen" (Ansicht-Menue): vertiefter Lauf inkl.
+   * Bestandsreparatur — steigt auch in aufgenommene Teilbaeume und
+   * Auspraegungen ab (DispositionService).
+   */
   protected prefillMandatory(): void {
-    const n = this.nav.prefillMandatoryStatus();
+    const n = this.disposition.pflichtVorbelegen();
     this.toast.show(n ? n + ' Pflichtelemente vorbelegt' : 'Keine weiteren Pflichtelemente offen');
   }
 
