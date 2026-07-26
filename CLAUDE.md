@@ -24,7 +24,7 @@ xjustiz-profilierer/
 │   ├── models/                Interfaces (node, profile, codelist, diff, xsd-index)
 │   ├── core/
 │   │   ├── services/          StateService (Signals-Store), XsdParserService, TreeService,
-│   │   │                      NavService, ValueService, CodelistService, ExportService,
+│   │   │                      NavService, DispositionService, ValueService, CodelistService, ExportService,
 │   │   │                      ExcelExportService, DiffService, PersistenceService, ProfileStoreService,
 │   │   │                      MigrationService, InstanceImportService, InstanceExportService,
 │   │   │                      TestmessageStoreService, TestmessageGenerationService,

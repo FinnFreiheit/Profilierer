@@ -4,6 +4,7 @@ import { TreeService } from '../../core/services/tree.service';
 import { ValueService } from '../../core/services/value.service';
 import { NavService } from '../../core/services/nav.service';
 import { GuidedService } from '../../core/services/guided.service';
+import { DispositionService } from '../../core/services/disposition.service';
 import { CodelistService } from '../../core/services/codelist.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ErweiterungDialogService } from '../../core/services/erweiterung-dialog.service';
@@ -27,6 +28,7 @@ export class DetailPanel {
   private readonly values = inject(ValueService);
   private readonly nav = inject(NavService);
   private readonly guided = inject(GuidedService);
+  private readonly disposition = inject(DispositionService);
   private readonly codelistSvc = inject(CodelistService);
   private readonly toast = inject(ToastService);
   private readonly erwDialog = inject(ErweiterungDialogService);
@@ -341,7 +343,9 @@ export class DetailPanel {
   // ── Aktionen ────────────────────────────────────────────────────────
 
   protected setStatus(id: string): void {
-    this.state.setElementProfile(this.path(), { status: id || undefined });
+    // Zentrale Statusaenderung: kaskadiert bei aufnehmender Wirkung die
+    // Zwingend-Vorbelegung in den Teilbaum darunter (DispositionService).
+    this.disposition.setzeStatus(this.path(), id || undefined);
   }
 
   protected setField(key: 'min' | 'max' | 'anmerkung' | 'beispiel', e: Event): void {

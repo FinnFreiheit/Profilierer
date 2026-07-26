@@ -189,6 +189,15 @@ describe('GuidedService', () => {
       expect(state.elemente()[`${M}/beteiligung`]?.status).toBe(S.excl);
     });
 
+    it('kaskadiert die Zwingend-Vorbelegung in das Pflicht-Rueckgrat darunter', () => {
+      waehle(`${M}/beteiligung`);
+      const y0 = svc.fortschritt().y;
+      svc.setzeDisposition('pflicht');
+      expect(state.elemente()[`${M}/beteiligung/name`]?.status).toBe(S.pflicht);
+      // Kaskadierte Pflicht ist per Definition erledigt — keine neuen Fragen.
+      expect(svc.fortschritt().y).toBe(y0);
+    });
+
     it('tut ohne Selektion nichts und meldet false', () => {
       state.selItem.set(null);
       expect(svc.setzeDisposition('pflicht')).toBeFalse();

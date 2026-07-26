@@ -30,6 +30,7 @@ const XSD_MAND = `<?xml version="1.0" encoding="UTF-8"?>
       <xs:choice>
         <xs:element name="varianteA" type="Type.Test.VarA"/>
         <xs:element name="varianteB" type="xs:string"/>
+        <xs:sequence><xs:element name="paarPflicht" type="xs:string"/></xs:sequence>
       </xs:choice>
     </xs:sequence>
   </xs:complexType>
@@ -159,6 +160,15 @@ describe('TreeService', () => {
 
       // Der Zweig selbst ist frei gewaehlt — unterhalb zaehlt sein Pflicht-Rueckgrat.
       expect(paths).toEqual(['nachricht.test.0001/_auswahl/varianteA/varPflicht']);
+    });
+
+    it('laesst beim Anker auf der Auswahl selbst alle Alternativen frei — auch Gruppen', () => {
+      const root = tree.buildRoot('nachricht.test.0001', mandIdx);
+      const anker = tree.kinder(root).find((k) => k.name === '(Auswahl)')!;
+
+      // Element- wie Sequenz-Alternativen sind gleichermassen frei waehlbar —
+      // keine davon gehoert zum unbedingten Rueckgrat.
+      expect(tree.collectMandatoryPaths(anker)).toEqual([]);
     });
   });
 

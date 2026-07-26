@@ -3,6 +3,7 @@ import { TreeNode, itemPath } from '../../models/node.model';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
+import { DispositionService } from './disposition.service';
 import { PlaceholderNode, ValueService } from './value.service';
 
 /**
@@ -57,6 +58,7 @@ export class GuidedService {
   private readonly state = inject(StateService);
   private readonly tree = inject(TreeService);
   private readonly nav = inject(NavService);
+  private readonly disposition = inject(DispositionService);
   private readonly values = inject(ValueService);
 
   /** Instanz-Modus: eine Nachricht (statt eines Profils) wird gefuehrt befuellt. */
@@ -418,7 +420,7 @@ export class GuidedService {
           ? this.state.optionalStatus()
           : this.state.exclStatus();
     if (!st) return false;
-    this.state.setElementProfile(path, { status: st.id });
+    this.disposition.setzeStatus(path, st.id);
     this.gotoNextOpen();
     return true;
   }
