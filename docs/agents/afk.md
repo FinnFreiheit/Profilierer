@@ -9,10 +9,12 @@ Unbeaufsichtigte Abarbeitung von Tickets nach dem ralph-once-Prinzip: **ein Lauf
 3. **Isolation:** eigener Git-Worktree unter `../profilierer-afk/issue-<n>` mit Branch `ticket/<n>` ab `origin/main`; eigene `node_modules`.
 4. **Arbeit:** `claude -p` (headless, `acceptEdits`) arbeitet das Ticket testgetrieben ab und committet auf den Ticket-Branch. Pushen ist dem Agenten verwehrt (Hook).
 5. **Verifikation durch den Runner:** Commit vorhanden + `npm run check` grün — sonst Abbruch, Ticket bleibt zugewiesen.
-6. **Checkpoint:** Branch-Push, Pull Request (`Closes #<n>`), Kommentar am Issue. **Der PR ist die Stelle, an der der Mensch eingreift** — Review, dann Merge.
-7. Worktree wird entfernt.
+6. **Checkpoint:** Branch-Push, Pull Request (`Closes #<n>`), Kommentar am Issue.
+7. **Review-Agent** (Matts Pipeline: Implementer → Reviewer → Merger): ein zweiter `claude -p`-Lauf mit **frischem Kontext** — er hat die Änderung nicht gebaut, sieht nur Ticket, Spec und Diff, läuft ohne Schreibrechte auf Opus. Befunde landen als PR-Kommentar; die letzte Zeile ist das Urteil: `VERDICT: MERGE` oder `VERDICT: HUMAN` (im Zweifel HUMAN).
+8. **Merger:** nur bei `VERDICT: MERGE` **und** grünem CI merged der Runner per Rebase — das Issue schließt sich, Blocker-Kanten geben nachgelagerte Tickets frei. Geflaggte PRs bleiben offen und warten auf den Menschen; der Loop macht mit dem nächsten freien Ticket weiter. **Rotes CI stoppt den Loop.** `AFK_AUTO_MERGE=0` schaltet den Merger ganz ab (jeder PR wartet auf den Menschen, Review-Kommentar liegt trotzdem an).
+9. Worktree wird entfernt.
 
-Mehrere Läufe nacheinander: `./scripts/afk-loop.sh <anzahl>` — stoppt bei leerer Frontier, bricht beim ersten Fehlschlag ab.
+Mehrere Läufe nacheinander: `./scripts/afk-loop.sh <anzahl>` — stoppt bei leerer Frontier oder beim ersten Fehler; geflaggte PRs werden am Ende aufgelistet. Durch den Merger arbeitet der Loop auch Ketten ab: erst wenn ein Blocker-Ticket gemergt ist, betritt sein Nachfolger die Frontier.
 
 ## Leitplanken
 
@@ -22,11 +24,13 @@ Mehrere Läufe nacheinander: `./scripts/afk-loop.sh <anzahl>` — stoppt bei lee
 
 ## Checkpoints nach rechts schieben
 
-Reihenfolge der Vertrauensstufen — erst wechseln, wenn die vorherige Stufe eine Weile fehlerfrei lief:
+Reihenfolge der Vertrauensstufen:
 
-1. Jeden PR selbst reviewen (Start hier).
-2. Agent flaggt im PR, ob menschliches Review nötig ist; nur Geflaggtes lesen.
-3. Risikoarme PRs automatisch mergen lassen; stichprobenartig prüfen, _wie_ reviewt wurde.
+1. Jeden PR selbst reviewen (`AFK_AUTO_MERGE=0`) — der Review-Kommentar des Agenten liegt als Vorarbeit an.
+2. Nur lesen, was der Review-Agent mit `VERDICT: HUMAN` flaggt; `MERGE`-Urteile stichprobenartig nachprüfen („review how the AI reviews").
+3. Den Stichproben-Anteil senken, wenn die Urteile über Wochen tragen.
+
+**Aktueller Stand: Stufe 2** (Entscheidung 26.07.26, Matts Modell): vor `main` stehen zwei maschinelle Instanzen — Review-Agent mit frischem Kontext und CI. Der Mensch liest Geflaggtes und Stichproben.
 
 ## Härtung (bei Bedarf)
 
