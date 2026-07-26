@@ -137,4 +137,90 @@ describe('DispositionService — kaskadierende Pflicht-Vorbelegung', () => {
     expect(state.statusOf(ROOT + '/optionalBlock')).toBeNull();
     expect(Object.keys(state.elemente()).length).toBe(0);
   });
+
+  describe('vertiefter "Pflicht vorbelegen"-Lauf (Bestandsreparatur)', () => {
+    it('belegt das Pflicht-Rueckgrat ab Wurzel vor und meldet die Anzahl', () => {
+      const n = disposition.pflichtVorbelegen();
+
+      expect(n).toBe(2);
+      expect(state.statusOf(ROOT + '/beteiligter')?.id).toBe('s1');
+      expect(state.statusOf(ROOT + '/beteiligter/name')?.id).toBe('s1');
+      // Optionales und Auswahl bleiben ohne Anker unangetastet.
+      expect(state.statusOf(ROOT + '/optionalBlock')).toBeNull();
+      expect(state.statusOf(ROOT + '/optionalBlock/pflichtImOptional')).toBeNull();
+      expect(state.statusOf(ROOT + '/_auswahl/varianteA/varPflicht')).toBeNull();
+    });
+
+    it('steigt in bereits aufgenommene optionale Teilbaeume ab (Bestandsprofil ohne Kaskade)', () => {
+      // Bestandsprofil: Status vor Einfuehrung der Kaskade direkt gesetzt.
+      state.setElementProfile(ROOT + '/optionalBlock', { status: 's2' });
+
+      const n = disposition.pflichtVorbelegen();
+
+      // Wurzel-Rueckgrat (2) + stummes Pflichtkind unter dem Anker (1).
+      expect(n).toBe(3);
+      expect(state.statusOf(ROOT + '/optionalBlock/pflichtImOptional')?.id).toBe('s1');
+      // Der Anker behaelt seine Disposition; Optionales darunter bleibt stumm.
+      expect(state.statusOf(ROOT + '/optionalBlock')?.id).toBe('s2');
+      expect(state.statusOf(ROOT + '/optionalBlock/tiefOptional')).toBeNull();
+      expect(state.statusOf(ROOT + '/optionalBlock/tiefOptional/tiefPflicht')).toBeNull();
+    });
+
+    it('steigt in zugelassene Auswahl-Zweige ab', () => {
+      state.setElementProfile(ROOT + '/_auswahl/varianteA', { status: 's1' });
+
+      const n = disposition.pflichtVorbelegen();
+
+      expect(n).toBe(3);
+      expect(state.statusOf(ROOT + '/_auswahl/varianteA/varPflicht')?.id).toBe('s1');
+      // Optionales im Zweig und der andere Zweig bleiben unangetastet.
+      expect(state.statusOf(ROOT + '/_auswahl/varianteA/varOptional')).toBeNull();
+      expect(state.statusOf(ROOT + '/_auswahl/varianteB')).toBeNull();
+    });
+
+    it('steigt in Auspraegungen ab (Pfadraum @auspId)', () => {
+      const auspId = state.addAusp(ROOT + '/beteiligter', 'Notar');
+      const auspPath = ROOT + '/beteiligter@' + auspId;
+
+      const n = disposition.pflichtVorbelegen();
+
+      expect(n).toBe(3);
+      expect(state.statusOf(auspPath + '/name')?.id).toBe('s1');
+      expect(state.statusOf(auspPath + '/optionalFeld')).toBeNull();
+    });
+
+    it('ueberschreibt vorhandene Status nie und zaehlt nur neu Gesetztes', () => {
+      state.setElementProfile(ROOT + '/beteiligter/name', { status: 's4' });
+      state.setElementProfile(ROOT + '/optionalBlock', { status: 's1' });
+
+      const n = disposition.pflichtVorbelegen();
+
+      // beteiligter (Wurzel-Rueckgrat) + pflichtImOptional (Anker) — die
+      // bewusste Abweichung auf "name" bleibt bestehen.
+      expect(n).toBe(2);
+      expect(state.statusOf(ROOT + '/beteiligter/name')?.id).toBe('s4');
+    });
+
+    it('ist idempotent — der zweite Lauf meldet 0', () => {
+      state.setElementProfile(ROOT + '/optionalBlock', { status: 's2' });
+      state.addAusp(ROOT + '/beteiligter', 'Notar');
+
+      const n1 = disposition.pflichtVorbelegen();
+      const n2 = disposition.pflichtVorbelegen();
+
+      expect(n1).toBeGreaterThan(0);
+      expect(n2).toBe(0);
+    });
+
+    it('steigt aus "zu klaeren"- und "nicht verwendet"-Ankern nicht ab', () => {
+      state.setElementProfile(ROOT + '/optionalBlock', { status: 's4' });
+      state.setElementProfile(ROOT + '/_auswahl/varianteA', { status: 's3' });
+
+      const n = disposition.pflichtVorbelegen();
+
+      expect(n).toBe(2);
+      expect(state.statusOf(ROOT + '/optionalBlock/pflichtImOptional')).toBeNull();
+      expect(state.statusOf(ROOT + '/_auswahl/varianteA/varPflicht')).toBeNull();
+    });
+  });
 });
