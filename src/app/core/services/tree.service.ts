@@ -326,8 +326,9 @@ export class TreeService {
       for (const c of n.children ?? []) {
         if (c.synthetic) {
           // Gruppen selbst nicht markieren. Eine choice bricht das Rueckgrat
-          // (Alternativen sind frei), eine optionale Gruppe (min=0) ebenso.
-          if (c.model === 'choice' || c.min === '0') continue;
+          // (Alternativen sind frei — auch Gruppen-Alternativen einer Auswahl),
+          // eine optionale Gruppe (min=0) ebenso.
+          if (c.model === 'choice' || c.min === '0' || c.inChoice) continue;
           rec(c, depth + 1);
           continue;
         }

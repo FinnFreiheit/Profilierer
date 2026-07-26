@@ -10,6 +10,7 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `XsdParserService`             | XSD parsen/indexieren, Codelisten-/Typ-Auflösung                                                                      |
 | `TreeService`                  | Element-Baum lazy aufbauen, Ausprägungs-Kontexte, Flatten für Diff                                                    |
 | `NavService`                   | Nachricht laden, Auf-/Zuklappen, Auswahl, Pfeiltasten, Sprünge                                                        |
+| `DispositionService`           | Zentrale Statusänderung mit kaskadierender Pflicht-Vorbelegung                                                        |
 | `ValueService`                 | Codelisten-Werte + typgerechte Beispiel-/Platzhalterwerte                                                             |
 | `CodelistService`              | Genericode-Parsing, ZIP-/Datei-Import, XRepository, Cache                                                             |
 | `ExportService`                | Schematron-, Beispiel-XML-Export, Druckzeilen (+ Guard für offene Entscheidungen)                                     |
@@ -57,6 +58,10 @@ Baut den Element-Baum lazy. `expandNode` mutiert `node.children` (Cache-Baum, be
 ## NavService
 
 `loadMessage` (Z.1732, berechnet bei geladener Vergleichsversion die Diff-Karte neu und erhält die Schema-Ansicht), `openSchemaView` (US „Schema ansehen": Editor ohne Profilierung), `prefillMandatoryStatus`, `expandAllTree/collapseTree`, `findItemByPath/findChainByPath/openAncestors/openPathTo`, `selectItem` (+ Scroll-Anforderung), `jumpTo`, `arrowNavigate(key)` (Pfeiltasten, Z.2443). Getestet in `nav.service.spec.ts`.
+
+## DispositionService
+
+Zentrale Statusänderung (`setzeStatus(path, statusId)`): Erhält ein Element eine **aufnehmende** Disposition (Wirkung `pflicht` oder `optional`), wird das lokale Pflicht-Rückgrat darunter automatisch als „zwingend" vorbelegt — echte Profildaten, sichtbar, überschreibbar (US „Pflicht-Vorbelegung kaskadiert"). Wirkt in allen drei Strukturkontexten (optionale Elemente, zugelassene Auswahl-Zweige, Ausprägungs-Kontexte `…@auspId/…`), überschreibt nie vorhandene Kind-Status und löst die Zielstufe über die Wirkung `pflicht` auf (umbenannte Stufen greifen). `markierung`/`ausgeschlossen` und das Entfernen des Status kaskadieren nicht. Alle Bedienwege der Disposition (Detailpanel-`setStatus`, Tastatur z/o via `GuidedService.setzeDisposition`) laufen hier durch; die Rückgrat-Sammlung teilt sich der Service mit der Wurzel-Vorbelegung (`TreeService.collectMandatoryPaths`). Getestet in `disposition.service.spec.ts`.
 
 ## ValueService
 
