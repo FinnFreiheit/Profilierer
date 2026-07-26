@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { TreeItem, TreeNode as TNode, itemPath } from '../../models/node.model';
 import { StateService } from '../../core/services/state.service';
 import { TreeService } from '../../core/services/tree.service';
@@ -10,6 +10,7 @@ import { XsdParserService } from '../../core/services/xsd-parser.service';
 import { ToastService } from '../../core/services/toast.service';
 import { pretty, kardText } from '../../core/util/pretty.util';
 import { REF_LABELS, refKindOf } from '../../core/refs';
+import { TreeContextMenu } from './tree-context-menu';
 
 interface Tag {
   cls: string;
@@ -30,7 +31,7 @@ interface Tag {
   selector: 'app-tree-node',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'ntree' },
-  imports: [TreeNode],
+  imports: [TreeNode, TreeContextMenu],
   templateUrl: './tree-node.html',
 })
 export class TreeNode {
@@ -465,6 +466,33 @@ export class TreeNode {
     if (i < 0) return;
     if (confirm('Schema-Erweiterung „' + n.erweiterung.name + '" samt Unterelementen löschen?'))
       this.state.removeErweiterung(n.path.slice(0, i), n.erweiterung.id);
+  }
+
+  // ── Kontextmenue: Teilbaum aus-/einklappen (Rechtsklick) ────────────
+
+  /** Offenes Kontextmenue dieses Kastens (Mausposition), sonst null. */
+  protected readonly menu = signal<{ x: number; y: number } | null>(null);
+
+  /**
+   * Rechtsklick auf den Kasten: Menue nur an aufklappbaren Knoten — auf
+   * Blaettern kein preventDefault, dort bleibt das native Browser-Menue.
+   * Selektiert nicht (Auswahl und Detailpanel bleiben unveraendert).
+   */
+  protected onContextMenu(e: MouseEvent): void {
+    if (!this.tree.itemHasKids(this.item())) return;
+    e.preventDefault();
+    this.menu.set({ x: e.clientX, y: e.clientY });
+  }
+
+  protected onMenuAusklappen(): void {
+    this.menu.set(null);
+    if (!this.nav.expandSubtree(this.item()))
+      this.toast.show('Teilbaum zu groß — nur teilweise ausgeklappt');
+  }
+
+  protected onMenuEinklappen(): void {
+    this.menu.set(null);
+    this.state.closeDescendants(this.path());
   }
 
   /** Sprung zum festgelegten Verweisziel (wie refJump im Detailpanel). */

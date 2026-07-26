@@ -88,6 +88,32 @@ export class NavService {
     this.state.open.set(next);
   }
 
+  /**
+   * Klappt den kompletten Teilbaum ab einem Item auf (Knoten selbst inklusive)
+   * — Kontextmenue "Alle Kinder ausklappen". Walk wie expandAllTree (Kinder
+   * entstehen lazy, daher kein Prefix-Ansatz), Schutzgrenzen wie im Bestand.
+   * Ein Signal-Set (ein Redraw). Gibt false zurueck, wenn wegen der Grenzen
+   * (Tiefe > 25 oder > 5000 Knoten) nur teilweise ausgeklappt wurde.
+   */
+  expandSubtree(start: TreeItem): boolean {
+    const next = new Set(this.state.open());
+    let count = 0;
+    let vollstaendig = true;
+    const rec = (it: TreeItem, depth: number): void => {
+      if (!this.tree.itemHasKids(it)) return;
+      if (depth > 25 || count > 5000) {
+        vollstaendig = false;
+        return;
+      }
+      next.add(itemPath(it));
+      count++;
+      for (const c of this.tree.childItems(it)) rec(c, depth + 1);
+    };
+    rec(start, 0);
+    this.state.open.set(next);
+    return vollstaendig;
+  }
+
   /** collapseTree (Z.1448-1451): nur die Wurzel offen lassen. */
   collapseTree(): void {
     const root = this.state.root();

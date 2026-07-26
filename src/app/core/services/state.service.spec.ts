@@ -239,6 +239,31 @@ describe('StateService', () => {
       s.toggleOpen('m/a');
       expect(s.isOpen('m/a')).toBeFalse();
     });
+
+    it('closeDescendants entfernt Nachfahren, der Knoten selbst bleibt offen', () => {
+      s.open.set(new Set(['m', 'm/a', 'm/a/b', 'm/a/b/c', 'm/ab', 'm/x']));
+      s.closeDescendants('m/a');
+      expect([...s.open()].sort()).toEqual(['m', 'm/a', 'm/ab', 'm/x']);
+    });
+
+    it('closeDescendants erfasst Auspraegungspfade (@) mit', () => {
+      s.open.set(new Set(['m', 'm/a', 'm/a@a1', 'm/a@a1/k', 'm/a/b@a2']));
+      s.closeDescendants('m/a');
+      expect([...s.open()].sort()).toEqual(['m', 'm/a']);
+    });
+
+    it('closeDescendants unter einer Auspraegung schliesst nur deren Teilbaum', () => {
+      s.open.set(new Set(['m', 'm/a', 'm/a@a1', 'm/a@a1/k', 'm/a@a2', 'm/a@a2/k']));
+      s.closeDescendants('m/a@a1');
+      expect([...s.open()].sort()).toEqual(['m', 'm/a', 'm/a@a1', 'm/a@a2', 'm/a@a2/k']);
+    });
+
+    it('closeDescendants ohne betroffene Pfade laesst das Set-Objekt unveraendert', () => {
+      s.open.set(new Set(['m', 'm/a']));
+      const before = s.open();
+      s.closeDescendants('m/a');
+      expect(s.open()).toBe(before);
+    });
   });
 
   describe('Zwingend-Vorbelegung', () => {
