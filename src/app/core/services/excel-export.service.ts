@@ -146,7 +146,10 @@ export class ExcelExportService {
       if (!this.tree.isLeaf(n)) this.tree.expandNode(n);
       const p = this.state.elemente()[n.path] ?? {};
       const k = this.state.effKard(n);
-      const status = this.statusText(n.path, p);
+      // Vererbter Ausschluss wie im Druck: Zeile bleibt (Strukturreferenz),
+      // Szenariospalte "entfällt", gespeicherte Festlegungen unterdrueckt.
+      const inh = this.state.inheritedExcluded(n.path);
+      const status = inh ? 'entfällt' : this.statusText(n.path, p);
       zeilen.push({
         art: 'el',
         tiefe,
@@ -160,7 +163,7 @@ export class ExcelExportService {
             : n.typeName || (n.model === 'choice' ? '[choice]' : ''),
         anzahl: kurzKard(n.min, n.max) + (k.changed ? '\n' + kurzKard(k.min, k.max) : ''),
         status,
-        testdaten: p.beispiel || '',
+        testdaten: (!inh && p.beispiel) || '',
         hinweis: (!p.hinweisErledigt && p.hinweis) || '',
       });
       if (n.doc) zeilen.push({ art: 'desc', tiefe, text: n.doc, status: status ? '.' : '' });
@@ -170,14 +173,15 @@ export class ExcelExportService {
         for (const a of ausps) {
           const cn = this.tree.ctxNode(n, a.id);
           const ap = this.state.elemente()[cn.path] ?? {};
+          const auspInh = this.state.inheritedExcluded(cn.path);
           zeilen.push({
             art: 'el',
             tiefe: tiefe + 1,
             text: `${n.name} (${a.name})`,
             typ: n.typeName || '',
             anzahl: kurzKard(ap.min || '1', ap.max || '1'),
-            status: this.statusText(cn.path, ap),
-            testdaten: ap.beispiel || '',
+            status: auspInh ? 'entfällt' : this.statusText(cn.path, ap),
+            testdaten: (!auspInh && ap.beispiel) || '',
             hinweis: (!ap.hinweisErledigt && ap.hinweis) || '',
           });
           this.sammleZeilen(this.tree.kinder(cn), tiefe + 2, zeilen, undefined, maxTiefe);

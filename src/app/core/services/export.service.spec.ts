@@ -122,6 +122,14 @@ describe('ExportService (Schematron)', () => {
     expect(sch()).toContain('<sch:assert test="xj:az">');
   });
 
+  it('emittiert nichts aus ausgeschlossenen Teilbaeumen (schlummernder Status, Regression)', () => {
+    state.setElementProfile(`${M}/versionskopf`, { status: 's3' });
+    state.setElementProfile(`${M}/versionskopf/titel`, { status: 's1', anmerkung: 'schlummert' });
+    svc.exportSchematron();
+    expect(sch()).not.toContain('xj:titel');
+    expect(sch()).not.toContain('schlummert');
+  });
+
   it('interne Hinweise tauchen weder im Schematron noch im Beispiel-XML auf', () => {
     state.setElementProfile(`${M}/az`, { status: 's1', hinweis: 'INTERN-GEHEIM' });
     svc.exportSchematron();
@@ -143,6 +151,14 @@ describe('ExportService (Schematron)', () => {
       expect(svc.buildBeispielXml()).toContain('<az>4711</az>');
       state.setElementProfile(`${M}/az`, { status: 's3', beispiel: undefined });
       expect(svc.buildBeispielXml()).not.toContain('<az>');
+    });
+
+    it('emittiert nichts aus ausgeschlossenen Teilbaeumen (schlummernder Status, Regression)', () => {
+      state.setElementProfile(`${M}/versionskopf`, { status: 's3' });
+      state.setElementProfile(`${M}/versionskopf/titel`, { status: 's1', beispiel: 'SCHLUMMER' });
+      const xml = svc.buildBeispielXml()!;
+      expect(xml).not.toContain('<versionskopf');
+      expect(xml).not.toContain('SCHLUMMER');
     });
 
     it('liefert null ohne geladene Nachricht', () => {

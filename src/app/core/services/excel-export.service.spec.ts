@@ -144,6 +144,38 @@ describe('ExcelExportService (NGem-Layout)', () => {
     expect(ws2.getCell(beschrZeile, colStatus).value).toBe('.');
   });
 
+  it('unter Ausschluss: Zeile bleibt, Szenariospalte "entfällt", Status/Anmerkung/Testdaten unterdrueckt', async () => {
+    state.setElementProfile(`${M2}/fachdaten`, { status: 's3' });
+    state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, {
+      status: 's1',
+      anmerkung: 'Wert 001',
+      beispiel: '12345/2026',
+    });
+    const wb = await exportiert();
+    const haupt = inhalt(wb, 'Notar an Gemeinde');
+    expect(haupt).toContain('aktenzeichen'); // Strukturreferenz bleibt vollstaendig
+    expect(haupt).toContain('nicht verwendet'); // eigener Status des Elternteils
+    expect(haupt).toContain('entfällt');
+    expect(haupt).not.toContain('zwingend'); // schlummernder Status unterdrueckt
+    expect(haupt).not.toContain('Wert 001');
+    expect(haupt).not.toContain('12345/2026');
+  });
+
+  it('unter Ausschluss: auch Ausprägungs-Blöcke zeigen "entfällt" statt gespeicherter Status', async () => {
+    state.setElementProfile(`${M2}/fachdaten`, { status: 's3' });
+    const id = state.addAusp(`${M2}/fachdaten/aktenzeichen`, 'Fall A');
+    state.setElementProfile(`${M2}/fachdaten/aktenzeichen@${id}`, {
+      status: 's1',
+      beispiel: '99999/2026',
+    });
+    const wb = await exportiert();
+    const haupt = inhalt(wb, 'Notar an Gemeinde');
+    expect(haupt).toContain('aktenzeichen (Fall A)'); // Block bleibt als Strukturreferenz
+    expect(haupt).toContain('entfällt');
+    expect(haupt).not.toContain('zwingend');
+    expect(haupt).not.toContain('99999/2026');
+  });
+
   it('Schema-Erweiterungen erscheinen mit [Erweiterung]-Typ in der Struktur', async () => {
     const id = state.addErweiterung(`${M2}/fachdaten`, {
       name: 'zusatzAngabe',
