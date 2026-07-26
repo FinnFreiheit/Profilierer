@@ -307,14 +307,18 @@ export class TreeService {
 
   /**
    * Sammelt die Pfade aller *unbedingten* Pflichtelemente entlang des
-   * Pflicht-Rueckgrats — fuer die Zwingend-Vorbelegung beim Anlegen einer
-   * Profilierung. Ein Element zaehlt nur, wenn es selbst `min>=1` ist UND alle
-   * Vorfahren ebenfalls unbedingt Pflicht sind (keine optionalen Zwischeneltern,
+   * Pflicht-Rueckgrats unterhalb eines beliebigen Teilbaum-Ankers — fuer die
+   * Zwingend-Vorbelegung (beim Anlegen einer Profilierung ist der Anker die
+   * Wurzel; Kaskade/Reparatur setzen mitten im Baum an, auch auf Auswahl-
+   * Zweigen und Auspraegungs-Kontextknoten aus `ctxNode`, Pfadraum `…@auspId/…`).
+   * Ein Element zaehlt nur, wenn es selbst `min>=1` ist UND alle Vorfahren bis
+   * zum Anker ebenfalls unbedingt Pflicht sind (keine optionalen Zwischeneltern,
    * keine choice-Alternativen). Der Walk steigt daher nur in den Pflicht-Ast ab
    * (kein Voll-Expandieren des Baums) und nutzt dieselben Schutzgrenzen wie
-   * `flattenSchema` (Tiefe, Rekursion). Der Wurzelknoten selbst wird ausgelassen.
+   * `flattenSchema` (Tiefe, Rekursion). Der Anker selbst wird ausgelassen —
+   * seine eigene Kardinalitaet/Disposition spielt keine Rolle.
    */
-  collectMandatoryPaths(root: TreeNode): string[] {
+  collectMandatoryPaths(anker: TreeNode): string[] {
     const out: string[] = [];
     const rec = (n: TreeNode, depth: number): void => {
       if (depth > 25) return;
@@ -333,7 +337,7 @@ export class TreeService {
         if (!c.recursive) rec(c, depth + 1);
       }
     };
-    rec(root, 0);
+    rec(anker, 0);
     return out;
   }
 

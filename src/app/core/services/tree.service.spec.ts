@@ -28,7 +28,7 @@ const XSD_MAND = `<?xml version="1.0" encoding="UTF-8"?>
       <xs:element name="beteiligter" type="Type.Test.Bet"/>
       <xs:element name="optionalBlock" type="Type.Test.Opt" minOccurs="0"/>
       <xs:choice>
-        <xs:element name="varianteA" type="xs:string"/>
+        <xs:element name="varianteA" type="Type.Test.VarA"/>
         <xs:element name="varianteB" type="xs:string"/>
       </xs:choice>
     </xs:sequence>
@@ -41,6 +41,12 @@ const XSD_MAND = `<?xml version="1.0" encoding="UTF-8"?>
   </xs:complexType>
   <xs:complexType name="Type.Test.Opt">
     <xs:sequence><xs:element name="pflichtImOptional" type="xs:string"/></xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Type.Test.VarA">
+    <xs:sequence>
+      <xs:element name="varPflicht" type="xs:string"/>
+      <xs:element name="varOptional" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
   </xs:complexType>
 </xs:schema>`;
 
@@ -109,6 +115,51 @@ describe('TreeService', () => {
     expect(paths.some((p) => p.includes('variante'))).toBeFalse();
     // Der Wurzelknoten selbst ist nicht enthalten.
     expect(paths).not.toContain('nachricht.test.0001');
+  });
+
+  describe('collectMandatoryPaths ab Teilbaum-Anker', () => {
+    let mandIdx: XsdIndex;
+
+    beforeEach(() => {
+      const parser = TestBed.inject(XsdParserService);
+      const dom = new DOMParser().parseFromString(XSD_MAND, 'application/xml');
+      mandIdx = parser.buildIndexFrom([{ file: 'xjustiz_0000_mand.xsd', dom }]).idx;
+    });
+
+    it('sammelt ab einem Anker mitten im Baum (optionaler Zwischenelternteil)', () => {
+      const root = tree.buildRoot('nachricht.test.0001', mandIdx);
+      const anker = tree.kinder(root).find((k) => k.name === 'optionalBlock')!;
+
+      const paths = tree.collectMandatoryPaths(anker);
+
+      // Unterhalb des Ankers zaehlt das lokale Pflicht-Rueckgrat — der
+      // (optionale) Anker selbst ist nicht enthalten.
+      expect(paths).toEqual(['nachricht.test.0001/optionalBlock/pflichtImOptional']);
+    });
+
+    it('sammelt ab einem Auspraegungs-Kontextknoten im Pfadraum @auspId', () => {
+      const root = tree.buildRoot('nachricht.test.0001', mandIdx);
+      const bet = tree.kinder(root).find((k) => k.name === 'beteiligter')!;
+      const auspId = state.addAusp(bet.path, 'Notar');
+      const anker = tree.ctxNode(bet, auspId);
+
+      const paths = tree.collectMandatoryPaths(anker);
+
+      // Pflichtkind im Auspraegungs-Pfadraum; optionale Kinder bleiben aussen vor.
+      expect(paths).toEqual(['nachricht.test.0001/beteiligter@' + auspId + '/name']);
+    });
+
+    it('sammelt ab einem Anker auf einem Auswahl-Zweig dessen lokales Rueckgrat', () => {
+      const root = tree.buildRoot('nachricht.test.0001', mandIdx);
+      const auswahl = tree.kinder(root).find((k) => k.name === '(Auswahl)')!;
+      const anker = tree.kinder(auswahl).find((k) => k.name === 'varianteA')!;
+      expect(anker.inChoice).toBeTrue();
+
+      const paths = tree.collectMandatoryPaths(anker);
+
+      // Der Zweig selbst ist frei gewaehlt — unterhalb zaehlt sein Pflicht-Rueckgrat.
+      expect(paths).toEqual(['nachricht.test.0001/_auswahl/varianteA/varPflicht']);
+    });
   });
 
   describe('Schema-Erweiterungen', () => {
