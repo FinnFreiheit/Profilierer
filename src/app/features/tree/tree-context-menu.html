@@ -1,0 +1,10 @@
+<div
+  class="ctxMenu"
+  role="menu"
+  [style.left.px]="pos()?.left ?? x()"
+  [style.top.px]="pos()?.top ?? y()"
+  [style.visibility]="pos() ? 'visible' : 'hidden'"
+>
+  <button type="button" role="menuitem" (click)="ausklappen.emit()">Alle Kinder ausklappen</button>
+  <button type="button" role="menuitem" (click)="einklappen.emit()">Alle Kinder einklappen</button>
+</div>

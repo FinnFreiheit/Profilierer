@@ -3,7 +3,7 @@ import { NavService } from './nav.service';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { DiffService } from './diff.service';
-import { TreeNode } from '../../models/node.model';
+import { TreeItem, TreeNode, itemPath } from '../../models/node.model';
 import { XsdIndex } from '../../models/xsd-index.model';
 
 function node(path: string, over: Partial<TreeNode> = {}): TreeNode {
@@ -75,6 +75,69 @@ describe('NavService — Schema-Ansicht (US "Schema ansehen")', () => {
     state.resetProfile();
     expect(state.schemaView()).toBeFalse();
     expect(state.readOnly()).toBeFalse();
+  });
+});
+
+/** Baum-Attrappe: Kind-Pfade je Pfad, Items lazy erzeugt (wie childItems). */
+function mockTree(children: Record<string, string[]>): Partial<TreeService> {
+  const itemFor = (p: string): TreeItem => ({ kind: 'el', node: node(p) });
+  return {
+    childItems: (it: TreeItem) => (children[itemPath(it)] ?? []).map(itemFor),
+    itemHasKids: (it: TreeItem) => (children[itemPath(it)] ?? []).length > 0,
+  };
+}
+
+describe('NavService — expandSubtree (Kontextmenue "Alle Kinder ausklappen")', () => {
+  function setup(children: Record<string, string[]>): { nav: NavService; state: StateService } {
+    TestBed.configureTestingModule({
+      providers: [{ provide: TreeService, useValue: mockTree(children) }],
+    });
+    return { nav: TestBed.inject(NavService), state: TestBed.inject(StateService) };
+  }
+
+  it('oeffnet den kompletten Teilbaum ab dem Item (Knoten selbst inklusive)', () => {
+    const { nav, state } = setup({
+      m: ['m/a', 'm/x'],
+      'm/a': ['m/a/b', 'm/a/c'],
+      'm/a/b': ['m/a/b/d'],
+    });
+    state.open.set(new Set(['m']));
+    const vollstaendig = nav.expandSubtree({ kind: 'el', node: node('m/a') });
+    expect(vollstaendig).toBeTrue();
+    // Blaetter (m/a/c, m/a/b/d) und fremde Aeste (m/x) landen nicht in open.
+    expect([...state.open()].sort()).toEqual(['m', 'm/a', 'm/a/b']);
+  });
+
+  it('bricht bei Tiefe > 25 ab und meldet den Abbruch', () => {
+    const children: Record<string, string[]> = {};
+    for (let i = 0; i < 30; i++) children['n' + i] = ['n' + (i + 1)];
+    const { nav, state } = setup(children);
+    state.open.set(new Set());
+    const vollstaendig = nav.expandSubtree({ kind: 'el', node: node('n0') });
+    expect(vollstaendig).toBeFalse();
+    expect(state.isOpen('n0')).toBeTrue();
+    expect(state.isOpen('n29')).toBeFalse();
+  });
+
+  it('bricht bei mehr als 5000 Knoten ab und meldet den Abbruch', () => {
+    const children: Record<string, string[]> = { w: [] };
+    for (let i = 0; i < 6000; i++) {
+      children['w']!.push('w/k' + i);
+      children['w/k' + i] = ['w/k' + i + '/blatt'];
+    }
+    const { nav, state } = setup(children);
+    state.open.set(new Set());
+    const vollstaendig = nav.expandSubtree({ kind: 'el', node: node('w') });
+    expect(vollstaendig).toBeFalse();
+    expect(state.open().size).toBeGreaterThan(5000);
+    expect(state.open().size).toBeLessThan(6001);
+  });
+
+  it('setzt das open-Set genau einmal (ein Redraw)', () => {
+    const { nav, state } = setup({ m: ['m/a'], 'm/a': ['m/a/b'], 'm/a/b': ['m/a/b/c'] });
+    const spy = spyOn(state.open, 'set').and.callThrough();
+    nav.expandSubtree({ kind: 'el', node: node('m') });
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });
 

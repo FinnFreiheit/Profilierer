@@ -487,6 +487,24 @@ export class StateService {
   }
 
   /**
+   * Klappt den Teilbaum unter einem Knoten zu: alle Nachfahren-Pfade (Kinder
+   * `/` und Auspraegungen `@`) fliegen aus `open`, der Knoten selbst bleibt
+   * offen — direkte Kinder sichtbar, deren Teilbaeume zu. Ein Signal-Set
+   * (Kontextmenue "Alle Kinder einklappen").
+   */
+  closeDescendants(path: string): void {
+    this.open.update((s) => {
+      let next: Set<string> | null = null;
+      for (const p of s)
+        if (p.startsWith(path + '/') || p.startsWith(path + '@')) {
+          next ??= new Set(s);
+          next.delete(p);
+        }
+      return next ?? s;
+    });
+  }
+
+  /**
    * Klappt alle Äste auf, die im "nur Werte"-Modus sichtbar bleiben (jeder Wert
    * samt seiner Vorfahren). Sonst wirkt der Filter nur innerhalb bereits
    * geöffneter Äste; so wird die belegte Nachricht in einem Schritt aufgedeckt.

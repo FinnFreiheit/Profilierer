@@ -1431,6 +1431,38 @@ dialog::backdrop {
   opacity: 1;
 }
 
+/* Kontextmenue am Baumknoten (Teilbaum aus-/einklappen). Der Host liegt im
+   .ntree-Flusskontext — display: contents haelt ihn aus der vom TreeCanvas
+   vermessenen Geometrie heraus; das Menue selbst ist fix am Viewport. */
+app-tree-context-menu {
+  display: contents;
+}
+.ctxMenu {
+  position: fixed;
+  z-index: 100;
+  min-width: 190px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(28, 39, 51, 0.18);
+  display: flex;
+  flex-direction: column;
+}
+.ctxMenu button {
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.ctxMenu button:hover {
+  background: var(--accent-soft);
+}
+
 /* Druckansicht */
 #printDoc {
   display: none;
