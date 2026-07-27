@@ -1351,6 +1351,33 @@ app-dashboard {
   color: var(--muted);
 }
 
+/* Abnahme durch die BLK-AG: Siegel-Badge, Warnvariante, Rollen-Badge/Filter. */
+.pillAbn {
+  background: #ddf3e4;
+  color: #17693c;
+}
+.pillAbnWarn {
+  background: #fdeecd;
+  color: #9a6a00;
+}
+.rolleBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.rolleFehler {
+  color: #b3261e;
+  font-size: 13px;
+}
+.abnFilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
 dialog {
   border: 1px solid var(--border);
   border-radius: 10px;

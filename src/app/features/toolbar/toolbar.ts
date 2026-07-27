@@ -49,6 +49,19 @@ export class Toolbar {
   /** Reine Schema-Ansicht (US "Schema ansehen"): nur betrachten und suchen. */
   protected readonly isSchemaView = this.state.schemaView;
 
+  /**
+   * Abnahme-Badge im Editor-Kopf: Kennzeichen des geoeffneten Bibliotheks-
+   * eintrags, Warnvariante bei "geaendert seit Abnahme" (der Entry wird nach
+   * jedem Autosave vom Server aktualisiert).
+   */
+  protected readonly abnahme = computed(() => {
+    const id = this.state.activeProfileId();
+    if (!id) return null;
+    const e = this.store.entries().find((x) => x.id === id);
+    if (!e?.abgenommen) return null;
+    return { warn: !!e.geaendertSeitAbnahme, kommentar: e.abnahmeKommentar };
+  });
+
   protected readonly fortschrittText = computed(() => {
     // Gefuehrter Modus: verbleibende echte Entscheidungen statt Festlegungs-Summe.
     if (this.state.guided() && this.hasRoot()) {

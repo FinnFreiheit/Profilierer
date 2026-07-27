@@ -39,6 +39,13 @@ export interface TestmessageEntry {
   fortschritt?: TestmessageFortschritt;
   /** Es liegt ein gespeicherter Entscheidungsstand vor (gefuehrt fortsetzbar). */
   gefuehrt?: boolean;
+  /** Von der BLK-AG abgenommen (eingefrorene XML-Fassung existiert). */
+  abgenommen?: boolean;
+  /** ms-Timestamp der Abnahme. */
+  abnahmeZeit?: number;
+  abnahmeKommentar?: string;
+  /** Aktuelle XML weicht von der eingefrorenen Abnahme-Fassung ab (Warn-Badge). */
+  geaendertSeitAbnahme?: boolean;
 }
 
 /**

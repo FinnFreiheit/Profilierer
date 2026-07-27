@@ -17,6 +17,8 @@ import { TestmessageCreateService } from '../../core/services/testmessage-create
 import { DownloadService } from '../../core/services/download.service';
 import { XmlValidationService } from '../../core/services/xml-validation.service';
 import { ValidationReportService } from '../../core/services/validation-report.service';
+import { RolleService } from '../../core/services/rolle.service';
+import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { LibraryEntry } from '../../models/profile.model';
 import { MessageRef } from '../../models/xsd-index.model';
@@ -40,11 +42,13 @@ interface Gruppe {
 @Component({
   selector: 'app-testdaten',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [RolleBadge],
   templateUrl: './testdaten.html',
 })
 export class Testdaten {
   protected readonly store = inject(TestmessageStoreService);
   protected readonly state = inject(StateService);
+  protected readonly rolle = inject(RolleService);
   private readonly toast = inject(ToastService);
   private readonly instanceImport = inject(InstanceImportService);
   private readonly profiles = inject(ProfileStoreService);
@@ -55,11 +59,15 @@ export class Testdaten {
   private readonly report = inject(ValidationReportService);
 
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
+  private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
   private readonly editDlg = viewChild.required<ElementRef<HTMLDialogElement>>('editDlg');
   private readonly genDlg = viewChild.required<ElementRef<HTMLDialogElement>>('genDlg');
   private readonly createDlg = viewChild.required<ElementRef<HTMLDialogElement>>('createDlg');
 
   protected readonly search = signal('');
+
+  /** Filter "nur abgenommene" (valide Testdaten der BLK-AG schnell finden). */
+  protected readonly nurAbgenommene = signal(false);
 
   /** Laufende Generierung (Profil-id) — sperrt Doppelklicks im Dialog. */
   protected readonly generating = signal<string | null>(null);
@@ -77,7 +85,9 @@ export class Testdaten {
   /** Gefiltert (Suche) und nach Fachmodul → Nachricht gruppiert. */
   protected readonly gruppen = computed<Gruppe[]>(() => {
     const q = this.search().trim().toLowerCase();
-    const list = this.store.entries().filter((e) => this.matches(e, q));
+    const list = this.store
+      .entries()
+      .filter((e) => this.matches(e, q) && (!this.nurAbgenommene() || e.abgenommen));
     const map = new Map<string, TestmessageEntry[]>();
     for (const e of list) {
       const key = e.fachmodul || 'sonstige';
@@ -182,7 +192,9 @@ export class Testdaten {
    * zum Betrachten/Bearbeiten geoeffnet.
    */
   protected async openEntry(e: TestmessageEntry): Promise<void> {
-    if (e.gefuehrt) {
+    // Gefuehrtes Fortsetzen schreibt in den Eintrag — fuer Externe an
+    // abgenommenen Nachrichten gesperrt; sie oeffnen nur betrachtend im Baum.
+    if (e.gefuehrt && !this.gesperrt(e)) {
       try {
         await this.creator.fortsetzen(e);
         return;
@@ -387,10 +399,85 @@ export class Testdaten {
 
   protected remove(e: TestmessageEntry, ev: Event): void {
     ev.stopPropagation();
-    if (confirm(`Testnachricht „${e.name}" wirklich löschen?`))
+    const frage = e.abgenommen
+      ? `Testnachricht „${e.name}" ist von der BLK-AG ABGENOMMEN.\nLöschen entfernt den geschützten Stand samt eingefrorener Fassung unwiderruflich. Wirklich löschen?`
+      : `Testnachricht „${e.name}" wirklich löschen?`;
+    if (confirm(frage))
       void this.store
         .delete(e.id)
         .catch(this.toast.fail('Löschen fehlgeschlagen — Backend nicht erreichbar.'));
+  }
+
+  // ── Abnahme (BLK-AG) ────────────────────────────────────────────────
+
+  protected readonly abnId = signal<string | null>(null);
+  protected readonly abnKommentar = signal('');
+  protected readonly abnEntry = computed(
+    () => this.store.entries().find((e) => e.id === this.abnId()) ?? null,
+  );
+
+  /** Aktionen, die der Server fuer Externe an abgenommenen Objekten abweist. */
+  protected gesperrt(e: TestmessageEntry): boolean {
+    return !!e.abgenommen && !this.rolle.agAktiv();
+  }
+
+  protected openAbnahme(e: TestmessageEntry, ev: Event): void {
+    ev.stopPropagation();
+    this.abnId.set(e.id);
+    this.abnKommentar.set('');
+    this.abnahmeDlg().nativeElement.showModal();
+  }
+
+  protected async abnehmen(): Promise<void> {
+    const id = this.abnId();
+    if (!id) return;
+    try {
+      await this.store.abnehmen(id, this.abnKommentar().trim() || undefined);
+      this.toast.show('Abgenommen — die aktuelle XML-Fassung ist als valide Fassung eingefroren.');
+    } catch {
+      this.toast.show('Abnahme fehlgeschlagen — Backend nicht erreichbar oder Schlüssel ungültig.');
+    }
+    this.abnahmeDlg().nativeElement.close();
+  }
+
+  protected async abnahmeEntfernen(): Promise<void> {
+    const id = this.abnId();
+    if (!id) return;
+    try {
+      await this.store.abnahmeEntfernen(id);
+      this.toast.show('Abnahme-Kennzeichen samt eingefrorener Fassung entfernt.');
+    } catch {
+      this.toast.show(
+        'Kennzeichen konnte nicht entfernt werden — Backend nicht erreichbar oder Schlüssel ungültig.',
+      );
+    }
+    this.abnahmeDlg().nativeElement.close();
+  }
+
+  /** Die eingefrorene abgenommene Fassung herunterladen (valide Fassung). */
+  protected async downloadAbnahme(e: TestmessageEntry, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    try {
+      const xml = await this.store.loadAbnahmeXml(e.id);
+      if (xml == null) {
+        this.toast.show('Keine abgenommene Fassung vorhanden.');
+        return;
+      }
+      const name = (e.name || (e.nachricht ?? 'testnachricht') + '.xml').replace(
+        /\.xml$/i,
+        '.abgenommen.xml',
+      );
+      this.dl.download(name, xml, 'application/xml');
+    } catch {
+      this.toast.show('Download fehlgeschlagen — Backend nicht erreichbar.');
+    }
+  }
+
+  /** Anzeigedatum der Abnahme (fuer Badge-Tooltip und Dialog). */
+  protected abnDatum(e: TestmessageEntry): string {
+    return e.abnahmeZeit
+      ? new Date(e.abnahmeZeit).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })
+      : '';
   }
 
   // ── Anzeige-Helfer ──────────────────────────────────────────────────

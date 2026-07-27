@@ -1,0 +1,45 @@
+<span class="rolleBadge">
+  @if (rolle.agAktiv()) {
+    <span
+      class="pill pillAbn"
+      title="Angemeldet als BLK-AG IT-Standards — Abnehmen und Bearbeiten abgenommener Objekte möglich"
+      >BLK-AG</span
+    >
+    <button
+      title="AG-Rolle ablegen — der Schlüssel wird an diesem Rechner verworfen"
+      (click)="abmelden()"
+    >
+      Abmelden
+    </button>
+  } @else {
+    <button
+      title="Als Mitglied der BLK-AG IT-Standards mit dem gemeinsamen AG-Schlüssel anmelden"
+      (click)="openDlg()"
+    >
+      AG-Anmeldung…
+    </button>
+  }
+</span>
+
+<dialog #dlg id="rolleDlg">
+  <h3 style="margin-top: 0">Anmeldung BLK-AG</h3>
+  <p class="dashSub" style="margin-top: 0">
+    Die AG-Rolle nutzt einen gemeinsamen Schlüssel (keine Konten). Angemeldet können Profilierungen
+    und Testnachrichten abgenommen sowie abgenommene Objekte bearbeitet werden.
+  </p>
+  <input
+    type="password"
+    style="width: 100%; box-sizing: border-box"
+    placeholder="Gemeinsamer AG-Schlüssel"
+    [value]="key()"
+    (input)="key.set($any($event.target).value)"
+    (keydown.enter)="anmelden()"
+  />
+  @if (fehler()) {
+    <p class="rolleFehler">{{ fehler() }}</p>
+  }
+  <div style="text-align: right; margin-top: 12px">
+    <button (click)="dlg.close()">Abbrechen</button>
+    <button class="primary" [disabled]="busy()" (click)="anmelden()">Anmelden</button>
+  </div>
+</dialog>

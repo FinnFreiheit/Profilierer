@@ -24,7 +24,7 @@ cd .. && npm run start:prod     # baut die SPA und startet den Server
 # oder getrennt: npm run build  &&  npm run server
 ```
 
-- **Env:** `XJP_PORT` (Default 3001), `XJP_HOST` (Bind-Adresse, Default alle Interfaces — hinter Reverse-Proxy `127.0.0.1` setzen), `XJP_DB` (Default `server/data/profiles.db`, WAL-Modus).
+- **Env:** `XJP_PORT` (Default 3001), `XJP_HOST` (Bind-Adresse, Default alle Interfaces — hinter Reverse-Proxy `127.0.0.1` setzen), `XJP_DB` (Default `server/data/profiles.db`, WAL-Modus), `XJP_AG_KEY` (gemeinsamer Schlüssel der BLK-AG-Rolle für Abnahmen, [ADR 0012](adr/0012-abnahme-rollenkonzept.md) — leer lassen = keine AG-Rolle, Verhalten wie zuvor; setzt HTTPS am Reverse-Proxy voraus).
 - **Entwicklung:** `npm run dev` startet `ng serve` (Port 4200) und das Backend (3001) parallel; `proxy.conf.json` reicht `/api` und `/xrep-api` an ihre Ziele weiter.
 - **Absicherung:** Einzelnutzer ohne Auth — vor die App gehört ein Reverse-Proxy/internes Netz (TLS, Zugriffsschutz). Alternativ bleiben für Codelisten der CORS-Fallback in `CodelistService.xrepFetch` (mit Nutzer-Zustimmung) und der Datei-Import („Codelisten: Datei…") ohne Netzabruf.
 

@@ -104,8 +104,17 @@ export class VersionsDialog {
       await this.store.deleteVersion(id, v.id);
       this.toast.show(`Version v${v.nr} gelöscht.`);
       await this.ladeListe();
-    } catch {
-      this.toast.show('Version konnte nicht gelöscht werden — Backend nicht erreichbar.');
+    } catch (e) {
+      // Server-Schutz der Abnahme: 409 = referenzierte Abnahme-Version,
+      // 403 = abgenommenes Profil ohne gueltigen AG-Schluessel.
+      const msg = e instanceof Error ? e.message : '';
+      this.toast.show(
+        msg.includes('409')
+          ? 'Abnahme-Version — zuerst das Abnahme-Kennzeichen entfernen.'
+          : msg.includes('403')
+            ? 'Von der BLK-AG abgenommen — Löschen nur mit AG-Schlüssel.'
+            : 'Version konnte nicht gelöscht werden — Backend nicht erreichbar.',
+      );
     } finally {
       this.busy.set(false);
     }

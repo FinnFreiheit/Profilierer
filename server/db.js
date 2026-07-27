@@ -84,6 +84,12 @@ export function openDb(path) {
     if (!cols.has('fortschritt')) db.exec('ALTER TABLE testmessages ADD COLUMN fortschritt TEXT');
     if (!cols.has('entscheidungen'))
       db.exec('ALTER TABLE testmessages ADD COLUMN entscheidungen TEXT');
+    // Leichtgewichtiger Abnahme-Stand (BLK-AG): eingefrorene XML-Fassung,
+    // Zeitstempel, optionaler Kommentar — bewusst ohne Versionsapparat.
+    if (!cols.has('abnahme_xml')) db.exec('ALTER TABLE testmessages ADD COLUMN abnahme_xml TEXT');
+    if (!cols.has('abnahme_ts')) db.exec('ALTER TABLE testmessages ADD COLUMN abnahme_ts INTEGER');
+    if (!cols.has('abnahme_kommentar'))
+      db.exec('ALTER TABLE testmessages ADD COLUMN abnahme_kommentar TEXT');
   }
 
   // Migration: Index-Spalte fuer Schema-Erweiterungen (Dashboard-Badge) nachziehen.
@@ -96,6 +102,20 @@ export function openDb(path) {
     );
     if (!cols.has('n_erw')) db.exec('ALTER TABLE profiles ADD COLUMN n_erw INTEGER');
     if (!cols.has('doc_hash')) db.exec('ALTER TABLE profiles ADD COLUMN doc_hash TEXT');
+    // Abnahme durch die BLK-AG: Referenz auf die eingefrorene Abnahme-Version.
+    if (!cols.has('abnahme_version_id'))
+      db.exec('ALTER TABLE profiles ADD COLUMN abnahme_version_id TEXT');
+  }
+
+  // Migration: Abnahme-Kennzeichen an den Versionen (1 = durch Abnahme entstanden).
+  {
+    const cols = new Set(
+      db
+        .prepare('PRAGMA table_info(profile_versions)')
+        .all()
+        .map((c) => c.name),
+    );
+    if (!cols.has('abnahme')) db.exec('ALTER TABLE profile_versions ADD COLUMN abnahme INTEGER');
   }
 
   // Migration: doc_hash fuer Alt-Bestand nachziehen (Vergleichsbasis der Versionen).
@@ -111,12 +131,16 @@ export function openDb(path) {
 
   const stmt = {
     list: db.prepare(
-      `SELECT id, name, nachricht, xjustiz_version, n_status, n_ausp, n_erw, gespeichert, aktualisiert, doc_hash,
+      `SELECT profiles.id, profiles.name, nachricht, xjustiz_version, n_status, n_ausp, n_erw,
+              gespeichert, aktualisiert, profiles.doc_hash,
               (SELECT COUNT(*) FROM profile_versions v WHERE v.profile_id = profiles.id) AS n_ver,
               (SELECT MAX(nr) FROM profile_versions v WHERE v.profile_id = profiles.id) AS letzte_nr,
               EXISTS(SELECT 1 FROM profile_versions v
-                     WHERE v.profile_id = profiles.id AND v.doc_hash = profiles.doc_hash) AS bekannt
-       FROM profiles ORDER BY aktualisiert DESC`,
+                     WHERE v.profile_id = profiles.id AND v.doc_hash = profiles.doc_hash) AS bekannt,
+              ab.nr AS abn_nr, ab.erstellt AS abn_zeit, ab.kommentar AS abn_kommentar,
+              ab.doc_hash AS abn_hash
+       FROM profiles LEFT JOIN profile_versions ab ON ab.id = profiles.abnahme_version_id
+       ORDER BY aktualisiert DESC`,
     ),
     getDoc: db.prepare('SELECT doc FROM profiles WHERE id = ?'),
     getRow: db.prepare('SELECT doc, doc_hash, aktualisiert FROM profiles WHERE id = ?'),
@@ -137,7 +161,7 @@ export function openDb(path) {
 
     // ── Profil-Versionen (Snapshots) ────────────────────────────────────
     verList: db.prepare(
-      `SELECT id, nr, kommentar, automatisch, erstellt
+      `SELECT id, nr, kommentar, automatisch, abnahme, erstellt
        FROM profile_versions WHERE profile_id = ? ORDER BY nr DESC`,
     ),
     // "bekannt": der uebergebene Stand ist bereits in irgendeiner Version
@@ -151,8 +175,8 @@ export function openDb(path) {
     ),
     verGet: db.prepare('SELECT * FROM profile_versions WHERE id = ? AND profile_id = ?'),
     verInsert: db.prepare(
-      `INSERT INTO profile_versions (id, profile_id, nr, kommentar, automatisch, doc, doc_hash, erstellt)
-       VALUES (@id, @profileId, @nr, @kommentar, @automatisch, @doc, @docHash, @erstellt)`,
+      `INSERT INTO profile_versions (id, profile_id, nr, kommentar, automatisch, abnahme, doc, doc_hash, erstellt)
+       VALUES (@id, @profileId, @nr, @kommentar, @automatisch, @abnahme, @doc, @docHash, @erstellt)`,
     ),
     // Deckel: nur die juengsten AUTO_DECKEL Automatik-Versionen behalten.
     verPrune: db.prepare(
@@ -164,17 +188,30 @@ export function openDb(path) {
     verDel: db.prepare('DELETE FROM profile_versions WHERE id = ? AND profile_id = ?'),
     verDelAll: db.prepare('DELETE FROM profile_versions WHERE profile_id = ?'),
 
+    // ── Abnahme (BLK-AG) ────────────────────────────────────────────────
+    abnGet: db.prepare(
+      `SELECT v.nr, v.kommentar, v.erstellt, v.doc_hash
+       FROM profiles p JOIN profile_versions v ON v.id = p.abnahme_version_id
+       WHERE p.id = ?`,
+    ),
+    abnSet: db.prepare('UPDATE profiles SET abnahme_version_id = ? WHERE id = ?'),
+    abnRef: db.prepare('SELECT abnahme_version_id FROM profiles WHERE id = ?'),
+
     // ── Testnachrichten (zentraler Testdaten-Speicher) ──────────────────
     tmList: db.prepare(
       `SELECT id, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
-              entwurf, fortschritt, (entscheidungen IS NOT NULL) AS gefuehrt
+              entwurf, fortschritt, (entscheidungen IS NOT NULL) AS gefuehrt,
+              abnahme_ts, abnahme_kommentar, (abnahme_xml IS NOT NULL) AS abgenommen,
+              (abnahme_xml IS NOT NULL AND xml != abnahme_xml) AS geaendert_seit_abnahme
        FROM testmessages ORDER BY aktualisiert DESC`,
     ),
     tmGetXml: db.prepare('SELECT xml FROM testmessages WHERE id = ?'),
     tmGetEntscheidungen: db.prepare('SELECT entscheidungen FROM testmessages WHERE id = ?'),
     tmGet: db.prepare(
       `SELECT id, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
-              entwurf, fortschritt, (entscheidungen IS NOT NULL) AS gefuehrt
+              entwurf, fortschritt, (entscheidungen IS NOT NULL) AS gefuehrt,
+              abnahme_ts, abnahme_kommentar, (abnahme_xml IS NOT NULL) AS abgenommen,
+              (abnahme_xml IS NOT NULL AND xml != abnahme_xml) AS geaendert_seit_abnahme
        FROM testmessages WHERE id = ?`,
     ),
     tmGetRow: db.prepare('SELECT * FROM testmessages WHERE id = ?'),
@@ -194,6 +231,15 @@ export function openDb(path) {
        WHERE id = @id`,
     ),
     tmDel: db.prepare('DELETE FROM testmessages WHERE id = ?'),
+    tmAbn: db.prepare('SELECT abnahme_xml FROM testmessages WHERE id = ?'),
+    tmAbnSet: db.prepare(
+      `UPDATE testmessages SET abnahme_xml = xml, abnahme_ts = @ts, abnahme_kommentar = @kommentar
+       WHERE id = @id`,
+    ),
+    tmAbnClear: db.prepare(
+      `UPDATE testmessages SET abnahme_xml = NULL, abnahme_ts = NULL, abnahme_kommentar = NULL
+       WHERE id = ?`,
+    ),
   };
 
   /** Baut die schlanke Index-Zeile (ohne xml/entscheidungen) aus einer DB-Zeile. */
@@ -219,6 +265,10 @@ export function openDb(path) {
       entwurf: !!r.entwurf || undefined,
       fortschritt,
       gefuehrt: !!r.gefuehrt || undefined,
+      abgenommen: !!r.abgenommen || undefined,
+      abnahmeZeit: r.abgenommen ? (r.abnahme_ts ?? undefined) : undefined,
+      abnahmeKommentar: r.abgenommen ? (r.abnahme_kommentar ?? undefined) : undefined,
+      geaendertSeitAbnahme: !!r.geaendert_seit_abnahme || undefined,
     };
   }
 
@@ -234,11 +284,40 @@ export function openDb(path) {
       nVersionen: r.n,
       letzteVersionNr: r.maxNr,
       geaendert: r.bekannt ? undefined : true,
+      ...abnahmeInfo(profileId, aktuellerHash),
+    };
+  }
+
+  /**
+   * Abnahme-Felder des LibraryEntry — abgeleitet aus der referenzierten
+   * Abnahme-Version; "geaendert seit Abnahme" per Hash-Vergleich zwischen
+   * Arbeitsstand und eingefrorenem Stand.
+   */
+  function abnahmeInfo(profileId, aktuellerHash) {
+    const a = stmt.abnGet.get(profileId);
+    if (!a) return {};
+    return {
+      abgenommen: true,
+      abnahmeVersionNr: a.nr,
+      abnahmeZeit: a.erstellt,
+      abnahmeKommentar: a.kommentar ?? undefined,
+      geaendertSeitAbnahme: a.doc_hash === aktuellerHash ? undefined : true,
     };
   }
 
   /** Schreibt Dokument + abgeleitete Index-Spalten; gibt den LibraryEntry zurueck. */
   function upsert(id, doc, aktualisiert) {
+    // Abnahme ist eine Aussage dieser Server-Instanz — etwaige Abnahme-Felder
+    // aus eingelieferten Dokumenten (Import/PUT/POST) werden verworfen, damit
+    // sich niemand Abnahmen ueber Dateien einschleppt.
+    if (doc && typeof doc === 'object') {
+      delete doc.abnahme;
+      delete doc.abgenommen;
+      if (doc.meta && typeof doc.meta === 'object') {
+        delete doc.meta.abnahme;
+        delete doc.meta.abgenommen;
+      }
+    }
     const ts = aktualisiert ?? Date.now();
     const entry = toEntry(id, doc, ts);
     const docStr = JSON.stringify(doc);
@@ -277,6 +356,11 @@ export function openDb(path) {
         nVersionen: r.n_ver || undefined,
         letzteVersionNr: r.letzte_nr ?? undefined,
         geaendert: r.n_ver > 0 && !r.bekannt ? true : undefined,
+        abgenommen: r.abn_nr != null ? true : undefined,
+        abnahmeVersionNr: r.abn_nr ?? undefined,
+        abnahmeZeit: r.abn_zeit ?? undefined,
+        abnahmeKommentar: r.abn_kommentar ?? undefined,
+        geaendertSeitAbnahme: r.abn_nr != null && r.abn_hash !== r.doc_hash ? true : undefined,
       }));
     },
 
@@ -334,6 +418,7 @@ export function openDb(path) {
         nr: r.nr,
         kommentar: r.kommentar ?? undefined,
         automatisch: !!r.automatisch || undefined,
+        abnahme: !!r.abnahme || undefined,
         erstellt: r.erstellt,
       }));
     },
@@ -345,7 +430,7 @@ export function openDb(path) {
      * auf AUTO_DECKEL gedeckelt; manuelle entstehen immer.
      * Gibt null (Profil fehlt), { skipped, entry } oder { version, entry }.
      */
-    versionCreate(profileId, { kommentar, automatisch } = {}, ts) {
+    versionCreate(profileId, { kommentar, automatisch, abnahme } = {}, ts) {
       return db.transaction(() => {
         const row = stmt.getRow.get(profileId);
         if (!row) return null;
@@ -366,6 +451,7 @@ export function openDb(path) {
           nr,
           kommentar: kommentar || null,
           automatisch: automatisch ? 1 : null,
+          abnahme: abnahme ? 1 : null,
           doc: row.doc,
           docHash: row.doc_hash,
           erstellt,
@@ -377,11 +463,55 @@ export function openDb(path) {
             nr,
             kommentar: kommentar || undefined,
             automatisch: automatisch ? true : undefined,
+            abnahme: abnahme ? true : undefined,
             erstellt,
           },
           entry: entry(),
         };
       })();
+    },
+
+    // ── Abnahme (BLK-AG) ────────────────────────────────────────────────
+
+    /** Traegt das Profil das Abnahme-Kennzeichen? (fehlendes Profil: false) */
+    abgenommen(id) {
+      return !!stmt.abnRef.get(id)?.abnahme_version_id;
+    },
+
+    /**
+     * Abnehmen: friert den aktuellen Stand als Abnahme-Version ein (Kennzeichen
+     * `abnahme`, optionaler Kommentar) und setzt die Referenz am Profil.
+     * Neuabnahme erzeugt den naechsten Snapshot und verschiebt die Referenz.
+     * Gibt { version, entry } oder null (Profil fehlt).
+     */
+    abnahmeSetzen(profileId, { kommentar } = {}, ts) {
+      return db.transaction(() => {
+        const out = this.versionCreate(profileId, { kommentar, abnahme: true }, ts);
+        if (!out) return null;
+        stmt.abnSet.run(out.version.id, profileId);
+        const row = stmt.getRow.get(profileId);
+        return {
+          version: out.version,
+          entry: {
+            ...toEntry(profileId, JSON.parse(row.doc), row.aktualisiert),
+            ...versionsInfo(profileId, row.doc_hash),
+          },
+        };
+      })();
+    },
+
+    /**
+     * Kennzeichen entfernen: loescht nur die Referenz, nicht die Version.
+     * Gibt den entry oder null (Profil fehlt).
+     */
+    abnahmeEntfernen(profileId) {
+      const row = stmt.getRow.get(profileId);
+      if (!row) return null;
+      stmt.abnSet.run(null, profileId);
+      return {
+        ...toEntry(profileId, JSON.parse(row.doc), row.aktualisiert),
+        ...versionsInfo(profileId, row.doc_hash),
+      };
     },
 
     /**
@@ -406,8 +536,12 @@ export function openDb(path) {
       })();
     },
 
-    /** Version loeschen. Gibt true, wenn eine Zeile entfernt wurde. */
+    /**
+     * Version loeschen. Die aktuell referenzierte Abnahme-Version ist gesperrt
+     * (erst Kennzeichen entfernen) — dann 'abnahme' statt boolean.
+     */
     versionDelete(profileId, versionId) {
+      if (stmt.abnRef.get(profileId)?.abnahme_version_id === versionId) return 'abnahme';
       return stmt.verDel.run(versionId, profileId).changes > 0;
     },
 
@@ -521,6 +655,35 @@ export function openDb(path) {
     /** Löschen. Gibt true, wenn eine Zeile entfernt wurde. */
     tmDelete(id) {
       return stmt.tmDel.run(id).changes > 0;
+    },
+
+    // ── Abnahme (BLK-AG) ────────────────────────────────────────────────
+
+    /** Traegt die Testnachricht das Abnahme-Kennzeichen? (fehlend: false) */
+    tmAbgenommen(id) {
+      return stmt.tmAbn.get(id)?.abnahme_xml != null;
+    },
+
+    /**
+     * Abnehmen: friert die aktuelle XML-Fassung mit Zeitstempel und optionalem
+     * Kommentar ein; Neuabnahme ersetzt den Abnahme-Stand. Gibt entry oder null.
+     */
+    tmAbnahmeSetzen(id, { kommentar } = {}, ts) {
+      const r = stmt.tmAbnSet.run({ id, ts: ts ?? Date.now(), kommentar: kommentar || null });
+      if (!r.changes) return null;
+      return tmEntry(stmt.tmGet.get(id));
+    },
+
+    /** Kennzeichen samt eingefrorener Fassung entfernen. Gibt entry oder null. */
+    tmAbnahmeEntfernen(id) {
+      const r = stmt.tmAbnClear.run(id);
+      if (!r.changes) return null;
+      return tmEntry(stmt.tmGet.get(id));
+    },
+
+    /** Eingefrorene Abnahme-Fassung (XML) oder null. */
+    tmLoadAbnahmeXml(id) {
+      return stmt.tmAbn.get(id)?.abnahme_xml ?? null;
     },
 
     /**

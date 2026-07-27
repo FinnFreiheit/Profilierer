@@ -9,6 +9,7 @@ import { LoggerService } from './logger.service';
 import { ProfileStoreService } from './profile-store.service';
 import { DownloadService } from './download.service';
 import { BundledSchemaService } from './bundled-schema.service';
+import { RolleService } from './rolle.service';
 import { defaultStatuses, newProfile } from '../profile-defaults';
 
 /** localStorage-Prefix der Notfallkopien (Backend beim Autosave nicht erreichbar). */
@@ -39,6 +40,7 @@ export class PersistenceService {
   private readonly store = inject(ProfileStoreService);
   private readonly dl = inject(DownloadService);
   private readonly bundled = inject(BundledSchemaService);
+  private readonly rolle = inject(RolleService);
 
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   /** Verhindert parallele Upserts (Reihenfolge/Lost-Update-Schutz). */
@@ -63,6 +65,9 @@ export class PersistenceService {
       this.state.profileDoc();
       const msg = this.state.msgName();
       const id = this.state.activeProfileId();
+      // Abnahme-Schreibschutz (Rolle Extern): nichts sichern — der Server
+      // wiese den Upsert mit 403 ab; zum Weiterarbeiten dupliziert man.
+      if (this.state.abnahmeSchreibschutz()) return;
       if (!msg || !id) return;
       if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
       this.autosaveTimer = setTimeout(() => {
@@ -305,13 +310,26 @@ export class PersistenceService {
       return;
     }
     this.state.activeProfileId.set(id);
-    // Oeffnen-Snapshot (serverseitig entprellt): Sicherheitsnetz fuers vergessene
-    // "Version anlegen". Fire-and-forget — darf das Oeffnen weder verzoegern
-    // noch scheitern lassen.
-    void this.store
-      .createVersion(id, { automatisch: true, kommentar: 'Stand beim Öffnen' })
-      .catch((e) => this.log.warn('Persistenz', 'Öffnen-Snapshot fehlgeschlagen', e));
+    // Abnahme-Schreibschutz: abgenommene Profile sind fuer die Rolle Extern
+    // nur lesbar — Autosave und Oeffnen-Snapshot wuerden am Server scheitern.
+    const entry = this.store.entries().find((e) => e.id === id);
+    const schreibschutz = !!entry?.abgenommen && !this.rolle.agAktiv();
+    this.state.abnahmeSchreibschutz.set(schreibschutz);
+    if (!schreibschutz) {
+      // Oeffnen-Snapshot (serverseitig entprellt): Sicherheitsnetz fuers vergessene
+      // "Version anlegen". Fire-and-forget — darf das Oeffnen weder verzoegern
+      // noch scheitern lassen.
+      void this.store
+        .createVersion(id, { automatisch: true, kommentar: 'Stand beim Öffnen' })
+        .catch((e) => this.log.warn('Persistenz', 'Öffnen-Snapshot fehlgeschlagen', e));
+    }
     await this.uebernehmeDoc(doc);
+    if (schreibschutz) {
+      this.state.autosaveInfo.set('von der BLK-AG abgenommen — schreibgeschützt');
+      this.toast.show(
+        'Von der BLK-AG abgenommen — Änderungen werden nicht gespeichert. Zum Weiterarbeiten eine Kopie anlegen.',
+      );
+    }
   }
 
   /**
@@ -411,6 +429,7 @@ export class PersistenceService {
       return;
     }
     this.state.activeProfileId.set(id);
+    this.state.abnahmeSchreibschutz.set(false);
     this.state.resetProfile();
     this.state.msgName.set(null);
     this.state.root.set(null);
