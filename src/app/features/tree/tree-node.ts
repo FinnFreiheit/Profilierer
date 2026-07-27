@@ -492,7 +492,7 @@ export class TreeNode {
 
   protected onMenuEinklappen(): void {
     this.menu.set(null);
-    this.state.closeDescendants(this.path());
+    this.state.closeSubtree(this.path());
   }
 
   /** Sprung zum festgelegten Verweisziel (wie refJump im Detailpanel). */

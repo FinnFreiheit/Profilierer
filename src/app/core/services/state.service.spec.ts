@@ -240,28 +240,28 @@ describe('StateService', () => {
       expect(s.isOpen('m/a')).toBeFalse();
     });
 
-    it('closeDescendants entfernt Nachfahren, der Knoten selbst bleibt offen', () => {
+    it('closeSubtree entfernt den Knoten selbst und alle Nachfahren', () => {
       s.open.set(new Set(['m', 'm/a', 'm/a/b', 'm/a/b/c', 'm/ab', 'm/x']));
-      s.closeDescendants('m/a');
-      expect([...s.open()].sort()).toEqual(['m', 'm/a', 'm/ab', 'm/x']);
+      s.closeSubtree('m/a');
+      expect([...s.open()].sort()).toEqual(['m', 'm/ab', 'm/x']);
     });
 
-    it('closeDescendants erfasst Auspraegungspfade (@) mit', () => {
+    it('closeSubtree erfasst Auspraegungspfade (@) mit', () => {
       s.open.set(new Set(['m', 'm/a', 'm/a@a1', 'm/a@a1/k', 'm/a/b@a2']));
-      s.closeDescendants('m/a');
-      expect([...s.open()].sort()).toEqual(['m', 'm/a']);
+      s.closeSubtree('m/a');
+      expect([...s.open()].sort()).toEqual(['m']);
     });
 
-    it('closeDescendants unter einer Auspraegung schliesst nur deren Teilbaum', () => {
+    it('closeSubtree unter einer Auspraegung schliesst nur deren Teilbaum', () => {
       s.open.set(new Set(['m', 'm/a', 'm/a@a1', 'm/a@a1/k', 'm/a@a2', 'm/a@a2/k']));
-      s.closeDescendants('m/a@a1');
-      expect([...s.open()].sort()).toEqual(['m', 'm/a', 'm/a@a1', 'm/a@a2', 'm/a@a2/k']);
+      s.closeSubtree('m/a@a1');
+      expect([...s.open()].sort()).toEqual(['m', 'm/a', 'm/a@a2', 'm/a@a2/k']);
     });
 
-    it('closeDescendants ohne betroffene Pfade laesst das Set-Objekt unveraendert', () => {
-      s.open.set(new Set(['m', 'm/a']));
+    it('closeSubtree ohne betroffene Pfade laesst das Set-Objekt unveraendert', () => {
+      s.open.set(new Set(['m']));
       const before = s.open();
-      s.closeDescendants('m/a');
+      s.closeSubtree('m/a');
       expect(s.open()).toBe(before);
     });
   });
