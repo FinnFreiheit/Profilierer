@@ -1,8 +1,11 @@
 <div id="dash">
   <div class="dashHead">
-    <div class="viewToggle">
-      <button (click)="goDashboard()">Profile</button>
-      <button class="active" disabled>Testdaten</button>
+    <div class="dashTop">
+      <div class="viewToggle">
+        <button (click)="goDashboard()">Profile</button>
+        <button class="active" disabled>Testdaten</button>
+      </div>
+      <app-rolle-badge></app-rolle-badge>
     </div>
     <h1><span>Testdaten</span>-Speicher</h1>
     <p class="dashSub">Zentraler Ablageort für XJustiz-Testnachrichten — nach Fachmodul geordnet</p>
@@ -28,7 +31,6 @@
         />
         nur abgenommene
       </label>
-      <app-rolle-badge></app-rolle-badge>
     </div>
   </div>
 
