@@ -75,6 +75,20 @@ export class PersistenceService {
         void this.autosaveNow();
       }, 800);
     });
+    // Rollenwechsel bei offenem, abgenommenem Profil: Schreibschutz nachziehen —
+    // AG-Anmeldung entsperrt den Editor, Abmelden sperrt ihn wieder.
+    effect(() => {
+      const ag = this.rolle.agAktiv();
+      const id = this.state.activeProfileId();
+      if (!id) return;
+      const entry = this.store.entries().find((e) => e.id === id);
+      if (!entry?.abgenommen) return;
+      const schutz = !ag;
+      if (schutz === this.state.abnahmeSchreibschutz()) return;
+      this.state.abnahmeSchreibschutz.set(schutz);
+      this.state.readOnly.set(schutz);
+      this.state.autosaveInfo.set(schutz ? 'von der BLK-AG abgenommen — schreibgeschützt' : '');
+    });
     // Notfallkopien frueherer Sitzungen ans Backend nachtragen (best effort).
     void this.flushNotfallkopien();
     // Browser-Warnung, solange Aenderungen noch nicht im Backend gesichert sind.
@@ -325,9 +339,13 @@ export class PersistenceService {
     }
     await this.uebernehmeDoc(doc);
     if (schreibschutz) {
+      // Editor wirklich sperren (nicht nur den Autosave): Externe betrachten
+      // abgenommene Profile read-only — nach uebernehmeDoc setzen, da
+      // loadProfile readOnly zuruecksetzt.
+      this.state.readOnly.set(true);
       this.state.autosaveInfo.set('von der BLK-AG abgenommen — schreibgeschützt');
       this.toast.show(
-        'Von der BLK-AG abgenommen — Änderungen werden nicht gespeichert. Zum Weiterarbeiten eine Kopie anlegen.',
+        'Von der BLK-AG abgenommen — nur betrachten. Zum Bearbeiten als BLK-AG anmelden oder eine Kopie anlegen.',
       );
     }
   }

@@ -6,6 +6,7 @@ import { StateService } from './state.service';
 import { BundledSchemaService } from './bundled-schema.service';
 import { DownloadService } from './download.service';
 import { ProfileDoc } from '../../models/profile.model';
+import { RolleService } from './rolle.service';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
@@ -335,5 +336,79 @@ describe('PersistenceService Notfallkopien', () => {
     await svc.flushNotfallkopien();
     expect(upserted.length).toBe(0);
     expect(toasts.length).toBe(0);
+  });
+});
+
+describe('PersistenceService.openFromLibrary (Abnahme-Schreibschutz)', () => {
+  let toasts: string[];
+  let createVersionCalls: number;
+  let agAktiv: boolean;
+
+  const doc = (): ProfileDoc => ({
+    meta: { name: 'Test', nachricht: 'nachricht.test.0001', xjustizVersion: '3.6.2' },
+    statuses: [],
+    elemente: {},
+    auspraegungen: {},
+    erweiterungen: {},
+  });
+
+  const setup = (abgenommen: boolean): { svc: PersistenceService; state: StateService } => {
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: ProfileStoreService,
+          useValue: {
+            entries: () => [{ id: 'p1', abgenommen }],
+            load: async () => doc(),
+            upsert: async () => {},
+            createVersion: async () => {
+              createVersionCalls++;
+              return { skipped: true };
+            },
+          },
+        },
+        { provide: ToastService, useValue: { show: (m: string) => toasts.push(m) } },
+        { provide: RolleService, useValue: { agAktiv: () => agAktiv } },
+      ],
+    });
+    return { svc: TestBed.inject(PersistenceService), state: TestBed.inject(StateService) };
+  };
+
+  const laden = async (svc: PersistenceService): Promise<void> => {
+    await svc.loadXsdFiles([new File([XSD], 'xjustiz_0000_test.xsd', { type: 'application/xml' })]);
+  };
+
+  beforeEach(() => {
+    toasts = [];
+    createVersionCalls = 0;
+    agAktiv = false;
+  });
+
+  it('sperrt den Editor fuer Externe: readOnly, kein Oeffnen-Snapshot, Hinweis', async () => {
+    const { svc, state } = setup(true);
+    await laden(svc);
+    await svc.openFromLibrary('p1');
+    expect(state.abnahmeSchreibschutz()).toBeTrue();
+    expect(state.readOnly()).toBeTrue();
+    expect(createVersionCalls).toBe(0);
+    expect(toasts.some((t) => t.includes('nur betrachten'))).toBeTrue();
+  });
+
+  it('AG-Rolle bearbeitet abgenommene Profile normal (mit Oeffnen-Snapshot)', async () => {
+    agAktiv = true;
+    const { svc, state } = setup(true);
+    await laden(svc);
+    await svc.openFromLibrary('p1');
+    expect(state.abnahmeSchreibschutz()).toBeFalse();
+    expect(state.readOnly()).toBeFalse();
+    expect(createVersionCalls).toBe(1);
+  });
+
+  it('unmarkierte Profile bleiben fuer Externe editierbar', async () => {
+    const { svc, state } = setup(false);
+    await laden(svc);
+    await svc.openFromLibrary('p1');
+    expect(state.abnahmeSchreibschutz()).toBeFalse();
+    expect(state.readOnly()).toBeFalse();
   });
 });

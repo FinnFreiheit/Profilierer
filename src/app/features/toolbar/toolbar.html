@@ -79,14 +79,16 @@
       <label
         class="menuItem"
         [title]="
-          isMessage()
-            ? 'Nachricht nur betrachten (Häkchen entfernen zum Bearbeiten der Werte)'
-            : 'Nachricht nur betrachten — ohne Profilier-Bedienelemente, Werte gesperrt'
+          state.abnahmeSchreibschutz()
+            ? 'Von der BLK-AG abgenommen — Betrachtungsmodus lässt sich nur mit AG-Schlüssel aufheben'
+            : isMessage()
+              ? 'Nachricht nur betrachten (Häkchen entfernen zum Bearbeiten der Werte)'
+              : 'Nachricht nur betrachten — ohne Profilier-Bedienelemente, Werte gesperrt'
         "
       >
         <input
           type="checkbox"
-          [disabled]="!hasRoot()"
+          [disabled]="!hasRoot() || state.abnahmeSchreibschutz()"
           [checked]="state.readOnly()"
           (change)="state.readOnly.set(checked($event))"
         />
