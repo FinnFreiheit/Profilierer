@@ -110,6 +110,15 @@ export interface LibraryEntry {
   letzteVersionNr?: number;
   /** Arbeitsstand ist in keiner Version eingefroren ("geaendert seit vX"). */
   geaendert?: boolean;
+  /** Von der BLK-AG abgenommen (Referenz auf eine Abnahme-Version existiert). */
+  abgenommen?: boolean;
+  /** Nummer der referenzierten Abnahme-Version. */
+  abnahmeVersionNr?: number;
+  /** ms-Timestamp der Abnahme. */
+  abnahmeZeit?: number;
+  abnahmeKommentar?: string;
+  /** Arbeitsstand weicht vom eingefrorenen Abnahme-Stand ab (Warn-Badge). */
+  geaendertSeitAbnahme?: boolean;
 }
 
 /** Metadaten einer Profil-Version (Liste im Versions-Dialog, ohne doc). */
@@ -120,6 +129,8 @@ export interface ProfilVersion {
   kommentar?: string;
   /** Automatisch entstanden (Oeffnen-Snapshot, Sicherheits-Version). */
   automatisch?: boolean;
+  /** Durch eine Abnahme der BLK-AG entstanden (eingefrorene valide Fassung). */
+  abnahme?: boolean;
   /** ms-Timestamp. */
   erstellt: number;
 }

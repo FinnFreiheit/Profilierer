@@ -17,6 +17,18 @@
         [value]="search()"
         (input)="search.set($any($event.target).value)"
       />
+      <label
+        class="abnFilter"
+        title="Nur von der BLK-AG abgenommene (valide) Testnachrichten zeigen"
+      >
+        <input
+          type="checkbox"
+          [checked]="nurAbgenommene()"
+          (change)="nurAbgenommene.set($any($event.target).checked)"
+        />
+        nur abgenommene
+      </label>
+      <app-rolle-badge></app-rolle-badge>
     </div>
   </div>
 
@@ -39,6 +51,23 @@
                 <div class="dcMsg">{{ e.nachricht }}</div>
               }
               <div class="dcMeta">
+                @if (e.abgenommen) {
+                  @if (e.geaendertSeitAbnahme) {
+                    <span
+                      class="pill pillAbnWarn"
+                      title="Seit der Abnahme verändert — die abgenommene Fassung ist über „Abnahme-XML“ abrufbar"
+                      >⚠ seit Abnahme geändert</span
+                    >
+                  } @else {
+                    <span
+                      class="pill pillAbn"
+                      title="Von der BLK-AG abgenommen am {{ abnDatum(e) }}{{
+                        e.abnahmeKommentar ? ' · ' + e.abnahmeKommentar : ''
+                      }}"
+                      >✔ BLK-AG abgenommen</span
+                    >
+                  }
+                }
                 @if (e.entwurf) {
                   <span
                     class="pill pillDraft"
@@ -65,7 +94,23 @@
               <div class="dcFoot">
                 <span class="dcDate">{{ datum(e) }}</span>
                 <span class="dcTools">
-                  <button title="Name und Beschreibung bearbeiten" (click)="openEdit(e, $event)">
+                  @if (rolle.agAktiv()) {
+                    <button
+                      title="Abnehmen bzw. Abnahme-Kennzeichen verwalten (BLK-AG)"
+                      (click)="openAbnahme(e, $event)"
+                    >
+                      Abnahme…
+                    </button>
+                  }
+                  <button
+                    [disabled]="gesperrt(e)"
+                    [title]="
+                      gesperrt(e)
+                        ? 'Von der BLK-AG abgenommen — Bearbeiten nur mit AG-Schlüssel'
+                        : 'Name und Beschreibung bearbeiten'
+                    "
+                    (click)="openEdit(e, $event)"
+                  >
                     Bearbeiten
                   </button>
                   <button
@@ -75,7 +120,26 @@
                     Prüfbericht
                   </button>
                   <button title="XML herunterladen" (click)="download(e, $event)">Download</button>
-                  <button class="del" title="Löschen" (click)="remove(e, $event)">Löschen</button>
+                  @if (e.abgenommen) {
+                    <button
+                      title="Die eingefrorene abgenommene (valide) Fassung herunterladen"
+                      (click)="downloadAbnahme(e, $event)"
+                    >
+                      Abnahme-XML
+                    </button>
+                  }
+                  <button
+                    class="del"
+                    [disabled]="gesperrt(e)"
+                    [title]="
+                      gesperrt(e)
+                        ? 'Von der BLK-AG abgenommen — Löschen nur mit AG-Schlüssel'
+                        : 'Löschen'
+                    "
+                    (click)="remove(e, $event)"
+                  >
+                    Löschen
+                  </button>
                 </span>
               </div>
             </div>
@@ -204,6 +268,44 @@
   <div style="text-align: right; margin-top: 12px">
     <button (click)="genDlg.close()">Schließen</button>
   </div>
+</dialog>
+
+<dialog #abnahmeDlg id="abnahmeDlg">
+  <h3 style="margin-top: 0">Abnahme durch die BLK-AG</h3>
+  @if (abnEntry(); as e) {
+    <p class="dashSub" style="margin-top: 0">
+      „{{ e.name }}“
+      @if (e.abgenommen) {
+        — abgenommen am {{ abnDatum(e) }}.
+        @if (e.geaendertSeitAbnahme) {
+          Die XML wurde <b>seit der Abnahme verändert</b> — eine erneute Abnahme friert die aktuelle
+          Fassung als neue valide Fassung ein.
+        }
+      } @else {
+        — die Abnahme friert die aktuelle XML-Fassung ein und schützt die Testnachricht vor
+        Änderungen Externer.
+      }
+    </p>
+    <input
+      type="text"
+      style="width: 100%; box-sizing: border-box"
+      placeholder="Abnahme-Kommentar (optional)"
+      [value]="abnKommentar()"
+      (input)="abnKommentar.set($any($event.target).value)"
+      (keydown.enter)="abnehmen()"
+    />
+    <div style="text-align: right; margin-top: 12px">
+      <button (click)="abnahmeDlg.close()">Abbrechen</button>
+      @if (e.abgenommen) {
+        <button title="Kennzeichen und eingefrorene Fassung entfernen" (click)="abnahmeEntfernen()">
+          Kennzeichen entfernen
+        </button>
+      }
+      <button class="primary" (click)="abnehmen()">
+        {{ e.abgenommen ? 'Erneut abnehmen' : 'Abnehmen' }}
+      </button>
+    </div>
+  }
 </dialog>
 
 <dialog #editDlg id="noteDlg">

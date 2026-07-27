@@ -35,6 +35,20 @@
       >{{ versionsStand() }}</span
     >
   }
+  @if (abnahme(); as a) {
+    <span
+      class="pill"
+      [class.pillAbn]="!a.warn"
+      [class.pillAbnWarn]="a.warn"
+      [title]="
+        a.warn
+          ? 'Der Arbeitsstand wurde seit der Abnahme verändert — die abgenommene Fassung liegt im Versionen-Dialog'
+          : 'Von der BLK-AG abgenommen — dieser Stand ist die valide Fassung' +
+            (a.kommentar ? ' · ' + a.kommentar : '')
+      "
+      >{{ a.warn ? '⚠ seit Abnahme geändert' : '✔ BLK-AG abgenommen' }}</span
+    >
+  }
   <span id="autosaveInfo" [class.warn]="state.autosaveInfo().startsWith('⚠')">{{
     state.autosaveInfo()
   }}</span>

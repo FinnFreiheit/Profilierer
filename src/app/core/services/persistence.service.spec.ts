@@ -69,6 +69,8 @@ describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
         {
           provide: ProfileStoreService,
           useValue: {
+            // Bibliotheks-Index (Abnahme-Schreibschutz liest das Kennzeichen).
+            entries: () => [],
             load: async () => geladen,
             upsert: async () => {},
             createVersion: async (

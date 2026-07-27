@@ -27,6 +27,13 @@
               >automatisch</span
             >
           }
+          @if (v.abnahme) {
+            <span
+              class="pill pillAbn"
+              title="Durch eine Abnahme der BLK-AG entstanden — eingefrorene valide Fassung"
+              >✔ abgenommen</span
+            >
+          }
           <span class="spacer"></span>
           <button
             [disabled]="busy()"

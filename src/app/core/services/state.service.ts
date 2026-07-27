@@ -54,6 +54,12 @@ export class StateService {
   readonly view = signal<'dashboard' | 'editor' | 'testdaten'>('dashboard');
   /** id des aktuell bearbeiteten Bibliothekseintrags (Ziel des Autosave). */
   readonly activeProfileId = signal<string | null>(null);
+  /**
+   * Abnahme-Schreibschutz: das geoeffnete Profil ist von der BLK-AG abgenommen
+   * und die aktive Rolle ist Extern. Der Autosave pausiert (der Server wiese
+   * jede Schreiboperation ohnehin ab); zum Weiterarbeiten dupliziert man.
+   */
+  readonly abnahmeSchreibschutz = signal(false);
 
   // ── UI-Zustand ──────────────────────────────────────────────────────
   readonly selItem = signal<TreeItem | null>(null);

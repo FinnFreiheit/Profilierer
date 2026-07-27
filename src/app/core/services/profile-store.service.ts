@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { LibraryEntry, ProfileDoc, ProfilVersion } from '../../models/profile.model';
 import { LoggerService } from './logger.service';
+import { RolleService } from './rolle.service';
 
 /**
  * Basis-URL der Profil-API (same-origin; im Dev via Proxy auf das Backend).
@@ -27,6 +28,7 @@ const API_BASE = 'api';
 @Injectable({ providedIn: 'root' })
 export class ProfileStoreService {
   private readonly log = inject(LoggerService);
+  private readonly rolle = inject(RolleService);
 
   /** Bibliotheks-Index, nach letzter Schreibung absteigend. */
   readonly entries = signal<LibraryEntry[]>([]);
@@ -42,11 +44,14 @@ export class ProfileStoreService {
   // ── HTTP-Helfer ─────────────────────────────────────────────────────
 
   private async req<T>(path: string, init?: RequestInit): Promise<T> {
+    // AG-Schluessel immer mitschicken (Schutz abgenommener Objekte liegt am Server).
     const r = await fetch(API_BASE + path, {
       ...init,
-      headers: init?.body
-        ? { 'content-type': 'application/json', ...init?.headers }
-        : init?.headers,
+      headers: {
+        ...(init?.body ? { 'content-type': 'application/json' } : {}),
+        ...this.rolle.authHeaders(),
+        ...init?.headers,
+      },
     });
     if (!r.ok) throw new Error(`Profil-Backend: ${init?.method ?? 'GET'} ${path} → ${r.status}`);
     if (r.status === 204) return undefined as T;
@@ -94,6 +99,7 @@ export class ProfileStoreService {
   async duplicate(id: string): Promise<string | null> {
     const r = await fetch(`${API_BASE}/profiles/${encodeURIComponent(id)}/duplicate`, {
       method: 'POST',
+      headers: this.rolle.authHeaders(),
     });
     if (r.status === 404) return null;
     if (!r.ok) throw new Error(`Profil-Backend: POST /profiles/${id}/duplicate → ${r.status}`);
@@ -175,6 +181,30 @@ export class ProfileStoreService {
       `/profiles/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}`,
       { method: 'DELETE' },
     );
+  }
+
+  // ── Abnahme (BLK-AG) ────────────────────────────────────────────────
+
+  /**
+   * Abnehmen: friert den serverseitig gespeicherten Stand als Abnahme-Version
+   * ein (der Aufrufer flusht vorher den Autosave) und setzt das Kennzeichen.
+   */
+  async abnehmen(id: string, kommentar?: string): Promise<ProfilVersion> {
+    const out = await this.req<{ version: ProfilVersion; entry: LibraryEntry }>(
+      `/profiles/${encodeURIComponent(id)}/abnahme`,
+      { method: 'POST', body: JSON.stringify({ kommentar }) },
+    );
+    this.putEntry(out.entry);
+    return out.version;
+  }
+
+  /** Abnahme-Kennzeichen entfernen (die Abnahme-Version bleibt erhalten). */
+  async abnahmeEntfernen(id: string): Promise<void> {
+    const { entry } = await this.req<{ entry: LibraryEntry }>(
+      `/profiles/${encodeURIComponent(id)}/abnahme`,
+      { method: 'DELETE' },
+    );
+    this.putEntry(entry);
   }
 
   // ── Index-Signal pflegen ────────────────────────────────────────────

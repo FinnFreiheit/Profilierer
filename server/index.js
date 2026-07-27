@@ -4,15 +4,15 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { openDb } from './db.js';
-import { profilesRouter } from './routes/profiles.js';
-import { testmessagesRouter } from './routes/testmessages.js';
+import { createApp } from './app.js';
 import { errorMiddleware, requestFehlerLog } from './log.js';
 
 /**
  * Same-origin-Vollstack-Server: liefert die gebaute SPA, die REST-API unter
  * `/api` und proxied `/xrep-api` an XRepository (ersetzt den ng-serve-Dev-Proxy
- * im Produktivbetrieb). Einzelnutzer, keine Auth — Absicherung ueber Netz/
- * Reverse-Proxy.
+ * im Produktivbetrieb). Offener Einzelnutzer-Charakter; einzig abgenommene
+ * Objekte sind serverseitig geschuetzt (AG-Schluessel via XJP_AG_KEY, siehe
+ * app.js/auth.js) — Grundabsicherung weiterhin ueber Netz/Reverse-Proxy.
  */
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.XJP_PORT) || 3001;
@@ -29,14 +29,8 @@ const app = express();
 // express.json, damit auch Body-Parse-Fehler erfasst werden.
 app.use(requestFehlerLog);
 
-// Grosse Profil-Dokumente: elemente/auspraegungen-Maps sprengen das 100-kB-Default.
-app.use(express.json({ limit: '25mb' }));
-
-// Profil-API.
-app.use('/api', profilesRouter(db));
-
-// Testdaten-API (zentraler Testnachrichten-Speicher).
-app.use('/api', testmessagesRouter(db));
+// REST-API (Profil-Bibliothek, Testdaten, Login) — gemeinsame Fabrik mit den Tests.
+app.use(createApp(db, { agKey: process.env.XJP_AG_KEY }));
 
 // XRepository-Proxy (same-origin, loest den Produktions-Proxy-Bedarf).
 app.use(

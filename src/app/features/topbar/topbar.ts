@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { Menu } from '../../shared/menu/menu';
+import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 
 /**
  * Kopfleiste (Profilierer.html Z.196-209): Schema-/Codelisten-/Profil-Laden
@@ -10,7 +11,7 @@ import { Menu } from '../../shared/menu/menu';
 @Component({
   selector: 'app-topbar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Menu],
+  imports: [Menu, RolleBadge],
   templateUrl: './topbar.html',
 })
 export class Topbar {

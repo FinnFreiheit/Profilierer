@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ProfileStoreService } from './profile-store.service';
+import { RolleService } from './rolle.service';
 import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
 
 /** Ein minimales ProfileDoc fuer die Tests. */
@@ -156,5 +157,41 @@ describe('ProfileStoreService (HTTP)', () => {
   it('wirft bei Fehlerstatus (nicht ok)', async () => {
     handlers['PUT api/profiles/x'] = () => new Response('boom', { status: 500 });
     await expectAsync(store.upsert('x', doc())).toBeRejectedWithError(/500/);
+  });
+
+  it('schickt den AG-Schluessel als Header bei Schreibzugriffen mit', async () => {
+    const rolle = TestBed.inject(RolleService);
+    handlers['POST api/login'] = () =>
+      json({ konfiguriert: true, ok: true }) as unknown as Response;
+    await rolle.anmelden('ag-schluessel');
+    handlers['PUT api/profiles/x'] = (init) => {
+      expect(new Headers(init?.headers).get('x-ag-key')).toBe('ag-schluessel');
+      return json({ entry: entry('x') });
+    };
+    await store.upsert('x', doc());
+  });
+
+  it('abnehmen setzt das Kennzeichen und pflegt den Entry ein', async () => {
+    handlers['POST api/profiles/x/abnahme'] = (init) => {
+      expect(JSON.parse(String(init?.body)).kommentar).toBe('passt');
+      return json(
+        {
+          version: { id: 'v1', nr: 1, abnahme: true, erstellt: 100 },
+          entry: entry('x', { abgenommen: true, abnahmeVersionNr: 1, abnahmeZeit: 100 }),
+        },
+        201,
+      );
+    };
+    await store.abnehmen('x', 'passt');
+    expect(store.entries()[0]!.abgenommen).toBeTrue();
+    expect(store.entries()[0]!.abnahmeVersionNr).toBe(1);
+  });
+
+  it('abnahmeEntfernen nimmt das Kennzeichen zurueck', async () => {
+    handlers['GET api/profiles'] = () => json([entry('x', { abgenommen: true })]);
+    await store.refresh();
+    handlers['DELETE api/profiles/x/abnahme'] = () => json({ entry: entry('x') });
+    await store.abnahmeEntfernen('x');
+    expect(store.entries()[0]!.abgenommen).toBeUndefined();
   });
 });

@@ -6,6 +6,7 @@ import {
   TestmessageInput,
 } from '../../models/testmessage.model';
 import { LoggerService } from './logger.service';
+import { RolleService } from './rolle.service';
 
 /** Patch fuer PATCH /api/testmessages/:id — nur gesetzte Felder werden geaendert. */
 export interface TestmessagePatch {
@@ -38,6 +39,7 @@ const API_BASE = 'api';
 @Injectable({ providedIn: 'root' })
 export class TestmessageStoreService {
   private readonly log = inject(LoggerService);
+  private readonly rolle = inject(RolleService);
 
   /** Testnachrichten-Index, nach letzter Änderung absteigend. */
   readonly entries = signal<TestmessageEntry[]>([]);
@@ -51,11 +53,14 @@ export class TestmessageStoreService {
   // ── HTTP-Helfer ─────────────────────────────────────────────────────
 
   private async req<T>(path: string, init?: RequestInit): Promise<T> {
+    // AG-Schluessel immer mitschicken (Schutz abgenommener Objekte liegt am Server).
     const r = await fetch(API_BASE + path, {
       ...init,
-      headers: init?.body
-        ? { 'content-type': 'application/json', ...init?.headers }
-        : init?.headers,
+      headers: {
+        ...(init?.body ? { 'content-type': 'application/json' } : {}),
+        ...this.rolle.authHeaders(),
+        ...init?.headers,
+      },
     });
     if (!r.ok) throw new Error(`Testdaten-Backend: ${init?.method ?? 'GET'} ${path} → ${r.status}`);
     if (r.status === 204) return undefined as T;
@@ -117,6 +122,35 @@ export class TestmessageStoreService {
   async delete(id: string): Promise<void> {
     await this.req<void>(`/testmessages/${encodeURIComponent(id)}`, { method: 'DELETE' });
     this.entries.update((list) => list.filter((e) => e.id !== id));
+  }
+
+  // ── Abnahme (BLK-AG) ────────────────────────────────────────────────
+
+  /** Abnehmen: friert die aktuelle XML-Fassung serverseitig ein. */
+  async abnehmen(id: string, kommentar?: string): Promise<void> {
+    const { entry } = await this.req<{ entry: TestmessageEntry }>(
+      `/testmessages/${encodeURIComponent(id)}/abnahme`,
+      { method: 'POST', body: JSON.stringify({ kommentar }) },
+    );
+    this.putEntry(entry);
+  }
+
+  /** Abnahme-Kennzeichen samt eingefrorener Fassung entfernen. */
+  async abnahmeEntfernen(id: string): Promise<void> {
+    const { entry } = await this.req<{ entry: TestmessageEntry }>(
+      `/testmessages/${encodeURIComponent(id)}/abnahme`,
+      { method: 'DELETE' },
+    );
+    this.putEntry(entry);
+  }
+
+  /** Eingefrorene Abnahme-Fassung (Anzeige/Download); 404 → null. */
+  async loadAbnahmeXml(id: string): Promise<string | null> {
+    const r = await fetch(`${API_BASE}/testmessages/${encodeURIComponent(id)}/abnahme/xml`);
+    if (r.status === 404) return null;
+    if (!r.ok)
+      throw new Error(`Testdaten-Backend: GET /testmessages/${id}/abnahme/xml → ${r.status}`);
+    return await r.text();
   }
 
   // ── Index-Signal pflegen ────────────────────────────────────────────
