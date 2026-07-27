@@ -487,16 +487,15 @@ export class StateService {
   }
 
   /**
-   * Klappt den Teilbaum unter einem Knoten zu: alle Nachfahren-Pfade (Kinder
-   * `/` und Auspraegungen `@`) fliegen aus `open`, der Knoten selbst bleibt
-   * offen — direkte Kinder sichtbar, deren Teilbaeume zu. Ein Signal-Set
-   * (Kontextmenue "Alle Kinder einklappen").
+   * Klappt einen Teilbaum komplett zu: der Knoten selbst und alle
+   * Nachfahren-Pfade (Kinder `/` und Auspraegungen `@`) fliegen aus `open`.
+   * Ein Signal-Set (Kontextmenue "Alle Kinder einklappen").
    */
-  closeDescendants(path: string): void {
+  closeSubtree(path: string): void {
     this.open.update((s) => {
       let next: Set<string> | null = null;
       for (const p of s)
-        if (p.startsWith(path + '/') || p.startsWith(path + '@')) {
+        if (p === path || p.startsWith(path + '/') || p.startsWith(path + '@')) {
           next ??= new Set(s);
           next.delete(p);
         }
