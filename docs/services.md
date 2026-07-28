@@ -18,6 +18,7 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `GuidedService`                | Geführter Modus: offene Entscheidungspunkte, Fortschritt, Sprung zum nächsten Punkt                                   |
 | `DiffService`                  | Versionsvergleich (flach), Diff-Karte, Vergleichsordner laden                                                         |
 | `BundledSchemaService`         | Im Projekt hinterlegte Schemaversionen (public/schemas/) per fetch laden                                              |
+| `RemoteSchemaService`          | Veröffentlichte Schemaversionen von xjustiz.de abrufen (Versionsseite + XSD-ZIP)                                      |
 | `InstanceImportService`        | Bestehende XJustiz-Nachricht (XML) zurück ins Profil-Modell binden                                                    |
 | `InstanceExportService`        | Bearbeitete Nachricht getreu re-exportieren (Original-DOM + Modell-Änderungen)                                        |
 | `TestmessageStoreService`      | Testdaten-Speicher: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal                                            |
@@ -90,6 +91,20 @@ Zentrale Statusänderung (`setzeStatus(path, statusId)`): Erhält ein Element ei
 Lädt die **im Projekt hinterlegten** XJustiz-Schemaversionen (`public/schemas/<version>/`), damit kein XSD-Ordner mehr hochgeladen werden muss. `manifest()` liest (und cacht) `public/schemas/index.json`; `files(v)` holt die XSDs der Version per `fetch` und verpackt sie als `File[]` — damit speisen sie die **bestehenden** Ladewege (`PersistenceService.loadXsdFiles` als Primärschema, `DiffService.loadXsdB` als Vergleich), ohne die Parser-Logik zu duplizieren.
 
 Verdrahtung: `App.ngOnInit` lädt das Manifest nach `StateService.bundledVersions` und aktiviert automatisch die als `default` markierte Version (3.6.2). Der Topbar-`<select>` (`.verSelect`) schaltet um (`App.loadBundled`), `StateService.activeBundle` merkt sich die aktive hinterlegte Version (null = eigener Ordner). Der Diff-Dialog bietet die hinterlegten Versionen als Vergleich an (die aktive Primärversion ausgeblendet). Das Manifest wird mit `npm run schemas:manifest` (`scripts/gen-schema-manifest.mjs`) aus den Ordnern erzeugt — nach jedem Hinzufügen/Austauschen von XSDs neu ausführen.
+
+Versionen mit gesetztem `zipUrl` stammen nicht aus `public/schemas/`, sondern von xjustiz.de; `files(v)` delegiert dann an den `RemoteSchemaService`. Für alle Konsumenten (Diff, Validierung, Testnachrichten-Generierung) macht die Herkunft keinen Unterschied.
+
+## RemoteSchemaService
+
+Holt XJustiz-Schemaversionen **direkt von xjustiz.de** — das Gegenstück zum XRepository-Abruf der Codelisten. Zweck: den jeweils veröffentlichten Stand laden, auch wenn eine bestehende Version durch eine **Nachlieferung** nachträglich geändert wurde (z. B. 3.6.2), ohne auf die hinterlegten Kopien zu warten.
+
+`versionen(neu?)` lädt die Übersichtsseite (`/XJustiz-Versionen/index.php`) und extrahiert per `parseVersionsseite` die Schema-ZIP-Links — bewusst mustergestützt statt fest verdrahtet, weil die Dateinamen uneinheitlich sind (`XJustiz_3_6_2_XSD.zip` vs. `XJustiz-4_0_0-XSD.zip`); Schematron-Pakete werden ausgefiltert. `files(v)` lädt das ZIP, entpackt die XSDs (JSZip, dynamisch importiert) und liefert flache `File[]`. Beides wird pro Sitzung gecacht; `versionen(true)` verwirft den Cache und holt den aktuellen Stand.
+
+Abrufkette (`hole`): Proxy-Pfad `/xjustiz-api/…` same-origin → Direktabruf → öffentliche CORS-Weiterleitung, letztere nur bei bereits erteilter Zustimmung (`xjp.corsproxy`, geteilt mit dem `CodelistService`). xjustiz.de sendet **keine** CORS-Header, der Direktabruf scheitert im Browser also regulär — Dev-Proxy (`proxy.conf.json`) bzw. Server-Proxy (`server/index.js`) sind der vorgesehene Weg.
+
+Verdrahtung: Menü „Laden → Schemata: xjustiz.de" ruft `App.loadRemoteVersions`. Die abgerufenen Versionen **ersetzen** die hinterlegten Einträge gleicher Versionsnummer in `StateService.bundledVersions` — an Ort und Stelle, unter Beibehaltung von `dir`, `label` und `default`, sodass `activeBundle` gültig bleibt und im Umschalter keine Doppelauswahl entsteht (xjustiz.de ist die führende Quelle). Nur dort neu erschienene Versionen kommen hinzu. War die aktive Version darunter, wird sie sofort neu geladen; die Versionspille kennzeichnet den Ursprung mit „(xjustiz.de)". Parser-Tests: `remote-schema.service.spec.ts`.
+
+Für die **hinterlegten Kopien** gibt es den Gegenpart auf der Kommandozeile: `npm run schemas:fetch` (`scripts/fetch-schemas.mjs`) lädt dieselben ZIPs, entpackt sie nach `public/schemas/<version>/`, berichtet neue/geänderte/entfallene Dateien und baut das Manifest neu. `-- --dry` zeigt nur den Abgleich, `-- 3.6.2` beschränkt auf einzelne Versionen. Sinnvoll vor jedem Deployment — damit ist der ausgelieferte Offline-Stand derselbe wie auf xjustiz.de.
 
 ## InstanceImportService
 

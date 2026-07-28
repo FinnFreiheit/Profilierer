@@ -43,11 +43,28 @@ app.use(
   }),
 );
 
+// xjustiz.de-Proxy: Versionsseite und Schema-ZIPs (xjustiz.de sendet keine
+// CORS-Header, siehe RemoteSchemaService).
+app.use(
+  '/xjustiz-api',
+  createProxyMiddleware({
+    target: 'https://xjustiz.justiz.de',
+    changeOrigin: true,
+    pathRewrite: { '^/xjustiz-api': '' },
+    headers: { 'User-Agent': 'XJustiz-Profilierer (Server-Proxy)' },
+  }),
+);
+
 // Statische SPA + SPA-Catch-all (nur wenn gebaut vorhanden).
 if (existsSync(DIST)) {
   app.use(express.static(DIST));
   app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/xrep-api')) return next();
+    if (
+      req.path.startsWith('/api') ||
+      req.path.startsWith('/xrep-api') ||
+      req.path.startsWith('/xjustiz-api')
+    )
+      return next();
     res.sendFile(join(DIST, 'index.html'));
   });
 } else {

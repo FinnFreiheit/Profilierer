@@ -27,12 +27,19 @@ export class Topbar {
   readonly diffClick = output<void>();
   /** Wechsel auf eine hinterlegte Schemaversion (dir aus dem Manifest). */
   readonly bundledPick = output<string>();
+  /** Versionsliste von xjustiz.de abrufen/aktualisieren. */
+  readonly remoteSchemaClick = output<void>();
   /** Fehlerprotokoll (LoggerService-Ringpuffer) als Datei speichern. */
   readonly logExportClick = output<void>();
 
   protected readonly hasIdx = computed(() => !!this.state.idx());
   protected readonly bundledVersions = computed(() => this.state.bundledVersions());
   protected readonly activeBundle = computed(() => this.state.activeBundle());
+  /** Stammt die aktive Version aus dem Abruf von xjustiz.de? */
+  protected readonly ausXjustizDe = computed(() => {
+    const dir = this.state.activeBundle();
+    return !!dir && !!this.state.bundledVersions().find((v) => v.dir === dir)?.zipUrl;
+  });
   protected readonly diffLabel = computed(() => {
     const b = this.state.idxB();
     return b ? `Diff ${this.state.version() || '?'} ↔ ${b.version || '?'}` : 'Version vergleichen…';
@@ -44,7 +51,8 @@ export class Topbar {
     if (!idx) return 'keine Schemata geladen';
     const ncl = Object.keys(this.state.codelists()).length;
     return (
-      `XJustiz ${this.state.version() || '?'} · ${this.state.docs().length} Schemata · ` +
+      `XJustiz ${this.state.version() || '?'}${this.ausXjustizDe() ? ' (xjustiz.de)' : ''} · ` +
+      `${this.state.docs().length} Schemata · ` +
       `${idx.messages.length} Nachrichten${ncl ? ' · ' + ncl + ' Codelisten' : ''}`
     );
   });

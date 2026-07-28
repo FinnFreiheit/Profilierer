@@ -10,7 +10,10 @@ Die Nachricht wird als **Kasten-Baum von links nach rechts** dargestellt, mit Ve
 
 ## Bedienung
 
-1. **XSD-Ordner laden** — Ordner mit den XJustiz-Schemadateien wählen (z. B. `XJustiz_3_6_2_XSD`), alternativ Dateien per Drag & Drop.
+1. **Schemaversion wählen** — die Versionen 3.6.2 und 4.0.0 sind hinterlegt und stehen im Umschalter der Kopfleiste sofort bereit (3.6.2 ist beim Start aktiv). **„Laden → Schemata: xjustiz.de"** holt den auf [xjustiz.de](https://xjustiz.justiz.de/XJustiz-Versionen/) veröffentlichten Stand und **ersetzt** damit die hinterlegten Versionen — keine Doppelauswahl, xjustiz.de führt. So kommen auch **Nachlieferungen** an, die eine bestehende Version (z. B. 3.6.2) nachträglich ändern; die aktive Version wird direkt neu geladen, die Versionspille zeigt dann „(xjustiz.de)". Ein erneuter Aufruf holt frisch. Hinweis: xjustiz.de sendet keine CORS-Freigabe — der Abruf läuft über den Dev-Proxy (`npm start`) bzw. den Server (`npm run start:prod`) unter `/xjustiz-api/…`. Ein eigener **XSD-Ordner** (Fremdschema) lässt sich weiterhin über „Laden → Eigener XSD-Ordner…" oder per Drag & Drop laden.
+
+   Die ausgelieferten Kopien in `public/schemas/` hält `npm run schemas:fetch` auf demselben Stand (Abgleich vorab mit `npm run schemas:fetch -- --dry`) — damit ist die App auch ohne Netz aktuell.
+
 2. **Nachricht wählen** — durchsuchbare Liste aller `nachricht.*`-Elemente, gruppiert nach Fachmodul.
 3. **Profilieren** — Kasten anklicken, rechts im Detailbereich entscheiden:
    - **Status** — Stufen sind je Profil frei konfigurierbar (Knopf „Status…": Name, Farbe und _Wirkung_). Vorbelegung: zwingend / anzugeben, wenn vorhanden / nicht verwendet / zu klären. Die Wirkung (Pflicht, optional, ausgeschlossen, nur Markierung) steuert Schematron und Beispiel-XML.

@@ -3,7 +3,7 @@
            xmlns:tns="http://www.xjustiz.de"
            xmlns:din91379="urn:xoev-de:kosit:xoev:datentyp:din-91379_2022-08"
            targetNamespace="http://www.xjustiz.de"
-           version="3.2.0"
+           version="3.3.0"
            elementFormDefault="qualified"
            attributeFormDefault="unqualified">
    <xs:annotation>
@@ -634,9 +634,13 @@
          <xs:element name="identifikationFlurstueck"
                      type="tns:Type.DABAG.Identifikation.Flurstueck"/>
          <xs:element name="wirtschaftsart"
+                     minOccurs="0"
                      maxOccurs="unbounded"
                      type="tns:Code.DABAG.Wirtschaftsart"/>
-         <xs:element name="lage" maxOccurs="unbounded" type="din91379:datatypeB"/>
+         <xs:element name="lage"
+                     minOccurs="0"
+                     maxOccurs="unbounded"
+                     type="din91379:datatypeB"/>
          <xs:element name="groesse" minOccurs="0" type="din91379:datatypeC"/>
       </xs:sequence>
    </xs:complexType>
@@ -1490,7 +1494,9 @@
                <xs:documentation>Bei einem Antrag auf Anlage einer WEG Serie ist die Angabe der Zuordnung der Eigentümer der aufzuteilenden Buchungsstelle zur jeweiligen WEG-Einheit verpflichtend, ansonsten ergeben sich die Eigentumsverhältnisse aus den Eigentümern der entsprechenden Buchungsstelle vom Typ WEGEinheit.</xs:documentation>
             </xs:annotation>
          </xs:element>
-         <xs:element name="erwerbsgrundart" type="tns:Code.DABAG.Aufteilungsgrund.WEG">
+         <xs:element name="erwerbsgrundart"
+                     minOccurs="0"
+                     type="tns:Code.DABAG.Aufteilungsgrund.WEG">
             <xs:annotation>
                <xs:documentation>Art des Erwerbsgrundes (Aufteilung nach §3 oder §8 WEG)</xs:documentation>
             </xs:annotation>

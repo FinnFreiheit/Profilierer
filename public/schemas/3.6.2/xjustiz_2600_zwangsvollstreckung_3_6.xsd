@@ -3,7 +3,7 @@
            xmlns:tns="http://www.xjustiz.de"
            xmlns:din91379="urn:xoev-de:kosit:xoev:datentyp:din-91379_2022-08"
            targetNamespace="http://www.xjustiz.de"
-           version="3.5.0"
+           version="3.6.0"
            elementFormDefault="qualified"
            attributeFormDefault="unqualified">
    <xs:annotation>
@@ -726,21 +726,17 @@
                            <xs:element name="abzug.betrag.kindergeld.inEuro"
                                        minOccurs="0"
                                        type="xs:decimal"/>
-                           <xs:element name="abzug.sonstigeKindbezogeneLeistung" minOccurs="0">
-                              <xs:complexType>
-                                 <xs:sequence>
-                                    <xs:element name="betrag.sonstigeLeistung.inEuro" type="xs:decimal"/>
-                                    <xs:element name="derzeitigerZahlbetrag.inEuro" minOccurs="0" type="xs:decimal">
-                                       <xs:annotation>
-                                          <xs:documentation>Hier kann der derzeitige monatliche Zahlbetrag des Unterhalts eingetragen werden.</xs:documentation>
-                                       </xs:annotation>
-                                    </xs:element>
-                                    <xs:element name="zeitraum"
-                                                minOccurs="0"
-                                                type="tns:Type.GDS.Xdomea.ZeitraumType"/>
-                                 </xs:sequence>
-                              </xs:complexType>
+                           <xs:element name="abzug.sonstigeKindbezogeneLeistung"
+                                       minOccurs="0"
+                                       type="xs:decimal"/>
+                           <xs:element name="derzeitigerZahlbetrag.inEuro" minOccurs="0" type="xs:decimal">
+                              <xs:annotation>
+                                 <xs:documentation>Hier kann der derzeitige monatliche Zahlbetrag des Unterhalts eingetragen werden.</xs:documentation>
+                              </xs:annotation>
                            </xs:element>
+                           <xs:element name="zeitraum"
+                                       minOccurs="0"
+                                       type="tns:Type.GDS.Xdomea.ZeitraumType"/>
                         </xs:sequence>
                      </xs:complexType>
                   </xs:element>
@@ -1007,9 +1003,12 @@
    <xs:complexType name="Type.ZVSTR.Renten">
       <xs:sequence>
          <xs:element name="rente.inHoeheVon" type="xs:decimal"/>
-         <xs:element name="zahlungsintervall" type="tns:Code.GDS.Intervall"/>
+         <xs:element name="zahlungsintervall"
+                     minOccurs="0"
+                     type="tns:Code.GDS.Intervall"/>
          <xs:element name="beginn.zahlungszeitraum" minOccurs="0" type="xs:date"/>
          <xs:element name="zahlbarAm" minOccurs="0" type="din91379:datatypeC"/>
+         <xs:element name="zahlungszeitraum" minOccurs="0" type="tns:Code.GDS.Intervall"/>
          <xs:element name="ende.zahlungszeitraum" minOccurs="0" type="xs:date"/>
       </xs:sequence>
    </xs:complexType>
