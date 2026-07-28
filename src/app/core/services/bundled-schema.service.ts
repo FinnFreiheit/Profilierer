@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BundledVersion } from '../../models/schema-bundle.model';
+import { RemoteSchemaService } from './remote-schema.service';
 
 /** Basis-URL der hinterlegten Schemata (Angular serviert public/ unter root). */
 const SCHEMA_BASE = 'schemas';
@@ -12,6 +13,7 @@ const SCHEMA_BASE = 'schemas';
  */
 @Injectable({ providedIn: 'root' })
 export class BundledSchemaService {
+  private readonly remote = inject(RemoteSchemaService);
   private manifestCache: Promise<BundledVersion[]> | null = null;
 
   /** Manifest der verfuegbaren Versionen (einmalig geladen und gecacht). */
@@ -30,8 +32,13 @@ export class BundledSchemaService {
     return this.manifestCache;
   }
 
-  /** XSD-Dateien einer hinterlegten Version als `File[]` (fuer die Ladewege). */
+  /**
+   * XSD-Dateien einer Version als `File[]` (fuer die Ladewege). Versionen mit
+   * `zipUrl` stammen von xjustiz.de und kommen aus dem dortigen ZIP — fuer die
+   * Konsumenten (Diff, Validierung, Testnachrichten) macht das keinen Unterschied.
+   */
   async files(v: BundledVersion): Promise<File[]> {
+    if (v.zipUrl) return this.remote.files(v);
     const out = await Promise.all(
       v.files.map(async (name) => {
         const r = await fetch(`${SCHEMA_BASE}/${v.dir}/${encodeURIComponent(name)}`);

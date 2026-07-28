@@ -92,15 +92,18 @@ graph TB
     API["/api → SQLite"]
     STAT["statische SPA"]
     XP["/xrep-api → XRepository"]
+    XJ["/xjustiz-api → xjustiz.de"]
   end
   APP -->|"/api (Profile)"| API
   APP -->|"/xrep-api (Codelisten)"| XP
+  APP -->|"/xjustiz-api (Schemata)"| XJ
   XP -->|REST| XREP["XRepository"]
+  XJ -->|"Versionsseite + XSD-ZIP"| XJD["xjustiz.de"]
   STAT -.->|liefert| APP
   APP -.->|"Fallback (mit Zustimmung)"| CORS["öffentliche CORS-Weiterleiter"]
 ```
 
-Im Entwicklungsbetrieb übernimmt statt des Backends der `ng serve`-Dev-Proxy (`proxy.conf.json`) `/api` (→ localhost:3001) und `/xrep-api` (→ XRepository).
+Im Entwicklungsbetrieb übernimmt statt des Backends der `ng serve`-Dev-Proxy (`proxy.conf.json`) `/api` (→ localhost:3001), `/xrep-api` (→ XRepository) und `/xjustiz-api` (→ xjustiz.de).
 
 Der Dev-Proxy (`proxy.conf.json`) reicht XRepository-Aufrufe im Entwicklungsbetrieb same-origin durch. Für den Produktivbetrieb ist das offen — siehe [Deployment](deployment.md) und [ADR 0004](adr/0004-dev-proxy-xrepository.md).
 

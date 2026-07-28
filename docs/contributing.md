@@ -11,6 +11,7 @@ npm start                           # ng serve (inkl. XRepository-Dev-Proxy)
 npm run test:ci                     # headless Unit-Tests
 npm run build                       # Produktions-Build
 npm run schemas:manifest            # public/schemas/index.json neu erzeugen
+npm run schemas:fetch               # hinterlegte Schemata aus xjustiz.de aktualisieren (-- --dry: nur Abgleich)
 npm run check                       # volle Pruefkette (das faehrt auch CI)
 ```
 
@@ -34,6 +35,8 @@ npm run check                       # volle Pruefkette (das faehrt auch CI)
 Die XJustiz-Schemata beider Versionen liegen im Projekt unter `public/schemas/<version>/` (3.6.2, 4.0.0) und werden beim Start automatisch geladen — ein XSD-Ordner-Upload ist nur noch für Fremdschemata nötig (Details: [BundledSchemaService](services.md#bundledschemaservice)). Das Manifest `public/schemas/index.json` steuert Versionen, Anzeigenamen und die Standardversion.
 
 **Beim Hinzufügen/Austauschen von XSDs:** Dateien in den jeweiligen Ordner legen (neue Version = neuer Unterordner) und `npm run schemas:manifest` ausführen. Das Skript baut die Dateilisten neu auf und übernimmt vorhandene `label`/`default`/Reihenfolge; die Standardversion in `index.json` (`"default": true`) bei Bedarf von Hand umsetzen.
+
+**Aktuellen Stand von xjustiz.de übernehmen:** `npm run schemas:fetch` lädt die veröffentlichten XSD-ZIPs, entpackt sie nach `public/schemas/<version>/`, berichtet neue/geänderte/entfallene Dateien und ruft anschließend `schemas:manifest` auf. `npm run schemas:fetch -- --dry` zeigt nur den Abgleich, `-- 3.6.2` beschränkt auf eine Version. Vor Releases laufen lassen — Nachlieferungen ändern eine Version auch nachträglich (so kamen z. B. `xjustiz_2600_zwangsvollstreckung_3_6` und `xjustiz_2900_dabag_3_3` in 3.6.2).
 
 ## Code-Konventionen
 

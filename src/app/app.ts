@@ -29,6 +29,7 @@ import { ToastService } from './core/services/toast.service';
 import { StateService } from './core/services/state.service';
 import { GuidedService } from './core/services/guided.service';
 import { BundledSchemaService } from './core/services/bundled-schema.service';
+import { RemoteSchemaService } from './core/services/remote-schema.service';
 import { MigrationService } from './core/services/migration.service';
 import { XmlValidationService } from './core/services/xml-validation.service';
 import { ValidationReportService } from './core/services/validation-report.service';
@@ -84,6 +85,7 @@ export class App implements OnInit {
   private readonly state = inject(StateService);
   private readonly guided = inject(GuidedService);
   private readonly bundled = inject(BundledSchemaService);
+  private readonly remoteSchemas = inject(RemoteSchemaService);
   private readonly migration = inject(MigrationService);
   private readonly validator = inject(XmlValidationService);
   private readonly validationReport = inject(ValidationReportService);
@@ -145,7 +147,9 @@ export class App implements OnInit {
     const v = this.state.bundledVersions().find((x) => x.dir === dir);
     if (!v) return;
     const prevMsg = this.state.msgName();
+    const quelle = v.zipUrl ? ' von xjustiz.de' : '';
     try {
+      if (v.zipUrl) this.toast.show(`Lade XJustiz ${v.label} von xjustiz.de…`);
       const files = await this.bundled.files(v);
       await this.persistence.loadXsdFiles(files);
       this.state.activeBundle.set(dir);
@@ -153,10 +157,54 @@ export class App implements OnInit {
         if (this.state.idx()?.el[prevMsg]) this.nav.loadMessage(prevMsg, true);
         else this.toast.show(`Nachricht ${prevMsg} ist in XJustiz ${v.label} nicht enthalten.`);
       }
-      this.toast.show(`XJustiz ${v.label} geladen (${files.length} Schemata).`);
+      this.toast.show(`XJustiz ${v.label}${quelle} geladen (${files.length} Schemata).`);
     } catch (e) {
       this.toast.show(
-        `XJustiz ${v.label} konnte nicht geladen werden: ` + (e instanceof Error ? e.message : e),
+        `XJustiz ${v.label}${quelle} konnte nicht geladen werden: ` +
+          (e instanceof Error ? e.message : e),
+      );
+    }
+  }
+
+  /**
+   * Schemata von xjustiz.de holen (Menue „Schemata: xjustiz.de"): die dort
+   * veroeffentlichten Versionen **ersetzen** die im Projekt hinterlegten
+   * Eintraege gleicher Versionsnummer — keine Doppelauswahl im Umschalter,
+   * xjustiz.de ist die fuehrende Quelle. Nur dort neu erschienene Versionen
+   * kommen hinzu. Der Abruf ist bewusst manuell; ein erneuter Aufruf verwirft
+   * den Sitzungs-Cache und holt den aktuellen Stand, womit auch
+   * Nachlieferungen an einer bestehenden Version (z. B. 3.6.2) ankommen.
+   * Die gerade aktive Version wird direkt neu geladen.
+   */
+  async loadRemoteVersions(): Promise<void> {
+    this.toast.show('Rufe die Schema-Versionen von xjustiz.de ab…');
+    try {
+      const remote = await this.remoteSchemas.versionen(true);
+      const nachId = new Map(remote.map((r) => [r.id, r]));
+      const bisher = this.state.bundledVersions();
+      // Hinterlegte Eintraege an Ort und Stelle ersetzen (dir/label/default
+      // bleiben, damit activeBundle und der Standard-Eintrag gueltig bleiben).
+      const ersetzt = bisher.map((v) => {
+        const r = nachId.get(v.id);
+        if (!r) return v;
+        nachId.delete(v.id);
+        return { ...v, files: [], zipUrl: r.zipUrl, hinweis: r.hinweis };
+      });
+      const neu = Array.from(nachId.values());
+      this.state.bundledVersions.set([...ersetzt, ...neu]);
+
+      const aktiv = this.state.activeBundle();
+      const aktivErsetzt = ersetzt.find((v) => v.dir === aktiv && v.zipUrl);
+      this.toast.show(
+        `Schemata von xjustiz.de übernommen: ${remote.map((v) => v.label).join(', ')}` +
+          (neu.length ? ` (davon neu: ${neu.map((v) => v.label).join(', ')})` : ''),
+      );
+      // Aktive Version stammt jetzt aus einer anderen Quelle — neu einlesen,
+      // sonst zeigt der Umschalter den neuen Stand, der Baum aber den alten.
+      if (aktivErsetzt) await this.loadBundled(aktivErsetzt.dir);
+    } catch (e) {
+      this.toast.show(
+        'Schemata von xjustiz.de nicht abrufbar: ' + (e instanceof Error ? e.message : e),
       );
     }
   }
