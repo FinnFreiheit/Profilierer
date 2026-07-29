@@ -56,6 +56,32 @@
 
   <app-search></app-search>
 
+  @if (isMessage() && !isSchemaView()) {
+    <div class="toolgroup modusSeg" role="group" aria-label="Modus">
+      <button
+        [class.aktiv]="state.readOnly()"
+        [attr.aria-pressed]="state.readOnly()"
+        title="Nachricht nur ansehen — zeigt genau die belegten Angaben"
+        (click)="setModus(false)"
+      >
+        Betrachten
+      </button>
+      <button
+        [class.aktiv]="!state.readOnly()"
+        [attr.aria-pressed]="!state.readOnly()"
+        [disabled]="!hasRoot() || state.abnahmeSchreibschutz()"
+        [title]="
+          state.abnahmeSchreibschutz()
+            ? 'Von der BLK-AG abgenommen — Bearbeiten nur mit AG-Schlüssel'
+            : 'Werte ändern, Angaben hinzufügen oder entfernen, Vorkommen anlegen'
+        "
+        (click)="setModus(true)"
+      >
+        Bearbeiten
+      </button>
+    </div>
+  }
+
   <app-menu label="Ansicht" #ansicht>
     @if (!state.readOnly() && !isMessage()) {
       <label
@@ -75,15 +101,14 @@
         Geführt
       </label>
     }
-    @if (!isSchemaView()) {
+    <!-- Im Nachrichten-Modus uebernimmt der Segment-Umschalter oben; kein Duplikat. -->
+    @if (!isSchemaView() && !isMessage()) {
       <label
         class="menuItem"
         [title]="
           state.abnahmeSchreibschutz()
             ? 'Von der BLK-AG abgenommen — Betrachtungsmodus lässt sich nur mit AG-Schlüssel aufheben'
-            : isMessage()
-              ? 'Nachricht nur betrachten (Häkchen entfernen zum Bearbeiten der Werte)'
-              : 'Nachricht nur betrachten — ohne Profilier-Bedienelemente, Werte gesperrt'
+            : 'Nachricht nur betrachten — ohne Profilier-Bedienelemente, Werte gesperrt'
         "
       >
         <input
@@ -92,7 +117,7 @@
           [checked]="state.readOnly()"
           (change)="state.readOnly.set(checked($event))"
         />
-        {{ isMessage() ? 'Nur betrachten (sonst bearbeiten)' : 'Nur betrachten' }}
+        Nur betrachten
       </label>
     }
     <label class="menuItem" title="Versionsunterschiede im Baum markieren">
@@ -210,6 +235,20 @@
         Speichern
       </button>
     } @else if (isMessage()) {
+      @if (hatEintrag()) {
+        <button
+          class="primary"
+          [disabled]="!hasRoot() || state.abnahmeSchreibschutz()"
+          [title]="
+            state.abnahmeSchreibschutz()
+              ? 'Von der BLK-AG abgenommen — Speichern nur mit AG-Schlüssel'
+              : 'Änderungen in denselben Testdaten-Eintrag zurückschreiben'
+          "
+          (click)="updateMessageClick.emit()"
+        >
+          Speichern
+        </button>
+      }
       <button
         [disabled]="!hasRoot()"
         title="Die (bearbeitete) Nachricht als neue Testnachricht im Testdaten-Speicher ablegen"

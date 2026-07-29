@@ -15,6 +15,7 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
     <xs:element name="spitzname" type="xs:string" minOccurs="0"/>
     <xs:element name="beteiligung" type="Type.Test.Bet" minOccurs="0" maxOccurs="unbounded"/>
     <xs:element name="art" type="Code.Test"/>
+    <xs:element name="art2" type="Code.Test" minOccurs="0"/>
     <xs:element name="kontakt" minOccurs="0"><xs:complexType><xs:sequence>
       <xs:element name="anrede" type="xs:string" minOccurs="0"/>
       <xs:choice>
@@ -31,6 +32,13 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
   </xs:sequence></xs:complexType>
   <xs:complexType name="Type.Test.Bet"><xs:sequence>
     <xs:element name="name" type="xs:string"/>
+    <xs:element name="rolle" type="xs:string" minOccurs="0"/>
+    <!-- Benanntes Element, dessen complexType *direkt* eine choice ist (wie
+         die auswahl_*-Elemente im GDS): der Knoten traegt selbst model=choice. -->
+    <xs:element name="auswahl_kennung"><xs:complexType><xs:choice>
+      <xs:element name="kennungA" type="xs:string"/>
+      <xs:element name="kennungB" type="xs:string"/>
+    </xs:choice></xs:complexType></xs:element>
   </xs:sequence></xs:complexType>
   <xs:complexType name="Code.Test">
     <xs:annotation><xs:appinfo><codeliste><nameLang>L</nameLang><kennung>urn:test:cl</kennung></codeliste></xs:appinfo></xs:annotation>
@@ -48,8 +56,8 @@ const INSTANCE = `<?xml version="1.0" encoding="UTF-8"?>
     <absender><eigeneNachrichtenID>ALT-ID-123</eigeneNachrichtenID></absender>
   </nachrichtenkopf>
   <vorname>Max</vorname>
-  <beteiligung><name>A</name></beteiligung>
-  <beteiligung><name>B</name></beteiligung>
+  <beteiligung><name>A</name><rolle>R1</rolle><auswahl_kennung><kennungA>KA</kennungA></auswahl_kennung></beteiligung>
+  <beteiligung><name>B</name><auswahl_kennung><kennungB>KB</kennungB></auswahl_kennung></beteiligung>
   <art listURI="urn:test:cl" listVersionID="1"><code>X1</code></art>
   <kontakt><email>max@example.org</email></kontakt>
 </nachricht.test.0001>`;
@@ -89,6 +97,15 @@ describe('InstanceExportService', () => {
   /** Werte der <name>-Blätter je <beteiligung> (Reihenfolge). */
   const betNamen = (doc: Document): (string | null)[] =>
     all(doc, 'beteiligung').map((b) => b.getElementsByTagName('name')[0]?.textContent ?? null);
+  /** Werte der optionalen <rolle>-Blätter je <beteiligung> (null = nicht vorhanden). */
+  const betRollen = (doc: Document): (string | null)[] =>
+    all(doc, 'beteiligung').map((b) => b.getElementsByTagName('rolle')[0]?.textContent ?? null);
+  /** Baut das Instanz-XML der laufenden Session und liefert es geparst. */
+  const bau = (): Document =>
+    new DOMParser().parseFromString(
+      exp.buildInstanceXml(state.messageEdit()!, false),
+      'application/xml',
+    );
 
   it('erzeugt wohlgeformtes XML ohne Parserfehler', () => {
     const doc = roundtrip();
@@ -157,15 +174,75 @@ describe('InstanceExportService', () => {
     expect(betNamen(doc)).toEqual(['B']);
   });
 
-  it('fügt ein neues Vorkommen hinzu (aus Vorlage geklont)', () => {
+  it('fügt ein neues Vorkommen hinzu (frisch erzeugt, nicht geklont)', () => {
     imp.importXml(INSTANCE, 'quelle.xml');
     const neu = state.addAusp(`${M}/beteiligung`, 'Vorkommen 3');
     state.setElementProfile(`${M}/beteiligung@${neu}/name`, { beispiel: 'C' });
-    const doc = new DOMParser().parseFromString(
-      exp.buildInstanceXml(state.messageEdit()!, false),
-      'application/xml',
-    );
+    const doc = bau();
     expect(betNamen(doc)).toEqual(['A', 'B', 'C']);
+    // Das neue Vorkommen erbt keine Werte des ersten (kein Klon von "R1").
+    expect(betRollen(doc)).toEqual(['R1', null, null]);
+  });
+
+  it('erzeugt das code-Element unqualifiziert (xmlns="") und bleibt reparsbar', () => {
+    imp.importXml(INSTANCE, 'quelle.xml');
+    // `art2` fehlt in der Quelle und wird beim Export frisch erzeugt.
+    state.setElementProfile(`${M}/art2`, { beispiel: 'X2' });
+    const xml = exp.buildInstanceXml(state.messageEdit()!, false);
+    expect(xml).toContain('<code xmlns="">X2</code>');
+    // Beim erneuten Parsen darf der Code nicht in den Default-Namespace rutschen.
+    const art2 = new DOMParser()
+      .parseFromString(xml, 'application/xml')
+      .getElementsByTagName('art2')[0]!;
+    expect(art2.getElementsByTagName('code')[0]!.namespaceURI).toBeNull();
+  });
+
+  it('erzeugt in einer benannten Auswahl genau einen Zweig', () => {
+    imp.importXml(INSTANCE, 'quelle.xml');
+    state.addAusp(`${M}/beteiligung`, 'Vorkommen 3');
+    const neu = all(bau(), 'auswahl_kennung')[2]!;
+    // `auswahl_kennung` traegt model=choice ohne synthetisches Kind — ohne
+    // Sonderbehandlung entstuenden hier beide Zweige.
+    expect(neu.children.length).toBe(1);
+    expect(['kennungA', 'kennungB']).toContain(neu.children[0]!.localName);
+  });
+
+  it('erhält den Platzhalter eines erzeugten Vorkommens ohne Modellwert', () => {
+    imp.importXml(INSTANCE, 'quelle.xml');
+    state.addAusp(`${M}/beteiligung`, 'Vorkommen 3');
+    const namen = betNamen(bau());
+    expect(namen.length).toBe(3);
+    // Pflichtblatt wurde erzeugt und darf nicht als "geleerter Wert" entfallen.
+    expect(namen[2]).toBeTruthy();
+  });
+
+  it('entfernt eine Angabe, deren Wert im Modell geleert wurde', () => {
+    imp.importXml(INSTANCE, 'quelle.xml');
+    state.setElementProfile(`${M}/vorname`, { beispiel: undefined });
+    const doc = bau();
+    expect(all(doc, 'vorname').length).toBe(0);
+    // Unangetastete Geschwister bleiben erhalten.
+    expect(betNamen(doc)).toEqual(['A', 'B']);
+    expect(txt(doc, 'code')).toBe('X1');
+  });
+
+  it('überträgt beim Löschen des ersten Vorkommens dessen Werte nicht', () => {
+    imp.importXml(INSTANCE, 'quelle.xml');
+    const ausps = state.auspsOf(`${M}/beteiligung`)!;
+    state.removeAusp(`${M}/beteiligung`, ausps[0]!.id); // "A" samt <rolle>R1</rolle>
+    const doc = bau();
+    expect(betNamen(doc)).toEqual(['B']);
+    expect(betRollen(doc)).toEqual([null]);
+  });
+
+  it('erhält beim Duplizieren eines einzelnen Vorkommens dessen Quell-Inhalt', () => {
+    const EINS = INSTANCE.replace(/ *<beteiligung><name>B<\/name>.*<\/beteiligung>\n/, '');
+    expect(EINS).not.toContain('<name>B</name>'); // Replace muss gegriffen haben
+    imp.importXml(EINS, 'quelle.xml');
+    state.duplicateElement(`${M}/beteiligung`); // Fall 1 erbt A/R1, Fall 2 ist neu
+    const doc = bau();
+    expect(betNamen(doc)[0]).toBe('A');
+    expect(betRollen(doc)).toEqual(['R1', null]);
   });
 
   it('fügt ein neues optionales Blatt an schema-korrekter Position ein', () => {

@@ -242,7 +242,23 @@
            (drei Dispositionen statt aller konfigurierten Stufen). Bei der
            Testnachricht-Erstellung gibt es keine Status-/Kardinalitaets-
            Profilierung. -->
-      @if (!gv() && !isCreate()) {
+      @if (!gv() && msgMode() && !isCreate() && !v.erw) {
+        <div class="dsec">
+          <span class="dsecTitel">Angabe in der Nachricht</span>
+          <button
+            [title]="
+              v.entfernt
+                ? 'Element wieder in die Nachricht aufnehmen'
+                : 'Element beim Speichern aus der Nachricht entfernen (samt Vorkommen)'
+            "
+            (click)="toggleEntfernt()"
+          >
+            {{ v.entfernt ? '↺ Wieder aufnehmen' : '✕ Angabe entfernen' }}
+          </button>
+        </div>
+      }
+
+      @if (!gv() && !msgMode()) {
         <div class="dsec">
           <label>Status im Szenario</label>
           <div class="statusBtns">
@@ -261,7 +277,7 @@
         </div>
       }
 
-      @if (!isCreate() && !v.erw) {
+      @if (!msgMode() && !v.erw) {
         <div class="dsec">
           <label>Kardinalität im Szenario</label>
           <div class="kardRow">
@@ -469,7 +485,8 @@
     }
 
     @if (!ro()) {
-      @if (!isCreate()) {
+      <!-- Review-Notizen gehoeren zur Profilierung, nicht in eine Instanz. -->
+      @if (!msgMode()) {
         <div class="dsec">
           <label>Fachliche Anmerkung</label>
           <textarea
@@ -497,7 +514,7 @@
           }
         </div>
       }
-      @if (!isCreate() || v.leaf) {
+      @if (!msgMode() || v.leaf) {
         <div class="dsec">
           <label>{{ msgMode() ? 'Wert' : 'Beispielwert' }}</label>
           <div class="wertRow">

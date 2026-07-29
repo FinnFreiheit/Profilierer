@@ -52,6 +52,9 @@ export class TestmessageCreateService {
   async neuErstellen(version: string | undefined, msgName: string): Promise<void> {
     await this.persistence.flushAutosave();
     this.state.activeProfileId.set(null);
+    // Schutz einer zuvor geoeffneten abgenommenen Nachricht loesen: er haengt
+    // nicht am Profil (activeProfileId ist hier null) und bliebe sonst stehen.
+    this.state.abnahmeSchreibschutz.set(false);
     await this.generator.ensureSchema(version);
     if (!this.state.idx()?.el[msgName])
       throw new Error('Nachricht nicht im geladenen Schema gefunden: ' + msgName);
@@ -78,6 +81,7 @@ export class TestmessageCreateService {
       throw new Error('Kein Entscheidungsstand gespeichert — Nachricht wird nur geöffnet.');
     await this.persistence.flushAutosave();
     this.state.activeProfileId.set(null);
+    this.state.abnahmeSchreibschutz.set(false); // siehe neuErstellen
     await this.generator.ensureSchema(stand.xjustizVersion ?? entry.xjustizVersion);
     if (!this.state.idx()?.el[stand.msgName])
       throw new Error('Nachricht nicht im geladenen Schema gefunden: ' + stand.msgName);

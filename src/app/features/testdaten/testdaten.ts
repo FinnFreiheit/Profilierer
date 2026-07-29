@@ -10,10 +10,10 @@ import {
 import { TestmessageStoreService } from '../../core/services/testmessage-store.service';
 import { StateService } from '../../core/services/state.service';
 import { ToastService } from '../../core/services/toast.service';
-import { InstanceImportService } from '../../core/services/instance-import.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { TestmessageGenerationService } from '../../core/services/testmessage-generation.service';
 import { TestmessageCreateService } from '../../core/services/testmessage-create.service';
+import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
 import { DownloadService } from '../../core/services/download.service';
 import { XmlValidationService } from '../../core/services/xml-validation.service';
 import { ValidationReportService } from '../../core/services/validation-report.service';
@@ -50,10 +50,10 @@ export class Testdaten {
   protected readonly state = inject(StateService);
   protected readonly rolle = inject(RolleService);
   private readonly toast = inject(ToastService);
-  private readonly instanceImport = inject(InstanceImportService);
   private readonly profiles = inject(ProfileStoreService);
   private readonly generator = inject(TestmessageGenerationService);
   private readonly creator = inject(TestmessageCreateService);
+  private readonly edit = inject(TestmessageEditService);
   private readonly dl = inject(DownloadService);
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
@@ -205,32 +205,37 @@ export class Testdaten {
     await this.openInTree(e);
   }
 
-  /**
-   * Testnachricht wie eine Profilierung im Baum-Editor oeffnen: passendes
-   * Schema sicherstellen, XML gegen das Schema einlesen (Testwerte an die
-   * Blaetter) und zur Editor-Ansicht wechseln.
-   */
+  /** Testnachricht betrachtend im Baum-Editor oeffnen (gesperrt, nur Werte). */
   protected async openInTree(e: TestmessageEntry): Promise<void> {
     try {
-      const xml = await this.store.loadXml(e.id);
-      if (xml == null) {
-        this.toast.show('Nachricht nicht gefunden.');
-        return;
-      }
-      await this.ensureSchema(e.xjustizVersion);
-      // Kein Bibliothekseintrag: verhindert, dass der Autosave die Testnachricht
-      // in ein (evtl. zuvor geoeffnetes) Profil schreibt.
-      this.state.activeProfileId.set(null);
-      this.instanceImport.importXml(xml, e.name); // wirft bei fehlendem/falschem Schema
-      this.state.view.set('editor');
+      await this.edit.oeffnen(e, 'betrachten');
     } catch (err) {
       this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
     }
   }
 
-  /** Die zur Testnachricht passende hinterlegte XJustiz-Version laden (falls noetig). */
-  private async ensureSchema(version?: string): Promise<void> {
-    await this.generator.ensureSchema(version);
+  /**
+   * Kachel-Aktion "Bearbeiten": gefuehrt erstellte Nachrichten werden gefuehrt
+   * fortgesetzt — dort ist der gespeicherte Entscheidungsstand die Wahrheit und
+   * das Speichern trifft ohnehin denselben Eintrag. Alle anderen oeffnen als
+   * editierbare Instanz im Baum.
+   */
+  protected async bearbeiten(e: TestmessageEntry, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    if (this.gesperrt(e)) return;
+    if (e.gefuehrt) {
+      try {
+        await this.creator.fortsetzen(e);
+        return;
+      } catch {
+        // Stand nicht ladbar (Backend/Schema) — als Instanz bearbeiten.
+      }
+    }
+    try {
+      await this.edit.oeffnen(e, 'bearbeiten');
+    } catch (err) {
+      this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
+    }
   }
 
   // ── Aus Profilierung erzeugen ───────────────────────────────────────
@@ -353,7 +358,7 @@ export class Testdaten {
     }
   }
 
-  // ── Bearbeiten (Name + Beschreibung) ────────────────────────────────
+  // ── Umbenennen (Name + Beschreibung) ────────────────────────────────
 
   protected openEdit(e: TestmessageEntry, ev: Event): void {
     ev.stopPropagation();

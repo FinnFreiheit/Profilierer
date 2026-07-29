@@ -45,7 +45,7 @@
           @for (e of g.items; track e.id) {
             <div
               class="dashCard"
-              [title]="e.gefuehrt ? 'Geführt fortsetzen' : 'Im Baum öffnen'"
+              [title]="e.gefuehrt ? 'Geführt fortsetzen' : 'Im Baum öffnen (betrachten)'"
               (click)="openEntry(e)"
             >
               <div class="dcName">{{ e.name }}</div>
@@ -109,11 +109,24 @@
                     [title]="
                       gesperrt(e)
                         ? 'Von der BLK-AG abgenommen — Bearbeiten nur mit AG-Schlüssel'
-                        : 'Name und Beschreibung bearbeiten'
+                        : e.gefuehrt
+                          ? 'Geführt fortsetzen'
+                          : 'Werte ändern, Angaben hinzufügen oder entfernen, Vorkommen anlegen'
+                    "
+                    (click)="bearbeiten(e, $event)"
+                  >
+                    Bearbeiten
+                  </button>
+                  <button
+                    [disabled]="gesperrt(e)"
+                    [title]="
+                      gesperrt(e)
+                        ? 'Von der BLK-AG abgenommen — Umbenennen nur mit AG-Schlüssel'
+                        : 'Name und Beschreibung ändern'
                     "
                     (click)="openEdit(e, $event)"
                   >
-                    Bearbeiten
+                    Umbenennen…
                   </button>
                   <button
                     title="Schemavalidierung ausführen und Befund anzeigen"
@@ -311,7 +324,7 @@
 </dialog>
 
 <dialog #editDlg id="noteDlg">
-  <h3 style="margin-top: 0">Testnachricht bearbeiten</h3>
+  <h3 style="margin-top: 0">Testnachricht umbenennen</h3>
   <label style="display: block; margin-bottom: 4px">Name</label>
   <input
     type="text"

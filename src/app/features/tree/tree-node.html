@@ -99,9 +99,13 @@
     <button
       class="hideBtn"
       [title]="
-        v.hideIsExcl
-          ? 'Wieder einblenden (Status entfernen)'
-          : 'Ausblenden — Element wird im Szenario nicht angegeben'
+        v.hideMsgMode
+          ? v.hideIsExcl
+            ? 'Angabe wieder in die Nachricht aufnehmen'
+            : 'Angabe aus der Nachricht entfernen'
+          : v.hideIsExcl
+            ? 'Wieder einblenden (Status entfernen)'
+            : 'Ausblenden — Element wird im Szenario nicht angegeben'
       "
       (click)="onHide($event)"
     >
@@ -111,7 +115,11 @@
   @if (v.showDelAusp) {
     <button
       class="hideBtn delBtn"
-      title="Ausprägung löschen (samt Unter-Profilierung)"
+      [title]="
+        v.hideMsgMode
+          ? 'Vorkommen löschen (samt Werten)'
+          : 'Ausprägung löschen (samt Unter-Profilierung)'
+      "
       (click)="onDelAusp($event)"
     >
       ✕
@@ -137,7 +145,9 @@
       <app-tree-node [item]="child"></app-tree-node>
     }
     @if (showAddAusp()) {
-      <div class="box addBox" (click)="onAddAusp()">+ Ausprägung</div>
+      <div class="box addBox" (click)="onAddAusp()">
+        {{ msgMode() ? '+ Vorkommen' : '+ Ausprägung' }}
+      </div>
     }
     @if (showAddErweiterung()) {
       <div

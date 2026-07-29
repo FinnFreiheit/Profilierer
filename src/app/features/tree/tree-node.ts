@@ -70,6 +70,8 @@ export class TreeNode {
 
   protected readonly hasNext = computed(() => this.tree.itemHasKids(this.item()));
   protected readonly isOpen = computed(() => this.state.isOpen(this.path()));
+  /** Nachrichten-Modus (Instanz statt Profil): steuert die Beschriftungen. */
+  protected readonly msgMode = this.state.msgMode;
 
   protected readonly showAddAusp = computed(() => {
     if (this.state.readOnly()) return false;
@@ -335,6 +337,9 @@ export class TreeNode {
     }
 
     const isExcl = !!excluded;
+    // Nachrichten-Modus: dieselben Bedienelemente, andere Sprache — in einer
+    // Instanz gibt es keine Profilierung, sondern Angaben und Vorkommen.
+    const msgMode = this.state.msgMode();
     return {
       dfR,
       dfA,
@@ -358,7 +363,7 @@ export class TreeNode {
       datalist,
       showTech: this.state.showTech() && it.kind === 'el',
       techText: it.kind === 'el' ? n.name + (n.typeName ? ' : ' + n.typeName : '') : '',
-      statusName: st?.name ?? '',
+      statusName: msgMode ? (isExcl ? 'entfernt' : '') : (st?.name ?? ''),
       kardText: kt,
       kardColor,
       standardHint,
@@ -368,6 +373,7 @@ export class TreeNode {
       // Buttons (im Betrachtungsmodus ausgeblendet).
       showHide: !readOnly && !this.isRoot() && it.kind === 'el' && !n.erweiterung,
       hideIsExcl: isExcl,
+      hideMsgMode: msgMode,
       showDelAusp: !readOnly && !this.isRoot() && it.kind === 'ausp',
       showDelErw: !readOnly && it.kind === 'el' && !!n.erweiterung,
       showDup:
@@ -375,8 +381,11 @@ export class TreeNode {
         !this.isRoot() &&
         !n.erweiterung &&
         (it.kind === 'ausp' || (!n.synthetic && this.tree.isRepeatable(n))),
-      dupTitle:
-        it.kind === 'ausp'
+      dupTitle: msgMode
+        ? it.kind === 'ausp'
+          ? 'Vorkommen samt Werten kopieren'
+          : 'Weiteres Vorkommen dieses Elements anlegen'
+        : it.kind === 'ausp'
           ? 'Ausprägung samt Unter-Profilierung kopieren'
           : 'Duplizieren — Element als benannte Fälle (Ausprägungen) führen',
     };
@@ -437,8 +446,10 @@ export class TreeNode {
     e.stopPropagation();
     const it = this.item();
     if (it.kind !== 'ausp') return;
-    if (confirm('Ausprägung „' + it.ausp.name + '" samt Unter-Profilierung löschen?'))
-      this.state.removeAusp(it.parentNode.path, it.ausp.id);
+    const frage = this.state.msgMode()
+      ? 'Vorkommen „' + it.ausp.name + '" samt Werten löschen?'
+      : 'Ausprägung „' + it.ausp.name + '" samt Unter-Profilierung löschen?';
+    if (confirm(frage)) this.state.removeAusp(it.parentNode.path, it.ausp.id);
   }
 
   protected onAddAusp(): void {

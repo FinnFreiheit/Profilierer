@@ -39,6 +39,13 @@ export class InstanceImportService {
    */
   private quelle: Map<string, Element> | null = null;
 
+  /**
+   * Waehrend eines Imports gefuellte Zuordnung Auspraegungs-Pfad -> Index des
+   * Quell-Vorkommens. Transient wie `quelle`; wandert in die Bearbeitungs-Session
+   * und haelt dort die Vorkommen stabil, auch wenn welche geloescht werden.
+   */
+  private vorkommen: Map<string, number> | null = null;
+
   /** Prüft, ob ein XML-Text eine XJustiz-Nachricht (kein Genericode o. ä.) ist. */
   static rootMessageName(xmlText: string): string | null {
     const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
@@ -70,6 +77,7 @@ export class InstanceImportService {
     const root = this.state.root()!;
     const opened = new Set<string>([root.path]);
     this.quelle = new Map<string, Element>();
+    this.vorkommen = new Map<string, number>();
     this.bindChildren(root, rootEl, opened, 0);
     this.state.open.set(opened);
     this.state.selItem.set({ kind: 'el', node: root });
@@ -79,10 +87,15 @@ export class InstanceImportService {
       msgName,
       quellName: quellName || msgName,
       xjustizVersion: this.leseVersion(rootEl) || this.state.version() || undefined,
+      // Der Importer bedient auch Datei-Upload und Drop und kennt den
+      // Testspeicher nicht — die id setzt der TestmessageEditService nach.
+      entryId: null,
       sourceDoc: doc,
       quelle: this.quelle,
+      vorkommenIndex: this.vorkommen,
     });
     this.quelle = null;
+    this.vorkommen = null;
     // Nachricht inspizieren: gesperrte Ansicht, die sofort nur den belegten
     // Inhalt zeigt. Nach dem Reset in loadMessage setzen, damit die Flags stehen.
     this.state.readOnly.set(true);
@@ -139,6 +152,7 @@ export class InstanceImportService {
       matches.forEach((m, i) => {
         const auspId = this.state.addAusp(child.path, 'Vorkommen ' + (i + 1));
         const cn = this.tree.ctxNode(child, auspId);
+        this.vorkommen?.set(cn.path, i);
         opened.add(cn.path);
         this.bindNode(cn, m, opened, depth + 1);
       });
