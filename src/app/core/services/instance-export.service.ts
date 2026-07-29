@@ -36,6 +36,15 @@ export class InstanceExportService {
   private outDoc!: Document;
   private ns = '';
   private prefix: string | null = null;
+  /** Ausprägungs-Pfad → Index des Quell-Vorkommens (stabile Zuordnung). */
+  private vorkommenIndex: ReadonlyMap<string, number> = new Map();
+  /**
+   * In diesem Lauf neu erzeugte Elemente. Nur Angaben, die aus der Quelle
+   * stammen, dürfen durch einen geleerten Modellwert entfallen — erzeugte
+   * tragen typkonforme Platzhalter statt Modellwerte und blieben sonst nie
+   * bestehen.
+   */
+  private erzeugt = new WeakSet<Element>();
 
   /**
    * Erzeugt das getreue Instanz-XML der laufenden Bearbeitungs-Session.
@@ -50,6 +59,8 @@ export class InstanceExportService {
     const outRoot = out.documentElement;
     this.ns = outRoot.namespaceURI ?? '';
     this.prefix = outRoot.prefix ?? null;
+    this.vorkommenIndex = session.vorkommenIndex;
+    this.erzeugt = new WeakSet<Element>();
 
     this.patchChildren(root, outRoot, 0);
     if (neueKopfdaten) this.refreshKopf(outRoot);
@@ -111,7 +122,10 @@ export class InstanceExportService {
     if (matches.length) {
       // 0/1 Vorkommen: erstes patchen, evtl. überzählige (ungültig mehrfach) belassen.
       this.patchNode(child, matches[0]!, depth);
-      cursor.last = matches[matches.length - 1]!;
+      // Nur als Anker taugt, was noch im Dokument haengt — ein per patchLeaf
+      // entferntes Blatt wuerde insertAfter sonst an den Anfang setzen.
+      const letzte = matches[matches.length - 1]!;
+      if (letzte.parentNode) cursor.last = letzte;
       return;
     }
 
@@ -125,10 +139,17 @@ export class InstanceExportService {
 
   /**
    * Gleicht die DOM-Vorkommen eines wiederholbaren Elements an die Modell-
-   * Ausprägungen an: i-te Ausprägung ↔ i-tes Original-Vorkommen (Reihenfolge
-   * stabil). Fehlende Vorkommen werden aus dem ersten vorhandenen geklont (bzw.
-   * generiert), überzählige entfernt; anschließend in Modell-Reihenfolge an der
-   * ursprünglichen Stelle eingesetzt. Gibt die platzierten Vorkommen zurück.
+   * Ausprägungen an. Die Zuordnung läuft über den `vorkommenIndex` der
+   * Bearbeitungs-Session (Ausprägung → Index des Quell-Vorkommens), nicht über
+   * die Position in der Ausprägungsliste: sonst erbte nach dem Löschen des
+   * ersten Vorkommens das nachrückende dessen unveränderte Werte.
+   *
+   * Ausprägungen ohne Quell-Vorkommen werden **erzeugt** statt geklont — ein
+   * Klon des ersten würde stillschweigend dessen Werte (inkl. IDs) doppeln.
+   * Einzige Ausnahme: das Duplizieren eines bislang einzelnen Vorkommens; dort
+   * erbt „Fall 1" das Original, weil `duplicateElement` genau dessen Werte
+   * dorthin verschoben hat. Überzählige DOM-Vorkommen entfallen; anschließend
+   * wird in Modell-Reihenfolge an der ursprünglichen Stelle eingesetzt.
    */
   private reconcileAusps(
     child: TreeNode,
@@ -138,16 +159,20 @@ export class InstanceExportService {
     cursor: Cursor,
     depth: number,
   ): Element[] {
-    const template = matches[0] ?? null;
     // Einfügeposition merken, bevor die alten Vorkommen gelöst werden.
     const anchor: Node | null = matches.length ? matches[matches.length - 1]!.nextSibling : null;
     matches.forEach((m) => m.remove());
 
+    const idxOf = (a: Auspraegung): number | undefined =>
+      this.vorkommenIndex.get(child.path + '@' + a.id);
+    const ausImport = ausps.some((a) => idxOf(a) != null);
+
     const placed: Element[] = [];
     ausps.forEach((a, i) => {
-      let occ = matches[i] ?? null;
-      if (!occ)
-        occ = (template ? template.cloneNode(true) : this.generate(child, depth)) as Element;
+      const k = idxOf(a);
+      let occ: Element | null = k != null ? (matches[k] ?? null) : null;
+      if (!occ && !ausImport && i === 0) occ = matches[0] ?? null;
+      if (!occ) occ = this.generate(child, depth);
       const cn = this.tree.ctxNode(child, a.id);
       this.patchNode(cn, occ, depth + 1);
       placed.push(occ);
@@ -169,11 +194,21 @@ export class InstanceExportService {
     this.patchChildren(node, xmlEl, depth + 1);
   }
 
-  /** Setzt den Blattwert nur, wenn er im Modell gegenüber dem Original geändert wurde. */
+  /**
+   * Setzt den Blattwert nur, wenn er im Modell gegenüber dem Original geändert
+   * wurde. Ein im Modell **geleerter** Wert entfernt die Angabe aus der
+   * Nachricht — allerdings nur bei Blättern aus der Quelle: frisch erzeugte
+   * tragen typkonforme Platzhalter ohne Modellwert und würden sonst sofort
+   * wieder verschwinden.
+   */
   private patchLeaf(node: TreeNode, xmlEl: Element): void {
     const val = this.state.elemente()[node.path]?.beispiel;
-    if (val == null) return; // kein Modellwert → Original unangetastet lassen
-    if (val === leafValue(xmlEl, !!node.codelist)) return; // unverändert → Treue wahren
+    const alt = leafValue(xmlEl, !!node.codelist);
+    if (val == null) {
+      if (alt && xmlEl.parentNode && !this.erzeugt.has(xmlEl)) xmlEl.remove();
+      return;
+    }
+    if (val === alt) return; // unverändert → Treue wahren
     this.setLeafValue(node, xmlEl, val);
   }
 
@@ -226,16 +261,19 @@ export class InstanceExportService {
   }
 
   private generateChildren(node: TreeNode, el: Element, cursor: Cursor, depth: number): void {
+    // Auswahl: genau *ein* Zweig. Das betrifft nicht nur synthetische
+    // „(Auswahl)"-Knoten, sondern auch benannte Elemente, deren complexType
+    // direkt eine <xs:choice> ist (`auswahl_*` im GDS) — dort traegt der Knoten
+    // selbst `model='choice'` und hat die Zweige als direkte Kinder
+    // (TreeService.expandNode). Ohne diesen Fall entstuenden alle Zweige.
+    if (node.model === 'choice') {
+      this.generateChoice(node, el, cursor, depth);
+      return;
+    }
     for (const c of node.children ?? []) {
       if (c.synthetic) {
-        // choice: genau einen Zweig; sequence/all: alle nötigen Kinder.
-        if (c.model === 'choice') {
-          const b = (c.children ?? []).find((x) => this.needsGenerate(x)) ?? (c.children ?? [])[0];
-          if (b) this.generateChildOrGroup(b, el, cursor, depth);
-        } else {
-          this.tree.expandNode(c);
-          this.generateChildren(c, el, cursor, depth);
-        }
+        this.tree.expandNode(c); // Zweige/Kinder der Gruppe erst auflösen
+        this.generateChildren(c, el, cursor, depth);
         continue;
       }
       if (this.needsGenerate(c)) {
@@ -246,17 +284,25 @@ export class InstanceExportService {
     }
   }
 
-  private generateChildOrGroup(c: TreeNode, el: Element, cursor: Cursor, depth: number): void {
-    if (c.synthetic) {
-      this.tree.expandNode(c);
-      this.generateChildren(c, el, cursor, depth);
+  /**
+   * Erzeugt genau einen Zweig einer Auswahl: bevorzugt einen, der ohnehin nötig
+   * ist (Pflicht oder im Modell belegt), sonst den ersten nicht ausgeschlossenen.
+   * Der gewählte Zweig wird **erzwungen** — wird der Auswahl-Container überhaupt
+   * erzeugt, braucht er einen Zweig, unabhängig von dessen eigenem `minOccurs`.
+   */
+  private generateChoice(node: TreeNode, el: Element, cursor: Cursor, depth: number): void {
+    const kinder = node.children ?? [];
+    const frei = (x: TreeNode): boolean => this.state.wirkungOf(x.path) !== 'ausgeschlossen';
+    const b = kinder.find((x) => this.needsGenerate(x)) ?? kinder.find(frei);
+    if (!b) return;
+    if (b.synthetic) {
+      this.tree.expandNode(b);
+      this.generateChildren(b, el, cursor, depth);
       return;
     }
-    if (this.needsGenerate(c)) {
-      const child = this.generate(c, depth + 1);
-      this.insertAfter(el, cursor.last, child);
-      cursor.last = child;
-    }
+    const child = this.generate(b, depth + 1);
+    this.insertAfter(el, cursor.last, child);
+    cursor.last = child;
   }
 
   /** Kind eines neu erzeugten Elements: Pflicht oder im Modell belegt. */
@@ -298,7 +344,11 @@ export class InstanceExportService {
   /** Neues Element im Ziel-Dokument, im Namespace/Präfix der Quell-Nachricht. */
   private createEl(name: string): Element {
     const qname = this.prefix ? `${this.prefix}:${name}` : name;
-    return this.ns ? this.outDoc.createElementNS(this.ns, qname) : this.outDoc.createElement(name);
+    const el = this.ns
+      ? this.outDoc.createElementNS(this.ns, qname)
+      : this.outDoc.createElement(name);
+    this.erzeugt.add(el); // stammt nicht aus der Quelle (siehe patchLeaf)
+    return el;
   }
 
   /** XOEV-Code: das code-Element ist unqualifiziert (form="unqualified"). */
@@ -332,15 +382,24 @@ export class InstanceExportService {
    * Whitespace-Textknoten (alte Einrückung) werden verworfen und neu gesetzt, so
    * dass geklonte/eingefügte Knoten konsistent formatiert sind. Textinhalte von
    * Blättern bleiben unangetastet.
+   *
+   * Namespace-Deklarationen stehen im DOM als Attribute und werden dadurch
+   * mitgeschrieben — mit einer Ausnahme: ein **selbst erzeugtes**
+   * unqualifiziertes Element (XOEV-`code`, `form="unqualified"`) trägt kein
+   * `xmlns=""`-Attribut, sondern nur einen leeren Namespace. Ohne die ergänzte
+   * Deklaration zöge es beim erneuten Parsen den Default-Namespace des
+   * Elternteils an und wäre nicht mehr schema-valide.
    */
   private serializePretty(doc: Document): string {
     const IND = '  ';
     const lines: string[] = ['<?xml version="1.0" encoding="UTF-8"?>'];
-    const rec = (el: Element, depth: number): void => {
+    const rec = (el: Element, depth: number, elternNs: string | null): void => {
       const pad = IND.repeat(depth);
-      const attrs = Array.from(el.attributes)
+      let attrs = Array.from(el.attributes)
         .map((a) => ` ${a.name}="${esc(a.value)}"`)
         .join('');
+      if (el.namespaceURI === null && elternNs && !el.hasAttribute('xmlns'))
+        attrs = ' xmlns=""' + attrs;
       const kinder = Array.from(el.children);
       const tag = el.tagName;
       if (kinder.length === 0) {
@@ -350,10 +409,10 @@ export class InstanceExportService {
         return;
       }
       lines.push(`${pad}<${tag}${attrs}>`);
-      for (const c of kinder) rec(c, depth + 1);
+      for (const c of kinder) rec(c, depth + 1, el.namespaceURI);
       lines.push(`${pad}</${tag}>`);
     };
-    rec(doc.documentElement, 0);
+    rec(doc.documentElement, 0, null);
     return lines.join('\n') + '\n';
   }
 

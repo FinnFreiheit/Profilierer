@@ -38,6 +38,7 @@ export class Toolbar {
   readonly xmlClick = output<void>();
   readonly printClick = output<void>();
   readonly saveMessageClick = output<void>();
+  readonly updateMessageClick = output<void>();
   readonly saveCreateClick = output<void>();
 
   protected readonly hasRoot = this.state.hasRoot;
@@ -48,6 +49,12 @@ export class Toolbar {
   protected readonly isCreate = this.state.isMessageCreate;
   /** Reine Schema-Ansicht (US "Schema ansehen"): nur betrachten und suchen. */
   protected readonly isSchemaView = this.state.schemaView;
+  /**
+   * Die geoeffnete Nachricht stammt aus dem Testdaten-Speicher — nur dann laesst
+   * sie sich in denselben Eintrag zurueckschreiben. Datei-Upload und Drop haben
+   * keine id und kennen weiterhin nur "als neue Nachricht speichern".
+   */
+  protected readonly hatEintrag = computed(() => !!this.state.messageEdit()?.entryId);
 
   /**
    * Abnahme-Badge im Editor-Kopf: Kennzeichen des geoeffneten Bibliotheks-
@@ -116,6 +123,20 @@ export class Toolbar {
   protected prefillMandatory(): void {
     const n = this.disposition.pflichtVorbelegen();
     this.toast.show(n ? n + ' Pflichtelemente vorbelegt' : 'Keine weiteren Pflichtelemente offen');
+  }
+
+  /**
+   * Betrachten <-> Bearbeiten der geladenen Nachricht. Im Bearbeitungsmodus
+   * faellt "nur Werte" weg — der Hinweis erklaert den sonst ueberraschenden
+   * Sprung von der schlanken Nachricht auf den vollen Standard.
+   */
+  protected setModus(bearbeiten: boolean): void {
+    if (bearbeiten === !this.state.readOnly()) return;
+    this.state.nachrichtBearbeiten(bearbeiten);
+    if (bearbeiten)
+      this.toast.show(
+        'Bearbeiten — es wird der volle Standard gezeigt; leere Elemente lassen sich jetzt befüllen.',
+      );
   }
 
   /** Nachrichten-Modus: alle offenen Pflichtwerte typkonform mit Dummys befuellen. */

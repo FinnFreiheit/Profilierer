@@ -98,6 +98,12 @@ describe('TestmessageCreateService', () => {
     it('wirft bei unbekannter Nachricht', async () => {
       await expectAsync(svc.neuErstellen('3.6.2', 'nachricht.gibtsnicht')).toBeRejected();
     });
+
+    it('setzt einen bestehenden Abnahme-Schreibschutz zurueck', async () => {
+      state.abnahmeSchreibschutz.set(true); // zuvor abgenommene Testnachricht offen
+      await svc.neuErstellen('3.6.2', M);
+      expect(state.abnahmeSchreibschutz()).toBeFalse();
+    });
   });
 
   describe('speichern', () => {

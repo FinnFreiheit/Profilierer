@@ -198,6 +198,8 @@ export class DetailPanel {
       subKard: fmtKard(n.min, n.max),
       doc: !isAusp ? n.doc : '',
       statusButtons,
+      /** Nachrichten-Modus: Angabe ist aus der Nachricht entfernt (Ausschluss). */
+      entfernt: st?.wirkung === 'ausgeschlossen',
       kminPlaceholder: kmin,
       kmaxPlaceholder: kmax,
       minValue: p.min ?? '',
@@ -364,6 +366,23 @@ export class DetailPanel {
     // Zentrale Statusaenderung: kaskadiert bei aufnehmender Wirkung die
     // Zwingend-Vorbelegung in den Teilbaum darunter (DispositionService).
     this.disposition.setzeStatus(this.path(), id || undefined);
+  }
+
+  /**
+   * Nachrichten-Modus: Angabe aus der Nachricht entfernen bzw. wieder
+   * aufnehmen. Modelltechnisch derselbe Ausschluss-Status wie beim Profilieren
+   * (der Export entfernt daraufhin alle Vorkommen), fachlich aber eine andere
+   * Aussage — deshalb eigene Beschriftung statt Status-Strip.
+   */
+  protected toggleEntfernt(): void {
+    const ex = this.state.exclStatus();
+    if (!ex) {
+      this.toast.show('Kein Status mit Wirkung „ausgeschlossen" konfiguriert (siehe „Status…").');
+      return;
+    }
+    const path = this.path();
+    const entfernt = this.state.statusOf(path)?.wirkung === 'ausgeschlossen';
+    this.state.setElementProfile(path, { status: entfernt ? undefined : ex.id });
   }
 
   protected setField(key: 'min' | 'max' | 'anmerkung' | 'beispiel', e: Event): void {

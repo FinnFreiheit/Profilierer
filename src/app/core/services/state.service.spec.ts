@@ -334,6 +334,34 @@ describe('StateService', () => {
       expect(s.boxHidden('m/note')).toBe(false);
       expect(s.boxHidden('m/code')).toBe(false);
     });
+
+    it('zeigt ohne onlyValues auch unbelegte Elemente (Voraussetzung fuers Hinzufuegen)', () => {
+      s.setElementProfile('m/gds/kopf/az', { beispiel: '12345' });
+      s.onlyValues.set(false);
+      expect(s.boxHidden('m/gds/kopf/leer')).toBe(false);
+    });
+  });
+
+  describe('nachrichtBearbeiten (Betrachten <-> Bearbeiten)', () => {
+    it('schaltet readOnly und onlyValues gemeinsam um', () => {
+      s.readOnly.set(true);
+      s.onlyValues.set(true);
+      s.nachrichtBearbeiten(true);
+      expect(s.readOnly()).toBeFalse();
+      expect(s.onlyValues()).toBeFalse();
+      s.nachrichtBearbeiten(false);
+      expect(s.readOnly()).toBeTrue();
+      expect(s.onlyValues()).toBeTrue();
+    });
+
+    it('verweigert das Bearbeiten bei Abnahme-Schreibschutz', () => {
+      s.readOnly.set(true);
+      s.onlyValues.set(true);
+      s.abnahmeSchreibschutz.set(true);
+      s.nachrichtBearbeiten(true);
+      expect(s.readOnly()).toBeTrue();
+      expect(s.onlyValues()).toBeTrue();
+    });
   });
 
   describe('Hinweise (interne Review-Notizen)', () => {

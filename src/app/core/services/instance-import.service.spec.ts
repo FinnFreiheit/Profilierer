@@ -83,4 +83,17 @@ describe('InstanceImportService', () => {
     expect(state.readOnly()).toBeTrue();
     expect(state.onlyValues()).toBeTrue();
   });
+
+  it('legt die Session ohne Testspeicher-Eintrag an (Datei-Upload)', () => {
+    svc.importXml(INSTANCE, 'quelle.xml');
+    expect(state.messageEdit()!.entryId).toBeNull();
+  });
+
+  it('merkt sich zu jeder Ausprägung das zugehörige Quell-Vorkommen', () => {
+    svc.importXml(INSTANCE);
+    const ausps = state.auspsOf(`${M}/beteiligung`)!;
+    const idx = state.messageEdit()!.vorkommenIndex;
+    expect(idx.get(`${M}/beteiligung@${ausps[0]!.id}`)).toBe(0);
+    expect(idx.get(`${M}/beteiligung@${ausps[1]!.id}`)).toBe(1);
+  });
 });

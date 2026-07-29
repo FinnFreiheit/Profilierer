@@ -275,6 +275,20 @@ export class StateService {
     return st?.wirkung === 'ausgeschlossen' || this.inheritedExcluded(path);
   }
 
+  /**
+   * Betrachten <-> Bearbeiten einer geladenen Nachricht. Im Bearbeitungsmodus
+   * wird "nur Werte" abgeschaltet: sonst blieben unbelegte Elemente unsichtbar
+   * und liessen sich gar nicht erst befuellen — Angaben hinzufuegen waere
+   * unmoeglich. Beim Zurueckschalten werden die belegten Aeste wieder
+   * aufgeklappt (wie toggleOnlyValues in der Toolbar).
+   */
+  nachrichtBearbeiten(an: boolean): void {
+    if (an && this.abnahmeSchreibschutz()) return;
+    this.readOnly.set(!an);
+    this.onlyValues.set(!an);
+    if (!an) this.expandValueBranches();
+  }
+
   /** effKard (Z.1007-1010): effektive Kardinalitaet inkl. Override. */
   effKard(node: TreeNode): { min: string; max: string; changed: boolean } {
     const p = this.elemente()[node.path] ?? {};

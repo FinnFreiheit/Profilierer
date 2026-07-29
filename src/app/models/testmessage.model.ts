@@ -103,8 +103,21 @@ export interface MessageEditSession {
   quellName: string;
   /** XJustiz-Version der Quelle (aus dem Nachrichtenkopf). */
   xjustizVersion?: string;
+  /**
+   * id des Testspeicher-Eintrags, aus dem geladen wurde (null = Datei-Upload
+   * oder Drag&Drop). Nur mit id laesst sich in denselben Eintrag zurueckspeichern
+   * (TestmessageEditService.speichern); sonst bleibt nur "als neue Nachricht".
+   */
+  entryId: string | null;
   /** Geparstes Original-Dokument (Basis fuer den treuen Re-Export). */
   sourceDoc: Document;
   /** Modell-Pfad -> zugehoeriges Quell-Element im `sourceDoc`. */
   quelle: Map<string, Element>;
+  /**
+   * Auspraegungs-Pfad (`pfad@auspId`) -> Index des zugehoerigen Vorkommens im
+   * Quell-DOM. Ohne diese Zuordnung waere der Re-Export auf die Position in der
+   * Auspraegungsliste angewiesen — nach dem Loeschen eines Vorkommens wuerden
+   * dann die Werte des geloeschten auf das nachrueckende uebertragen.
+   */
+  vorkommenIndex: Map<string, number>;
 }

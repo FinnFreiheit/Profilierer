@@ -45,14 +45,33 @@ Die Interfaces (`src/app/models/`), die Zustands-Signale des `StateService` und 
 
 ## Store-Signale (StateService)
 
-| Gruppe           | Signale                                                                                                              |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Schema/Nachricht | `docs, idx, version, standardKennung, msgName, root`                                                                 |
-| Profil           | `meta, statuses, elemente, auspraegungen, erweiterungen`                                                             |
-| UI               | `selItem, open (Set), codelists, showTech, onlyProfile, showRefs, focusMode, pendingMsg, scrollTarget, autosaveInfo` |
-| Diff             | `showDiff, diffMap, diffAnc, idxB`                                                                                   |
-| Validierung      | `valFehler, valAnc` (Fehler-Markierung des letzten Prüflaufs)                                                        |
-| Ableitungen      | `profileDoc`, `fortschritt`                                                                                          |
+| Gruppe            | Signale                                                                                                              |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Schema/Nachricht  | `docs, idx, version, standardKennung, msgName, root`                                                                 |
+| Profil            | `meta, statuses, elemente, auspraegungen, erweiterungen`                                                             |
+| UI                | `selItem, open (Set), codelists, showTech, onlyProfile, showRefs, focusMode, pendingMsg, scrollTarget, autosaveInfo` |
+| Diff              | `showDiff, diffMap, diffAnc, idxB`                                                                                   |
+| Validierung       | `valFehler, valAnc` (Fehler-Markierung des letzten Prüflaufs)                                                        |
+| Nachrichten-Modus | `messageEdit, messageCreate, readOnly, onlyValues, guided, abnahmeSchreibschutz`                                     |
+| Ableitungen       | `profileDoc`, `fortschritt`, `isMessageEdit`, `isMessageCreate`, `msgMode`                                           |
+
+### Sessions des Nachrichten-Modus (`testmessage.model.ts`)
+
+`MessageCreateSession` (geführtes Erstellen) trägt `msgName`, `xjustizVersion`, `entryId` und `name`.
+
+`MessageEditSession` (geladene Instanz) enthält Runtime-DOM und ist deshalb **nicht persistierbar**:
+
+| Feld             | Bedeutung                                                                                           |
+| ---------------- | --------------------------------------------------------------------------------------------------- |
+| `msgName`        | Root-Nachrichtenname                                                                                |
+| `quellName`      | Anzeigename der Quelle (Vorschlag für „als neue Nachricht")                                         |
+| `xjustizVersion` | Version aus dem Nachrichtenkopf                                                                     |
+| `entryId`        | id des Testspeicher-Eintrags; `null` bei Datei-Upload/Drop — nur mit id ist Zurückschreiben möglich |
+| `sourceDoc`      | geparstes Original-Dokument (Basis des treuen Re-Exports)                                           |
+| `quelle`         | Modell-Pfad → Quell-Element                                                                         |
+| `vorkommenIndex` | Ausprägungs-Pfad (`pfad@auspId`) → Index des Quell-Vorkommens (stabil beim Löschen)                 |
+
+`StateService.nachrichtBearbeiten(an)` schaltet zwischen Betrachten und Bearbeiten: `readOnly` und `onlyValues` wandern gemeinsam. „Nur Werte" muss beim Bearbeiten fallen, sonst blieben unbelegte Elemente unsichtbar und ließen sich nicht befüllen. Bei gesetztem `abnahmeSchreibschutz` verweigert die Methode das Bearbeiten.
 
 ## Pfad-indizierte Maps (zentral)
 

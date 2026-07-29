@@ -22,26 +22,18 @@ import { ExcelExportService } from './core/services/excel-export.service';
 import { DiffService } from './core/services/diff.service';
 import { NavService } from './core/services/nav.service';
 import { InstanceImportService } from './core/services/instance-import.service';
-import { InstanceExportService } from './core/services/instance-export.service';
 import { TestmessageCreateService } from './core/services/testmessage-create.service';
-import { TestmessageStoreService } from './core/services/testmessage-store.service';
+import { TestmessageEditService } from './core/services/testmessage-edit.service';
 import { ToastService } from './core/services/toast.service';
 import { StateService } from './core/services/state.service';
 import { GuidedService } from './core/services/guided.service';
 import { BundledSchemaService } from './core/services/bundled-schema.service';
 import { RemoteSchemaService } from './core/services/remote-schema.service';
 import { MigrationService } from './core/services/migration.service';
-import { XmlValidationService } from './core/services/xml-validation.service';
-import { ValidationReportService } from './core/services/validation-report.service';
 import { LoggerService } from './core/services/logger.service';
 import { DownloadService } from './core/services/download.service';
 import { ValidationDialog } from './features/dialogs/validation-dialog';
 import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
-import {
-  frageTestnachrichtName,
-  parseTestmessage,
-  testmessageInput,
-} from './core/util/testmessage.util';
 
 @Component({
   selector: 'app-root',
@@ -78,17 +70,14 @@ export class App implements OnInit {
   protected readonly diff = inject(DiffService);
   private readonly nav = inject(NavService);
   private readonly instanceImport = inject(InstanceImportService);
-  private readonly instanceExport = inject(InstanceExportService);
   private readonly testmessageCreate = inject(TestmessageCreateService);
-  private readonly testmessages = inject(TestmessageStoreService);
+  private readonly testmessageEdit = inject(TestmessageEditService);
   private readonly toast = inject(ToastService);
   private readonly state = inject(StateService);
   private readonly guided = inject(GuidedService);
   private readonly bundled = inject(BundledSchemaService);
   private readonly remoteSchemas = inject(RemoteSchemaService);
   private readonly migration = inject(MigrationService);
-  private readonly validator = inject(XmlValidationService);
-  private readonly validationReport = inject(ValidationReportService);
   private readonly logger = inject(LoggerService);
   private readonly download = inject(DownloadService);
 
@@ -277,44 +266,22 @@ export class App implements OnInit {
     }
   }
 
-  /**
-   * Bearbeitete Nachricht als *neue* Testnachricht ablegen: getreu serialisieren
-   * (Original-DOM + Modell-Änderungen), Metadaten aus dem Ergebnis ableiten und
-   * im zentralen Testdaten-Speicher anlegen.
-   */
+  /** Bearbeitete Nachricht als *neue* Testnachricht ablegen. */
   async onSaveMessage(): Promise<void> {
-    const session = this.state.messageEdit();
-    if (!session) return;
-    const name = frageTestnachrichtName(this.msgNameVorschlag(session.quellName));
-    if (name == null) return; // abgebrochen
     try {
-      const xml = this.instanceExport.buildInstanceXml(session);
-      const meta = parseTestmessage(xml);
-      if (!meta) {
-        this.toast.show('Die erzeugte Nachricht ist nicht lesbar — bitte prüfen.');
-        return;
-      }
-      // Anforderung: nur schema-valide Nachrichten kommen in den Testdatenspeicher.
-      const pruefung = await this.validator.validiere(xml);
-      if (pruefung.status !== 'valide') {
-        this.validationReport.zeige(
-          'Nicht gespeichert — die Nachricht ist nicht schema-valide',
-          pruefung.fehler,
-        );
-        return;
-      }
-      await this.testmessages.create(testmessageInput(name, xml, meta));
-      this.toast.show('Als neue Testnachricht gespeichert.');
-      this.state.view.set('testdaten');
+      await this.testmessageEdit.alsNeueSpeichern();
     } catch (e) {
       this.toast.showError(e, 'Speichern fehlgeschlagen — Backend nicht erreichbar.');
     }
   }
 
-  /** Vorschlag „<Quelle> (bearbeitet).xml" aus dem Quellnamen. */
-  private msgNameVorschlag(quellName: string): string {
-    const base = quellName.replace(/\.xml$/i, '');
-    return `${base} (bearbeitet).xml`;
+  /** Aenderungen an einer geoeffneten Testnachricht in denselben Eintrag zurueckschreiben. */
+  async onUpdateMessage(): Promise<void> {
+    try {
+      await this.testmessageEdit.speichern();
+    } catch (e) {
+      this.toast.showError(e, 'Speichern fehlgeschlagen — Backend nicht erreichbar.');
+    }
   }
 
   /**

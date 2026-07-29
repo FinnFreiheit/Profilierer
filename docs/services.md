@@ -24,6 +24,7 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `TestmessageStoreService`      | Testdaten-Speicher: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal                                            |
 | `TestmessageGenerationService` | Testnachricht aus einem Bibliotheksprofil erzeugen (Schema sicherstellen, State-Swap)                                 |
 | `TestmessageCreateService`     | Testnachricht geführt aus einem Schema erstellen (Session, Entwurf speichern/fortsetzen)                              |
+| `TestmessageEditService`       | Gespeicherte Testnachricht öffnen und bearbeiten; zurückschreiben oder als neue ablegen                               |
 | `XmlValidationService`         | XSD-Validierung von Instanzen im Browser (xmllint-wasm, lazy; Schemaquelle: geladener Stand oder hinterlegte Version) |
 | `ValidationReportService`      | Zustand des Validierungsbericht-Dialogs (blockierte Exporte/Uploads mit Fehlerliste)                                  |
 | `ValidationMarkerService`      | Fehlerzeilen → Baumpfade auflösen, Baum-Marker setzen, Erweiterungs-Fehler klassifizieren                             |
@@ -116,13 +117,32 @@ Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten
 
 ## InstanceExportService
 
-`buildInstanceXml(session)` — treuer Re-Export einer bearbeiteten Nachricht: Original-DOM der Quelle plus Modell-Änderungen (geänderte Blattwerte, neue Elemente/Ausprägungen), Pretty-Serialisierung mit bewusst konservativem Text-Escaping (`escText` ohne `"`-Escape). Getestet in `instance-export.service.spec.ts`.
+`buildInstanceXml(session, neueKopfdaten = true)` — treuer Re-Export einer bearbeiteten Nachricht: Original-DOM der Quelle plus Modell-Änderungen, Pretty-Serialisierung mit bewusst konservativem Text-Escaping (`escText` ohne `"`-Escape). `neueKopfdaten = false` lässt `eigeneNachrichtenID`/`erstellungszeitpunkt` stehen — beim Zurückschreiben ist es dieselbe Nachricht, keine neue. Getestet in `instance-export.service.spec.ts`.
+
+Die vier Bearbeitungs-Operationen bilden sich so ab:
+
+| Operation im Baum         | Modell                                   | Wirkung im Export                                              |
+| ------------------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| Wert ändern               | `beispiel` gesetzt                       | `patchLeaf` schreibt nur bei echter Abweichung (Treue)         |
+| Angabe hinzufügen         | `beispiel` an bislang leerem Pfad        | `hasModelContent` → `generate` inkl. Pflichtkindern            |
+| Angabe entfernen          | `beispiel` geleert bzw. `ausgeschlossen` | `patchLeaf` entfernt das Blatt / `patchElement` alle Vorkommen |
+| Vorkommen anlegen/löschen | `auspraegungen`                          | `reconcileAusps`                                               |
+
+Zwei Feinheiten sichern die Semantik ab: `patchLeaf` entfernt ein Blatt nur, wenn es **nicht** in diesem Lauf erzeugt wurde (`erzeugt`-WeakSet) — erzeugte tragen typkonforme Platzhalter ohne Modellwert und würden sonst sofort wieder verschwinden. Und `reconcileAusps` ordnet Ausprägungen über den `vorkommenIndex` der Session dem Quell-Vorkommen zu statt über die Listenposition; sonst erbte nach dem Löschen des ersten Vorkommens das nachrückende dessen unveränderte Werte. Ausprägungen ohne Quell-Vorkommen werden **erzeugt**, nicht vom ersten geklont (ein Klon würde stillschweigend Werte und IDs doppeln).
+
+Zwei Fallen der **Neu-Erzeugung**, die vorher unter dem Klonen verborgen lagen:
+
+- **Auswahl.** `generateChildren` behandelt `model === 'choice'` am Knoten selbst, nicht nur an synthetischen „(Auswahl)"-Kindern. Ein benanntes Element, dessen complexType direkt eine `<xs:choice>` ist — die `auswahl_*`-Elemente des GDS —, trägt `model='choice'` mit den Zweigen als direkten Kindern (`TreeService.expandNode`, Z.97). Ohne diesen Fall entstünden **alle** Zweige. `generateChoice` erzwingt genau einen: wird der Container erzeugt, braucht er einen Zweig, unabhängig von dessen eigenem `minOccurs`.
+- **Unqualifizierte Elemente.** `serializePretty` schreibt Namespace-Deklarationen nur, soweit sie im DOM als Attribute stehen. Ein selbst erzeugtes `<code>` (XOEV, `form="unqualified"`) hat keinen leeren Namespace _als Attribut_, sondern nur als Zugehörigkeit — es bekommt deshalb beim Serialisieren ein `xmlns=""` ergänzt. Sonst zöge es beim erneuten Parsen den Default-Namespace an und die Nachricht wäre nicht mehr valide.
 
 ## Testnachricht-Services
 
 - `TestmessageStoreService`: HTTP-CRUD des Testdaten-Speichers (`/api`), `entries`-Signal — Gegenstück zum `ProfileStoreService`.
 - `TestmessageGenerationService`: erzeugt eine Testnachricht aus einem Bibliotheksprofil (`ensureSchema`, temporärer State-Swap, `buildBeispielXml`).
 - `TestmessageCreateService`: US „Testnachricht geführt erstellen" — `neuErstellen`/`fortsetzen` (Session `messageCreate`), `speichern` (Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand; invalide fertige Nachrichten bleiben Entwurf).
+- `TestmessageEditService`: US „Testnachricht bearbeiten" — `oeffnen(entry, 'betrachten' | 'bearbeiten')` (Schema sicherstellen, `InstanceImportService.importXml`, `entryId` in die Session nachtragen, Abnahme-Schreibschutz setzen **oder lösen**), `speichern()` (zurück in denselben Eintrag, Kopfdaten unangetastet) und `alsNeueSpeichern()` (neuer Eintrag mit frischen Kopfdaten). Getestet in `testmessage-edit.service.spec.ts`.
+
+Die beiden Speicherwege behandeln invalides XML bewusst **unterschiedlich**: das Zurückschreiben bietet nach Rückfrage den Entwurf an (für Nachrichten gibt es kein Autosave — ein Speicher-Verbot würde Arbeit vernichten), während ein _neuer_ Eintrag dasselbe harte Tor wie der Upload durchläuft. Eine reparierte Nachricht verliert ihr Entwurfs-Kennzeichen wieder, weil `entwurf` bei jedem Zurückschreiben mitgesendet wird.
 
 Beide Erzeugungswege behandeln Validierungsfehler, die **nur** auf bekannte Schema-Erweiterungen zurückgehen, als bewusste Abweichung: kein Entwurfs-Kennzeichen, Download bleibt frei (Klassifikation via `ValidationMarkerService`).
 
