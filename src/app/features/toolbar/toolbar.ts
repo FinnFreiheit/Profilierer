@@ -31,6 +31,8 @@ export class Toolbar {
   readonly metaClick = output<void>();
   readonly statusClick = output<void>();
   readonly versionenClick = output<void>();
+  /** Abnahme-Badge: zeigt den Vergleich zur abgenommenen Fassung. */
+  readonly abnahmeDiffClick = output<void>();
   readonly hinweiseClick = output<void>();
   readonly saveClick = output<void>();
   readonly excelClick = output<void>();

@@ -87,6 +87,16 @@ export function profilesRouter(db, auth) {
     res.json(liste);
   });
 
+  // Eine Version inkl. eingefrorenem Dokument (Vergleich "seit vX geaendert").
+  // Bewusst ohne Schutz: GET /profiles/:id liefert das Arbeitsdokument ebenfalls
+  // ungeprueft, der Abnahme-Schutz ist ausschliesslich ein Schreibschutz — und
+  // die Transparenz ist hier der fachliche Zweck (vgl. /testmessages/:id/abnahme/xml).
+  r.get('/profiles/:id/versions/:vid', (req, res) => {
+    const ver = db.versionGet(req.params.id, req.params.vid);
+    if (!ver) return res.status(404).json({ error: 'nicht gefunden' });
+    res.json(ver);
+  });
+
   // Version anlegen (Snapshot des serverseitig gespeicherten Stands).
   // Entprellte Automatik-Versionen antworten mit { skipped: true, entry }.
   r.post('/profiles/:id/versions', schutz, (req, res) => {
@@ -114,6 +124,14 @@ export function profilesRouter(db, auth) {
   });
 
   // ── Abnahme (BLK-AG) ─────────────────────────────────────────────────
+
+  // Die eingefrorene Abnahme-Fassung inkl. Dokument (Direkteinstieg fuer den
+  // Vergleich, ohne die Versionsliste zu durchsuchen). Wie oben: fuer alle lesbar.
+  r.get('/profiles/:id/abnahme', (req, res) => {
+    const ver = db.abnahmeVersion(req.params.id);
+    if (!ver) return res.status(404).json({ error: 'nicht abgenommen' });
+    res.json(ver);
+  });
 
   // Abnehmen: friert den aktuellen Stand als Abnahme-Version ein.
   r.post('/profiles/:id/abnahme', nurAg, (req, res) => {

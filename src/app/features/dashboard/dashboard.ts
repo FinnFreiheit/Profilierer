@@ -13,6 +13,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
 import { RolleService } from '../../core/services/rolle.service';
+import { VergleichService } from '../../core/services/vergleich.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { LibraryEntry } from '../../models/profile.model';
 
@@ -43,6 +44,7 @@ export class Dashboard {
   private readonly toast = inject(ToastService);
   private readonly state = inject(StateService);
   private readonly nav = inject(NavService);
+  private readonly vergleich = inject(VergleichService);
   private readonly renameDlg = viewChild.required<ElementRef<HTMLDialogElement>>('renameDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
 
@@ -126,6 +128,17 @@ export class Dashboard {
   protected readonly abnEntry = computed(
     () => this.store.entries().find((e) => e.id === this.abnId()) ?? null,
   );
+
+  /**
+   * Vergleich gegen die abgenommene Fassung — vom Karten-Badge und aus dem
+   * Abnahme-Dialog. stopPropagation, weil ein Klick auf die Karte sonst das
+   * Profil oeffnen wuerde.
+   */
+  protected zeigeAbnahmeDiff(id: string, e: Event): void {
+    e.stopPropagation();
+    this.abnahmeDlg().nativeElement.close();
+    this.vergleich.oeffneProfil(id);
+  }
 
   protected openAbnahme(id: string, e: Event): void {
     e.stopPropagation();

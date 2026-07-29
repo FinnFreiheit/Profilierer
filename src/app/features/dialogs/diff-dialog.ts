@@ -16,13 +16,11 @@ import { BundledSchemaService } from '../../core/services/bundled-schema.service
 import { DiffEntry, DiffResult } from '../../models/diff.model';
 import { BundledVersion } from '../../models/schema-bundle.model';
 import { pretty } from '../../core/util/pretty.util';
+import { DIFF_FARBEN, DIFF_SYM } from '../../core/util/diff-anzeige.util';
 
-export const DIFF_FARBEN: Record<string, string> = {
-  neu: '#1e7d3e',
-  entfernt: '#b23a3a',
-  geändert: '#8a6d0b',
-};
-export const DIFF_SYM: Record<string, string> = { neu: '+', entfernt: '−', geändert: '~' };
+// Farben/Symbole liegen im Util, damit Profil- und XML-Vergleich dieselben
+// nutzen; hier re-exportiert fuer die bestehenden Importe.
+export { DIFF_FARBEN, DIFF_SYM } from '../../core/util/diff-anzeige.util';
 
 /**
  * Versionsvergleich-Dialog (openDiffDlg/renderDiffList, Profilierer.html

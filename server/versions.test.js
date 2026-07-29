@@ -207,3 +207,50 @@ test('importAll laesst bestehende Versionen unberuehrt', () => {
   assert.equal(db.list()[0].geaendert, true);
   db.close();
 });
+
+// ── Versions-Dokument lesen (Vergleich "seit vX geaendert") ────────────
+
+test('versionGet: liefert das eingefrorene Dokument, unbekannte oder fremde vid → null', () => {
+  const db = openDb(':memory:');
+  const { id } = db.create(docWith());
+  const v = db.versionCreate(id, { kommentar: 'Stand A' }, 100);
+  // Arbeitsstand weiterdrehen — die Version muss den alten Stand halten.
+  db.upsert(id, docGeaendert(1));
+
+  const gelesen = db.versionGet(id, v.version.id);
+  assert.equal(gelesen.nr, 1);
+  assert.equal(gelesen.kommentar, 'Stand A');
+  assert.equal(gelesen.erstellt, 100);
+  assert.equal(gelesen.doc.elemente.a.beispiel, undefined);
+  assert.equal(db.load(id).elemente.a.beispiel, 'w1');
+
+  assert.equal(db.versionGet(id, 'fehlt'), null);
+  assert.equal(db.versionGet('fehlt', v.version.id), null);
+  // Fremdes Profil: dieselbe vid darf ueber die falsche Profil-id nicht lesbar sein.
+  const { id: fremd } = db.create(docWith());
+  assert.equal(db.versionGet(fremd, v.version.id), null);
+  db.close();
+});
+
+test('abnahmeVersion: folgt der Referenz, nicht der juengsten abnahme-Zeile', () => {
+  const db = openDb(':memory:');
+  const { id } = db.create(docWith());
+  assert.equal(db.abnahmeVersion(id), null);
+
+  db.abnahmeSetzen(id, { kommentar: 'erste Abnahme' }, 100);
+  db.upsert(id, docGeaendert(1));
+  db.abnahmeSetzen(id, { kommentar: 'zweite Abnahme' }, 200);
+  // Beide Versionen tragen abnahme = 1; massgeblich ist die Referenz (v2).
+  const a = db.abnahmeVersion(id);
+  assert.equal(a.nr, 2);
+  assert.equal(a.abnahme, true);
+  assert.equal(a.kommentar, 'zweite Abnahme');
+  assert.equal(a.doc.elemente.a.beispiel, 'w1');
+
+  // Kennzeichen entfernen: die Versionen bleiben, die Referenz ist weg.
+  db.abnahmeEntfernen(id);
+  assert.equal(db.abnahmeVersion(id), null);
+  assert.equal(db.versionsList(id).length, 2);
+  assert.equal(db.abnahmeVersion('fehlt'), null);
+  db.close();
+});
