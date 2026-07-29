@@ -216,6 +216,20 @@ export class StateService {
   }
 
   /**
+   * Alle Praefixe eines Pfades an den Grenzen '/' UND '@' — anders als
+   * `ancestorPaths` (nur '/') schliesst das den Traegerknoten einer Auspraegung
+   * ein: zu `…/beteiligung@a1/rolle` gehoert auch `…/beteiligung`. Ohne diesen
+   * Knoten haengt der Ast im Baum in der Luft, denn die Auspraegungs-Kaesten
+   * werden als seine Kinder gerendert (Praefix-Logik wie in `hinweisAnc`).
+   */
+  private vorfahrenPfade(path: string): string[] {
+    const r: string[] = [];
+    for (let i = 0; i < path.length; i++)
+      if (path[i] === '/' || path[i] === '@') r.push(path.slice(0, i));
+    return r;
+  }
+
+  /**
    * Pfade, die im "nur Werte"-Modus sichtbar bleiben: jedes Element mit Inhalt
    * (Beispielwert, Anmerkung, Codelisten-Werte) samt seiner Vorfahren, damit der
    * Weg von der Wurzel zu jedem Wert erhalten bleibt.
@@ -225,7 +239,7 @@ export class StateService {
     for (const [path, p] of Object.entries(this.elemente())) {
       if (!p || !(p.beispiel || p.anmerkung || p.hinweis || (p.werte && p.werte.length))) continue;
       set.add(path);
-      for (const a of this.ancestorPaths(path)) set.add(a);
+      for (const a of this.vorfahrenPfade(path)) set.add(a);
     }
     return set;
   });

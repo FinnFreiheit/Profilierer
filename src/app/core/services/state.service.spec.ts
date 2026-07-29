@@ -335,6 +335,20 @@ describe('StateService', () => {
       expect(s.boxHidden('m/code')).toBe(false);
     });
 
+    it('haelt den Traegerknoten einer Auspraegung sichtbar (Werte in Vorkommen)', () => {
+      // Import mehrfach vorkommender Elemente legt Auspraegungen an; die Werte
+      // haengen unter '…/beteiligung@<id>/…'. Ohne den Traegerknoten
+      // '…/beteiligung' waere der ganze Ast im Baum ausgeblendet.
+      s.setElementProfile('m/gds/verf/beteiligung@a1/rolle/nr', { beispiel: '1' });
+      s.onlyValues.set(true);
+      expect(s.boxHidden('m/gds/verf/beteiligung@a1/rolle/nr')).toBe(false);
+      expect(s.boxHidden('m/gds/verf/beteiligung@a1/rolle')).toBe(false);
+      expect(s.boxHidden('m/gds/verf/beteiligung@a1')).toBe(false);
+      expect(s.boxHidden('m/gds/verf/beteiligung')).toBe(false);
+      expect(s.boxHidden('m/gds/verf')).toBe(false);
+      expect(s.boxHidden('m/gds/verf/leer')).toBe(true);
+    });
+
     it('zeigt ohne onlyValues auch unbelegte Elemente (Voraussetzung fuers Hinzufuegen)', () => {
       s.setElementProfile('m/gds/kopf/az', { beispiel: '12345' });
       s.onlyValues.set(false);
