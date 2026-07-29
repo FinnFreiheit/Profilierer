@@ -26,6 +26,7 @@
     (metaClick)="metaDlg.open()"
     (statusClick)="statusDlg.open()"
     (versionenClick)="versionenDlg.open()"
+    (abnahmeDiffClick)="onAbnahmeDiff()"
     (hinweiseClick)="hinweiseDlg.open()"
     (saveClick)="persistence.saveProfile()"
     (excelClick)="excel.exportExcel()"
@@ -98,5 +99,7 @@
 }
 
 <app-validation-dialog></app-validation-dialog>
+<app-profil-diff-dialog></app-profil-diff-dialog>
+<app-xml-diff-dialog></app-xml-diff-dialog>
 <app-erweiterung-dialog></app-erweiterung-dialog>
 <app-toast></app-toast>

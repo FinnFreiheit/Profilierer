@@ -161,6 +161,45 @@ test('geaendert seit Abnahme: Hash-Vergleich, Neuabnahme verschiebt die Referenz
 
 // ── Schutzvertrag ─────────────────────────────────────────────────────
 
+test('Vergleich: Versions- und Abnahme-Dokument sind ohne AG-Schluessel lesbar', async (t) => {
+  const { api } = await start(t, { agKey: AG_KEY });
+  const id = await neuesProfil(api);
+  const abn = await api('POST', `/profiles/${id}/abnahme`, {
+    body: { kommentar: 'Stand der Abnahme' },
+    key: AG_KEY,
+  });
+  const vid = abn.body.version.id;
+  // Arbeitsstand veraendern (mit Schluessel, das Profil ist ja geschuetzt).
+  await api('PUT', `/profiles/${id}`, {
+    body: doc({ elemente: { a: { status: 's2' } } }),
+    key: AG_KEY,
+  });
+
+  // Lesen ohne Schluessel, obwohl das Profil abgenommen ist.
+  const ver = await api('GET', `/profiles/${id}/versions/${vid}`);
+  assert.equal(ver.status, 200);
+  assert.equal(ver.body.nr, 1);
+  assert.equal(ver.body.abnahme, true);
+  assert.equal(ver.body.kommentar, 'Stand der Abnahme');
+  assert.equal(ver.body.doc.elemente.a.status, 's1');
+
+  // Direkteinstieg ueber die Referenz liefert dasselbe.
+  const direkt = await api('GET', `/profiles/${id}/abnahme`);
+  assert.equal(direkt.status, 200);
+  assert.equal(direkt.body.id, vid);
+  assert.deepEqual(direkt.body.doc, ver.body.doc);
+
+  // Unbekannte Version bzw. unbekanntes Profil → 404.
+  assert.equal((await api('GET', `/profiles/${id}/versions/fehlt`)).status, 404);
+  assert.equal((await api('GET', `/profiles/fehlt/versions/${vid}`)).status, 404);
+
+  // Ohne Abnahme-Kennzeichen: 404 statt eines beliebigen Snapshots.
+  await api('DELETE', `/profiles/${id}/abnahme`, { key: AG_KEY });
+  assert.equal((await api('GET', `/profiles/${id}/abnahme`)).status, 404);
+  // Die Version selbst bleibt lesbar.
+  assert.equal((await api('GET', `/profiles/${id}/versions/${vid}`)).status, 200);
+});
+
 test('Schutz: externe Schreiboperationen auf ein abgenommenes Profil werden abgewiesen', async (t) => {
   const { api } = await start(t, { agKey: AG_KEY });
   const id = await neuesProfil(api);

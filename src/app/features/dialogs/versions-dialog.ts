@@ -10,6 +10,7 @@ import { StateService } from '../../core/services/state.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { PersistenceService } from '../../core/services/persistence.service';
 import { ToastService } from '../../core/services/toast.service';
+import { VergleichService } from '../../core/services/vergleich.service';
 import { ProfilVersion } from '../../models/profile.model';
 
 /**
@@ -28,6 +29,7 @@ export class VersionsDialog {
   private readonly store = inject(ProfileStoreService);
   private readonly persistence = inject(PersistenceService);
   private readonly toast = inject(ToastService);
+  private readonly vergleich = inject(VergleichService);
   private readonly dlg = viewChild.required<ElementRef<HTMLDialogElement>>('dlg');
 
   protected readonly versionen = signal<ProfilVersion[]>([]);
@@ -79,6 +81,17 @@ export class VersionsDialog {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  /**
+   * Vergleich Arbeitsstand ↔ diese Version. Beide Dialoge sind modal, daher
+   * erst schliessen — sonst bliebe der Vergleich hinter diesem Dialog haengen.
+   */
+  protected vergleichen(v: ProfilVersion): void {
+    const id = this.state.activeProfileId();
+    if (!id) return;
+    this.schliesse();
+    this.vergleich.oeffneProfil(id, v.id);
   }
 
   protected async wiederherstellen(v: ProfilVersion): Promise<void> {

@@ -114,3 +114,8 @@ manuelle unbegrenzt) und das Kennzeichen **`geaendert`** im `LibraryEntry`
 _keiner_ Version eingefroren ist. Profil-Löschen kaskadiert (Transaktion, kein FK);
 `importAll` fasst Versionen nie an. Bewusst akzeptiert: der Hash vergleicht die
 Serialisierung, nicht die Semantik — falsch-positive „geändert" sind harmlos.
+
+Das eingefrorene `doc` ist über `GET /api/profiles/:id/versions/:vid` bzw. — für die
+referenzierte Abnahme-Version — über `GET /api/profiles/:id/abnahme` lesbar (Metadaten plus
+Dokument, bewusst ohne Schlüsselprüfung). Darauf setzt der feldgenaue Profil-Vergleich auf
+([ADR 0013](adr/0013-vergleich-seit-abnahme.md)).

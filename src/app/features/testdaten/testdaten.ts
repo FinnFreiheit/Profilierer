@@ -18,6 +18,7 @@ import { DownloadService } from '../../core/services/download.service';
 import { XmlValidationService } from '../../core/services/xml-validation.service';
 import { ValidationReportService } from '../../core/services/validation-report.service';
 import { RolleService } from '../../core/services/rolle.service';
+import { VergleichService } from '../../core/services/vergleich.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { LibraryEntry } from '../../models/profile.model';
@@ -57,6 +58,7 @@ export class Testdaten {
   private readonly dl = inject(DownloadService);
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
+  private readonly vergleich = inject(VergleichService);
 
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
@@ -424,6 +426,17 @@ export class Testdaten {
   /** Aktionen, die der Server fuer Externe an abgenommenen Objekten abweist. */
   protected gesperrt(e: TestmessageEntry): boolean {
     return !!e.abgenommen && !this.rolle.agAktiv();
+  }
+
+  /**
+   * Vergleich gegen die eingefrorene Abnahme-Fassung — vom Kachel-Badge, der
+   * Kachel-Aktion und aus dem Abnahme-Dialog. stopPropagation, weil ein Klick
+   * auf die Kachel sonst die Nachricht oeffnen wuerde.
+   */
+  protected zeigeAbnahmeDiff(e: TestmessageEntry, ev: Event): void {
+    ev.stopPropagation();
+    this.abnahmeDlg().nativeElement.close();
+    this.vergleich.oeffneTestnachricht(e.id);
   }
 
   protected openAbnahme(e: TestmessageEntry, ev: Event): void {

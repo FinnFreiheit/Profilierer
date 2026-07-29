@@ -10,6 +10,11 @@ import { RolleService } from './rolle.service';
  */
 const API_BASE = 'api';
 
+/** Eine Version samt eingefrorenem Dokument (Vergleichs-Endpunkte). */
+export interface VersionMitDoc extends ProfilVersion {
+  doc: ProfileDoc;
+}
+
 /**
  * Persistenz-Layer der Profil-Bibliothek — spricht das Backend (SQLite) per
  * nativem fetch an (konsistent mit BundledSchemaService/CodelistService). Ein
@@ -143,6 +148,31 @@ export class ProfileStoreService {
   /** Versionsliste eines Profils (ohne doc), absteigend nach Nummer. */
   async listVersions(id: string): Promise<ProfilVersion[]> {
     return this.req<ProfilVersion[]>(`/profiles/${encodeURIComponent(id)}/versions`);
+  }
+
+  /**
+   * Eine Version inklusive eingefrorenem Dokument (Vergleich gegen den
+   * Arbeitsstand); 404 → null. Fuer alle lesbar, auch ohne AG-Schluessel.
+   */
+  async loadVersion(id: string, versionId: string): Promise<VersionMitDoc | null> {
+    const pfad = `/profiles/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}`;
+    return this.ladeVersion(pfad);
+  }
+
+  /**
+   * Die referenzierte Abnahme-Version inklusive Dokument (Direkteinstieg fuer
+   * "was hat sich seit der Abnahme geaendert?"); 404 → null (nicht abgenommen).
+   */
+  async loadAbnahmeDoc(id: string): Promise<VersionMitDoc | null> {
+    return this.ladeVersion(`/profiles/${encodeURIComponent(id)}/abnahme`);
+  }
+
+  /** Gemeinsamer Lesepfad der beiden Vergleichs-Endpunkte (404 ist kein Fehler). */
+  private async ladeVersion(pfad: string): Promise<VersionMitDoc | null> {
+    const r = await fetch(API_BASE + pfad);
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`Profil-Backend: GET ${pfad} → ${r.status}`);
+    return (await r.json()) as VersionMitDoc;
   }
 
   /**

@@ -55,13 +55,15 @@
             <div class="dcMeta">
               @if (e.abgenommen) {
                 @if (e.geaendertSeitAbnahme) {
-                  <span
-                    class="pill pillAbnWarn"
-                    title="Seit der Abnahme verändert — die abgenommene Fassung liegt als Version v{{
+                  <button
+                    class="pill pillBtn pillAbnWarn"
+                    title="Anzeigen, was sich gegenüber der abgenommenen Fassung (v{{
                       e.abnahmeVersionNr
-                    }} vor"
-                    >⚠ seit Abnahme geändert</span
+                    }}) geändert hat"
+                    (click)="zeigeAbnahmeDiff(e.id, $event)"
                   >
+                    ⚠ seit Abnahme geändert
+                  </button>
                 } @else {
                   <span
                     class="pill pillAbn"
@@ -188,6 +190,13 @@
         @if (e.geaendertSeitAbnahme) {
           Der Arbeitsstand wurde <b>seit der Abnahme verändert</b> — eine erneute Abnahme macht ihn
           zur neuen validen Fassung.
+          <button
+            style="padding: 2px 8px; font-size: 12px"
+            title="Feldgenau anzeigen, was sich geändert hat"
+            (click)="zeigeAbnahmeDiff(e.id, $event)"
+          >
+            Änderungen anzeigen…
+          </button>
         }
       } @else {
         — die Abnahme friert den aktuellen Stand als unveränderliche Version ein und schützt das

@@ -33,6 +33,9 @@ import { MigrationService } from './core/services/migration.service';
 import { LoggerService } from './core/services/logger.service';
 import { DownloadService } from './core/services/download.service';
 import { ValidationDialog } from './features/dialogs/validation-dialog';
+import { ProfilDiffDialog } from './features/dialogs/profil-diff-dialog';
+import { XmlDiffDialog } from './features/dialogs/xml-diff-dialog';
+import { VergleichService } from './core/services/vergleich.service';
 import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
 
 @Component({
@@ -57,6 +60,8 @@ import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
     Dashboard,
     Testdaten,
     ValidationDialog,
+    ProfilDiffDialog,
+    XmlDiffDialog,
     ErweiterungDialog,
   ],
   templateUrl: './app.html',
@@ -80,6 +85,7 @@ export class App implements OnInit {
   private readonly migration = inject(MigrationService);
   private readonly logger = inject(LoggerService);
   private readonly download = inject(DownloadService);
+  private readonly vergleich = inject(VergleichService);
 
   protected readonly hasRoot = this.state.hasRoot;
   /** Dashboard (Bibliothek) vs. Baum-Editor. */
@@ -306,6 +312,16 @@ export class App implements OnInit {
    */
   onDiff(diffDlg: DiffDialog, _xsdBInput: HTMLInputElement): void {
     diffDlg.open();
+  }
+
+  /**
+   * Abnahme-Badge im Editor-Kopf: zeigt feldgenau, was sich gegenueber der
+   * abgenommenen Fassung geaendert hat. Der Arbeitsstand kommt aus dem Store —
+   * ein Autosave-Flush ist nicht noetig.
+   */
+  onAbnahmeDiff(): void {
+    const id = this.state.activeProfileId();
+    if (id) this.vergleich.oeffneProfil(id);
   }
 
   async onXsdB(e: Event, diffDlg: DiffDialog): Promise<void> {

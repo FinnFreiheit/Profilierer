@@ -273,6 +273,22 @@ export function openDb(path) {
   }
 
   /**
+   * Eine profile_versions-Zeile als Versions-Metadaten plus geparstem Dokument
+   * (Vergleichs-Endpunkte). Die Metadaten spiegeln versionsList.
+   */
+  function verMitDoc(r) {
+    return {
+      id: r.id,
+      nr: r.nr,
+      kommentar: r.kommentar ?? undefined,
+      automatisch: !!r.automatisch || undefined,
+      abnahme: !!r.abnahme || undefined,
+      erstellt: r.erstellt,
+      doc: JSON.parse(r.doc),
+    };
+  }
+
+  /**
    * Versions-Felder des LibraryEntry (nVersionen/letzteVersionNr/geaendert).
    * Einziger Anreicherungs-Pfad — alle Entry-liefernden Methoden muessen hier
    * durch, sonst "flackert" das Kennzeichen je nach Operation.
@@ -421,6 +437,29 @@ export function openDb(path) {
         abnahme: !!r.abnahme || undefined,
         erstellt: r.erstellt,
       }));
+    },
+
+    /**
+     * Eine Version inklusive eingefrorenem Dokument (fuer den Vergleich
+     * "was hat sich seit vX geaendert?"). null wenn Profil oder Version fehlt;
+     * verGet filtert bereits nach profile_id — eine fremde vid faellt durch.
+     */
+    versionGet(profileId, versionId) {
+      const r = stmt.verGet.get(versionId, profileId);
+      return r ? verMitDoc(r) : null;
+    },
+
+    /**
+     * Die aktuell referenzierte Abnahme-Version inklusive Dokument; null wenn
+     * das Profil nicht abgenommen ist. Bewusst ueber profiles.abnahme_version_id
+     * und nicht ueber "juengste Version mit abnahme = 1" — nach einer Neuabnahme
+     * gibt es mehrere solche Zeilen, massgeblich ist allein die Referenz.
+     */
+    abnahmeVersion(profileId) {
+      const vid = stmt.abnRef.get(profileId)?.abnahme_version_id;
+      if (!vid) return null;
+      const r = stmt.verGet.get(vid, profileId);
+      return r ? verMitDoc(r) : null;
     },
 
     /**

@@ -18,6 +18,7 @@ Architecture Decision Records halten wesentliche Richtungsentscheidungen mit Beg
 | [0010](0010-schema-erweiterungen-profil-overlay.md) | Schema-Erweiterungen als Profil-Overlay statt Schema-Manipulation | Angenommen                    |
 | [0011](0011-lint-format-ci.md)                      | Node-Pinning, ESLint/Prettier und CI als Qualitäts-Tor            | Angenommen                    |
 | [0012](0012-abnahme-rollenkonzept.md)               | Abnahme durch die BLK-AG — Zwei-Rollen-Konzept (ergänzt 0007)     | Angenommen                    |
+| [0013](0013-vergleich-seit-abnahme.md)              | „Seit Abnahme geändert" sichtbar — struktureller Vergleich        | Angenommen                    |
 
 ## Vorlage
 

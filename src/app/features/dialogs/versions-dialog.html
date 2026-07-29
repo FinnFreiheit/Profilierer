@@ -37,6 +37,13 @@
           <span class="spacer"></span>
           <button
             [disabled]="busy()"
+            title="Anzeigen, was sich seit dieser Version geändert hat"
+            (click)="vergleichen(v)"
+          >
+            Vergleichen
+          </button>
+          <button
+            [disabled]="busy()"
             title="Arbeitsstand durch diese Version ersetzen"
             (click)="wiederherstellen(v)"
           >

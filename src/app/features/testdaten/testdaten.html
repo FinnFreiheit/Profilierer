@@ -55,11 +55,13 @@
               <div class="dcMeta">
                 @if (e.abgenommen) {
                   @if (e.geaendertSeitAbnahme) {
-                    <span
-                      class="pill pillAbnWarn"
-                      title="Seit der Abnahme verändert — die abgenommene Fassung ist über „Abnahme-XML“ abrufbar"
-                      >⚠ seit Abnahme geändert</span
+                    <button
+                      class="pill pillBtn pillAbnWarn"
+                      title="Anzeigen, was sich gegenüber der abgenommenen Fassung geändert hat"
+                      (click)="zeigeAbnahmeDiff(e, $event)"
                     >
+                      ⚠ seit Abnahme geändert
+                    </button>
                   } @else {
                     <span
                       class="pill pillAbn"
@@ -142,6 +144,14 @@
                     >
                       Abnahme-XML
                     </button>
+                    @if (e.geaendertSeitAbnahme) {
+                      <button
+                        title="Feldgenau anzeigen, was sich gegenüber der abgenommenen Fassung geändert hat"
+                        (click)="zeigeAbnahmeDiff(e, $event)"
+                      >
+                        Änderungen…
+                      </button>
+                    }
                   }
                   <button
                     class="del"
@@ -295,6 +305,13 @@
         @if (e.geaendertSeitAbnahme) {
           Die XML wurde <b>seit der Abnahme verändert</b> — eine erneute Abnahme friert die aktuelle
           Fassung als neue valide Fassung ein.
+          <button
+            style="padding: 2px 8px; font-size: 12px"
+            title="Feldgenau anzeigen, was sich geändert hat"
+            (click)="zeigeAbnahmeDiff(e, $event)"
+          >
+            Änderungen anzeigen…
+          </button>
         }
       } @else {
         — die Abnahme friert die aktuelle XML-Fassung ein und schützt die Testnachricht vor

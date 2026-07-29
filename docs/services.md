@@ -17,6 +17,9 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `ExcelExportService`           | Excel-Export im NGem-Abstimmungslayout (ExcelJS, dynamisch geladen)                                                   |
 | `GuidedService`                | Geführter Modus: offene Entscheidungspunkte, Fortschritt, Sprung zum nächsten Punkt                                   |
 | `DiffService`                  | Versionsvergleich (flach), Diff-Karte, Vergleichsordner laden                                                         |
+| `ProfilDiffService`            | Feldgenauer Vergleich zweier Profil-Dokumente (Arbeitsstand ↔ Version/Abnahme)                                        |
+| `XmlDiffService`               | Struktureller Vergleich zweier XJustiz-Instanzen (Testnachricht ↔ Abnahme-Fassung)                                    |
+| `VergleichService`             | Zustand der beiden Vergleichsdialoge (Ziel: Profil+Version bzw. Testnachricht)                                        |
 | `BundledSchemaService`         | Im Projekt hinterlegte Schemaversionen (public/schemas/) per fetch laden                                              |
 | `RemoteSchemaService`          | Veröffentlichte Schemaversionen von xjustiz.de abrufen (Versionsseite + XSD-ZIP)                                      |
 | `InstanceImportService`        | Bestehende XJustiz-Nachricht (XML) zurück ins Profil-Modell binden                                                    |
@@ -85,7 +88,17 @@ Zentrale Statusänderung (`setzeStatus(path, statusId)`): Erhält ein Element ei
 
 ## DiffService
 
-`computeDiff` (Nachrichten- und Element-Ebene, Z.2193), `computeDiffMap` (Diff-Karte + Vorfahren-Zähler für die Baum-Markierung), `profiledUnder`, `loadXsdB` (Vergleichsschemata laden, aktiviert Diff).
+`computeDiff` (Nachrichten- und Element-Ebene, Z.2193), `computeDiffMap` (Diff-Karte + Vorfahren-Zähler für die Baum-Markierung), `profiledUnder`, `loadXsdB` (Vergleichsschemata laden, aktiviert Diff). Vergleicht **Schemata**, nicht Profile — dafür siehe unten.
+
+## ProfilDiffService, XmlDiffService & VergleichService
+
+„Was hat sich seit der Abnahme geändert?" ([ADR 0013](adr/0013-vergleich-seit-abnahme.md)).
+
+`ProfilDiffService.vergleiche(basis, vergleich)` vergleicht zwei `ProfileDoc` feldgenau und liefert `ProfilDiffResult` (Einträge mit `bereich` meta/status/element/auspraegung/erweiterung, je Eintrag die geänderten Felder mit vorher/nachher). Zwei Feinheiten tragen die Aussagekraft: der **Status wird über die aufgelöste Stufe** (`"<Name> (<Wirkung>)"`) verglichen, nicht über die dokumentlokale id, und `pfadKlartext` löst Ausprägungs-/Erweiterungs-ids im Pfad zu Namen auf. `meta.gespeichert` bleibt außen vor (ändert sich bei jedem Speichern).
+
+`XmlDiffService.vergleiche(basis, vergleich)` vergleicht zwei XJustiz-Instanzen **strukturell** (Elementpfade, Attribute, Blattwerte) statt zeilenweise — die Abnahme-Fassung ist verbatim eingefroren, der Arbeitsstand neu serialisiert, ein Zeilendiff bestünde fast nur aus Formatierungsrauschen. Wiederholungen werden über `SCHLUESSEL_KINDER` (`id`, `uuid`, `nummer`, …) zugeordnet, sonst positionsweise; einseitige Teilbäume ergeben einen Eintrag mit Nachfahren-Zahl.
+
+Beide sind reine Funktionen ohne State-Zugriff. Der `VergleichService` hält nur das Ziel (`{ art: 'profil', profilId, versionId? }` bzw. `{ art: 'xml', testmessageId }`); die beiden Dialoge hängen global in der Shell und laden selbst — Muster `ValidationReportService`. Serverseitig liefern `GET /api/profiles/:id/versions/:vid` und `GET /api/profiles/:id/abnahme` das eingefrorene Dokument (bewusst ohne Schlüsselprüfung, siehe ADR 0013).
 
 ## BundledSchemaService
 
