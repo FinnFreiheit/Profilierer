@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   computed,
+  effect,
   inject,
   signal,
   viewChild,
@@ -13,6 +14,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { PersistenceService } from '../../core/services/persistence.service';
 import { TestmessageGenerationService } from '../../core/services/testmessage-generation.service';
+import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
 import { TestmessageCreateService } from '../../core/services/testmessage-create.service';
 import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
 import { DownloadService } from '../../core/services/download.service';
@@ -55,6 +57,7 @@ export class Testdaten {
   private readonly profiles = inject(ProfileStoreService);
   private readonly persistence = inject(PersistenceService);
   private readonly generator = inject(TestmessageGenerationService);
+  private readonly start = inject(TestnachrichtStartService);
   private readonly creator = inject(TestmessageCreateService);
   private readonly edit = inject(TestmessageEditService);
   private readonly dl = inject(DownloadService);
@@ -65,7 +68,6 @@ export class Testdaten {
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
   private readonly editDlg = viewChild.required<ElementRef<HTMLDialogElement>>('editDlg');
-  private readonly genDlg = viewChild.required<ElementRef<HTMLDialogElement>>('genDlg');
   private readonly createDlg = viewChild.required<ElementRef<HTMLDialogElement>>('createDlg');
 
   constructor() {
@@ -104,7 +106,6 @@ export class Testdaten {
   );
 
   /** Laufende Generierung (Profil-id) — sperrt Doppelklicks im Dialog. */
-  protected readonly generating = signal<string | null>(null);
 
   /** Bibliotheksprofile, aus denen sich eine Nachricht erzeugen laesst. */
   protected readonly profilKandidaten = computed<LibraryEntry[]>(() =>
@@ -201,6 +202,21 @@ export class Testdaten {
     return idx.messages.filter(
       (m) => !f || m.name.toLowerCase().includes(f) || m.doc.toLowerCase().includes(f),
     );
+  });
+
+  /**
+   * Einstieg von der Profil-Kachel (Issue #35): dieselbe Sitzung wie hier —
+   * der Dialog oeffnet direkt in Schritt 2 (Fassungswahl) fuer die uebergebene
+   * Profilierung. Die Anfrage kann gestellt worden sein, bevor diese Ansicht
+   * existierte, darum ein Signal statt eines Aufrufs; sie wirkt genau einmal.
+   */
+  private readonly startAnfrage = effect(() => {
+    const profil = this.start.anfrage();
+    if (!profil) return;
+    this.start.anfrage.set(null);
+    this.openCreate();
+    this.createQuelle.set('profil');
+    void this.chooseProfil(profil);
   });
 
   protected openCreate(): void {
@@ -354,38 +370,6 @@ export class Testdaten {
       await this.edit.oeffnen(e, 'bearbeiten');
     } catch (err) {
       this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
-    }
-  }
-
-  // ── Aus Profilierung erzeugen ───────────────────────────────────────
-
-  protected openGenerate(): void {
-    void this.profiles
-      .refresh()
-      .catch(this.toast.fail('Profile konnten nicht geladen werden — Backend nicht erreichbar.'));
-    this.genDlg().nativeElement.showModal();
-  }
-
-  /** Ist die XJustiz-Version des Profils verfuegbar (aktuell geladen oder hinterlegt)? */
-  protected versionVerfuegbar(e: LibraryEntry): boolean {
-    return (
-      !e.xjustizVersion ||
-      e.xjustizVersion === this.state.version() ||
-      this.state.bundledVersions().some((v) => v.id === e.xjustizVersion)
-    );
-  }
-
-  protected async generateFrom(e: LibraryEntry): Promise<void> {
-    if (this.generating()) return;
-    this.generating.set(e.id);
-    try {
-      await this.generator.erzeugeAusProfil(e);
-      this.genDlg().nativeElement.close();
-      this.toast.show('Testnachricht erzeugt — Platzhalterwerte fachlich prüfen.');
-    } catch (err) {
-      this.toast.showError(err, 'Erzeugen fehlgeschlagen.');
-    } finally {
-      this.generating.set(null);
     }
   }
 

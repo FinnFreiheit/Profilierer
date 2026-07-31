@@ -1,9 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
+import { ProfileDoc } from '../../models/profile.model';
 import { TreeItem, TreeNode } from '../../models/node.model';
 import { XsdDoc, XsdIndex } from '../../models/xsd-index.model';
 import { MessageEditSession } from '../../models/testmessage.model';
-import { parseTestmessage } from '../util/testmessage.util';
 import { StateService } from './state.service';
 import { NavService } from './nav.service';
 import { ExportService } from './export.service';
@@ -53,83 +52,11 @@ export class TestmessageGenerationService {
   private readonly report = inject(ValidationReportService);
   private readonly marker = inject(ValidationMarkerService);
 
-  /** Erzeugt die Testnachricht; wirft Error mit Nutzertext (Toast macht der Aufrufer). */
-  async erzeugeAusProfil(entry: LibraryEntry): Promise<string> {
-    const doc = await this.profiles.load(entry.id);
-    if (!doc) throw new Error('Profil nicht gefunden.');
-    const nachricht = doc.meta.nachricht;
-    if (!nachricht) throw new Error('Profil hat keinen Nachrichtentyp.');
-
-    // Haengende Autosaves des vorherigen Editors erst sichern, dann den
-    // Autosave fuer die Dauer des Swaps scharf ausschalten (id = null).
-    await this.persistence.flushAutosave();
-    const stand = this.snapshot();
-    this.state.activeProfileId.set(null);
-    try {
-      await this.ensureSchema(doc.meta.xjustizVersion);
-      if (!this.state.idx()?.el[nachricht])
-        throw new Error('Nachricht nicht im geladenen Schema gefunden: ' + nachricht);
-      this.state.loadProfile(doc);
-      this.nav.loadMessage(nachricht, true);
-      const res = this.exporter.buildBeispielXmlMitPfaden();
-      if (res == null) throw new Error('Beispiel-XML konnte nicht erzeugt werden.');
-      const xml = res.xml;
-      const meta = parseTestmessage(xml);
-      if (!meta) throw new Error('Erzeugtes XML ist keine XJustiz-Nachricht.');
-
-      // Anforderung: Testnachrichten muessen schema-valide sein. Ein invalides
-      // Erzeugnis (z. B. offene Auswahlen im Profil) wird als Entwurf
-      // gekennzeichnet und der Befund gemeldet — Download bleibt gesperrt.
-      // Ausnahme: Fehler, die nur auf bekannte Schema-Erweiterungen des Profils
-      // zurueckgehen (bewusste XSD-Abweichung), machen keinen Entwurf.
-      const pruefung = await this.validator.validiere(xml);
-      const eintraege =
-        pruefung.status === 'invalide'
-          ? this.marker.ordneZu(pruefung.fehlerDetails, res.zeilenPfade)
-          : [];
-      const nurErweiterungen =
-        pruefung.status === 'invalide' && this.marker.nurErweiterungsFehler(eintraege);
-      const entwurf = pruefung.status !== 'valide' && !nurErweiterungen;
-
-      const profilName = doc.meta.name || entry.name || nachricht;
-      // Version aus dem Profil bzw. dem geladenen Schema — das generierte XML
-      // traegt kein xjustizVersion-Attribut, parseTestmessage liefert sie nicht.
-      const version = doc.meta.xjustizVersion || this.state.version() || undefined;
-      const id = await this.testdaten.create({
-        name: `${profilName} — Beispiel.xml`,
-        xml,
-        nachricht: meta.nachricht,
-        fachmodul: meta.fachmodul,
-        xjustizVersion: version,
-        groesse: xml.length,
-        entwurf,
-      });
-      // Bewusst ohne Baum-Markierung/klickbare Pfade (ValidationMarkerService):
-      // der Baum ist hier nur transient geladen und wird im finally per
-      // restore(stand) auf den vorherigen Editor-Stand zurueckgesetzt —
-      // Marker und Spruenge liefen ins Leere bzw. auf den falschen Baum.
-      if (entwurf)
-        this.report.zeige(
-          `Testnachricht „${profilName} — Beispiel.xml" als Entwurf angelegt — nicht schema-valide`,
-          pruefung.fehler,
-        );
-      // Herkunft als Notiz (kein eigenes DB-Feld); Fehler hier sind nicht fatal.
-      await this.testdaten
-        .updateMeta(id, {
-          notiz:
-            `Automatisch erzeugt aus Profilierung „${profilName}"` +
-            (version ? ` (XJustiz ${version})` : '') +
-            ` am ${new Date().toLocaleDateString('de-DE')}. Platzhalterwerte fachlich prüfen.` +
-            (nurErweiterungen
-              ? ' Enthält Schema-Erweiterungen — bewusst nicht schema-valide (Nachbeauftragung).'
-              : ''),
-        })
-        .catch(() => {});
-      return id;
-    } finally {
-      this.restore(stand);
-    }
-  }
+  // `erzeugeAusProfil` ist mit Issue #35 entfallen: es gibt genau **einen** Weg
+  // von der Profilierung zur Testnachricht — den gefuehrten Durchlauf mit
+  // Bindung (`TestmessageCreateService.neuAusProfil`). Der Ein-Klick-Erzeuger
+  // legte Zufallswerte ab, die niemand geprueft hatte. Geblieben ist der
+  // gemeinsame Baustein `ensureSchema`, den der gefuehrte Weg mitnutzt.
 
   /**
    * Die zum Profil passende hinterlegte XJustiz-Version laden (falls noetig).
