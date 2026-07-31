@@ -53,16 +53,35 @@ export class DetailPanel {
     computation: () => '',
   });
   /**
+   * Alle Werte ausgeschlossen (`werte: []`) — dann ist „alle zeigen" erzwungen,
+   * sonst bliebe eine leere Liste ohne Ausweg. Bewusst aus `state.elemente()`
+   * abgeleitet und nicht aus `clSicht()`: die Sicht liest `clAlle`, ein Blick
+   * zurueck waere ein Zyklus.
+   */
+  private readonly clErzwungen = computed(() => {
+    const it = this.state.selItem();
+    if (!it) return false;
+    const werte = this.state.elemente()[itemPath(it)]?.werte;
+    return !!werte && !werte.length;
+  });
+  /**
    * Umschalter „alle zeigen" der eingeschraenkten Werteliste. Wie der Textfilter
    * beim Elementwechsel zurueckgesetzt — sonst wanderte ein unsichtbarer
-   * Ansichtszustand mit (US "Werteliste zeigt, was gilt").
+   * Ansichtszustand mit (US "Werteliste zeigt, was gilt"). Der Zwang bei „keine"
+   * schreibt den Zustand und haelt ihn ueber den Wegfall des Zwangs hinaus,
+   * damit die Liste beim ersten Haken nicht zusammenklappt
+   * (`ValueService.naechsterUmschalter`).
    */
-  protected readonly clAlle = linkedSignal({
+  protected readonly clAlle = linkedSignal<{ path: string; erzwungen: boolean }, boolean>({
     source: () => {
       const it = this.state.selItem();
-      return it ? itemPath(it) : '';
+      return { path: it ? itemPath(it) : '', erzwungen: this.clErzwungen() };
     },
-    computation: () => false,
+    computation: (quelle, vorher) =>
+      this.values.naechsterUmschalter(
+        vorher && vorher.source.path === quelle.path ? vorher.value : null,
+        quelle.erzwungen,
+      ),
   });
   protected readonly erwDatentypen = ERW_DATENTYPEN;
   /** Pfad, fuer den im Datentyp-Select "Sonstiger…" gewaehlt wurde (noch ohne Freitext). */

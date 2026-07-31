@@ -250,3 +250,36 @@ describe('ValueService.sichtbareWerte', () => {
     expect(codes(s.sichtbar)).toEqual(['A']);
   });
 });
+
+describe('ValueService.naechsterUmschalter', () => {
+  let svc: ValueService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    svc = TestBed.inject(ValueService);
+  });
+
+  it('Elementwechsel setzt auf "nur zugelassene" zurueck', () => {
+    expect(svc.naechsterUmschalter(null, false)).toBeFalse();
+  });
+
+  it('Elementwechsel auf ein Element mit "keine": Zwang gilt sofort', () => {
+    expect(svc.naechsterUmschalter(null, true)).toBeTrue();
+  });
+
+  it('"keine" erzwingt "alle zeigen", auch wenn der Umschalter aus war', () => {
+    expect(svc.naechsterUmschalter(false, true)).toBeTrue();
+  });
+
+  it('faellt der Zwang weg (erster Wert zugelassen), bleibt "alle zeigen" an', () => {
+    // Der eigentliche Grund der Funktion: sonst klappte die Liste beim ersten
+    // Haken auf die eine zugelassene Zeile zusammen.
+    const nachKeine = svc.naechsterUmschalter(false, true);
+    expect(svc.naechsterUmschalter(nachKeine, false)).toBeTrue();
+  });
+
+  it('ohne Zwang entscheidet der Nutzer — Abwaehlen bleibt wirksam', () => {
+    expect(svc.naechsterUmschalter(true, false)).toBeTrue();
+    expect(svc.naechsterUmschalter(false, false)).toBeFalse();
+  });
+});
