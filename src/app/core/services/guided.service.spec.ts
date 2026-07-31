@@ -641,6 +641,21 @@ describe('GuidedService', () => {
         expect(svc.offeneSet().has(`${M}/beteiligung@${kopie.id}`)).toBeFalse();
       });
 
+      it('Verweisziele kennen die Vorkommen der gebundenen Fassung (#28)', () => {
+        // `refZielKandidaten` las bisher allein die eigene Liste: im gebundenen
+        // Durchlauf bot die Auswahl darum kein Ziel an, obwohl `auspLabel` eines
+        // benennen konnte.
+        bindeVorgabe(
+          { [`${M}/beteiligung`]: { status: V.pflicht } },
+          {},
+          { [`${M}/beteiligung`]: [{ id: 'n1', name: 'Notar/in' }] },
+        );
+
+        const kand = state.refZielKandidaten('Rollennummer');
+        expect(kand.map((k) => k.path)).toEqual([`${M}/beteiligung@n1`]);
+        expect(kand[0]!.label).toContain('Notar/in');
+      });
+
       it('Kandidaten fuer ein weiteres Vorkommen sind die profilierten Auspraegungen (#28)', () => {
         bindeVorgabe(
           { [`${M}/beteiligung`]: { status: V.pflicht } },

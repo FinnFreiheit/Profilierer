@@ -602,6 +602,23 @@ export class StateService {
   }
 
   /**
+   * Alle Vorkommenslisten in der Lesart des Durchlaufs: die eigenen, ergaenzt um
+   * die der gebundenen Fassung an Pfaden **ohne** eigene Liste (kein Mischen —
+   * dieselbe Regel wie `auspsOf`). Fuer Konsumenten, die ueber *alle* Listen
+   * laufen muessen (Verweisziele, Pflicht-Vorbelegung, Instanz-Export): ueber
+   * die eigene Map allein blieben die Vorkommen der gebundenen Fassung
+   * unsichtbar, solange der Durchlauf sie nicht angefasst hat (#28).
+   */
+  alleAuspListen(): [string, Auspraegung[]][] {
+    const eigen = this.auspraegungen();
+    const out: [string, Auspraegung[]][] = Object.entries(eigen);
+    for (const [path, list] of Object.entries(this.vorgabe()?.auspraegungen ?? {})) {
+      if (!eigen[path]) out.push([path, list]);
+    }
+    return out;
+  }
+
+  /**
    * Startliste einer Listen-Mutation: die eigene Liste, sonst eine **Kopie** der
    * Liste der Vorgabe. Weil der Rueckfall von `auspsOf`/`erweiterungenOf` je
    * Pfad fuer die **ganze** Liste gilt, wuerde ein eigener Eintrag ohne diese
@@ -1038,7 +1055,10 @@ export class StateService {
   refZielKandidaten(kind: string): { path: string; label: string }[] {
     const names = REF_TARGETS[kind] ?? null;
     const out: { path: string; label: string }[] = [];
-    for (const [path, list] of Object.entries(this.auspraegungen())) {
+    // Ueber die effektive Lesart: im gebundenen Durchlauf stehen die Vorkommen
+    // in der Vorgabe, solange der Durchlauf sie nicht angefasst hat — sonst
+    // kennte `auspLabel` ein Ziel, das die Kandidatenliste nicht anbietet (#28).
+    for (const [path, list] of this.alleAuspListen()) {
       const elName = path.split('/').pop()!.split('#')[0]!.split('@')[0]!;
       if (names && !names.includes(elName)) continue;
       for (const a of list)

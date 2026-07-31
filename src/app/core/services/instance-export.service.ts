@@ -369,7 +369,9 @@ export class InstanceExportService {
       if ((k.startsWith(pre1) || k.startsWith(pre2)) && this.state.elemente()[k]!.beispiel)
         return true;
     }
-    for (const k of Object.keys(this.state.auspraegungen())) {
+    // Effektive Lesart (#28): Vorkommen der gebundenen Fassung sind Inhalt der
+    // Nachricht, auch bevor der Durchlauf sie angefasst hat.
+    for (const [k] of this.state.alleAuspListen()) {
       if (k === path || k.startsWith(pre1) || k.startsWith(pre2)) return true;
     }
     return false;
