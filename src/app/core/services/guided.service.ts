@@ -524,6 +524,13 @@ export class GuidedService {
   ): { min: number; max: number; minProfil: boolean; maxProfil: boolean; n: number } | null {
     if (!this.instanzModus()) return null;
     const it = this.nav.findItemByPath(path);
+    // Kein Item im Baum: **keine** Sperre (Nachlese zu #27, Issue #49 —
+    // bewusst so entschieden). Was der Baum nicht kennt, rendert er auch nicht;
+    // es gibt dort weder einen Knopf zu sperren noch ein Vorkommen zu schuetzen.
+    // Der Fall entsteht durch veraltete Auswahl oder einen Pfad aus einer alten
+    // Fassung — eine Sperre begruendete dort etwas, das gar nicht sichtbar ist.
+    // Die Grenzen selbst bleiben durchgesetzt: `KonformitaetService` prueft die
+    // gespeicherte Nachricht unabhaengig vom Baum (#31).
     if (!it || it.kind !== 'el') return null;
     const k = this.state.effKard(it.node);
     return {

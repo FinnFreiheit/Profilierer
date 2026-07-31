@@ -365,6 +365,15 @@ export class ValueService {
       const eff = this.clWerte(n.codelist);
       if (eff && eff.length && !eff.some((x) => x.value === w))
         return `„${w}" ist kein Wert der Codeliste${n.codelist.nameLang ? ' ' + n.codelist.nameLang : ''}`;
+      // Freigegebene Auswahl der Profilierung (Nachlese zu #38, Issue #55):
+      // steht im Feld ein Code, den die Profilierung ausschliesst, ist er
+      // profilwidrig — und seit der Filterung der Werteliste nicht einmal mehr
+      // dort zu sehen. Ohne diese Pruefung bliebe er voellig unauffaellig.
+      // Ein leeres Array ("keine zugelassen") ist ein Widerspruch der
+      // Profilierung und wird beim Start gemeldet, nicht am Feld.
+      const frei = this.state.werteOf(n.path);
+      if (frei && frei.length && !frei.includes(w))
+        return `„${w}" ist in dieser Profilierung nicht freigegeben`;
       return null;
     }
     const res = this.resolveType(n.typeName);

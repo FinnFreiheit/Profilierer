@@ -223,14 +223,24 @@ export class NavService {
     this.state.open.set(next);
   }
 
-  /** jumpTo (Z.744-750): zum Ziel oeffnen, auswaehlen, hinscrollen. */
-  jumpTo(path: string): void {
-    // Was die gebundene Profilfassung ausschliesst, ist standardmaessig
-    // ausgeblendet (boxHidden). Ein Sprung dorthin — etwa aus der Meldung
-    // widerspruechlicher Festlegungen — blendet es ueber "nur Profil" ein,
-    // sonst landete die Auswahl auf einem unsichtbaren Kasten.
-    if (this.state.vorgabeGesperrt(path) && !this.state.onlyProfile())
-      this.state.onlyProfile.set(true);
+  /**
+   * jumpTo (Z.744-750): zum Ziel oeffnen, auswaehlen, hinscrollen.
+   *
+   * `sichtbarMachen` nimmt Ansichtsfilter zurueck, die das Ziel verbergen
+   * wuerden — gedacht fuer Spruenge aus einer **Meldung** (Widersprueche der
+   * gebundenen Fassung, Validierungsbericht, Hinweis-Uebersicht), die sonst auf
+   * einem unsichtbaren Kasten landen. Bewusst **nicht** der Normalfall
+   * (Nachlese zu #27, Issue #49): bis dahin schaltete jeder Sprung auf einen
+   * gesperrten Pfad — auch aus Suche und Krumen — global "nur Profil" ein und
+   * nahm es nie zurueck. Zurueckgenommen wird beides, was verbergen kann:
+   * "nur Werte" prueft `boxHidden` vor dem Vorgabe-Zweig.
+   */
+  jumpTo(path: string, sichtbarMachen = false): void {
+    if (sichtbarMachen && this.state.boxHidden(path)) {
+      if (this.state.onlyValues()) this.state.onlyValues.set(false);
+      if (this.state.vorgabeGesperrt(path) && !this.state.onlyProfile())
+        this.state.onlyProfile.set(true);
+    }
     this.openPathTo(path);
     const t = this.findItemByPath(path);
     if (t) this.state.selItem.set(t);
