@@ -43,6 +43,8 @@ export class Toolbar {
   readonly printClick = output<void>();
   readonly saveMessageClick = output<void>();
   readonly updateMessageClick = output<void>();
+  /** Profilbindung der geoeffneten Nachricht bewusst loesen (#32). */
+  readonly bindungLoesenClick = output<void>();
   readonly saveCreateClick = output<void>();
   /** Serie fortsetzen; true = als Kopie der eben gespeicherten Nachricht. */
   readonly weitereTestnachrichtClick = output<boolean>();
@@ -61,6 +63,14 @@ export class Toolbar {
    * keine id und kennen weiterhin nur "als neue Nachricht speichern".
    */
   protected readonly hatEintrag = computed(() => !!this.state.messageEdit()?.entryId);
+
+  /**
+   * Gebundene Nachricht in der Bearbeitung: die eingefrorene Profilkopie liegt
+   * im Durchlauf (#32) — nur dann gibt es etwas zu loesen.
+   */
+  protected readonly bindungLoesbar = computed(
+    () => this.hatEintrag() && this.state.hatVorgabe() && !this.state.abnahmeSchreibschutz(),
+  );
 
   /**
    * "Weitere Testnachricht zu diesem Profil" (Serienerstellung): erst nach dem

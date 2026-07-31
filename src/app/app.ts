@@ -290,6 +290,15 @@ export class App implements OnInit {
     }
   }
 
+  /** Profilbindung einer geoeffneten Testnachricht bewusst loesen (#32). */
+  async onBindungLoesen(): Promise<void> {
+    try {
+      await this.testmessageEdit.loeseBindung();
+    } catch (e) {
+      this.toast.showError(e, 'Bindung lösen fehlgeschlagen — Backend nicht erreichbar.');
+    }
+  }
+
   /**
    * Gefuehrte Testnachricht-Erstellung speichern: erstes Mal anlegen
    * (Namensabfrage im Service), danach denselben Eintrag aktualisieren.

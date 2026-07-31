@@ -394,6 +394,9 @@ export function openDb(path) {
       `UPDATE testmessages SET abnahme_xml = xml, abnahme_ts = @ts, abnahme_kommentar = @kommentar
        WHERE id = @id`,
     ),
+    tmVorgabeClear: db.prepare(
+      'UPDATE testmessages SET vorgabe = NULL, vorgabe_hash = NULL WHERE id = ?',
+    ),
     tmAbnClear: db.prepare(
       `UPDATE testmessages SET abnahme_xml = NULL, abnahme_ts = NULL, abnahme_kommentar = NULL
        WHERE id = ?`,
@@ -980,6 +983,19 @@ export function openDb(path) {
       } catch {
         return null;
       }
+    },
+
+    /**
+     * Profilbindung loesen (Issue #32): die eingefrorene Kopie und ihr Hash
+     * fallen weg — damit enden Sperren, Fuehrung und das Kennzeichen "Profil
+     * weiterentwickelt". Die **Herkunft** (profil_id/profil_name/fassung) bleibt
+     * stehen: sie ist Historie und soll auf der Kachel sichtbar bleiben. Gibt
+     * die aktualisierte Index-Zeile zurueck, null bei unbekannter id.
+     */
+    tmBindungLoesen(id) {
+      if (!stmt.tmGetRow.get(id)) return null;
+      stmt.tmVorgabeClear.run(id);
+      return tmEntry(stmt.tmGet.get(id));
     },
 
     /** Neue Testnachricht; id serverseitig vergeben. Gibt { id, entry }. */

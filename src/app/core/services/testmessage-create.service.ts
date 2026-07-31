@@ -22,7 +22,7 @@ import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
 import { ValidationMarkerService } from './validation-marker.service';
 import { ValueService } from './value.service';
-import { KonformitaetService } from './konformitaet.service';
+import { SitzungsAbgleichService } from './konformitaet.service';
 import { ReportEintrag } from '../../models/validation.model';
 
 /**
@@ -51,7 +51,7 @@ export class TestmessageCreateService {
   private readonly marker = inject(ValidationMarkerService);
   /** Nur fuer die Codelisten-Deckung in `meldeWidersprueche`. */
   private readonly values = inject(ValueService);
-  private readonly konformitaet = inject(KonformitaetService);
+  private readonly abgleich = inject(SitzungsAbgleichService);
 
   /**
    * Neue Sitzung: Schema der Version sicherstellen, Nachricht laden (leerer
@@ -358,7 +358,7 @@ export class TestmessageCreateService {
     // laeuft **neben** der Schemavalidierung und aus demselben Grund — eine
     // Nachricht kann spaeter bearbeitet oder gegen eine geaenderte Fassung
     // fortgesetzt werden, das Erzwingen im Durchlauf traegt dann nicht mehr.
-    const verstoesse = this.pruefeKonformitaet();
+    const verstoesse = this.abgleich.pruefe();
     if (verstoesse.length) entwurf = true;
 
     if (!entwurf) {
@@ -438,29 +438,6 @@ export class TestmessageCreateService {
       );
     }
     return true;
-  }
-
-  /**
-   * Abgleich der Nachricht gegen die gebundene Fassung (#31) — leer ohne
-   * Bindung. Das Blatt-Wissen kommt aus dem Baum: ob ein Pfad selbst einen Wert
-   * traegt, steht im Schema und nicht in den beiden Dokumenten; der Abgleich
-   * selbst bleibt dadurch zustandslos.
-   */
-  private pruefeKonformitaet(): { pfad: string; text: string }[] {
-    const vorgabe = this.state.vorgabe();
-    if (!vorgabe) return [];
-    return this.konformitaet.pruefe(
-      vorgabe,
-      { elemente: this.state.elemente(), auspraegungen: this.state.auspraegungen() },
-      {
-        istBlatt: (pfad) => {
-          const it = this.nav.findItemByPath(pfad);
-          if (!it) return false;
-          const node = it.kind === 'el' ? it.node : this.tree.ctxNode(it.parentNode, it.ausp.id);
-          return this.tree.isLeaf(node);
-        },
-      },
-    );
   }
 
   /**

@@ -56,6 +56,15 @@ export function testmessagesRouter(db, auth) {
     res.json(vorgabe);
   });
 
+  // Profilbindung loesen (#32): die eingefrorene Kopie faellt weg, die Herkunft
+  // bleibt als Historie stehen. Bewusst ein eigener Endpunkt und nicht Teil des
+  // PATCH — die Kopie entsteht nur beim Anlegen und darf sonst unberuehrt sein.
+  r.delete('/testmessages/:id/vorgabe', schutz, (req, res) => {
+    const entry = db.tmBindungLoesen(req.params.id);
+    if (!entry) return res.status(404).json({ error: 'nicht gefunden' });
+    res.json({ entry });
+  });
+
   // Anlegen: id serverseitig.
   r.post('/testmessages', (req, res) => {
     const b = req.body;
