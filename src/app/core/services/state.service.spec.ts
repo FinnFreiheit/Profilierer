@@ -81,6 +81,15 @@ describe('StateService', () => {
       expect(s.inheritedExcluded('m/x')).toBeFalse();
     });
 
+    it('inheritedExcluded erbt ueber die Vorkommen-Grenze hinweg', () => {
+      // Der Traegerknoten `m/bet` steht in keinem '/'-Praefix von `m/bet@a1/…`;
+      // ohne die '@'-Grenze bliebe sein Ausschluss an den Vorkommen wirkungslos.
+      s.setElementProfile('m/bet', { status: 's3' });
+      expect(s.inheritedExcluded('m/bet@a1')).toBeTrue();
+      expect(s.inheritedExcluded('m/bet@a1/name')).toBeTrue();
+      expect(s.inheritedExcluded('m/andere@a1/name')).toBeFalse();
+    });
+
     it('effKard beruecksichtigt Overrides', () => {
       const n = node('m/a', { min: '0', max: 'unbounded' });
       expect(s.effKard(n)).toEqual({
@@ -573,9 +582,46 @@ describe('StateService', () => {
       expect(s.auspsOf('m/bet')!.map((a) => a.name)).toEqual(['Notar/in']);
       expect(s.auspsOf('m/anlage')!.map((a) => a.name)).toEqual(['Urkunde']);
       expect(s.auspsOf('m/sonst')).toBeNull();
+    });
+
+    it('addAusp materialisiert die Vorgabe-Liste, statt sie zu verdecken', () => {
+      s.setVorgabe(vorgabeDoc({ auspraegungen: { 'm/bet': [{ id: 'v1', name: 'Notar/in' }] } }));
 
       s.addAusp('m/bet', 'Betroffene Person');
-      expect(s.auspsOf('m/bet')!.map((a) => a.name)).toEqual(['Betroffene Person']);
+
+      // Der Rueckfall gilt je Pfad fuer die ganze Liste — ohne Materialisierung
+      // verschwaende das Vorkommen der Profilierung aus Baum und Instanz.
+      expect(s.auspsOf('m/bet')!.map((a) => a.name)).toEqual(['Notar/in', 'Betroffene Person']);
+      expect(s.vorgabe()!.auspraegungen['m/bet']!.map((a) => a.name)).toEqual(['Notar/in']);
+    });
+
+    it('removeAusp und renameAusp greifen auch auf einer Liste der Vorgabe', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          auspraegungen: {
+            'm/bet': [
+              { id: 'v1', name: 'Notar/in' },
+              { id: 'v2', name: 'Betroffene Person' },
+            ],
+          },
+        }),
+      );
+
+      s.renameAusp('m/bet', 'v2', 'Beteiligte Person');
+      expect(s.auspsOf('m/bet')!.map((a) => a.name)).toEqual(['Notar/in', 'Beteiligte Person']);
+
+      s.removeAusp('m/bet', 'v1');
+      expect(s.auspsOf('m/bet')!.map((a) => a.id)).toEqual(['v2']);
+
+      // Die geleerte eigene Liste faellt nicht auf die Vorgabe zurueck — sonst
+      // kaemen die entfernten Vorkommen mit dem naechsten Lesezugriff wieder.
+      s.removeAusp('m/bet', 'v2');
+      expect(s.auspsOf('m/bet')).toEqual([]);
+      // Die eingefrorene Kopie bleibt unangetastet.
+      expect(s.vorgabe()!.auspraegungen['m/bet']!.map((a) => a.name)).toEqual([
+        'Notar/in',
+        'Betroffene Person',
+      ]);
     });
 
     it('Codelisten-Werte: Entscheidung vor Vorgabe; leere Liste bleibt Einschraenkung', () => {
@@ -635,6 +681,49 @@ describe('StateService', () => {
       expect(s.refZielOf('m/ref1')).toBe('m/bet@eigen');
       expect(s.refZielOf('m/ref2')).toBe('m/bet@v2');
       expect(s.refZielOf('m/ref3')).toBeNull();
+    });
+
+    it('Schema-Erweiterungen: eigene Eintraege verdecken die Vorgabe-Liste nicht', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          erweiterungen: { 'm/a': [{ id: 'v1', name: 'zusatzProfil', min: '1', max: '1' }] },
+        }),
+      );
+
+      expect(s.erweiterungenOf('m/a')!.map((e) => e.name)).toEqual(['zusatzProfil']);
+
+      s.addErweiterung('m/a', { name: 'zusatzDurchlauf', min: '0', max: '1' });
+
+      // Sonst fielen die zwingenden Erweiterungen der Profilierung aus Baum und
+      // Instanz — und die Nachricht waere nicht profilkonform.
+      expect(s.erweiterungenOf('m/a')!.map((e) => e.name)).toEqual([
+        'zusatzProfil',
+        'zusatzDurchlauf',
+      ]);
+      expect(s.vorgabe()!.erweiterungen['m/a']!.map((e) => e.name)).toEqual(['zusatzProfil']);
+    });
+
+    it('updateErweiterung und removeErweiterung greifen auch auf einer Liste der Vorgabe', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          erweiterungen: {
+            'm/a': [
+              { id: 'v1', name: 'eins', min: '1', max: '1' },
+              { id: 'v2', name: 'zwei', min: '1', max: '1' },
+            ],
+          },
+        }),
+      );
+
+      s.updateErweiterung('m/a', 'v2', { name: 'zwei neu' });
+      expect(s.erweiterungenOf('m/a')!.map((e) => e.name)).toEqual(['eins', 'zwei neu']);
+
+      s.removeErweiterung('m/a', 'v1');
+      expect(s.erweiterungenOf('m/a')!.map((e) => e.id)).toEqual(['v2']);
+
+      s.removeErweiterung('m/a', 'v2');
+      expect(s.erweiterungenOf('m/a')).toEqual([]);
+      expect(s.vorgabe()!.erweiterungen['m/a']!.map((e) => e.name)).toEqual(['eins', 'zwei']);
     });
 
     it('hasNotes erkennt Inhalt der Vorgabe (Anmerkung/Beispiel/Werte)', () => {

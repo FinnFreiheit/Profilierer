@@ -454,11 +454,34 @@ export class GuidedService {
   // ── Kardinalitaet im Durchlauf (Issue #27) ──────────────────────────
 
   /**
+   * **Zaehlkonvention der Vorkommen** — die Grundlage aller Kardinalitaets-
+   * Sperren, bewusst festgeschrieben statt implizit (Issue #50):
+   *
+   * - Fuehrt das Element benannte Auspraegungen, ist ihre Zahl massgeblich.
+   * - Sonst steht der generische Unterbaum fuer **ein** Vorkommen …
+   * - … es sei denn, der Durchlauf hat das Element weggelassen oder die
+   *   gebundene Fassung schliesst es aus — dann traegt es **keines**.
+   *
+   * Daraus folgt, was materialisiert wird: als Auspraegung erst eine
+   * Mindestanzahl >= 2 (`TestmessageCreateService.legeMindestVorkommenAn`) —
+   * eine Mindestanzahl 1 erfuellt das Element selbst, sobald es in der
+   * Nachricht ist. Damit sie mehr ist als eine Zaehlregel, wird sie nicht ueber
+   * ein zusaetzliches Vorkommen, sondern ueber `kardSperreWeglassen`
+   * durchgesetzt.
+   */
+  private vorkommenAnzahl(path: string): number {
+    const benannt = this.state.auspsOf(path)?.length ?? 0;
+    if (benannt) return benannt;
+    const ohneVorkommen =
+      this.state.wirkungOf(path) === 'ausgeschlossen' || this.state.vorgabeGesperrt(path);
+    return ohneVorkommen ? 0 : 1;
+  }
+
+  /**
    * Effektive Kardinalitaet und die Zahl der Vorkommen eines wiederholbaren
    * Elements — Grundlage der Sperren. Nur im Instanz-Modus: beim Profilieren
-   * sind Auspraegungen ein Entwurfsmittel und bleiben frei. Ein Element ohne
-   * eigene Auspraegungen steht fuer **ein** Vorkommen (der generische
-   * Unterbaum), nicht fuer null.
+   * sind Auspraegungen ein Entwurfsmittel und bleiben frei. Gezaehlt wird nach
+   * der Konvention in `vorkommenAnzahl`.
    */
   private kardLage(
     path: string,
@@ -472,7 +495,7 @@ export class GuidedService {
       max: k.max === 'unbounded' ? Infinity : parseInt(k.max, 10) || 0,
       minProfil: k.minProfil,
       maxProfil: k.maxProfil,
-      n: this.state.auspsOf(path)?.length || 1,
+      n: this.vorkommenAnzahl(path),
     };
   }
 
@@ -501,6 +524,24 @@ export class GuidedService {
     const k = this.kardLage(path);
     // Nach dem Entfernen bleibt mindestens der generische Unterbaum stehen.
     if (!k || (k.n - 1 || 1) >= k.min) return null;
+    return `${this.quelle(k.minProfil)} verlangt mindestens ${k.min} Vorkommen.`;
+  }
+
+  /**
+   * Grund, warum dieses Element **nicht weggelassen** werden darf — null,
+   * solange die Untergrenze das Weglassen zulaesst. Ohne diese Sperre bliebe
+   * eine Mindestanzahl 1 der Profilierung folgenlos: nach der Zaehlkonvention
+   * (`vorkommenAnzahl`) erfuellt sie das Element selbst, es waere aber schlicht
+   * abwaehlbar — die Untergrenze waere gezaehlt, nicht durchgesetzt.
+   *
+   * Massgeblich ist allein die Eingrenzung der **Profilierung**: die
+   * Mindestanzahl des Schemas macht ein Element ohnehin zum Pflicht-Rueckgrat
+   * ohne Aufnahme-Frage, und ein Auswahl-Zweig traegt sein `min=1` aus dem
+   * Schema — ihn zu sperren machte den Zweigwechsel unmoeglich.
+   */
+  kardSperreWeglassen(path: string): string | null {
+    const k = this.kardLage(path);
+    if (!k || !k.minProfil || k.min < 1) return null;
     return `${this.quelle(k.minProfil)} verlangt mindestens ${k.min} Vorkommen.`;
   }
 
@@ -626,11 +667,13 @@ export class GuidedService {
    * Optionales Element aufnehmen (`pflicht`), weglassen (`ausgeschlossen`)
    * oder die Entscheidung zuruecknehmen (null). Nicht-destruktiv: darunter
    * erfasste Werte bleiben erhalten und wirken erst wieder mit der Aufnahme.
-   * Was die gebundene Fassung zwingend setzt, ist nicht abwaehlbar — der
-   * Durchlauf kann das Szenario nicht unterlaufen.
+   * Was die gebundene Fassung zwingend setzt oder mit einer Mindestanzahl
+   * verlangt, ist nicht abwaehlbar — der Durchlauf kann das Szenario nicht
+   * unterlaufen.
    */
   setzeAufnahme(path: string, aufnehmen: boolean | null): void {
     if (!aufnehmen && this.state.profilWirkungGeerbt(path) === 'pflicht') return;
+    if (!aufnehmen && this.kardSperreWeglassen(path)) return;
     if (aufnehmen === null) {
       this.state.setElementProfile(path, { status: undefined });
       return;

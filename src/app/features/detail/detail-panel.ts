@@ -427,6 +427,9 @@ export class DetailPanel {
       wertOffen,
       // Gebundener Durchlauf: was die Profilierung festlegt bzw. offen laesst.
       zwingend: this.state.profilWirkungGeerbt(path) === 'pflicht',
+      // Grund, warum das Element nicht weggelassen werden darf (Mindestanzahl
+      // der Profilierung, Issue #50) — null, solange es abwaehlbar ist.
+      weglassSperre: this.guided.kardSperreWeglassen(path),
       marker: this.guided.markerOf(path),
     };
   });
@@ -480,6 +483,13 @@ export class DetailPanel {
     }
     const path = this.path();
     const entfernt = this.state.statusOf(path)?.wirkung === 'ausgeschlossen';
+    // Die Mindestanzahl der Profilierung gilt auf jedem Weg, der eine Angabe
+    // entfernt — nicht nur am gefuehrten Entscheidungspunkt (Issue #50).
+    const sperre = entfernt ? null : this.guided.kardSperreWeglassen(path);
+    if (sperre) {
+      this.toast.show(sperre);
+      return;
+    }
     this.state.setElementProfile(path, { status: entfernt ? undefined : ex.id });
   }
 

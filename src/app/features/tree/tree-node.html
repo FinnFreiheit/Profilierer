@@ -98,14 +98,16 @@
   @if (v.showHide) {
     <button
       class="hideBtn"
+      [disabled]="!!v.hideSperre"
       [title]="
-        v.hideMsgMode
+        v.hideSperre ||
+        (v.hideMsgMode
           ? v.hideIsExcl
             ? 'Angabe wieder in die Nachricht aufnehmen'
             : 'Angabe aus der Nachricht entfernen'
           : v.hideIsExcl
             ? 'Wieder einblenden (Status entfernen)'
-            : 'Ausblenden — Element wird im Szenario nicht angegeben'
+            : 'Ausblenden — Element wird im Szenario nicht angegeben')
       "
       (click)="onHide($event)"
     >

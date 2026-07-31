@@ -317,9 +317,16 @@ export class StateService {
     return r;
   }
 
-  /** inheritedExcluded (Z.1004-1006). */
+  /**
+   * inheritedExcluded (Z.1004-1006) — erbt ein Vorfahr seinen Ausschluss auf
+   * diesen Pfad? Ueber `vorfahrenPfade`, also an den Grenzen '/' **und** '@':
+   * der Traegerknoten einer Auspraegung steht in keinem '/'-Praefix seiner
+   * Vorkommen (`…/beteiligung` fehlt in `…/beteiligung@a1/name`), sein
+   * Ausschluss blieb dort sonst ohne Wirkung — die Sperre griffe
+   * (`vorgabeGesperrt` zaehlt bereits ueber '@'), die Ausgrauung im Baum nicht.
+   */
   inheritedExcluded(path: string): boolean {
-    return this.ancestorPaths(path).some((a) => this.wirkungOf(a) === 'ausgeschlossen');
+    return this.vorfahrenPfade(path).some((a) => this.wirkungOf(a) === 'ausgeschlossen');
   }
 
   /**
@@ -502,11 +509,40 @@ export class StateService {
     return this.auspraegungen()[path] ?? this.vorgabe()?.auspraegungen[path] ?? null;
   }
 
+  /**
+   * Startliste einer Listen-Mutation: die eigene Liste, sonst eine **Kopie** der
+   * Liste der Vorgabe. Weil der Rueckfall von `auspsOf`/`erweiterungenOf` je
+   * Pfad fuer die **ganze** Liste gilt, wuerde ein eigener Eintrag ohne diese
+   * Materialisierung die Liste der gebundenen Fassung verdecken — die
+   * zwingenden Vorkommen bzw. Erweiterungen der Profilierung verschwaenden aus
+   * Baum und Instanz, und die Nachricht waere nicht mehr profilkonform.
+   * Kopiert wird eintragsweise, damit spaetere Mutationen (`renameAusp` aendert
+   * in place) die eingefrorene Fassung nicht anfassen; die eigene Liste behaelt
+   * ihre Eintraege, damit ein ausgewaehltes Item konsistent bleibt.
+   */
+  private materialisiere<T extends object>(
+    eigene: T[] | undefined,
+    ausVorgabe: T[] | undefined,
+  ): T[] {
+    return eigene ? [...eigene] : (ausVorgabe ?? []).map((e) => ({ ...e }));
+  }
+
+  /**
+   * Nach dem Entfernen: eine leergeraeumte **eigene** Liste bleibt als solche
+   * stehen, solange die Vorgabe am Pfad eine Liste fuehrt — sonst griffe der
+   * Rueckfall wieder und die entfernten Eintraege kaemen mit dem naechsten
+   * Lesezugriff zurueck. Ohne Vorgabe faellt der Pfad wie bisher ganz weg.
+   */
+  private setzeListe<T>(map: Record<string, T[]>, path: string, rest: T[], vorgabe?: T[]): void {
+    if (rest.length || vorgabe) map[path] = rest;
+    else delete map[path];
+  }
+
   /** addAusp (Z.1017-1022): haengt eine benannte Auspraegung an. */
   addAusp(path: string, name?: string): string {
     const id = 'a' + Date.now().toString(36) + ++this.auspN;
     this.auspraegungen.update((m) => {
-      const list = m[path] ? [...m[path]!] : [];
+      const list = this.materialisiere(m[path], this.vorgabe()?.auspraegungen[path]);
       list.push({ id, name: name || 'Ausprägung ' + (list.length + 1) });
       return { ...m, [path]: list };
     });
@@ -519,16 +555,15 @@ export class StateService {
    * Auswahl und Oeffnungszustaende.
    */
   removeAusp(path: string, id: string): void {
-    const lists = this.auspraegungen();
-    const list = lists[path];
-    if (!list) return;
+    // Ueber `auspsOf`, damit auch ein Vorkommen der Vorgabe entfernbar ist.
+    if (!this.auspsOf(path)?.some((a) => a.id === id)) return;
     const prefix = path + '@' + id;
+    const vorgabeListe = this.vorgabe()?.auspraegungen[path];
 
     this.auspraegungen.update((m) => {
       const next = { ...m };
-      const rest = (next[path] ?? []).filter((a) => a.id !== id);
-      if (rest.length) next[path] = rest;
-      else delete next[path];
+      const rest = this.materialisiere(next[path], vorgabeListe).filter((a) => a.id !== id);
+      this.setzeListe(next, path, rest, vorgabeListe);
       // Unter-Ausprägungen der entfernten Auspraegung wegraeumen.
       for (const k of Object.keys(next)) {
         if (k.startsWith(prefix + '/')) delete next[k];
@@ -600,7 +635,7 @@ export class StateService {
   addErweiterung(parentPath: string, daten: Omit<Erweiterung, 'id'>): string {
     const id = 'x' + Date.now().toString(36) + ++this.erwN;
     this.erweiterungen.update((m) => {
-      const list = m[parentPath] ? [...m[parentPath]!] : [];
+      const list = this.materialisiere(m[parentPath], this.vorgabe()?.erweiterungen[parentPath]);
       list.push({ ...daten, id });
       return { ...m, [parentPath]: list };
     });
@@ -609,8 +644,9 @@ export class StateService {
 
   updateErweiterung(parentPath: string, id: string, patch: Partial<Omit<Erweiterung, 'id'>>): void {
     this.erweiterungen.update((m) => {
-      const list = m[parentPath];
-      if (!list) return m;
+      const vorgabeListe = this.vorgabe()?.erweiterungen[parentPath];
+      if (!m[parentPath] && !vorgabeListe) return m;
+      const list = this.materialisiere(m[parentPath], vorgabeListe);
       return { ...m, [parentPath]: list.map((e) => (e.id === id ? { ...e, ...patch } : e)) };
     });
   }
@@ -620,17 +656,17 @@ export class StateService {
    * Auspraegungen und Unter-Erweiterungen darunter (Muster removeAusp).
    */
   removeErweiterung(parentPath: string, id: string): void {
-    const list = this.erweiterungen()[parentPath];
-    if (!list?.some((e) => e.id === id)) return;
+    // Ueber `erweiterungenOf`, damit auch eine Erweiterung der Vorgabe greift.
+    if (!this.erweiterungenOf(parentPath)?.some((e) => e.id === id)) return;
     const prefix = parentPath + '/~' + id;
     const betroffen = (k: string): boolean =>
       k === prefix || k.startsWith(prefix + '/') || k.startsWith(prefix + '@');
+    const vorgabeListe = this.vorgabe()?.erweiterungen[parentPath];
 
     this.erweiterungen.update((m) => {
       const next = { ...m };
-      const rest = (next[parentPath] ?? []).filter((e) => e.id !== id);
-      if (rest.length) next[parentPath] = rest;
-      else delete next[parentPath];
+      const rest = this.materialisiere(next[parentPath], vorgabeListe).filter((e) => e.id !== id);
+      this.setzeListe(next, parentPath, rest, vorgabeListe);
       for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
       return next;
     });
@@ -888,11 +924,12 @@ export class StateService {
   renameAusp(listPath: string, id: string, name: string): void {
     const clean = name.trim();
     this.auspraegungen.update((m) => {
-      const list = m[listPath];
-      if (!list) return m;
+      const vorgabeListe = this.vorgabe()?.auspraegungen[listPath];
+      if (!m[listPath] && !vorgabeListe) return m;
+      const list = this.materialisiere(m[listPath], vorgabeListe);
       const a = list.find((x) => x.id === id);
       if (a && clean) a.name = clean;
-      return { ...m, [listPath]: [...list] };
+      return { ...m, [listPath]: list };
     });
   }
 

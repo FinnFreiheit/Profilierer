@@ -432,8 +432,15 @@ export class TreeNode {
       showHide: !readOnly && !this.isRoot() && it.kind === 'el' && !n.erweiterung,
       hideIsExcl: isExcl,
       hideMsgMode: msgMode,
+      // Gefuehrter Durchlauf: Grund, warum die Angabe nicht entfernt werden darf
+      // (Mindestanzahl der Profilierung, Issue #50) — null, wenn frei.
+      hideSperre: isExcl ? null : this.guided.kardSperreWeglassen(path),
       showDelAusp: zeigtDelAusp,
-      showDelErw: !readOnly && it.kind === 'el' && !!n.erweiterung,
+      // Die Schema-Erweiterungen der gebundenen Fassung sind Vorgabe, nicht
+      // disponibel: sie wegzuloeschen machte die Nachricht profilwidrig (die
+      // zwingend gesetzten Elemente fehlten). Angelegt werden koennen im
+      // Durchlauf ohnehin keine (showAddErweiterung ist im msgMode aus).
+      showDelErw: !readOnly && it.kind === 'el' && !!n.erweiterung && !this.state.hatVorgabe(),
       showDup: zeigtDup,
       // Kardinalitaet des Durchlaufs: Grund der Sperre bzw. null (Issue #27).
       // Massgeblich ist immer das Traegerelement, auch an einem Vorkommen.
@@ -490,6 +497,8 @@ export class TreeNode {
       return;
     }
     const isExcl = this.vm().hideIsExcl;
+    // Wie bei „+ Vorkommen": die Sperre haengt nicht allein an der Darstellung.
+    if (!isExcl && this.meldeSperre(this.guided.kardSperreWeglassen(this.path()))) return;
     this.state.setElementProfile(this.path(), { status: isExcl ? undefined : ex.id });
   }
 
