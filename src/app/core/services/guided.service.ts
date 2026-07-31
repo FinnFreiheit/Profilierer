@@ -1,6 +1,7 @@
 import { Injectable, Signal, computed, inject } from '@angular/core';
 import { Auspraegung } from '../../models/profile.model';
 import { TreeNode, itemPath } from '../../models/node.model';
+import { refKindEff, refTraeger } from '../refs';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
@@ -791,6 +792,117 @@ export class GuidedService {
     ) {
       this.state.setElementProfile(auswahlPath, { status: pflicht.id });
     }
+  }
+
+  // ── Verweise: Ziel-Vorkommen statt Nummer (Issue #30) ────────────────
+
+  /**
+   * Die waehlbaren Ziele eines Verweises. Gefiltert nach der Verweis-Art
+   * (`REF_TARGETS`) und, wo die **Profilierung** ein Ziel festlegt, auf die
+   * Vorkommen genau dieser Auspraegung eingeengt (Spec #30). Der Traeger-Pfad
+   * ist der Knoten, an dem das Verweisziel haengt — nicht das Nummern-Blatt
+   * darunter (`refTraeger`).
+   */
+  verweisZiele(traegerPfad: string): { path: string; label: string }[] {
+    const it = this.nav.findItemByPath(traegerPfad);
+    if (!it || it.kind !== 'el') return [];
+    const kind = refKindEff(it.node);
+    if (!kind) return [];
+    // Die Festlegung der Profilierung, nicht die eigene Wahl: `vorgabeRefZiel`
+    // bleibt auch nach der Entscheidung die Grenze.
+    return this.state.refZielKandidaten(kind, this.state.vorgabeRefZiel(traegerPfad));
+  }
+
+  /**
+   * Verweisziel setzen — und die Nummer an **beiden** Enden vergeben: am
+   * Nummern-Blatt des Verweises (`ref.…`) und am Nummern-Blatt des Ziels
+   * (`rollennummer`/`beteiligtennummer`). Genau das nimmt dem Anwender die
+   * Nummernvergabe ab (Spec #30: "der Anwender waehlt das Ziel, die Nummern
+   * vergibt das Werkzeug"), und nur so tragen beide Enden der erzeugten
+   * Nachricht denselben Wert.
+   */
+  waehleVerweisZiel(traegerPfad: string, zielPfad: string | null): void {
+    this.state.setElementProfile(traegerPfad, { refZiel: zielPfad || undefined });
+    if (!zielPfad) return;
+    const num = this.state.auspNumber(zielPfad);
+    if (num == null) return;
+    const wert = String(num);
+    const blatt = this.verweisBlatt(traegerPfad);
+    if (blatt) this.state.setElementProfile(blatt, { beispiel: wert });
+    const gegenstueck = this.nummernBlatt(zielPfad);
+    if (gegenstueck) this.state.setElementProfile(gegenstueck, { beispiel: wert });
+  }
+
+  /**
+   * Verweise mit **genau einem** zulaessigen Ziel ohne Zutun aufloesen — beim
+   * Start des gebundenen Durchlaufs aufgerufen. Damit ist der Punkt erledigt,
+   * bevor der Anwender ihn erreicht (Spec #30). Bereits gesetzte Ziele bleiben
+   * unberuehrt. Gibt die Anzahl aufgeloester Verweise zurueck.
+   */
+  loeseEindeutigeVerweise(): number {
+    const root = this.state.root();
+    if (!root) return 0;
+    let n = 0;
+    const rec = (node: TreeNode, depth: number): void => {
+      if (depth > 25 || node.recursive) return;
+      this.tree.expandNode(node);
+      for (const c of node.children ?? []) {
+        if (this.state.vorgabeSchliesstAus(c.path)) continue;
+        if (refTraeger(c) === c) {
+          if (!this.state.refZielOf(c.path)) {
+            const ziele = this.verweisZiele(c.path);
+            if (ziele.length === 1) {
+              this.waehleVerweisZiel(c.path, ziele[0]!.path);
+              n++;
+            }
+          }
+          continue; // unterhalb des Traegers liegt nur das Nummern-Blatt
+        }
+        const vorkommen = this.state.auspsOf(c.path);
+        if (vorkommen?.length)
+          for (const a of vorkommen) rec(this.tree.ctxNode(c, a.id), depth + 1);
+        else rec(c, depth + 1);
+      }
+    };
+    rec(root, 0);
+    return n;
+  }
+
+  /** Das Nummern-Blatt `ref.…` unterhalb des Verweis-Traegers. */
+  private verweisBlatt(traegerPfad: string): string | null {
+    const it = this.nav.findItemByPath(traegerPfad);
+    if (!it || it.kind !== 'el') return null;
+    if (this.tree.isLeaf(it.node)) return /^ref\./.test(it.node.name) ? it.node.path : null;
+    return this.sucheBlatt(it.node, (c) => /^ref\./.test(c.name));
+  }
+
+  /**
+   * Das Nummern-Blatt **des Ziels** (`rollennummer`/`beteiligtennummer`) — die
+   * Gegenseite des Verweises. Gesucht wird unterhalb des Vorkommens, weil die
+   * Nummer je nach Elementart eine Ebene tiefer liegt (Vorbild: die
+   * Erzwingungs-Suche im ExportService).
+   */
+  private nummernBlatt(zielPfad: string): string | null {
+    const it = this.nav.findItemByPath(zielPfad);
+    if (!it || it.kind !== 'ausp') return null;
+    const cn = this.tree.ctxNode(it.parentNode, it.ausp.id);
+    return this.sucheBlatt(cn, (c) => c.name === 'rollennummer' || c.name === 'beteiligtennummer');
+  }
+
+  /** Breitensuche nach dem ersten passenden Blatt unterhalb des Knotens. */
+  private sucheBlatt(start: TreeNode, passt: (n: TreeNode) => boolean): string | null {
+    const q: [TreeNode, number][] = [[start, 0]];
+    let schritte = 0;
+    while (q.length && schritte++ < 400) {
+      const [node, tiefe] = q.shift()!;
+      if (tiefe > 4 || node.recursive || this.tree.isLeaf(node)) continue;
+      this.tree.expandNode(node);
+      for (const c of node.children ?? []) {
+        if (passt(c) && this.tree.isLeaf(c)) return c.path;
+        q.push([c, tiefe + 1]);
+      }
+    }
+    return null;
   }
 
   /**

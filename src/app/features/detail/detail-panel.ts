@@ -21,7 +21,7 @@ import { itemPath } from '../../models/node.model';
 import { fmtKard, kardText, pretty } from '../../core/util/pretty.util';
 import { hinweisFehlerText } from '../../core/util/hinweis.util';
 import { ERW_DATENTYPEN, ERW_NAME_MUSTER } from '../../core/profile-defaults';
-import { REF_LABELS, refKindOf } from '../../core/refs';
+import { REF_LABELS, refKindEff, refKindOf, refTraeger } from '../../core/refs';
 
 /**
  * Detailbereich (Profilierer.html Z.1506-1666): Status, Kardinalitaet,
@@ -236,11 +236,20 @@ export class DetailPanel {
       options: { path: string; label: string; selected: boolean }[];
       cur: string;
       curLabel: string;
+      /** Pfad des Traegers — dort haengt das Verweisziel (#30). */
+      pfad: string;
+      /** Grenzt die Profilierung die Auswahl ein? (Hinweis am Punkt) */
+      beschraenkt: boolean;
     } = null;
-    const rk = refKindOf(n);
-    if (rk) {
-      const kand = this.state.refZielKandidaten(rk);
-      const cur = p.refZiel || '';
+    // Der Verweis haengt am Traeger, nicht am Nummern-Blatt darunter: im
+    // gefuehrten Durchlauf faellt die Entscheidung am Blatt, die Zielangabe
+    // gehoert trotzdem an den Traeger (#30).
+    const refNode = refTraeger(n) ?? (refKindOf(n) ? n : null);
+    const rk = refNode ? refKindEff(refNode) : null;
+    if (refNode && rk) {
+      const refPfad = refNode.path;
+      const kand = this.guided.verweisZiele(refPfad);
+      const cur = this.state.refZielOf(refPfad) || '';
       const options = [{ path: '', label: '— kein Ziel festgelegt —', selected: !cur }];
       let curFound = false;
       for (const k of kand) {
@@ -250,7 +259,14 @@ export class DetailPanel {
       if (cur && !curFound)
         options.push({ path: cur, label: this.state.auspLabel(cur), selected: true });
       const curLabel = options.find((o) => o.selected)?.label ?? '— kein Ziel festgelegt —';
-      ref = { label: REF_LABELS[rk] || rk, options, cur, curLabel };
+      ref = {
+        label: REF_LABELS[rk] || rk,
+        options,
+        cur,
+        curLabel,
+        pfad: refPfad,
+        beschraenkt: !!this.state.vorgabeRefZiel(refPfad),
+      };
     }
 
     // Schema-Erweiterung: Eigenschaften direkt editierbar (US Schema-Erweiterung).
@@ -323,6 +339,9 @@ export class DetailPanel {
       // die freigegebenen Werte auswaehlbar, die freie Eingabe ist gesperrt.
       wertGesperrt: this.msgMode() && !!codelist?.restricted,
       ref,
+      // Nummern-Blatt eines Verweises im Nachrichten-Modus: den Wert vergibt das
+      // Werkzeug aus der Zielwahl, die freie Eingabe entfaellt (#30).
+      refNummer: this.msgMode() && leaf && /^ref\./.test(n.name),
       anmerkung: p.anmerkung ?? '',
       // Hinweise sind eine eigene Ressource (ADR 0014) und kommen nicht aus `p`.
       hinweise: this.hinweise.jePfad().get(path) ?? [],
@@ -754,9 +773,19 @@ export class DetailPanel {
       this.state.removeErweiterung(ctx.parentPath, ctx.id);
   }
 
+  /**
+   * Ziel-Vorkommen waehlen. Im Nachrichten-Modus vergibt das Werkzeug dabei die
+   * Nummern an beiden Enden (#30); beim Profilieren bleibt es bei der reinen
+   * Zielangabe am Traeger.
+   */
   protected setRefZiel(e: Event): void {
-    const v = (e.target as HTMLSelectElement).value;
-    this.state.setElementProfile(this.path(), { refZiel: v || undefined });
+    const wahl = (e.target as HTMLSelectElement).value;
+    const pfad = this.vm()?.ref?.pfad ?? this.path();
+    if (this.msgMode()) {
+      this.guided.waehleVerweisZiel(pfad, wahl || null);
+      return;
+    }
+    this.state.setElementProfile(pfad, { refZiel: wahl || undefined });
   }
 
   protected refJump(): void {

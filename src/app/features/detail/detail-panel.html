@@ -554,7 +554,15 @@
 
     @if (v.ref; as ref) {
       <div class="dsec">
-        <label>Verweisziel im Szenario ({{ ref.label }})</label>
+        <label>{{ msgMode() ? 'Verweisziel' : 'Verweisziel im Szenario' }} ({{ ref.label }})</label>
+        @if (msgMode() && !roEff()) {
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
+            Welches Vorkommen ist gemeint? Die Nummern an beiden Enden vergibt das Werkzeug.
+            @if (ref.beschraenkt) {
+              Die Profilierung legt das Ziel fest — die Auswahl ist darauf eingeschränkt.
+            }
+          </div>
+        }
         @if (roEff()) {
           <div style="display: flex; gap: 6px; align-items: center">
             <span class="docbox" style="flex: 1">{{ ref.curLabel }}</span>
@@ -618,7 +626,18 @@
           ></textarea>
         </div>
       }
-      @if (!msgMode() || v.leaf) {
+      @if (v.refNummer) {
+        <div class="dsec">
+          <label>Verweisnummer</label>
+          <div class="docbox">
+            {{ v.beispiel || '— noch kein Ziel gewählt —' }}
+          </div>
+          <div style="font-size: 12px; color: var(--muted); margin-top: 4px">
+            Die Nummer folgt der Zielwahl oben und steht an beiden Enden gleich — sie wird nicht von
+            Hand eingetragen.
+          </div>
+        </div>
+      } @else if (!msgMode() || v.leaf) {
         <div class="dsec">
           <label>{{ msgMode() ? 'Wert' : 'Beispielwert' }}</label>
           @if (v.vorschlag) {
