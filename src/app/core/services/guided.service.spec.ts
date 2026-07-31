@@ -5,7 +5,7 @@ import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
 import { XsdParserService } from './xsd-parser.service';
 import { XsdDoc } from '../../models/xsd-index.model';
-import { Erweiterung } from '../../models/profile.model';
+import { ElementProfile, Erweiterung } from '../../models/profile.model';
 import { itemPath } from '../../models/node.model';
 
 /**
@@ -37,14 +37,17 @@ const M = 'nachricht.test.0001';
 
 /**
  * Zweite Fixture nur fuer den Vorkommen-Fall: wiederholbares `beteiligung` mit
- * einem **schema-optionalen** Blatt `rolle`. Eigenes Schema, damit die
- * Punkt-Zaehlungen der Haupt-Fixture unberuehrt bleiben.
+ * einem **schema-optionalen** Blatt `rolle`, dazu ein wiederholbares `anlage`
+ * mit beidseitig begrenzter Schema-Kardinalitaet (2..3) fuer die
+ * Kardinalitaets-Sperren. Eigenes Schema, damit die Punkt-Zaehlungen der
+ * Haupt-Fixture unberuehrt bleiben.
  */
 const XSD_VORKOMMEN = `<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
   <xs:element name="nachricht.test.0002" type="Type.Test2.Root"/>
   <xs:complexType name="Type.Test2.Root"><xs:sequence>
     <xs:element name="beteiligung" type="Type.Test2.Bet" minOccurs="0" maxOccurs="unbounded"/>
+    <xs:element name="anlage" type="xs:string" minOccurs="2" maxOccurs="3"/>
   </xs:sequence></xs:complexType>
   <xs:complexType name="Type.Test2.Bet"><xs:sequence>
     <xs:element name="rolle" type="xs:string" minOccurs="0"/>
@@ -457,7 +460,7 @@ describe('GuidedService', () => {
     const V = { pflicht: 'w1', optional: 'w2', excl: 'w3', markierung: 'w4' };
 
     const bindeVorgabe = (
-      elemente: Record<string, { status?: string }>,
+      elemente: Record<string, ElementProfile>,
       erweiterungen: Record<string, Erweiterung[]> = {},
       auspraegungen: Record<string, { id: string; name: string }[]> = {},
     ): void => {
@@ -637,6 +640,88 @@ describe('GuidedService', () => {
 
         state.setElementProfile(`${M}/~e1`, { beispiel: 'Zusatz' });
         expect(svc.offeneSet().has(`${M}/~e1`)).toBeFalse();
+      });
+    });
+
+    // ── Kardinalitaet hart durchsetzen (Issue #27) ─────────────────────
+
+    describe('Kardinalitaet', () => {
+      /** Fixture M2: `anlage` traegt die Schema-Kardinalitaet 2..3. */
+      const anlage = `${M2}/anlage`;
+      const beteiligung = `${M2}/beteiligung`;
+
+      /** Vorgabe mit Kardinalitaets-Eingrenzung (Stufenliste wie oben). */
+      const bindeKard = (elemente: Record<string, ElementProfile>): void => {
+        ladeVorkommenFixture();
+        state.messageCreate.set({ msgName: M2, entryId: null, name: null });
+        bindeVorgabe(elemente);
+      };
+
+      it('sperrt ein weiteres Vorkommen bei der Hoechstanzahl des Profils und nennt sie', () => {
+        bindeKard({ [anlage]: { max: '2' } });
+        state.addAusp(anlage, 'Vorkommen 1');
+        expect(svc.kardSperreHinzu(anlage)).toBeNull(); // eine Auspraegung = ein Vorkommen
+
+        state.addAusp(anlage, 'Vorkommen 2');
+
+        const grund = svc.kardSperreHinzu(anlage);
+        expect(grund).toContain('2');
+        expect(grund).toContain('Profilierung');
+      });
+
+      it('setzt ohne Eingrenzung im Profil die Schema-Hoechstanzahl durch', () => {
+        bindeKard({});
+        state.addAusp(anlage, 'Vorkommen 1');
+        state.addAusp(anlage, 'Vorkommen 2');
+        expect(svc.kardSperreHinzu(anlage)).toBeNull();
+
+        state.addAusp(anlage, 'Vorkommen 3');
+
+        const grund = svc.kardSperreHinzu(anlage);
+        expect(grund).toContain('3');
+        expect(grund).toContain('Schema');
+        // Unbegrenzt Wiederholbares bleibt unbegrenzt.
+        state.addAusp(beteiligung, 'Vorkommen 1');
+        expect(svc.kardSperreHinzu(beteiligung)).toBeNull();
+      });
+
+      it('haelt die Mindestanzahl des Profils: Vorkommen darunter sind nicht entfernbar', () => {
+        bindeKard({ [anlage]: { min: '3' } });
+        state.addAusp(anlage, 'Vorkommen 1');
+        state.addAusp(anlage, 'Vorkommen 2');
+        state.addAusp(anlage, 'Vorkommen 3');
+
+        const grund = svc.kardSperreEntfernen(anlage);
+        expect(grund).toContain('3');
+        expect(grund).toContain('Profilierung');
+
+        // Ueber der Mindestanzahl ist wieder entfernbar.
+        state.addAusp(anlage, 'Vorkommen 4');
+        expect(svc.kardSperreEntfernen(anlage)).toBeNull();
+      });
+
+      it('setzt ohne Eingrenzung im Profil die Schema-Mindestanzahl durch', () => {
+        bindeKard({});
+        state.addAusp(anlage, 'Vorkommen 1');
+        state.addAusp(anlage, 'Vorkommen 2');
+
+        const grund = svc.kardSperreEntfernen(anlage);
+        expect(grund).toContain('2');
+        expect(grund).toContain('Schema');
+
+        state.addAusp(anlage, 'Vorkommen 3');
+        expect(svc.kardSperreEntfernen(anlage)).toBeNull();
+      });
+
+      it('greift nur im Durchlauf — beim Profilieren bleiben Auspraegungen frei', () => {
+        ladeVorkommenFixture();
+        state.messageCreate.set(null); // Profil-Modus
+        state.addAusp(anlage, 'Klaeger');
+        state.addAusp(anlage, 'Beklagter');
+        state.addAusp(anlage, 'Zeuge');
+
+        expect(svc.kardSperreHinzu(anlage)).toBeNull();
+        expect(svc.kardSperreEntfernen(anlage)).toBeNull();
       });
     });
 

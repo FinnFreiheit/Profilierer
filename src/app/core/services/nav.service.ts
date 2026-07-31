@@ -225,6 +225,12 @@ export class NavService {
 
   /** jumpTo (Z.744-750): zum Ziel oeffnen, auswaehlen, hinscrollen. */
   jumpTo(path: string): void {
+    // Was die gebundene Profilfassung ausschliesst, ist standardmaessig
+    // ausgeblendet (boxHidden). Ein Sprung dorthin — etwa aus der Meldung
+    // widerspruechlicher Festlegungen — blendet es ueber "nur Profil" ein,
+    // sonst landete die Auswahl auf einem unsichtbaren Kasten.
+    if (this.state.vorgabeGesperrt(path) && !this.state.onlyProfile())
+      this.state.onlyProfile.set(true);
     this.openPathTo(path);
     const t = this.findItemByPath(path);
     if (t) this.state.selItem.set(t);

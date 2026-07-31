@@ -81,6 +81,16 @@ export class TreeNode {
     return !!(a && a.length);
   });
 
+  /**
+   * Gefuehrter Durchlauf: Grund, warum „+ Vorkommen" gesperrt ist (Issue #27) —
+   * null, solange die Hoechstanzahl nicht erreicht ist.
+   */
+  protected readonly addAuspSperre = computed(() => {
+    const it = this.item();
+    if (!this.showAddAusp() || it.kind !== 'el') return null;
+    return this.guided.kardSperreHinzu(it.node.path);
+  });
+
   /** "+ Element (Erweiterung)" nur an aufklappbaren Containern (US Schema-Erweiterung). */
   protected readonly showAddErweiterung = computed(() => {
     if (this.state.readOnly() || this.state.msgMode()) return false;
@@ -372,6 +382,15 @@ export class TreeNode {
     // Nachrichten-Modus: dieselben Bedienelemente, andere Sprache — in einer
     // Instanz gibt es keine Profilierung, sondern Angaben und Vorkommen.
     const msgMode = this.state.msgMode();
+
+    // Vorkommen anlegen/entfernen (Buttons ⧉ und ✕) — nur wo sie erscheinen,
+    // wird die Kardinalitaets-Sperre ermittelt (Baumweg-Suche je Knoten).
+    const zeigtDelAusp = !readOnly && !this.isRoot() && it.kind === 'ausp';
+    const zeigtDup =
+      !readOnly &&
+      !this.isRoot() &&
+      !n.erweiterung &&
+      (it.kind === 'ausp' || (!n.synthetic && this.tree.isRepeatable(n)));
     return {
       dfR,
       dfA,
@@ -406,13 +425,13 @@ export class TreeNode {
       showHide: !readOnly && !this.isRoot() && it.kind === 'el' && !n.erweiterung,
       hideIsExcl: isExcl,
       hideMsgMode: msgMode,
-      showDelAusp: !readOnly && !this.isRoot() && it.kind === 'ausp',
+      showDelAusp: zeigtDelAusp,
       showDelErw: !readOnly && it.kind === 'el' && !!n.erweiterung,
-      showDup:
-        !readOnly &&
-        !this.isRoot() &&
-        !n.erweiterung &&
-        (it.kind === 'ausp' || (!n.synthetic && this.tree.isRepeatable(n))),
+      showDup: zeigtDup,
+      // Kardinalitaet des Durchlaufs: Grund der Sperre bzw. null (Issue #27).
+      // Massgeblich ist immer das Traegerelement, auch an einem Vorkommen.
+      dupSperre: zeigtDup ? this.guided.kardSperreHinzu(n.path) : null,
+      delAuspSperre: zeigtDelAusp ? this.guided.kardSperreEntfernen(n.path) : null,
       dupTitle: msgMode
         ? it.kind === 'ausp'
           ? 'Vorkommen samt Werten kopieren'
@@ -469,6 +488,7 @@ export class TreeNode {
 
   protected onDup(e: Event): void {
     e.stopPropagation();
+    if (this.meldeSperre(this.guided.kardSperreHinzu(this.node().path))) return;
     const it = this.item();
     if (it.kind === 'ausp') this.state.copyAusp(it.parentNode.path, it.ausp.id);
     else this.state.duplicateElement(this.path());
@@ -478,6 +498,7 @@ export class TreeNode {
     e.stopPropagation();
     const it = this.item();
     if (it.kind !== 'ausp') return;
+    if (this.meldeSperre(this.guided.kardSperreEntfernen(it.parentNode.path))) return;
     const frage = this.state.msgMode()
       ? 'Vorkommen „' + it.ausp.name + '" samt Werten löschen?'
       : 'Ausprägung „' + it.ausp.name + '" samt Unter-Profilierung löschen?';
@@ -486,7 +507,19 @@ export class TreeNode {
 
   protected onAddAusp(): void {
     const it = this.item();
-    if (it.kind === 'el') this.state.addAusp(it.node.path);
+    if (it.kind !== 'el') return;
+    if (this.meldeSperre(this.guided.kardSperreHinzu(it.node.path))) return;
+    this.state.addAusp(it.node.path);
+  }
+
+  /**
+   * Gesperrte Kardinalitaet begruenden statt sie stillschweigend zu ignorieren
+   * (Issue #27). true = gesperrt, der Aufrufer bricht ab.
+   */
+  private meldeSperre(grund: string | null): boolean {
+    if (!grund) return false;
+    this.toast.show(grund);
+    return true;
   }
 
   /** Oeffnet den Erweiterungs-Dialog fuer ein neues Element unter diesem Knoten. */

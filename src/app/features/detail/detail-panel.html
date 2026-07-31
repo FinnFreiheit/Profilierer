@@ -353,7 +353,11 @@
                   </button>
                 }
                 <button
-                  [title]="msgMode() ? 'Vorkommen löschen' : 'Ausprägung löschen'"
+                  [disabled]="!!v.kardEntfernenSperre"
+                  [title]="
+                    v.kardEntfernenSperre ||
+                    (msgMode() ? 'Vorkommen löschen' : 'Ausprägung löschen')
+                  "
                   (click)="delAuspRow(a.id)"
                 >
                   ✕
@@ -362,9 +366,20 @@
             }
           </div>
           @if (msgMode()) {
-            <button (click)="addVorkommen()">+ weiteres Vorkommen</button>
+            <button
+              [disabled]="!!v.kardHinzuSperre"
+              [title]="v.kardHinzuSperre || 'Weiteres Vorkommen dieses Elements anlegen'"
+              (click)="addVorkommen()"
+            >
+              + weiteres Vorkommen
+            </button>
           } @else {
             <button (click)="addAusp()">+ Ausprägung</button>
+          }
+          @if (v.kardHinzuSperre || v.kardEntfernenSperre) {
+            <div style="font-size: 12px; color: var(--muted); margin-top: 6px">
+              {{ v.kardHinzuSperre || v.kardEntfernenSperre }}
+            </div>
           }
         }
       </div>

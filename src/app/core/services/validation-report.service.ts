@@ -10,10 +10,17 @@ import { ReportEintrag } from '../../models/validation.model';
 @Injectable({ providedIn: 'root' })
 export class ValidationReportService {
   private readonly _titel = signal('');
+  private readonly _untertitel = signal<string | null>(null);
   private readonly _eintraege = signal<ReportEintrag[]>([]);
   private readonly _offen = signal(false);
 
   readonly titel = this._titel.asReadonly();
+  /**
+   * Erlaeuterung unter dem Titel; null = die Standardzeile zur
+   * Schemavalidierung. Gesetzt von Berichten anderer Art — etwa den
+   * Widersprüchen der gebundenen Profilfassung.
+   */
+  readonly untertitel = this._untertitel.asReadonly();
   readonly eintraege = this._eintraege.asReadonly();
   readonly offen = this._offen.asReadonly();
 
@@ -24,8 +31,9 @@ export class ValidationReportService {
     );
   }
 
-  zeigeMitPfaden(titel: string, eintraege: ReportEintrag[]): void {
+  zeigeMitPfaden(titel: string, eintraege: ReportEintrag[], untertitel?: string): void {
     this._titel.set(titel);
+    this._untertitel.set(untertitel ?? null);
     this._eintraege.set(eintraege);
     this._offen.set(true);
   }

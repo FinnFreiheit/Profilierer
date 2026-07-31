@@ -169,3 +169,39 @@ describe('NavService — Diff-Karte bei Nachrichtenwechsel', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 });
+
+describe('NavService — Sprung zu Gesperrtem der gebundenen Fassung', () => {
+  let nav: NavService;
+  let state: StateService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: TreeService, useValue: { buildRoot: () => node('m'), rootItem: () => null } },
+      ],
+    });
+    nav = TestBed.inject(NavService);
+    state = TestBed.inject(StateService);
+    state.setVorgabe({
+      meta: {},
+      statuses: [{ id: 'v9', name: 'nicht verwendet', farbe: '#888', wirkung: 'ausgeschlossen' }],
+      elemente: { 'm/a': { status: 'v9' } },
+      auspraegungen: {},
+      erweiterungen: {},
+    });
+  });
+
+  it('blendet Ausgeschlossenes ein — sonst zeigt der Sprung auf einen unsichtbaren Kasten', () => {
+    expect(state.boxHidden('m/a')).toBeTrue();
+
+    nav.jumpTo('m/a');
+
+    expect(state.onlyProfile()).toBeTrue();
+    expect(state.boxHidden('m/a')).toBeFalse();
+  });
+
+  it('laesst die Ansicht bei nicht gesperrten Zielen unveraendert', () => {
+    nav.jumpTo('m/b');
+    expect(state.onlyProfile()).toBeFalse();
+  });
+});
