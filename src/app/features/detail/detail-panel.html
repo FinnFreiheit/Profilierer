@@ -188,11 +188,12 @@
             Genau eine Alternative wählen — nur der gewählte Zweig wird Teil der Nachricht.
           </div>
           @for (z of g.zweige; track z.path) {
-            <label class="gZweig">
+            <label class="gZweig" [class.gesperrt]="!!z.sperre" [title]="z.sperre ?? ''">
               <input
                 type="radio"
                 name="givZweig"
                 [checked]="z.gewaehlt"
+                [disabled]="!!z.sperre"
                 (change)="waehleZweig(z.path)"
               />
               {{ z.label }}

@@ -309,14 +309,6 @@ export class StateService {
     return this.statusOf(path)?.wirkung ?? null;
   }
 
-  /** ancestorPaths (Z.999-1003). */
-  ancestorPaths(path: string): string[] {
-    const segs = path.split('/');
-    const r: string[] = [];
-    for (let i = 1; i < segs.length; i++) r.push(segs.slice(0, i).join('/'));
-    return r;
-  }
-
   /**
    * inheritedExcluded (Z.1004-1006) — erbt ein Vorfahr seinen Ausschluss auf
    * diesen Pfad? Ueber `vorfahrenPfade`, also an den Grenzen '/' **und** '@':
@@ -367,9 +359,10 @@ export class StateService {
   }
 
   /**
-   * Alle Praefixe eines Pfades an den Grenzen '/' UND '@' — anders als
-   * `ancestorPaths` (nur '/') schliesst das den Traegerknoten einer Auspraegung
-   * ein: zu `…/beteiligung@a1/rolle` gehoert auch `…/beteiligung`. Ohne diesen
+   * Alle Praefixe eines Pfades an den Grenzen '/' UND '@' (ehemals
+   * `ancestorPaths`, das nur '/' kannte und danach ohne Aufrufer zurueckblieb):
+   * das schliesst den Traegerknoten einer Auspraegung ein, zu
+   * `…/beteiligung@a1/rolle` gehoert also auch `…/beteiligung`. Ohne diesen
    * Knoten haengt der Ast im Baum in der Luft, denn die Auspraegungs-Kaesten
    * werden als seine Kinder gerendert (Praefix-Logik wie `HinweisStoreService.anc`).
    */
@@ -555,8 +548,13 @@ export class StateService {
    * Auswahl und Oeffnungszustaende.
    */
   removeAusp(path: string, id: string): void {
-    // Ueber `auspsOf`, damit auch ein Vorkommen der Vorgabe entfernbar ist.
-    if (!this.auspsOf(path)?.some((a) => a.id === id)) return;
+    // Nur auf einer **eigenen** Liste: eine reine Vorgabe-Liste bleibt
+    // unberuehrt. Ob die benannten Vorkommen der Profilierung ueberhaupt
+    // entfernbar sein sollen, entscheidet das Ticket "Auspraegungen der
+    // Profilierung als Vorkommen materialisieren" (#28, AC "nicht entfernbar")
+    // — hier waere es eine Vorfestlegung. Nach einem `addAusp` ist die Liste
+    // materialisiert, dann greift diese Mutation wie auf jeder eigenen Liste.
+    if (!this.auspraegungen()[path]?.some((a) => a.id === id)) return;
     const prefix = path + '@' + id;
     const vorgabeListe = this.vorgabe()?.auspraegungen[path];
 
@@ -644,9 +642,10 @@ export class StateService {
 
   updateErweiterung(parentPath: string, id: string, patch: Partial<Omit<Erweiterung, 'id'>>): void {
     this.erweiterungen.update((m) => {
-      const vorgabeListe = this.vorgabe()?.erweiterungen[parentPath];
-      if (!m[parentPath] && !vorgabeListe) return m;
-      const list = this.materialisiere(m[parentPath], vorgabeListe);
+      // Nur auf einer eigenen Liste (siehe removeAusp): die Erweiterungen der
+      // gebundenen Fassung sind hier nicht editierbar.
+      if (!m[parentPath]) return m;
+      const list = this.materialisiere(m[parentPath], undefined);
       return { ...m, [parentPath]: list.map((e) => (e.id === id ? { ...e, ...patch } : e)) };
     });
   }
@@ -656,8 +655,9 @@ export class StateService {
    * Auspraegungen und Unter-Erweiterungen darunter (Muster removeAusp).
    */
   removeErweiterung(parentPath: string, id: string): void {
-    // Ueber `erweiterungenOf`, damit auch eine Erweiterung der Vorgabe greift.
-    if (!this.erweiterungenOf(parentPath)?.some((e) => e.id === id)) return;
+    // Nur auf einer eigenen Liste — wie removeAusp; eine reine Vorgabe-Liste
+    // bleibt unberuehrt.
+    if (!this.erweiterungen()[parentPath]?.some((e) => e.id === id)) return;
     const prefix = parentPath + '/~' + id;
     const betroffen = (k: string): boolean =>
       k === prefix || k.startsWith(prefix + '/') || k.startsWith(prefix + '@');
@@ -924,9 +924,9 @@ export class StateService {
   renameAusp(listPath: string, id: string, name: string): void {
     const clean = name.trim();
     this.auspraegungen.update((m) => {
-      const vorgabeListe = this.vorgabe()?.auspraegungen[listPath];
-      if (!m[listPath] && !vorgabeListe) return m;
-      const list = this.materialisiere(m[listPath], vorgabeListe);
+      // Nur auf einer eigenen Liste (siehe removeAusp).
+      if (!m[listPath]) return m;
+      const list = this.materialisiere(m[listPath], undefined);
       const a = list.find((x) => x.id === id);
       if (a && clean) a.name = clean;
       return { ...m, [listPath]: list };

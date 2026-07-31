@@ -708,6 +708,25 @@ label.menuItem:has(input:disabled) {
   background: #dfe4ea;
   color: var(--text);
 }
+/* Gesperrt (Mindestanzahl der Profilierung, kein Duplizieren an der Vorgabe):
+   sichtbar untaetig — ohne eigenen Zustand sieht das ✕ aus wie ein aktives und
+   reagiert auf :hover, obwohl der Klick nichts tut. Der Grund steht im title
+   des umgebenden Kastens, denn auf einem disabled-Button zeigt Chrome ihn nicht. */
+.hideBtn:disabled,
+.dupBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.hideBtn:disabled:hover,
+.dupBtn:disabled:hover {
+  background: #eef1f5;
+  color: var(--muted);
+}
+/* Auswahl-Zweig, auf den nicht umgeschaltet werden darf (Issue #50). */
+.gZweig.gesperrt {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .delBtn:hover {
   background: #f9e9e9;
   color: #b23a3a;

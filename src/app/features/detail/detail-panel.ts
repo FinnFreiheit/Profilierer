@@ -397,7 +397,8 @@ export class DetailPanel {
     const w = this.state.wirkungOf(path);
 
     // Zweige des Auswahl-Schritts (Entweder-oder).
-    let zweige: { path: string; label: string; gewaehlt: boolean }[] | null = null;
+    let zweige: { path: string; label: string; gewaehlt: boolean; sperre: string | null }[] | null =
+      null;
     if (punkt?.art === 'auswahl') {
       const node = it.kind === 'el' ? it.node : this.tree.ctxNode(it.parentNode, it.ausp.id);
       this.tree.expandNode(node);
@@ -405,6 +406,10 @@ export class DetailPanel {
         path: c.path,
         label: c.synthetic ? c.name : pretty(c.name),
         gewaehlt: this.state.wirkungOf(c.path) === 'pflicht',
+        // Umschalten wuerde einen Zweig ausschliessen, den die Profilierung mit
+        // einer Mindestanzahl verlangt (Issue #50) — der Radio-Knopf ist dann
+        // gesperrt und nennt den Grund, statt die Sperre still zu umgehen.
+        sperre: this.guided.kardSperreZweigwechsel(path, c.path),
       }));
     }
 
