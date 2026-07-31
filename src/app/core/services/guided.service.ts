@@ -1,4 +1,5 @@
 import { Injectable, Signal, computed, inject } from '@angular/core';
+import { Auspraegung } from '../../models/profile.model';
 import { TreeNode, itemPath } from '../../models/node.model';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
@@ -246,6 +247,13 @@ export class GuidedService {
         for (const a of ausps) {
           const cn = this.tree.ctxNode(n, a.id);
           if (gesperrt(cn.path)) continue; // ausgeschlossenes Vorkommen der Vorgabe
+          // Optionale Auspraegung der gebundenen Fassung: ein Entscheidungspunkt
+          // "aufnehmen / weglassen" statt eines Vorkommens, das mit seinem
+          // Dasein bereits entschieden waere (Spec #28). Nur fuer **profilierte**
+          // Auspraegungen — eine selbst angelegte Kopie (`vonId`) hat der
+          // Anwender bewusst erzeugt, sie ist damit aufgenommen.
+          const auspOptional =
+            instanz && !a.vonId && this.state.profilWirkung(cn.path) === 'optional';
           seqOf.set(cn.path, seq++);
           const cnLeaf = this.tree.isLeaf(cn);
           const cnChoice =
@@ -262,13 +270,16 @@ export class GuidedService {
           } else {
             punkte.push({
               path: cn.path,
-              art: 'auspraegung',
+              art: auspOptional ? 'element' : 'auspraegung',
               seq: seqOf.get(cn.path)!,
               leaf: cnLeaf,
             });
             if (instanz && cnLeaf) merkeWertNode(cn, cn.path);
           }
           if (excl.has(cn.path)) continue;
+          // Wie bei jedem optionalen Element: die Punkte darunter entstehen erst
+          // mit der Aufnahme.
+          if (auspOptional && !steigAb(cn.path)) continue;
           for (const c of this.tree.kinder(cn)) {
             if (instanz && cnChoice && !steigAb(c.path)) continue;
             visit(c, depth + 2);
@@ -567,6 +578,25 @@ export class GuidedService {
     if (this.state.profilWirkung(`${listPath}@${auspId}`) !== 'pflicht') return null;
     const name = this.state.auspsOf(listPath)?.find((a) => a.id === auspId)?.name;
     return `Die Profilierung setzt das Vorkommen${name ? ` „${name}"` : ''} zwingend.`;
+  }
+
+  /**
+   * Die profilierten Auspraegungen, aus denen ein **weiteres Vorkommen** dieses
+   * Elements entstehen kann — null, wo die freie Anlage gilt (beim Profilieren
+   * und ueberall, wo die gebundene Fassung keine Auspraegungen fuehrt).
+   *
+   * Spec #28: "Weitere Vorkommen entstehen ausschliesslich als Kopie einer
+   * profilierten Auspraegung — der Anwender waehlt, welcher. Ein leeres,
+   * unprofiliertes Vorkommen ist nicht moeglich, solange die Profilierung fuer
+   * das Element Auspraegungen definiert." Gelesen wird die **eingefrorene
+   * Fassung**, nicht die eigene Liste: waehlbar bleibt, was die Profilierung
+   * beschreibt, auch nachdem der Durchlauf ein Vorkommen entfernt oder selbst
+   * Kopien angelegt hat.
+   */
+  auspKopieKandidaten(listPath: string): Auspraegung[] | null {
+    if (!this.instanzModus()) return null;
+    const profiliert = this.state.vorgabeAusps(listPath);
+    return profiliert?.length ? profiliert : null;
   }
 
   /**

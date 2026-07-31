@@ -16,6 +16,16 @@ export interface Status {
 export interface Auspraegung {
   id: string;
   name: string;
+  /**
+   * Herkunft einer Kopie: die id der Auspraegung, aus der dieses Vorkommen
+   * entstanden ist. Im gebundenen Durchlauf entstehen weitere Vorkommen
+   * ausschliesslich als Kopie einer profilierten Auspraegung (#28) — ueber
+   * diese Spur findet die Vorgabe-Schicht die Unter-Profilierung der Quelle
+   * (`StateService.vorgabePfad`), obwohl die Kopie eine neue id traegt.
+   * Ketten werden flach gehalten: die Kopie einer Kopie zeigt auf dieselbe
+   * profilierte Auspraegung.
+   */
+  vonId?: string;
 }
 
 /**

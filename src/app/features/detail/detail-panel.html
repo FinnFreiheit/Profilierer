@@ -382,13 +382,28 @@
             }
           </div>
           @if (msgMode()) {
-            <button
-              [disabled]="!!v.kardHinzuSperre"
-              [title]="v.kardHinzuSperre || 'Weiteres Vorkommen dieses Elements anlegen'"
-              (click)="addVorkommen()"
-            >
-              + weiteres Vorkommen
-            </button>
+            @if (v.auspKopieKandidaten; as kandidaten) {
+              <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
+                Weitere Vorkommen entstehen als Kopie einer profilierten Ausprägung — welche?
+              </div>
+              @for (k of kandidaten; track k.id) {
+                <button
+                  [disabled]="!!v.kardHinzuSperre"
+                  [title]="v.kardHinzuSperre || 'Vorkommen als Kopie von „' + k.name + '“ anlegen'"
+                  (click)="addVorkommenAusProfil(k.id)"
+                >
+                  + {{ k.name }}
+                </button>
+              }
+            } @else {
+              <button
+                [disabled]="!!v.kardHinzuSperre"
+                [title]="v.kardHinzuSperre || 'Weiteres Vorkommen dieses Elements anlegen'"
+                (click)="addVorkommen()"
+              >
+                + weiteres Vorkommen
+              </button>
+            }
           } @else {
             <button (click)="addAusp()">+ Ausprägung</button>
           }
