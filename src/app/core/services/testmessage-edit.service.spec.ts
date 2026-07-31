@@ -12,6 +12,7 @@ import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
 import { XsdDoc } from '../../models/xsd-index.model';
 import { TestmessageEntry, TestmessageInput } from '../../models/testmessage.model';
+import { ProfileDoc } from '../../models/profile.model';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
@@ -67,6 +68,10 @@ describe('TestmessageEditService', () => {
   let agAktiv: boolean;
   /** Antwort des Store-Stubs auf loadXml (null = Eintrag ohne XML). */
   let xmlAntwort: string | null;
+  /** Antwort auf loadVorgabe (null = keine Profil-Bindung). */
+  let vorgabeAntwort: ProfileDoc | null;
+  /** ids, fuer die die Bindung geloest wurde. */
+  let geloest: string[];
 
   beforeEach(() => {
     created = [];
@@ -75,6 +80,8 @@ describe('TestmessageEditService', () => {
     pruefung = { status: 'valide', fehler: [], fehlerDetails: [] };
     agAktiv = false;
     xmlAntwort = INSTANCE;
+    vorgabeAntwort = null;
+    geloest = [];
     TestBed.configureTestingModule({
       providers: [
         {
@@ -88,6 +95,10 @@ describe('TestmessageEditService', () => {
             },
             updateMeta: async (id: string, patch: Record<string, unknown>) => {
               patched.push({ id, patch });
+            },
+            loadVorgabe: async () => vorgabeAntwort,
+            loeseBindung: async (id: string) => {
+              geloest.push(id);
             },
           },
         },
@@ -147,6 +158,59 @@ describe('TestmessageEditService', () => {
     it('wirft, wenn zum Eintrag kein XML vorliegt', async () => {
       xmlAntwort = null;
       await expectAsync(svc.oeffnen(eintrag(), 'betrachten')).toBeRejected();
+    });
+
+    // ── Profil-Bindung ueberlebt das Bearbeiten (Issue #32) ────────────
+    it('gebundene Nachricht: Kopie geladen, Sperren und Fuehrung aktiv', async () => {
+      vorgabeAntwort = {
+        meta: {},
+        statuses: [{ id: 'w3', name: 'nicht verwendet', farbe: '#888', wirkung: 'ausgeschlossen' }],
+        elemente: { [`${M}/spitzname`]: { status: 'w3' } },
+        auspraegungen: {},
+        erweiterungen: {},
+      };
+
+      await svc.oeffnen(eintrag({ profilId: 'p1', profilName: 'P', fassung: 'v1' }), 'bearbeiten');
+
+      expect(state.hatVorgabe()).toBeTrue();
+      expect(state.guided()).toBeTrue();
+      expect(state.vorgabeGesperrt(`${M}/spitzname`)).toBeTrue();
+    });
+
+    it('ungebundene Nachricht bleibt ohne Vorgabe und ohne Fuehrung', async () => {
+      await svc.oeffnen(eintrag(), 'bearbeiten');
+      expect(state.hatVorgabe()).toBeFalse();
+      expect(state.guided()).toBeFalse();
+    });
+  });
+
+  describe('Profilbindung loesen (#32)', () => {
+    beforeEach(() => {
+      vorgabeAntwort = {
+        meta: {},
+        statuses: [{ id: 'w3', name: 'nicht verwendet', farbe: '#888', wirkung: 'ausgeschlossen' }],
+        elemente: { [`${M}/spitzname`]: { status: 'w3' } },
+        auspraegungen: {},
+        erweiterungen: {},
+      };
+      spyOn(window, 'confirm').and.returnValue(true);
+    });
+
+    it('entfernt Sperren und Fuehrung, meldet es dem Backend', async () => {
+      await svc.oeffnen(eintrag({ profilId: 'p1' }), 'bearbeiten');
+
+      expect(await svc.loeseBindung()).toBeTrue();
+      expect(geloest).toEqual(['id-1']);
+      expect(state.hatVorgabe()).toBeFalse();
+      expect(state.guided()).toBeFalse();
+      expect(state.vorgabeGesperrt(`${M}/spitzname`)).toBeFalse();
+    });
+
+    it('ohne Bindung gibt es nichts zu loesen', async () => {
+      vorgabeAntwort = null;
+      await svc.oeffnen(eintrag(), 'bearbeiten');
+      expect(await svc.loeseBindung()).toBeFalse();
+      expect(geloest.length).toBe(0);
     });
   });
 

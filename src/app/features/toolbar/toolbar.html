@@ -284,6 +284,14 @@
       >
         Als neue Nachricht speichern
       </button>
+      @if (bindungLoesbar()) {
+        <button
+          title="Sperren und Führung der gebundenen Profilierung beenden — für Negativtests. Die Herkunftsangabe bleibt erhalten."
+          (click)="bindungLoesenClick.emit()"
+        >
+          Profilbindung lösen
+        </button>
+      }
     } @else if (!state.readOnly()) {
       <button [disabled]="!hasRoot()" (click)="saveClick.emit()">Speichern</button>
       <app-menu label="Export" [disabled]="!hasRoot()" #exportMenu>

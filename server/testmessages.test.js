@@ -186,6 +186,27 @@ test('eingefrorene Kopie bleibt lesbar, nachdem die Profilierung geloescht wurde
   db.close();
 });
 
+test('Bindung loesen: Kopie und Kennzeichen weg, Herkunft bleibt (#32)', () => {
+  const db = openDb(':memory:');
+  const doc = { meta: { name: 'P' }, statuses: [], elemente: { 'a/b': {} }, auspraegungen: {} };
+  const pid = db.create(doc).id;
+  const { id } = db.tmCreate(
+    input({ profilId: pid, profilName: 'P', fassung: 'v1', vorgabe: doc }),
+  );
+  // Profil weiterentwickelt: das Kennzeichen steht, solange die Kopie liegt.
+  db.upsert(pid, { ...doc, elemente: { 'a/b': { anmerkung: 'neu' } } });
+  assert.equal(db.tmList()[0].profilWeiterentwickelt, true);
+
+  const entry = db.tmBindungLoesen(id);
+  assert.equal(db.tmLoadVorgabe(id), null); // Sperren und Fuehrung enden
+  assert.ok(!entry.profilWeiterentwickelt); // Konformitaets-Kennzeichen weg
+  assert.equal(entry.profilId, pid); // Herkunft bleibt sichtbar
+  assert.equal(entry.profilName, 'P');
+  assert.equal(entry.fassung, 'v1');
+  assert.equal(db.tmBindungLoesen('gibtsnicht'), null);
+  db.close();
+});
+
 test('tmUpdate laesst die eingefrorene Kopie und die Herkunft unberuehrt', () => {
   const db = openDb(':memory:');
   const vorgabe = { meta: {}, statuses: [], elemente: { 'a/b': {} }, auspraegungen: {} };

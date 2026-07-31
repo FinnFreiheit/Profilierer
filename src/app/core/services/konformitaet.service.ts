@@ -1,7 +1,10 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Auspraegung, ElementProfile, ProfileDoc, Wirkung } from '../../models/profile.model';
 import { ohneVorkommen } from '../../models/node.model';
 import { pretty } from '../util/pretty.util';
+import { StateService } from './state.service';
+import { NavService } from './nav.service';
+import { TreeService } from './tree.service';
 
 /** Das Instanz-Modell, gegen das geprueft wird — die Entscheidungsschicht. */
 export interface InstanzModell {
@@ -172,6 +175,39 @@ export class KonformitaetService {
         });
       }
     }
+  }
+}
+
+/**
+ * Duenne Anbindung des zustandslosen Abgleichs an die **laufende Sitzung** —
+ * der Adapter, den beide Speicherwege teilen (gefuehrtes Erstellen und
+ * Bearbeiten, #31/#32). Er holt gebundene Fassung und Instanz-Modell aus dem
+ * Store und reicht das Blatt-Wissen aus dem Baum hinein; die Regeln selbst
+ * bleiben im `KonformitaetService`, damit sie ohne Sitzung pruefbar sind.
+ */
+@Injectable({ providedIn: 'root' })
+export class SitzungsAbgleichService {
+  private readonly state = inject(StateService);
+  private readonly nav = inject(NavService);
+  private readonly tree = inject(TreeService);
+  private readonly konformitaet = inject(KonformitaetService);
+
+  /** Verstoesse der aktuellen Sitzung — leer ohne gebundene Fassung. */
+  pruefe(): Verstoss[] {
+    const vorgabe = this.state.vorgabe();
+    if (!vorgabe) return [];
+    return this.konformitaet.pruefe(
+      vorgabe,
+      { elemente: this.state.elemente(), auspraegungen: this.state.auspraegungen() },
+      {
+        istBlatt: (pfad) => {
+          const it = this.nav.findItemByPath(pfad);
+          if (!it) return false;
+          const node = it.kind === 'el' ? it.node : this.tree.ctxNode(it.parentNode, it.ausp.id);
+          return this.tree.isLeaf(node);
+        },
+      },
+    );
   }
 }
 

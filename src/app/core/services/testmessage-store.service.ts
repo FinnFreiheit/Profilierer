@@ -106,6 +106,19 @@ export class TestmessageStoreService {
 
   // ── Schreiben ───────────────────────────────────────────────────────
 
+  /**
+   * Profilbindung loesen (#32): die eingefrorene Kopie faellt weg — damit enden
+   * Sperren, Fuehrung und das Kennzeichen "Profil weiterentwickelt". Die
+   * Herkunft (`profilName`/`fassung`) bleibt als Historie am Eintrag.
+   */
+  async loeseBindung(id: string): Promise<void> {
+    const { entry } = await this.req<{ entry: TestmessageEntry }>(
+      `/testmessages/${encodeURIComponent(id)}/vorgabe`,
+      { method: 'DELETE' },
+    );
+    this.putEntry(entry);
+  }
+
   /** Neue Testnachricht anlegen; gibt die (serverseitig vergebene) id zurueck. */
   async create(input: TestmessageInput): Promise<string> {
     const { id, entry } = await this.req<{ id: string; entry: TestmessageEntry }>('/testmessages', {

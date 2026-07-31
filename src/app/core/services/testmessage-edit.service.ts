@@ -15,6 +15,7 @@ import { RolleService } from './rolle.service';
 import { ToastService } from './toast.service';
 import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
+import { SitzungsAbgleichService } from './konformitaet.service';
 
 /**
  * Eine gespeicherte Testnachricht oeffnen und bearbeiten (US "Testnachricht
@@ -39,6 +40,7 @@ export class TestmessageEditService {
   private readonly toast = inject(ToastService);
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
+  private readonly abgleich = inject(SitzungsAbgleichService);
 
   /**
    * Testnachricht im Baum oeffnen — betrachtend (gesperrt, nur belegte Aeste)
@@ -58,6 +60,18 @@ export class TestmessageEditService {
     this.state.activeProfileId.set(null);
     this.instanceImport.importXml(xml, entry.name);
     this.state.messageEdit.update((s) => (s ? { ...s, entryId: entry.id } : s));
+
+    // Profil-Bindung ueberlebt das Bearbeiten (#32): die eingefrorene Kopie
+    // wird mitgeladen, damit Sperren, Fuehrung und Abgleich weitergelten — eine
+    // schnelle Wertkorrektur soll die Konformitaet nicht unbemerkt zerstoeren.
+    // Erst nach `importXml`, das ueber `loadProfile` jede Vorgabe raeumt. Ohne
+    // Bindung (oder nach bewusstem Loesen) liefert der Server 404 und alles
+    // bleibt wie bisher.
+    const vorgabe = entry.profilId ? await this.store.loadVorgabe(entry.id) : null;
+    if (vorgabe) {
+      this.state.setVorgabe(vorgabe);
+      this.state.guided.set(true);
+    }
 
     // Immer explizit setzen, also auch loesen: der Schutz haengt an der zuletzt
     // geoeffneten Nachricht, nicht an einem Profil (activeProfileId ist null).
@@ -99,8 +113,12 @@ export class TestmessageEditService {
     const meta = parseTestmessage(xml);
     if (!meta) throw new Error('Die erzeugte Nachricht ist nicht lesbar — bitte prüfen.');
 
+    // Derselbe Konformitaets-Abgleich wie im Durchlauf (#31/#32) — er ist der
+    // Grund, warum die Bindung das Bearbeiten ueberlebt.
+    const verstoesse = this.abgleich.pruefe();
+
     const pruefung = await this.validator.validiere(xml);
-    let entwurf = false;
+    let entwurf = verstoesse.length > 0;
     if (pruefung.status !== 'valide') {
       if (
         !confirm(
@@ -118,12 +136,46 @@ export class TestmessageEditService {
     // entwurf immer mitsenden: eine reparierte Nachricht verliert so ihr
     // Entwurfs-Kennzeichen wieder.
     await this.store.updateMeta(session.entryId, { xml, entwurf });
-    if (entwurf) {
+    if (verstoesse.length) {
+      // Der Konformitaets-Befund geht dem Schemafehler vor (wie beim gefuehrten
+      // Speichern): er sagt, dass die Nachricht das Szenario verlaesst.
+      this.toast.show(
+        `Als Entwurf gespeichert — ${verstoesse.length} Abweichung${verstoesse.length === 1 ? '' : 'en'} von der Profilierung.`,
+      );
+      this.report.zeigeMitPfaden(
+        'Als Entwurf gespeichert — nicht profilkonform',
+        verstoesse.map((v) => ({ pfad: v.pfad, text: v.text })),
+        'Die Nachricht weicht von der gebundenen Profilfassung ab. Ein Klick springt zum betroffenen Element.',
+      );
+    } else if (entwurf) {
       this.toast.show('Als Entwurf gespeichert — die Nachricht ist nicht schema-valide.');
       this.report.zeige('Als Entwurf gespeichert — Nachricht nicht schema-valide', pruefung.fehler);
     } else {
       this.toast.show('Änderungen gespeichert.');
     }
+    return true;
+  }
+
+  /**
+   * Profilbindung bewusst loesen (#32) — der Ausstieg fuer Negativtests: die
+   * eingefrorene Kopie faellt am Eintrag weg, Sperren und Fuehrung enden
+   * sofort, das Kennzeichen "Profil weiterentwickelt" verschwindet. Die
+   * **Herkunft** bleibt am Eintrag stehen und auf der Kachel sichtbar: sie ist
+   * Historie, keine Bindung. Gibt true zurueck, wenn geloest wurde.
+   */
+  async loeseBindung(): Promise<boolean> {
+    const session = this.state.messageEdit();
+    if (!session?.entryId || !this.state.hatVorgabe()) return false;
+    if (
+      !confirm(
+        'Profilbindung lösen? Sperren und Führung enden, die Nachricht verhält sich danach wie eine freie Instanz. Die Herkunftsangabe bleibt erhalten.',
+      )
+    )
+      return false;
+    await this.store.loeseBindung(session.entryId);
+    this.state.clearVorgabe();
+    this.state.guided.set(false);
+    this.toast.show('Profilbindung gelöst — die Nachricht ist jetzt eine freie Instanz.');
     return true;
   }
 
