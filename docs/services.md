@@ -84,6 +84,8 @@ Zentrale Statusänderung (`setzeStatus(path, statusId)`): Erhält ein Element ei
 
 `clWerte/clVersion` (effektive Codelisten-Werte, Z.797) und `placeholderFor(node)` (Beispiel-/Platzhalterwert inkl. Referenz-Nummern, Z.2001). `XS_BUILTIN`-Tabelle typgerechter Defaults.
 
+`sichtbareWerte(eff, werte, alleZeigen, modus)` ist die reine Sichtbarkeitsregel der Werteliste: bei gesetzter `werte`-Einschränkung bleiben nur die zugelassenen Zeilen übrig. Modus `nachricht` filtert unbedingt und ohne Umschalter (die Einschränkung ist dort Vorgabe), `profil` und `lesen` filtern mit Umschalter „alle zeigen"; `werte: []` („keine") erzwingt die volle Liste, sonst bliebe eine leere Liste ohne Ausweg. Das Detail-Panel hält nur den Umschalter-Zustand (`linkedSignal`, Reset bei Elementwechsel).
+
 ## CodelistService
 
 `parseGenericode(dom)` (Z.808), `mergeCodelist` (neuere Version gewinnt), `importCodelistZip` (JSZip, dynamisch geladen), `loadCodelistFiles`, `xrepFetch` (Dev-Proxy → Direkt → CORS-Fallback, Z.892), `loadFromXRepository`, `fetchSingleCodelist`, `cacheCodelists/loadCodelistCache` (localStorage `xjp.clcache`). Lädt den Cache im Konstruktor.

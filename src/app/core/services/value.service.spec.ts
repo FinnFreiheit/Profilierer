@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { ValueService } from './value.service';
 import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
-import { CodelistInfo } from '../../models/codelist.model';
+import { CodelistInfo, EnumWert } from '../../models/codelist.model';
 
 describe('ValueService.labelFor', () => {
   let svc: ValueService;
@@ -167,5 +167,86 @@ describe('ValueService.placeholderFor', () => {
       expect(svc.wertProblem(leaf('geburtsdatum', 'Type.GDS.Datumsangabe'), '')).toBeNull();
       expect(svc.wertProblem(leaf('freitext', 'Type.Unbekannt'), 'irgendwas')).toBeNull();
     });
+  });
+});
+
+describe('ValueService.sichtbareWerte', () => {
+  let svc: ValueService;
+
+  const alle: EnumWert[] = [
+    { value: 'A', label: 'Anlage' },
+    { value: 'B', label: 'Beschluss' },
+    { value: 'C', label: 'Cessio' },
+  ];
+
+  const codes = (ws: EnumWert[]): string[] => ws.map((w) => w.value);
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    svc = TestBed.inject(ValueService);
+  });
+
+  it('ohne Einschraenkung bleibt die vollstaendige Liste ohne Umschalter', () => {
+    const s = svc.sichtbareWerte(alle, undefined, false, 'profil');
+    expect(codes(s.sichtbar)).toEqual(['A', 'B', 'C']);
+    expect(s.umschalter).toBeFalse();
+    expect(s.gefiltert).toBeFalse();
+  });
+
+  it('Teilmenge: im Profil-Modus nur die zugelassenen Werte, Umschalter dabei', () => {
+    const s = svc.sichtbareWerte(alle, ['A', 'C'], false, 'profil');
+    expect(codes(s.sichtbar)).toEqual(['A', 'C']);
+    expect(s.umschalter).toBeTrue();
+    expect(s.gefiltert).toBeTrue();
+  });
+
+  it('Umschalter „alle zeigen" holt die vollstaendige Liste zurueck', () => {
+    const s = svc.sichtbareWerte(alle, ['A'], true, 'profil');
+    expect(codes(s.sichtbar)).toEqual(['A', 'B', 'C']);
+    expect(s.umschalter).toBeTrue();
+    expect(s.gefiltert).toBeFalse();
+  });
+
+  it('Nachrichten-Modus filtert unbedingt und ohne Umschalter', () => {
+    for (const alleZeigen of [false, true]) {
+      const s = svc.sichtbareWerte(alle, ['B'], alleZeigen, 'nachricht');
+      expect(codes(s.sichtbar)).toEqual(['B']);
+      expect(s.umschalter).toBeFalse();
+      expect(s.gefiltert).toBeTrue();
+    }
+  });
+
+  it('Nur-Lesen filtert mit Umschalter', () => {
+    const zu = svc.sichtbareWerte(alle, ['B'], false, 'lesen');
+    expect(codes(zu.sichtbar)).toEqual(['B']);
+    expect(zu.umschalter).toBeTrue();
+    const auf = svc.sichtbareWerte(alle, ['B'], true, 'lesen');
+    expect(codes(auf.sichtbar)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('„keine" zeigt in Profil- und Lesemodus zwangsweise die volle Liste', () => {
+    for (const modus of ['profil', 'lesen'] as const) {
+      const s = svc.sichtbareWerte(alle, [], false, modus);
+      expect(codes(s.sichtbar)).toEqual(['A', 'B', 'C']);
+      expect(s.umschalter).toBeTrue();
+      expect(s.gefiltert).toBeFalse();
+      expect(s.erzwungen).toBeTrue();
+    }
+  });
+
+  it('„keine" laesst im Nachrichten-Modus nichts uebrig', () => {
+    const s = svc.sichtbareWerte(alle, [], false, 'nachricht');
+    expect(s.sichtbar).toEqual([]);
+    expect(s.umschalter).toBeFalse();
+  });
+
+  it('ohne geladene Werte bleibt die Liste leer', () => {
+    const s = svc.sichtbareWerte(null, ['A'], false, 'profil');
+    expect(s.sichtbar).toEqual([]);
+  });
+
+  it('zugelassene Werte ausserhalb der Liste erzeugen keine Zeilen', () => {
+    const s = svc.sichtbareWerte(alle, ['A', 'Z'], false, 'profil');
+    expect(codes(s.sichtbar)).toEqual(['A']);
   });
 });
