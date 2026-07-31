@@ -390,6 +390,26 @@ describe('TestmessageCreateService', () => {
       expect(guided.punktAt(`${M}/anlage`)).toBeNull();
     });
 
+    it('meldet auch den vererbten Ausschluss — der Teilbaum wird sonst still halbiert', async () => {
+      arbeitsstand = doc({
+        elemente: {
+          [`${M}/anlage`]: { status: 'v9' },
+          // Die Profilierung verlangt das Blatt, sein Traeger ist ausgeschlossen.
+          [`${M}/anlage/name`]: { min: '1' },
+        },
+      });
+
+      await svc.neuAusProfil(profil(), null);
+
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.offen()).toBeTrue();
+      expect(report.eintraege().length).toBe(1);
+      const eintrag = report.eintraege()[0]!;
+      expect(eintrag.pfad).toBe(`${M}/anlage/name`); // Sprung zum verlangten Element
+      expect(eintrag.text).toContain('nicht verwendet');
+      expect(eintrag.text).toContain(`${M}/anlage`); // der ausschliessende Vorfahr
+    });
+
     it('meldet nichts, solange die Profilierung widerspruchsfrei ist', async () => {
       arbeitsstand = doc({ elemente: { [`${M}/anlage`]: { min: '3' } } });
 
@@ -503,6 +523,37 @@ describe('TestmessageCreateService', () => {
       expect(state.messageCreate()).toEqual(
         jasmine.objectContaining({ profilId: 'p1', fassung: 'v3' }),
       );
+    });
+
+    it('fortsetzen meldet die Widersprueche der gebundenen Kopie ebenfalls', async () => {
+      entscheidungen = {
+        msgName: M,
+        xjustizVersion: '3.6.2',
+        profil: {
+          meta: {},
+          statuses: state.statuses(),
+          elemente: { [`${M}/kopf`]: { beispiel: 'Az 1' } },
+          auspraegungen: {},
+          erweiterungen: {},
+        },
+      };
+      gespeicherteVorgabe = doc({ elemente: { [`${M}/anlage`]: { status: 'v9', min: '2' } } });
+
+      await svc.fortsetzen({
+        id: 'id-alt',
+        name: 'Entwurf.xml',
+        groesse: 1,
+        hochgeladen: 0,
+        aktualisiert: 0,
+        profilId: 'p1',
+        profilName: 'Nachlass-Szenario',
+        fassung: 'v3',
+      });
+
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.offen()).toBeTrue();
+      expect(report.titel()).toContain('Widersprüche');
+      expect(report.eintraege()[0]!.pfad).toBe(`${M}/anlage`);
     });
 
     it('ungebundene Alt-Eintraege setzen wie bisher fort (keine Vorgabe)', async () => {

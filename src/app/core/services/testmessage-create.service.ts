@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { TreeNode } from '../../models/node.model';
-import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
+import { LibraryEntry, ProfileDoc, Status } from '../../models/profile.model';
 import { GuidedMessageState, TestmessageEntry } from '../../models/testmessage.model';
 import {
   frageTestnachrichtName,
@@ -125,19 +125,53 @@ export class TestmessageCreateService {
    * Gemeint ist die Mindestanzahl **der Profilierung**: die Schema-Mindestanzahl
    * ausgeschlossener Elemente ist kein Widerspruch der Profilierung, sondern ein
    * Schemaverstoss — den meldet die XSD-Pruefung beim Speichern.
+   *
+   * Der Ausschluss zaehlt dabei **vererbt**: `legeMindestVorkommenAn` laesst den
+   * ganzen Teilbaum eines ausgeschlossenen Knotens aus, also wird auch die
+   * Mindestanzahl eines Nachfahren still halbiert. Massgeblich ist durchweg das
+   * Dokument der gebundenen Fassung, nicht `vorgabeGesperrt`: die Meldung
+   * beschreibt die Aussage der Profilierung und darf nicht verschwinden, weil
+   * der Durchlauf am Pfad inzwischen selbst entschieden hat (Fortsetzen).
    */
   private meldeWidersprueche(doc: ProfileDoc): void {
+    /** Praefixe an '/' UND '@' — wie StateService.vorfahrenPfade. */
+    const vorfahren = (pfad: string): string[] => {
+      const r: string[] = [];
+      for (let i = 0; i < pfad.length; i++)
+        if (pfad[i] === '/' || pfad[i] === '@') r.push(pfad.slice(0, i));
+      return r;
+    };
+    /** Die ausschliessende Stufe an diesem Pfad — null, wenn er nichts ausschliesst. */
+    const schliesstAus = (pfad: string): Status | null => {
+      const id = doc.elemente[pfad]?.status;
+      if (!id) return null;
+      const stufe = doc.statuses.find((s) => s.id === id);
+      return stufe?.wirkung === 'ausgeschlossen' ? stufe : null;
+    };
+    const kurz = (pfad: string): string => pretty(pfad.split('/').at(-1)!.split('@')[0]!);
+
     const eintraege: ReportEintrag[] = [];
     for (const [pfad, p] of Object.entries(doc.elemente)) {
-      if (!p.status || !p.min) continue;
+      if (!p.min) continue;
       const min = parseInt(p.min, 10) || 0;
       if (min < 1) continue;
-      const stufe = doc.statuses.find((s) => s.id === p.status);
-      if (stufe?.wirkung !== 'ausgeschlossen') continue;
-      const name = pretty(pfad.split('/').at(-1)!.split('@')[0]!);
+      const name = kurz(pfad);
+      const selbst = schliesstAus(pfad);
+      if (selbst) {
+        eintraege.push({
+          pfad,
+          text: `${name} (${pfad}): „${selbst.name}" und zugleich Mindestanzahl ${min} — der Ausschluss gilt, das Element bleibt leer.`,
+        });
+        continue;
+      }
+      // Vererbt: der naechstgelegene ausgeschlossene Vorfahr nimmt den Ast mit.
+      const anc = vorfahren(pfad)
+        .reverse()
+        .find((a) => schliesstAus(a));
+      if (!anc) continue;
       eintraege.push({
         pfad,
-        text: `${name} (${pfad}): „${stufe.name}" und zugleich Mindestanzahl ${min} — der Ausschluss gilt, das Element bleibt leer.`,
+        text: `${name} (${pfad}): Mindestanzahl ${min}, aber „${schliesstAus(anc)!.name}" an ${kurz(anc)} (${anc}) — der Ausschluss gilt für den ganzen Teilbaum, das Element bleibt leer.`,
       });
     }
     if (!eintraege.length) return;
@@ -177,7 +211,10 @@ export class TestmessageCreateService {
    * Entwurf fortsetzen: Entscheidungsstand laden, Schema/Nachricht
    * wiederherstellen und am naechsten offenen Punkt weitermachen. Bei einer
    * profilgebundenen Nachricht wird die **eingefrorene Kopie** mitgeladen —
-   * nicht die inzwischen weiterentwickelte Profilfassung.
+   * nicht die inzwischen weiterentwickelte Profilfassung. Ihre Widersprueche
+   * meldet auch dieser Start: es ist dieselbe Fassung mit derselben still
+   * halbierten Vorgabe, und wer einen Entwurf fortsetzt, saehe den Mangel sonst
+   * nie.
    */
   async fortsetzen(entry: TestmessageEntry): Promise<void> {
     const stand = await this.store.loadEntscheidungen(entry.id);
@@ -205,6 +242,7 @@ export class TestmessageCreateService {
     this.state.guided.set(true);
     this.state.view.set('editor');
     this.guided.gotoNextOpen();
+    if (vorgabe) this.meldeWidersprueche(vorgabe);
   }
 
   /**

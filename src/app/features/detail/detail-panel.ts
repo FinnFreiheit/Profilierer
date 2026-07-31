@@ -645,8 +645,17 @@ export class DetailPanel {
     else this.state.addAusp(this.path(), 'Vorkommen ' + (list.length + 1));
   }
 
-  /** Vorkommen samt erfasster Werte kopieren (Kopie danach anpassen). */
+  /**
+   * Vorkommen samt erfasster Werte kopieren (Kopie danach anpassen). Legt ein
+   * weiteres Vorkommen an und sperrt darum bei erreichter Hoechstanzahl —
+   * genau wie `addVorkommen` und der gleiche Weg im Baum (`onDup`).
+   */
   protected copyVorkommen(id: string): void {
+    const sperre = this.guided.kardSperreHinzu(this.path());
+    if (sperre) {
+      this.toast.show(sperre);
+      return;
+    }
     this.state.copyAusp(this.path(), id);
   }
 

@@ -348,7 +348,11 @@
               <div class="auspRow">
                 <input type="text" [value]="a.name" (change)="renameAuspRow(a.id, $event)" />
                 @if (msgMode()) {
-                  <button title="Vorkommen samt Werten kopieren" (click)="copyVorkommen(a.id)">
+                  <button
+                    [disabled]="!!v.kardHinzuSperre"
+                    [title]="v.kardHinzuSperre || 'Vorkommen samt Werten kopieren'"
+                    (click)="copyVorkommen(a.id)"
+                  >
                     ⧉
                   </button>
                 }
