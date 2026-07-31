@@ -424,11 +424,36 @@
                 }}
               </span>
             </div>
+          } @else if (cl.restricted) {
+            <!-- Umfang der Einschraenkung bleibt auch ohne Bedienelemente sichtbar. -->
+            <div class="clTools">
+              <span style="color: var(--muted)">
+                {{ cl.allowedCount + ' von ' + cl.total + ' zugelassen' }}
+              </span>
+            </div>
           }
           @if (!roEff() && msgMode()) {
             <div style="font-size: 12px; color: var(--muted); margin-bottom: 5px">
               Klick auf einen Wert übernimmt ihn in das Feld.
             </div>
+          }
+          @if (clSicht().umschalter) {
+            <label
+              class="clAlleToggle"
+              [title]="
+                clSicht().erzwungen
+                  ? 'Alle Werte ausgeschlossen — die vollständige Liste bleibt sichtbar.'
+                  : 'Auch die ausgeschlossenen Werte anzeigen'
+              "
+            >
+              <input
+                type="checkbox"
+                [checked]="!clSicht().gefiltert"
+                [disabled]="clSicht().erzwungen"
+                (change)="onClAlle($event)"
+              />
+              alle zeigen
+            </label>
           }
           @if (cl.showFilter) {
             <input

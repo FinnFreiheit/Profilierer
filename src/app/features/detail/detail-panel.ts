@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { TreeService } from '../../core/services/tree.service';
-import { ValueService } from '../../core/services/value.service';
+import { ValueService, WerteModus } from '../../core/services/value.service';
 import { NavService } from '../../core/services/nav.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { DispositionService } from '../../core/services/disposition.service';
@@ -51,6 +51,18 @@ export class DetailPanel {
       return it ? itemPath(it) : '';
     },
     computation: () => '',
+  });
+  /**
+   * Umschalter „alle zeigen" der eingeschraenkten Werteliste. Wie der Textfilter
+   * beim Elementwechsel zurueckgesetzt — sonst wanderte ein unsichtbarer
+   * Ansichtszustand mit (US "Werteliste zeigt, was gilt").
+   */
+  protected readonly clAlle = linkedSignal({
+    source: () => {
+      const it = this.state.selItem();
+      return it ? itemPath(it) : '';
+    },
+    computation: () => false,
   });
   protected readonly erwDatentypen = ERW_DATENTYPEN;
   /** Pfad, fuer den im Datentyp-Select "Sonstiger…" gewaehlt wurde (noch ohne Freitext). */
@@ -114,6 +126,7 @@ export class DetailPanel {
         | { value: string; label: string; checked: boolean; belegt: boolean; search: string }[]
         | null;
       restricted: boolean;
+      werte: string[] | null;
       allowedCount: number;
       total: number;
       showFilter: boolean;
@@ -140,6 +153,7 @@ export class DetailPanel {
             }))
           : null,
         restricted: !!p.werte,
+        werte: p.werte ?? null,
         allowedCount: allowed.size,
         total: eff ? eff.length : 0,
         showFilter: !!eff && eff.length > 15,
@@ -380,12 +394,21 @@ export class DetailPanel {
     };
   });
 
-  /** Codelisten-Zeilen nach dem lokalen Filter. */
-  protected readonly filteredEff = computed(() => {
+  /**
+   * Sichtbarkeitsregel der eingeschraenkten Werteliste (ValueService) samt
+   * Umschalter-Zustand — das Panel entscheidet nur noch ueber den Modus.
+   */
+  protected readonly clSicht = computed(() => {
     const cl = this.vm()?.codelist;
-    if (!cl?.eff) return [];
+    const modus: WerteModus = this.roEff() ? 'lesen' : this.msgMode() ? 'nachricht' : 'profil';
+    return this.values.sichtbareWerte(cl?.eff ?? null, cl?.werte, this.clAlle(), modus);
+  });
+
+  /** Codelisten-Zeilen nach Sichtbarkeitsregel und lokalem Filter. */
+  protected readonly filteredEff = computed(() => {
+    const sichtbar = this.clSicht().sichtbar;
     const q = this.clFilter().toLowerCase();
-    return q ? cl.eff.filter((w) => w.search.includes(q)) : cl.eff;
+    return q ? sichtbar.filter((w) => w.search.includes(q)) : sichtbar;
   });
 
   private path(): string {
@@ -500,6 +523,10 @@ export class DetailPanel {
 
   protected onClFilter(e: Event): void {
     this.clFilter.set((e.target as HTMLInputElement).value);
+  }
+
+  protected onClAlle(e: Event): void {
+    this.clAlle.set((e.target as HTMLInputElement).checked);
   }
 
   // ── Schema-Erweiterung ──────────────────────────────────────────────

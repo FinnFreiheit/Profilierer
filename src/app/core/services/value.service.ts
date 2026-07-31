@@ -73,6 +73,28 @@ const XS_CHECK: Record<string, RegExp> = {
   hexBinary: /^([0-9A-Fa-f]{2})*$/,
 };
 
+/**
+ * Betrachtungsmodus der Codelisten-Werteliste. `nachricht` filtert unbedingt
+ * (die Einschraenkung ist dort Vorgabe, keine Ansichtssache), `profil` und
+ * `lesen` filtern mit Umschalter.
+ */
+export type WerteModus = 'profil' | 'nachricht' | 'lesen';
+
+/** Ergebnis der Sichtbarkeitsregel einer eingeschraenkten Codelisten-Werteliste. */
+export interface WerteSicht<T> {
+  /** Die anzuzeigenden Zeilen. */
+  sichtbar: T[];
+  /** Umschalter „alle zeigen" anbieten? */
+  umschalter: boolean;
+  /** Steht der Umschalter wirksam auf „nur zugelassene"? */
+  gefiltert: boolean;
+  /**
+   * Filtern ist nicht moeglich (alle Werte ausgeschlossen) — der Umschalter
+   * steht fest auf „alle zeigen", sonst bliebe eine leere Liste ohne Ausweg.
+   */
+  erzwungen: boolean;
+}
+
 /** Ein Blatt-Knoten fuer die Platzhalter-Berechnung (Teilmenge von TreeNode). */
 export interface PlaceholderNode {
   name: string;
@@ -110,6 +132,35 @@ export class ValueService {
     if (!eff) return null;
     const hit = eff.find((w) => w.value === code);
     return hit && hit.label ? hit.label : null;
+  }
+
+  /**
+   * Sichtbarkeitsregel der Codelisten-Werteliste (US "Werteliste zeigt, was
+   * gilt"): welche der effektiven Werte angezeigt werden und ob der Umschalter
+   * „alle zeigen" dazugehoert. Reine Funktion — das Detail-Panel haelt allein
+   * den Umschalter-Zustand.
+   */
+  sichtbareWerte<T extends { value: string }>(
+    eff: readonly T[] | null,
+    werte: readonly string[] | null | undefined,
+    alleZeigen: boolean,
+    modus: WerteModus,
+  ): WerteSicht<T> {
+    const alle = eff ? [...eff] : [];
+    // Kein `werte`-Feld = keine Einschraenkung: alles bleibt wie bisher.
+    if (!werte) return { sichtbar: alle, umschalter: false, gefiltert: false, erzwungen: false };
+    const erlaubt = new Set(werte);
+    const zugelassen = alle.filter((w) => erlaubt.has(w.value));
+    // Nachrichten-Modus filtert unbedingt, ohne Umschalter.
+    if (modus === 'nachricht')
+      return { sichtbar: zugelassen, umschalter: false, gefiltert: true, erzwungen: false };
+    // „keine": Filtern hinterliesse eine leere Liste, aus der niemand mehr
+    // herauskaeme — deshalb zwangsweise die volle Liste.
+    if (!werte.length)
+      return { sichtbar: alle, umschalter: true, gefiltert: false, erzwungen: true };
+    return alleZeigen
+      ? { sichtbar: alle, umschalter: true, gefiltert: false, erzwungen: false }
+      : { sichtbar: zugelassen, umschalter: true, gefiltert: true, erzwungen: false };
   }
 
   /**
