@@ -246,6 +246,45 @@ export class TestmessageCreateService {
   }
 
   /**
+   * "Weitere Testnachricht zu diesem Profil" (US "Testnachricht aus einer
+   * Profilierung"): neue Sitzung mit **derselben Bindung** — die eingefrorene
+   * Kopie wird nicht neu geladen, sondern weitergereicht; eine inzwischen
+   * weiterentwickelte Profilfassung wirkt also nicht in die Serie hinein.
+   * `alsKopie` uebernimmt Werte und Entscheidungsstand der eben gespeicherten
+   * Nachricht ("dieselbe Nachricht, ein Feld anders"), sonst beginnt der
+   * Durchlauf leer. Wirft Error mit Nutzertext.
+   */
+  async weitereTestnachricht(alsKopie: boolean): Promise<void> {
+    const session = this.state.messageCreate();
+    if (!session?.profilId)
+      throw new Error('Die laufende Sitzung ist an keine Profilierung gebunden.');
+    if (!session.entryId)
+      throw new Error('Zuerst die aktuelle Testnachricht speichern, dann die nächste beginnen.');
+    const vorgabe = this.state.vorgabe();
+    if (!vorgabe) throw new Error('Die gebundene Fassung ist nicht mehr geladen.');
+    // Vor dem Zuruecksetzen sichern: der Entscheidungsstand der Vorlage. Kopiert,
+    // damit die neue Sitzung keine Struktur mit der gespeicherten Nachricht teilt.
+    const stand = alsKopie ? structuredClone(this.state.profileDoc()) : null;
+
+    this.report.schliesse(); // der Bericht gehoert zur eben gespeicherten Nachricht
+    if (stand) {
+      this.state.loadProfile(stand); // leert Sessions und Vorgabe, Werte bleiben
+      this.nav.loadMessage(session.msgName, true);
+    } else {
+      this.nav.loadMessage(session.msgName); // leerer Entscheidungsstand, Vorgabe raus
+    }
+    this.state.setVorgabe(vorgabe);
+    // Die Kopie bringt die Vorkommen der Vorlage mit; leer entstehen sie neu.
+    if (!stand) this.legeMindestVorkommenAn(this.state.root()!);
+    // entryId zurueck auf null: das erste Speichern fragt einen Namen ab und
+    // legt einen eigenen Eintrag an — der Ausgangseintrag bleibt unberuehrt.
+    this.state.messageCreate.set({ ...session, entryId: null, name: null });
+    this.state.guided.set(true);
+    this.state.view.set('editor');
+    this.guided.gotoNextOpen();
+  }
+
+  /**
    * Stand speichern: erstes Mal anlegen (Namensabfrage), danach denselben
    * Eintrag aktualisieren. Offene *optionale* Entscheidungen warnen nur, wenn
    * die Nachricht ansonsten vollstaendig waere (weiche Fuehrung); offene

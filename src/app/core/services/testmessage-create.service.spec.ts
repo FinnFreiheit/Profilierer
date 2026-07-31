@@ -582,4 +582,121 @@ describe('TestmessageCreateService', () => {
       expect(state.messageCreate()!.profilId).toBeUndefined();
     });
   });
+
+  describe('weitereTestnachricht (Serie zur selben Profilfassung)', () => {
+    const profil: LibraryEntry = {
+      id: 'p1',
+      name: 'Nachlass-Szenario',
+      nachricht: M,
+      xjustizVersion: '3.6.2',
+      nStatus: 3,
+      nAusp: 0,
+      aktualisiert: Date.UTC(2026, 6, 30, 10, 0),
+    };
+
+    const doc = (): ProfileDoc => ({
+      meta: { name: 'Nachlass-Szenario', nachricht: M, xjustizVersion: '3.6.2' },
+      statuses: [
+        { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+      ],
+      elemente: { [`${M}/az`]: { status: 'v9' } },
+      auspraegungen: {},
+      erweiterungen: {},
+    });
+
+    /** Gebundener Durchlauf, befuellt und einmal gespeichert. */
+    async function ersteGespeichert(): Promise<void> {
+      arbeitsstand = doc();
+      await svc.neuAusProfil(profil, null);
+      guided.fuellePflichtfelder();
+      spyOn(window, 'prompt').and.returnValues('Testfall 1.xml', 'Testfall 2.xml');
+      spyOn(window, 'confirm').and.returnValue(true);
+      await svc.speichern();
+    }
+
+    it('startet leer: dieselbe Bindung, leerer Entscheidungsstand, eigener Eintrag', async () => {
+      await ersteGespeichert();
+
+      await svc.weitereTestnachricht(false);
+
+      expect(state.hatVorgabe()).toBeTrue();
+      expect(state.vorgabe()!.elemente[`${M}/az`]).toEqual({ status: 'v9' });
+      expect(state.messageCreate()).toEqual(
+        jasmine.objectContaining({
+          msgName: M,
+          entryId: null,
+          name: null,
+          profilId: 'p1',
+          profilName: 'Nachlass-Szenario',
+          fassung: 'Arbeitsstand vom 30.07.2026',
+        }),
+      );
+      // Werte der eben gespeicherten Nachricht sind nicht uebernommen.
+      expect(Object.values(state.elemente()).some((p) => p.beispiel)).toBeFalse();
+      expect(state.guided()).toBeTrue();
+      expect(state.view()).toBe('editor');
+    });
+
+    it('als Kopie: uebernimmt Werte und Entscheidungsstand', async () => {
+      await ersteGespeichert();
+      const kopfWert = state.elemente()[`${M}/kopf`]!.beispiel;
+      const nameWert = state.auspsOf(`${M}/anlage`)!.map((a) => `${M}/anlage@${a.id}/name`);
+
+      await svc.weitereTestnachricht(true);
+
+      expect(state.elemente()[`${M}/kopf`]?.beispiel).toBe(kopfWert);
+      expect(state.auspsOf(`${M}/anlage`)?.length).toBe(2);
+      for (const p of nameWert) expect(state.elemente()[p]?.beispiel).toBeTruthy();
+      expect(state.hatVorgabe()).toBeTrue();
+      expect(state.messageCreate()!.entryId).toBeNull();
+    });
+
+    it('als Kopie: der Durchlauf steht auf den noch offenen Punkten', async () => {
+      await ersteGespeichert();
+      const vorher = guided.fortschritt();
+
+      await svc.weitereTestnachricht(true);
+
+      // Uebernommene Entscheidungen zaehlen weiter als entschieden; offen bleibt,
+      // was auch in der Vorlage offen war (hier das optionale beteiligung).
+      expect(guided.fortschritt()).toEqual(vorher);
+      expect(guided.offenePflicht()).toBe(0);
+      expect(guided.nextOpen(null)).toBe(`${M}/beteiligung`);
+    });
+
+    it('leer: die Pflichtpunkte sind wieder offen', async () => {
+      await ersteGespeichert();
+      const vorher = guided.fortschritt();
+
+      await svc.weitereTestnachricht(false);
+
+      expect(guided.fortschritt().x).toBeLessThan(vorher.x);
+      expect(guided.offenePflicht()).toBeGreaterThan(0);
+    });
+
+    it('das erste Speichern legt einen eigenen Eintrag an — die Vorlage bleibt unberuehrt', async () => {
+      await ersteGespeichert();
+      await svc.weitereTestnachricht(true);
+
+      expect(await svc.speichern()).toBeTrue();
+
+      expect(created.length).toBe(2);
+      expect(patched.length).toBe(0); // der Ausgangseintrag wird nicht angefasst
+      expect(created[1]!.name).toBe('Testfall 2.xml');
+      // Dieselbe Bindung: Herkunft und eingefrorene Kopie wie beim Ausgangseintrag.
+      expect(created[1]!.profilId).toBe('p1');
+      expect(created[1]!.fassung).toBe('Arbeitsstand vom 30.07.2026');
+      expect(created[1]!.vorgabe!.elemente[`${M}/az`]).toEqual({ status: 'v9' });
+      expect(state.messageCreate()!.entryId).toBe('id-neu');
+    });
+
+    it('verweigert die Serie vor dem ersten Speichern und ohne Bindung', async () => {
+      arbeitsstand = doc();
+      await svc.neuAusProfil(profil, null);
+      await expectAsync(svc.weitereTestnachricht(false)).toBeRejected(); // noch nicht gespeichert
+
+      await svc.neuErstellen('3.6.2', M); // Einstieg aus dem Schema, keine Bindung
+      await expectAsync(svc.weitereTestnachricht(false)).toBeRejected();
+    });
+  });
 });

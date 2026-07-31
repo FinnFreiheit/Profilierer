@@ -302,6 +302,23 @@ export class App implements OnInit {
     }
   }
 
+  /**
+   * "Weitere Testnachricht zu diesem Profil": neue Sitzung mit derselben
+   * gebundenen Fassung — leer oder als Kopie der eben gespeicherten.
+   */
+  async onWeitereTestnachricht(alsKopie: boolean): Promise<void> {
+    try {
+      await this.testmessageCreate.weitereTestnachricht(alsKopie);
+      this.toast.show(
+        alsKopie
+          ? 'Weitere Testnachricht — Werte übernommen; das Speichern legt einen eigenen Eintrag an.'
+          : 'Weitere Testnachricht zu derselben Profilfassung — leer begonnen.',
+      );
+    } catch (e) {
+      this.toast.showError(e, 'Weitere Testnachricht konnte nicht begonnen werden.');
+    }
+  }
+
   onXrep(): void {
     this.codelists.loadFromXRepository();
   }
