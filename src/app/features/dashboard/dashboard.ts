@@ -15,6 +15,7 @@ import { NavService } from '../../core/services/nav.service';
 import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
 import { HinweisStoreService } from '../../core/services/hinweis-store.service';
+import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { LibraryEntry } from '../../models/profile.model';
 
@@ -47,6 +48,7 @@ export class Dashboard {
   private readonly nav = inject(NavService);
   private readonly vergleich = inject(VergleichService);
   private readonly hinweise = inject(HinweisStoreService);
+  private readonly testnachrichtStart = inject(TestnachrichtStartService);
   private readonly renameDlg = viewChild.required<ElementRef<HTMLDialogElement>>('renameDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
 
@@ -93,6 +95,17 @@ export class Dashboard {
     e.stopPropagation();
     this.hinweise.uebersichtAnfrage.set(true);
     this.open(id);
+  }
+
+  /**
+   * Einstieg an der Profil-Kachel (Issue #35): der gefuehrte Durchlauf mit
+   * Fassungswahl — derselbe Ablauf wie im Testdaten-Speicher, kein zweiter
+   * Weg. Die Kachel kennt ihn nur; gestartet wird er dort, wo er lebt.
+   */
+  protected testnachrichtErstellen(e: LibraryEntry, ev: Event): void {
+    ev.stopPropagation();
+    this.testnachrichtStart.anfrage.set(e);
+    this.state.view.set('testdaten');
   }
 
   /** Zum Testdaten-Speicher wechseln. */

@@ -12,7 +12,6 @@
     <div class="dashActions">
       <button class="primary" (click)="openUpload()">Testnachrichten hochladen…</button>
       <button (click)="openCreate()">Neue Testnachricht erstellen…</button>
-      <button (click)="openGenerate()">Aus Profilierung erzeugen…</button>
       <input
         class="tdSearch"
         type="search"
@@ -379,42 +378,6 @@
   }
   <div style="text-align: right; margin-top: 12px">
     <button (click)="createDlg.close()">Abbrechen</button>
-  </div>
-</dialog>
-
-<dialog #genDlg id="genDlg">
-  <h3 style="margin-top: 0">Testnachricht aus Profilierung erzeugen</h3>
-  <p class="dashSub" style="margin-top: 0">
-    Erzeugt eine Beispielnachricht mit Platzhalter- und Beispielwerten aus einer gespeicherten
-    Profilierung und legt sie im Testdatenspeicher ab.
-  </p>
-  @if (profilKandidaten().length) {
-    <div style="max-height: 50vh; overflow: auto">
-      @for (e of profilKandidaten(); track e.id) {
-        <button
-          style="display: block; width: 100%; text-align: left; margin-bottom: 6px"
-          [disabled]="!versionVerfuegbar(e) || generating() !== null"
-          [title]="versionVerfuegbar(e) ? '' : 'XJustiz-Version ist weder geladen noch hinterlegt'"
-          (click)="generateFrom(e)"
-        >
-          <b>{{ e.name || '(ohne Namen)' }}</b> — {{ e.nachricht }}
-          @if (e.xjustizVersion) {
-            <span class="pill">XJustiz {{ e.xjustizVersion }}</span>
-          }
-          @if (!versionVerfuegbar(e)) {
-            <span class="pill pillMuted">Version nicht verfügbar</span>
-          }
-          @if (generating() === e.id) {
-            <span>… wird erzeugt</span>
-          }
-        </button>
-      }
-    </div>
-  } @else {
-    <p>Keine Profilierung mit Nachrichtentyp vorhanden — zuerst im Profil-Dashboard anlegen.</p>
-  }
-  <div style="text-align: right; margin-top: 12px">
-    <button (click)="genDlg.close()">Schließen</button>
   </div>
 </dialog>
 

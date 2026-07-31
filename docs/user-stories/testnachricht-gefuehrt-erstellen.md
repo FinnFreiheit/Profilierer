@@ -217,7 +217,11 @@ Bereits vorhanden und wiederverwendbar:
   Nachrichten (Initialisierung des Entscheidungsstands aus dem Ist-Zustand).
 - **Echte XSD-Validierung** der erzeugten Datei (Backend-Ausbau, eigene Story).
 - Profilierungs-Bezug (Testnachricht _gegen eine Profilierung_ erzeugen/prüfen)
-  — „Aus Profilierung erzeugen" bleibt unverändert bestehen.
+  — dazu die eigene Story „Testnachricht aus einer Profilierung".
+  _Nachgezogen (Issue #35):_ „Aus Profilierung erzeugen" ist **entfallen**. Von
+  der Profilierung zur Testnachricht führt genau ein Weg — der geführte
+  Durchlauf mit Bindung, erreichbar über die Profil-Kachel im Dashboard und über
+  „Neue Testnachricht erstellen… → aus Profilierung".
 
 ## Betroffene Bausteine (Orientierung, kein Auftrag)
 

@@ -137,6 +137,14 @@
                 >
                   Umbenennen
                 </button>
+                @if (e.nachricht) {
+                  <button
+                    title="Testnachricht zu dieser Profilierung erstellen — geführter Durchlauf mit Wahl der zu bindenden Fassung"
+                    (click)="testnachrichtErstellen(e, $event)"
+                  >
+                    Testnachricht erstellen…
+                  </button>
+                }
                 <button
                   title="Als Kopie anlegen — die Kopie ist unmarkiert und frei bearbeitbar"
                   (click)="duplicate(e.id, $event)"
