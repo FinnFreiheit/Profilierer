@@ -93,6 +93,29 @@ export class StateService {
   }
 
   /**
+   * Derselbe Eintrag, aber wie der gebundene Durchlauf ihn sieht: Vorkommen
+   * erben die Aussage ihres Traegerelements. Ihre ids entstehen zur Laufzeit
+   * (`…/beteiligung@a1/rolle`), die Profilierung kann sie gar nicht adressieren
+   * — was generisch festgelegt ist, gilt darum in jedem Vorkommen. Nur wo die
+   * gebundene Fassung den Vorkommen-Pfad selbst fuehrt (eigene Auspraegungen),
+   * gewinnt der exakte Pfad. Gegenstueck zu `profilWirkungGeerbt` fuer Werte,
+   * Anmerkung und Beispielwert.
+   */
+  private vorgabeProfileGeerbt(path: string): ElementProfile | null {
+    return this.vorgabeProfile(path) ?? this.vorgabeProfile(ohneVorkommen(path));
+  }
+
+  /**
+   * Beispielwert **der Vorgabe** — was die gebundene Fassung an diesem Blatt
+   * vorschlaegt, unabhaengig davon, ob der Durchlauf schon etwas eingetragen
+   * hat. Er wird angeboten, nicht gesetzt (Spec "vorschlagen statt vorbelegen");
+   * darum eine eigene Lesart neben `beispielOf`, das die Entscheidung vorzieht.
+   */
+  vorgabeBeispiel(path: string): string | null {
+    return this.vorgabeProfileGeerbt(path)?.beispiel || null;
+  }
+
+  /**
    * Was die gebundene Fassung fuer diesen Pfad **festlegt** — unabhaengig davon,
    * ob der Durchlauf inzwischen eine eigene Entscheidung getroffen hat. Das ist
    * die Profil-Aussage, aus der die Fuehrung ihre Wirkungen und Marker ableitet:
@@ -328,7 +351,7 @@ export class StateService {
    * fehlender Eintrag tut das.
    */
   werteOf(path: string): string[] | null {
-    return this.elemente()[path]?.werte ?? this.vorgabeProfile(path)?.werte ?? null;
+    return this.elemente()[path]?.werte ?? this.vorgabeProfileGeerbt(path)?.werte ?? null;
   }
 
   /**
@@ -336,7 +359,7 @@ export class StateService {
    * Entscheidungspunkt). Ein leerer Text zaehlt wie keiner.
    */
   anmerkungOf(path: string): string | null {
-    return this.elemente()[path]?.anmerkung || this.vorgabeProfile(path)?.anmerkung || null;
+    return this.elemente()[path]?.anmerkung || this.vorgabeProfileGeerbt(path)?.anmerkung || null;
   }
 
   /**
@@ -345,7 +368,7 @@ export class StateService {
    * vorbelegen"); wer den Punkt beantwortet, schreibt in die Entscheidung.
    */
   beispielOf(path: string): string | null {
-    return this.elemente()[path]?.beispiel || this.vorgabeProfile(path)?.beispiel || null;
+    return this.elemente()[path]?.beispiel || this.vorgabeBeispiel(path);
   }
 
   /** Verweisziel-Pfad (Z.1179-1183) — Entscheidung, sonst Vorgabe. */

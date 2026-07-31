@@ -1040,6 +1040,12 @@ app-detail-panel {
   border-left-color: #e2c469;
   color: #8a6400;
 }
+/* Fachliche Anmerkung der gebundenen Profilierung als Hilfetext. */
+.guidedSec .gAnm {
+  border-left: 3px solid var(--accent);
+  padding-left: 6px;
+  color: var(--text);
+}
 // Auch ausserhalb des gefuehrten Blocks verwendet (Fassungswahl im
 // Erstellen-Dialog des Testdatenspeichers) — daher ohne Vorfahren-Bindung.
 .gZweig {
@@ -1104,10 +1110,30 @@ app-detail-panel {
   border-color: #8a8f9866;
   color: #6b7078;
 }
+/* Vorschlag der gebundenen Profilierung — kursiv angeboten, nicht gesetzt. */
+.wertVorschlag {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.wertVorschlag em {
+  color: var(--text);
+}
+.wertVorschlag button {
+  flex: none;
+}
 .wertRow {
   display: flex;
   gap: 6px;
   align-items: flex-start;
+}
+.wertRow textarea[readonly] {
+  background: var(--bg);
+  color: var(--muted);
 }
 .wertRow textarea {
   flex: 1;

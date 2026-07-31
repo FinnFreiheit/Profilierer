@@ -95,6 +95,17 @@ export interface WerteSicht<T> {
   erzwungen: boolean;
 }
 
+/**
+ * Der reine Code eines freigegebenen Eintrags: Codelisten-Einschraenkungen
+ * entstehen entweder aus der Werteliste (dann steht dort nur der Code) oder aus
+ * dem Freitextfeld fuer extern gepflegte Listen ("2001 — Genehmigung …").
+ */
+function codeAus(eintrag: string): string {
+  return String(eintrag)
+    .split(/\s+[—–-]\s+|\t/)[0]!
+    .trim();
+}
+
 /** Ein Blatt-Knoten fuer die Platzhalter-Berechnung (Teilmenge von TreeNode). */
 export interface PlaceholderNode {
   name: string;
@@ -164,6 +175,39 @@ export class ValueService {
   }
 
   /**
+   * Verstoss gegen die Werte-Einschraenkung an diesem Pfad — Text, wenn der Wert
+   * nicht freigegeben ist, sonst null. Grundlage der Eingabesperre im
+   * Nachrichten-Modus: dort ist die Einschraenkung hart, auswaehlbar sind nur
+   * die freigegebenen Werte (Spec "Testnachricht aus einer Profilierung").
+   * Verglichen wird der reine Code, damit auch manuell gepflegte Eintraege
+   * („2001 — Genehmigung …") greifen.
+   */
+  werteVerstoss(path: string, wert: string): string | null {
+    const w = (wert ?? '').trim();
+    if (!w) return null;
+    const werte = this.state.werteOf(path);
+    if (!werte || werte.some((e) => codeAus(e) === w)) return null;
+    return `„${w}" ist in der gebundenen Profilierung nicht freigegeben.`;
+  }
+
+  /**
+   * Auswaehlbare Zeilen aus den freigegebenen Eintraegen der Profilierung — der
+   * Ausweg, solange die Codeliste selbst nicht geladen ist (extern gepflegte
+   * Liste). Ohne sie bliebe im gebundenen Durchlauf eine harte Einschraenkung
+   * ohne Auswahl uebrig, obwohl die freie Eingabe gesperrt ist. Ein Eintrag der
+   * Form „2001 — Genehmigung …" wird in Code und Beschreibung zerlegt.
+   */
+  werteZeilen(werte: readonly string[]): EnumWert[] {
+    return werte.map((eintrag) => {
+      const code = codeAus(eintrag);
+      const rest = String(eintrag)
+        .slice(code.length)
+        .replace(/^\s*[—–-]\s*|^\t/, '');
+      return { value: code, label: rest.trim() };
+    });
+  }
+
+  /**
    * Folgezustand des Umschalters „alle zeigen". `vorher = null` heisst
    * Elementwechsel — dann beginnt die Ansicht wieder bei „nur zugelassene"
    * (AC "der Umschalter steht bei jedem Elementwechsel wieder auf nur
@@ -180,6 +224,23 @@ export class ValueService {
    */
   naechsterUmschalter(vorher: boolean | null, erzwungen: boolean): boolean {
     return erzwungen || (vorher ?? false);
+  }
+
+  /**
+   * Was die gebundene Profilierung an diesem Punkt **vorschlaegt** — null ohne
+   * Bindung und ohne Festlegung. Der Vorschlag wird angeboten („uebernehmen"),
+   * nie in das Feld geschrieben: ein vorbelegtes Feld wird nicht mehr angesehen,
+   * und genau das soll die Fuehrung vermeiden (Spec "Testnachricht aus einer
+   * Profilierung", Abschnitt "Vorschlagen statt vorbelegen").
+   */
+  vorschlagFor(path: string): string | null {
+    if (!this.state.hatVorgabe()) return null;
+    const beispiel = this.state.vorgabeBeispiel(path);
+    if (beispiel) return beispiel;
+    // Auf genau einen Wert eingeschraenkte Codeliste: auch sie wird nur
+    // vorgeschlagen — im ganzen Durchlauf gilt dieselbe Regel.
+    const werte = this.state.werteOf(path);
+    return werte && werte.length === 1 ? codeAus(werte[0]!) : null;
   }
 
   /**
@@ -231,11 +292,21 @@ export class ValueService {
         if (num != null) return String(num);
       }
     }
+    // Gebundener Durchlauf: der Vorschlag der Profilierung geht dem Zufall vor —
+    // auch der schnelle Weg soll keine Werte ausserhalb des Szenarios erzeugen
+    // (Spec "Testnachricht aus einer Profilierung"). Erst nach den Verweisen:
+    // deren Nummer vergibt das Werkzeug an beiden Enden, ein fester Wert aus der
+    // Profilierung wuerde den Verweis zerreissen. Ohne Bindung: null.
+    const vorschlag = this.vorschlagFor(n.path);
+    if (vorschlag) return vorschlag;
+
     if (n.codelist) {
-      if (p.werte && p.werte.length)
-        return String(p.werte[0])
-          .split(/\s+[—–-]\s+|\t/)[0]!
-          .trim();
+      // Freigegebene Werte ueber die effektive Lesart: im gebundenen Durchlauf
+      // steht die Einschraenkung in der Vorgabe, beim Profilieren im eigenen
+      // Eintrag. Ein leeres Array ("keine zugelassen") laesst nichts uebrig —
+      // dann bleibt nur die volle Liste, den Widerspruch meldet der Abgleich.
+      const werte = this.state.werteOf(n.path);
+      if (werte && werte.length) return codeAus(werte[0]!);
       const eff = this.clWerte(n.codelist);
       if (eff && eff.length) return eff[0]!.value;
       return 'CODE';

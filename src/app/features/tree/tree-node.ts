@@ -197,7 +197,13 @@ export class TreeNode {
       const listId = 'dl' + n.id + '_' + (it.kind === 'ausp' ? it.ausp.id : 'e');
       const werte = n.codelist ? this.values.clWerte(n.codelist) || [] : [];
       if (werte.length) {
-        const allowed = pe.werte ? new Set(pe.werte) : null;
+        // Effektive Einschraenkung: im gebundenen Durchlauf steht sie in der
+        // Vorgabe. Verglichen wird der reine Code (manuelle Eintraege tragen
+        // ihre Beschreibung mit).
+        const eingeschraenkt = this.state.werteOf(path);
+        const allowed = eingeschraenkt
+          ? new Set(this.values.werteZeilen(eingeschraenkt).map((w) => w.value))
+          : null;
         datalist = {
           id: listId,
           options: werte.filter((w) => !allowed || allowed.has(w.value)).slice(0, 300),
@@ -476,7 +482,17 @@ export class TreeNode {
   }
 
   protected onValue(e: Event): void {
-    const v = (e.target as HTMLInputElement).value.trim();
+    const input = e.target as HTMLInputElement;
+    const v = input.value.trim();
+    // Nachrichten-Modus: die Werte-Einschraenkung der Profilierung ist hart —
+    // ein nicht freigegebener Wert wird nicht uebernommen (Spec "Codelisten
+    // hart einschraenken"). Beim Profilieren bleibt der Beispielwert frei.
+    const verstoss = this.state.msgMode() ? this.values.werteVerstoss(this.path(), v) : null;
+    if (verstoss) {
+      this.toast.show(verstoss + ' Zulässig sind nur die Werte aus der Liste.');
+      input.value = this.state.elemente()[this.path()]?.beispiel ?? '';
+      return;
+    }
     this.state.setElementProfile(this.path(), { beispiel: v || undefined });
   }
 
