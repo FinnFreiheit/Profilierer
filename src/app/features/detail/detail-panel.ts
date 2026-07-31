@@ -59,6 +59,15 @@ export class DetailPanel {
   /** Betrachtungsmodus: Editier-Controls werden im Template ausgeblendet. */
   protected readonly ro = this.state.readOnly;
 
+  /**
+   * Betrachtungsmodus des ausgewaehlten Punkts: global schreibgeschuetzt **oder**
+   * von der gebundenen Profilfassung ausgeschlossen. Gesperrtes traegt keine
+   * Bedienelemente, sondern nur die Lese-Ansicht — das Template gattert daran
+   * statt an `ro()`, sonst blieben Wert, Anmerkung, Vorkommen, Codelisten-Auswahl
+   * und Verweisziel an einem ausgeschlossenen Element bedienbar.
+   */
+  protected readonly roEff = computed(() => this.ro() || !!this.vm()?.gesperrt);
+
   /** Nachrichten-Modus: eine Instanz wird erstellt oder bearbeitet (Werte statt Profil). */
   protected readonly msgMode = this.state.msgMode;
 

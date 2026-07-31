@@ -4,7 +4,7 @@
     @if (v.isAusp) {
       <div class="dsec">
         <label>Name der Ausprägung</label>
-        @if (ro()) {
+        @if (roEff()) {
           <div class="docbox">{{ v.auspName }}</div>
         } @else {
           <input
@@ -42,7 +42,7 @@
     }
 
     @if (v.erw; as erw) {
-      @if (!ro() && !msgMode()) {
+      @if (!roEff() && !msgMode()) {
         <div class="dsec">
           <label>Schema-Erweiterung bearbeiten</label>
           <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
@@ -244,9 +244,7 @@
       </div>
     }
 
-    <!-- Gesperrtes (Ausschluss der gebundenen Profilfassung) bekommt keine
-         Bedienelemente, sondern nur die Lese-Ansicht darunter. -->
-    @if (!ro() && !v.gesperrt) {
+    @if (!roEff()) {
       <!-- Im gefuehrten Modus ersetzt der Guided-Block den vollen Status-Strip
            (drei Dispositionen statt aller konfigurierten Stufen). Bei der
            Testnachricht-Erstellung gibt es keine Status-/Kardinalitaets-
@@ -309,10 +307,10 @@
       }
     }
 
-    @if (v.showAusps && (v.auspList.length || (msgMode() && !ro()))) {
+    @if (v.showAusps && (v.auspList.length || (msgMode() && !roEff()))) {
       <div class="dsec">
         <label>{{ msgMode() ? 'Vorkommen' : 'Ausprägungen' }}</label>
-        @if (ro()) {
+        @if (roEff()) {
           <div id="auspList">
             @for (a of v.auspList; track a.id) {
               <div class="docbox">{{ a.name }}</div>
@@ -378,7 +376,7 @@
           </div>
         }
         @if (cl.eff) {
-          @if (!ro() && !msgMode()) {
+          @if (!roEff() && !msgMode()) {
             <div class="clTools">
               <a (click)="clAll()">alle</a>
               <a (click)="clNone()">keine</a>
@@ -391,7 +389,7 @@
               </span>
             </div>
           }
-          @if (!ro() && msgMode()) {
+          @if (!roEff() && msgMode()) {
             <div style="font-size: 12px; color: var(--muted); margin-bottom: 5px">
               Klick auf einen Wert übernimmt ihn in das Feld.
             </div>
@@ -407,7 +405,7 @@
           }
           <div class="clWrap">
             @for (w of filteredEff(); track w.value) {
-              @if (ro()) {
+              @if (roEff()) {
                 <div
                   class="clRow"
                   [class.belegt]="w.belegt"
@@ -442,7 +440,7 @@
           </div>
         } @else {
           <div class="extern">Werte extern gepflegt (Code-Typ 3, XRepository).</div>
-          @if (!ro()) {
+          @if (!roEff()) {
             <div style="margin: 6px 0">
               <button (click)="fetchSingle()">Diese Liste aus dem XRepository laden</button>
             </div>
@@ -465,7 +463,7 @@
     @if (v.ref; as ref) {
       <div class="dsec">
         <label>Verweisziel im Szenario ({{ ref.label }})</label>
-        @if (ro()) {
+        @if (roEff()) {
           <div style="display: flex; gap: 6px; align-items: center">
             <span class="docbox" style="flex: 1">{{ ref.curLabel }}</span>
             @if (ref.cur) {
@@ -493,7 +491,7 @@
       </div>
     }
 
-    @if (!ro()) {
+    @if (!roEff()) {
       <!-- Review-Notizen gehoeren zur Profilierung, nicht in eine Instanz. -->
       @if (!msgMode()) {
         <div class="dsec">

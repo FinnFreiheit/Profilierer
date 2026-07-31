@@ -983,7 +983,9 @@ app-detail-panel {
   color: var(--muted);
   margin-bottom: 6px;
 }
-.guidedSec .gZweig {
+// Auch ausserhalb des gefuehrten Blocks verwendet (Fassungswahl im
+// Erstellen-Dialog des Testdatenspeichers) — daher ohne Vorfahren-Bindung.
+.gZweig {
   display: flex;
   gap: 6px;
   align-items: center;
