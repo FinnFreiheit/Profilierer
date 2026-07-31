@@ -239,6 +239,15 @@ export class ProfileStoreService {
 
   // ── Index-Signal pflegen ────────────────────────────────────────────
 
+  /**
+   * Einen vom Server gelieferten Eintrag uebernehmen — auch aus fremder Hand:
+   * die Hinweis-Endpunkte geben ihn nach jedem Schreibvorgang zurueck, damit
+   * die Zaehler der Dashboard-Karte ohne Neuladen stimmen (Issue #43).
+   */
+  uebernehmeEntry(entry: LibraryEntry): void {
+    this.putEntry(entry);
+  }
+
   /** Eintrag ersetzen/voranstellen und nach aktualisiert absteigend sortieren. */
   private putEntry(entry: LibraryEntry): void {
     this.entries.update((list) => {

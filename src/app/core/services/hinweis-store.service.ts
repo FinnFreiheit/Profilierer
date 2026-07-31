@@ -1,7 +1,9 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Hinweis } from '../../models/profile.model';
+import { Hinweis, LibraryEntry } from '../../models/profile.model';
 import { LoggerService } from './logger.service';
 import { RolleService } from './rolle.service';
+import { Injector } from '@angular/core';
+import { ProfileStoreService } from './profile-store.service';
 import { HinweisEingabe, unterPfad } from '../util/hinweis.util';
 
 /** Basis-URL der Profil-API (wie im ProfileStoreService: relativ, gegen <base href>). */
@@ -44,6 +46,20 @@ export class HinweisFehler extends Error {
 export class HinweisStoreService {
   private readonly log = inject(LoggerService);
   private readonly rolle = inject(RolleService);
+  /**
+   * Nur, um den vom Server mitgelieferten Index-Eintrag durchzureichen: die
+   * Zaehler der Dashboard-Karte sollen ohne Neuladen stimmen (Issue #43). Der
+   * Store bleibt sonst "dumm" — er kennt weder StateService noch Oeffnen-Fluss.
+   *
+   * Bewusst **spaet** aufgeloest: der Profil-Store laedt in seinem Konstruktor
+   * den Bibliotheks-Index nach, und dieser Store soll ihn nicht allein durch
+   * seine Existenz anstossen.
+   */
+  private readonly injector = inject(Injector);
+
+  private uebernehmeEntry(entry: LibraryEntry): void {
+    this.injector.get(ProfileStoreService).uebernehmeEntry(entry);
+  }
 
   /**
    * Selbst angelegte Hinweise dieser Sitzung: id -> Urheber-Geheimnis (#42).
@@ -57,6 +73,15 @@ export class HinweisStoreService {
 
   /** Hinweise des offenen Profils, in Server-Reihenfolge. */
   readonly hinweise = signal<Hinweis[]>([]);
+
+  /**
+   * Bitte um die Hinweis-Uebersicht (Issue #43): das Dashboard-Badge oeffnet
+   * die Profilierung **und** die Uebersicht. Weil der Dialog erst mit der
+   * Editor-Ansicht entsteht, laeuft die Bitte ueber ein Signal statt ueber
+   * einen direkten Aufruf — der Dialog nimmt sie beim Erscheinen entgegen und
+   * setzt sie zurueck.
+   */
+  readonly uebersichtAnfrage = signal(false);
 
   /**
    * Der gemerkte Autorname (Issue #40). Reine Selbstauskunft: er wandert als
@@ -188,10 +213,14 @@ export class HinweisStoreService {
     const id = this.profilId();
     if (!id || !text.trim()) return null;
     const autor = this.autor().trim();
-    const { hinweis } = await this.req<{ hinweis: Hinweis & { token?: string } }>(this.pfad(id), {
+    const { hinweis, entry } = await this.req<{
+      hinweis: Hinweis & { token?: string };
+      entry?: LibraryEntry;
+    }>(this.pfad(id), {
       method: 'POST',
       body: JSON.stringify({ pfad, text: text.trim(), autor: autor || undefined }),
     });
+    if (entry) this.uebernehmeEntry(entry);
     // Urheber-Merkmal (Issue #42): nur in dieser Antwort. Damit darf der
     // Anleger seinen eigenen Eintrag in **derselben Sitzung** noch korrigieren
     // oder zuruecknehmen, auch ohne AG-Schluessel an einem abgenommenen Profil.
@@ -206,10 +235,11 @@ export class HinweisStoreService {
   async aendern(hinweisId: string, patch: { text?: string; erledigt?: boolean }): Promise<void> {
     const id = this.profilId();
     if (!id) return;
-    const { hinweis } = await this.req<{ hinweis: Hinweis }>(
+    const { hinweis, entry } = await this.req<{ hinweis: Hinweis; entry?: LibraryEntry }>(
       this.pfad(id, `/${encodeURIComponent(hinweisId)}`),
       { method: 'PATCH', body: JSON.stringify(patch), headers: this.urheberHeader(hinweisId) },
     );
+    if (entry) this.uebernehmeEntry(entry);
     this.hinweise.update((l) => l.map((h) => (h.id === hinweisId ? hinweis : h)));
   }
 
@@ -217,10 +247,11 @@ export class HinweisStoreService {
   async loeschen(hinweisId: string): Promise<void> {
     const id = this.profilId();
     if (!id) return;
-    await this.req<void>(this.pfad(id, `/${encodeURIComponent(hinweisId)}`), {
-      method: 'DELETE',
-      headers: this.urheberHeader(hinweisId),
-    });
+    const antwort = await this.req<{ entry?: LibraryEntry } | undefined>(
+      this.pfad(id, `/${encodeURIComponent(hinweisId)}`),
+      { method: 'DELETE', headers: this.urheberHeader(hinweisId) },
+    );
+    if (antwort?.entry) this.uebernehmeEntry(antwort.entry);
     this.eigene.delete(hinweisId);
     this.hinweise.update((l) => l.filter((h) => h.id !== hinweisId));
   }

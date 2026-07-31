@@ -150,6 +150,10 @@ export interface LibraryEntry {
   abnahmeKommentar?: string;
   /** Arbeitsstand weicht vom eingefrorenen Abnahme-Stand ab (Warn-Badge). */
   geaendertSeitAbnahme?: boolean;
+  /** Offene Hinweise am Profil (Rueckmelde-Badge der Karte, #43). */
+  nHinweiseOffen?: number;
+  /** Davon von Externen — der Klammerzusatz des Badges. */
+  nHinweiseExtern?: number;
 }
 
 /** Metadaten einer Profil-Version (Liste im Versions-Dialog, ohne doc). */

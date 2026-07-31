@@ -298,7 +298,12 @@ export function openDb(path) {
               EXISTS(SELECT 1 FROM profile_versions v
                      WHERE v.profile_id = profiles.id AND v.doc_hash = profiles.doc_hash) AS bekannt,
               ab.nr AS abn_nr, ab.erstellt AS abn_zeit, ab.kommentar AS abn_kommentar,
-              ab.doc_hash AS abn_hash
+              ab.doc_hash AS abn_hash,
+              (SELECT COUNT(*) FROM hinweise h
+               WHERE h.profil_id = profiles.id AND h.erledigt IS NULL) AS hw_offen,
+              (SELECT COUNT(*) FROM hinweise h
+               WHERE h.profil_id = profiles.id AND h.erledigt IS NULL AND h.rolle = 'extern')
+                AS hw_extern
        FROM profiles LEFT JOIN profile_versions ab ON ab.id = profiles.abnahme_version_id
        ORDER BY aktualisiert DESC`,
     ),
@@ -376,6 +381,14 @@ export function openDb(path) {
     hwDel: db.prepare('DELETE FROM hinweise WHERE id = ? AND profil_id = ?'),
     hwDelAll: db.prepare('DELETE FROM hinweise WHERE profil_id = ?'),
     hwCount: db.prepare('SELECT COUNT(*) AS n FROM hinweise WHERE profil_id = ?'),
+    // Offene Hinweise je Profil, davon von Externen (Issue #43). Gezaehlt wird
+    // die Rolle, die der **Server** gestempelt hat; migrierte Altbestaende ohne
+    // Rolle zaehlen nur in die Gesamtzahl.
+    hwOffen: db.prepare(
+      `SELECT COUNT(*) AS offen,
+              SUM(CASE WHEN rolle = 'extern' THEN 1 ELSE 0 END) AS extern
+       FROM hinweise WHERE profil_id = ? AND erledigt IS NULL`,
+    ),
 
     // ── Testnachrichten (zentraler Testdaten-Speicher) ──────────────────
     tmList: db.prepare(`SELECT ${TM_COLS} ${TM_FROM} ORDER BY t.aktualisiert DESC`),
@@ -489,6 +502,17 @@ export function openDb(path) {
    * Einziger Anreicherungs-Pfad — alle Entry-liefernden Methoden muessen hier
    * durch, sonst "flackert" das Kennzeichen je nach Operation.
    */
+  /**
+   * Hinweis-Zaehler des LibraryEntry (Issue #43): offene gesamt und davon von
+   * Externen. Ohne offene Hinweise bleiben beide Felder weg — die Karte zeigt
+   * das Badge dann gar nicht.
+   */
+  function hinweisInfo(profileId) {
+    const r = stmt.hwOffen.get(profileId);
+    if (!r || !r.offen) return {};
+    return { nHinweiseOffen: r.offen, nHinweiseExtern: r.extern || undefined };
+  }
+
   function versionsInfo(profileId, aktuellerHash) {
     const r = stmt.verInfo.get({ pid: profileId, hash: aktuellerHash });
     if (!r || !r.n) return {};
@@ -553,7 +577,7 @@ export function openDb(path) {
       gespeichert: entry.gespeichert ?? null,
       aktualisiert: ts,
     });
-    return { ...entry, ...versionsInfo(id, hash) };
+    return { ...entry, ...versionsInfo(id, hash), ...hinweisInfo(id) };
   }
 
   const api = {
@@ -579,7 +603,26 @@ export function openDb(path) {
         abnahmeZeit: r.abn_zeit ?? undefined,
         abnahmeKommentar: r.abn_kommentar ?? undefined,
         geaendertSeitAbnahme: r.abn_nr != null && r.abn_hash !== r.doc_hash ? true : undefined,
+        // Rueckmeldungen sichtbar machen (Issue #43): ohne offene Hinweise
+        // bleiben beide Felder weg, die Karte zeigt dann kein Badge.
+        nHinweiseOffen: r.hw_offen || undefined,
+        nHinweiseExtern: r.hw_extern || undefined,
       }));
+    },
+
+    /**
+     * Der LibraryEntry eines einzelnen Profils (oder null) — die Hinweis-Routen
+     * geben ihn nach jedem Schreibvorgang zurueck, damit die Dashboard-Zaehler
+     * ohne Neuladen stimmen (Issue #43).
+     */
+    entry(id) {
+      const row = stmt.getRow.get(id);
+      if (!row) return null;
+      return {
+        ...toEntry(id, JSON.parse(row.doc), row.aktualisiert),
+        ...versionsInfo(id, row.doc_hash),
+        ...hinweisInfo(id),
+      };
     },
 
     /** Das komplette ProfileDoc zu einer id oder null. */
@@ -827,6 +870,7 @@ export function openDb(path) {
         const entry = () => ({
           ...toEntry(profileId, JSON.parse(row.doc), row.aktualisiert),
           ...versionsInfo(profileId, row.doc_hash),
+          ...hinweisInfo(profileId),
         });
         const info = stmt.verInfo.get({ pid: profileId, hash: row.doc_hash });
         if (automatisch && info.bekannt) {
@@ -901,6 +945,7 @@ export function openDb(path) {
       return {
         ...toEntry(profileId, JSON.parse(row.doc), row.aktualisiert),
         ...versionsInfo(profileId, row.doc_hash),
+        ...hinweisInfo(profileId),
       };
     },
 

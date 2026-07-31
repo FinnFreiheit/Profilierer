@@ -14,6 +14,7 @@ import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
 import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
+import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { LibraryEntry } from '../../models/profile.model';
 
@@ -45,15 +46,25 @@ export class Dashboard {
   private readonly state = inject(StateService);
   private readonly nav = inject(NavService);
   private readonly vergleich = inject(VergleichService);
+  private readonly hinweise = inject(HinweisStoreService);
   private readonly renameDlg = viewChild.required<ElementRef<HTMLDialogElement>>('renameDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
 
   /** Filter "nur abgenommene" (valide Vorlagen der BLK-AG schnell finden). */
   protected readonly nurAbgenommene = signal(false);
 
+  /**
+   * Filter "nur mit offenen Hinweisen" (Issue #43): die AG grenzt ihre
+   * Sitzungsvorbereitung auf das ein, wo Rueckmeldungen liegen. Kombinierbar
+   * mit "nur abgenommene" — beide Filter greifen nacheinander.
+   */
+  protected readonly nurMitHinweisen = signal(false);
+
   /** Abgenommene Vorlagen als eigener Abschnitt oben, uebriger Bestand darunter. */
   protected readonly sektionen = computed<Sektion[]>(() => {
-    const alle = this.store.entries();
+    const alle = this.nurMitHinweisen()
+      ? this.store.entries().filter((e) => !!e.nHinweiseOffen)
+      : this.store.entries();
     const abgenommen = alle.filter((e) => e.abgenommen);
     const s: Sektion[] = [];
     if (abgenommen.length) s.push({ titel: 'Von der BLK-AG abgenommen', items: abgenommen });
@@ -63,6 +74,26 @@ export class Dashboard {
       s.push({ titel: abgenommen.length ? 'Weitere Profilierungen' : null, items: rest });
     return s;
   });
+
+  /**
+   * Beschriftung des Rueckmelde-Badges: "3 Hinweise (2 extern)". Ohne externe
+   * Rueckmeldungen entfaellt der Klammerzusatz (Issue #43).
+   */
+  protected hinweisBadge(e: LibraryEntry): string {
+    const n = e.nHinweiseOffen ?? 0;
+    const extern = e.nHinweiseExtern ?? 0;
+    return `${n} ${n === 1 ? 'Hinweis' : 'Hinweise'}${extern ? ` (${extern} extern)` : ''}`;
+  }
+
+  /**
+   * Klick auf das Badge: Profilierung oeffnen und die Hinweis-Uebersicht
+   * gleich mit — der Weg von "wo liegt etwas?" zu "was steht da?" (Issue #43).
+   */
+  protected zeigeHinweise(id: string, e: Event): void {
+    e.stopPropagation();
+    this.hinweise.uebersichtAnfrage.set(true);
+    this.open(id);
+  }
 
   /** Zum Testdaten-Speicher wechseln. */
   protected goTestdaten(): void {
