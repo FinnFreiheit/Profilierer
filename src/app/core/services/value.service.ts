@@ -164,6 +164,25 @@ export class ValueService {
   }
 
   /**
+   * Folgezustand des Umschalters „alle zeigen". `vorher = null` heisst
+   * Elementwechsel — dann beginnt die Ansicht wieder bei „nur zugelassene"
+   * (AC "der Umschalter steht bei jedem Elementwechsel wieder auf nur
+   * zugelassene"), es sei denn, am neuen Element ist ohnehin alles
+   * ausgeschlossen.
+   *
+   * Der Punkt der Funktion ist der **Uebergang**: Solange alle Werte
+   * ausgeschlossen sind, ist „alle zeigen" erzwungen — faellt der Zwang weg,
+   * weil der erste Wert zugelassen wird, muss der Umschalter *an* bleiben.
+   * Sonst kollabierte die Liste genau in dem Moment auf die eine gerade
+   * angehakte Zeile, und der Ablauf „von keine ausgehend fuenf Werte zulassen"
+   * braeuchte nach jedem Haken einen Klick auf „alle zeigen". Deshalb schreibt
+   * der Zwang den Zustand, statt ihn nur zu ueberlagern.
+   */
+  naechsterUmschalter(vorher: boolean | null, erzwungen: boolean): boolean {
+    return erzwungen || (vorher ?? false);
+  }
+
+  /**
    * clVersion (Z.803-807): Version einer Codeliste. Die im XSD fixierte
    * `listVersionID` hat Vorrang — nur sie besteht die Schemavalidierung;
    * sonst die Version der aus dem XRepository geladenen Liste.
