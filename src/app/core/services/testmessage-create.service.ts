@@ -22,6 +22,7 @@ import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
 import { ValidationMarkerService } from './validation-marker.service';
 import { ValueService } from './value.service';
+import { KonformitaetService } from './konformitaet.service';
 import { ReportEintrag } from '../../models/validation.model';
 
 /**
@@ -50,6 +51,7 @@ export class TestmessageCreateService {
   private readonly marker = inject(ValidationMarkerService);
   /** Nur fuer die Codelisten-Deckung in `meldeWidersprueche`. */
   private readonly values = inject(ValueService);
+  private readonly konformitaet = inject(KonformitaetService);
 
   /**
    * Neue Sitzung: Schema der Version sicherstellen, Nachricht laden (leerer
@@ -351,6 +353,14 @@ export class TestmessageCreateService {
     let entwurf = kritisch > 0;
     let fehlerEintraege: ReportEintrag[] | null = null;
     let nurErweiterungen = false;
+
+    // Profilkonformitaet wird geprueft, nicht behauptet (#31): der Abgleich
+    // laeuft **neben** der Schemavalidierung und aus demselben Grund — eine
+    // Nachricht kann spaeter bearbeitet oder gegen eine geaenderte Fassung
+    // fortgesetzt werden, das Erzwingen im Durchlauf traegt dann nicht mehr.
+    const verstoesse = this.pruefeKonformitaet();
+    if (verstoesse.length) entwurf = true;
+
     if (!entwurf) {
       const pruefung = await this.validator.validiere(xml);
       if (pruefung.status !== 'valide') {
@@ -399,7 +409,20 @@ export class TestmessageCreateService {
       this.state.messageCreate.set({ ...session, entryId: id, name });
     }
     const marker = this.markerHinweis();
-    if (fehlerEintraege) {
+    if (verstoesse.length) {
+      // Der Konformitaets-Befund geht dem Schemafehler vor: er sagt, dass die
+      // Nachricht das Szenario verlaesst — die Schemapruefung lief in diesem
+      // Fall gar nicht erst (entwurf war schon gesetzt).
+      this.toast.show(
+        `Als Entwurf gespeichert — ${verstoesse.length} Abweichung${verstoesse.length === 1 ? '' : 'en'} von der Profilierung.` +
+          marker,
+      );
+      this.report.zeigeMitPfaden(
+        'Als Entwurf gespeichert — nicht profilkonform',
+        verstoesse.map((v) => ({ pfad: v.pfad, text: v.text })),
+        'Die Nachricht weicht von der gebundenen Profilfassung ab. Ein Klick springt zum betroffenen Element.',
+      );
+    } else if (fehlerEintraege) {
       this.toast.show('Als Entwurf gespeichert — die Nachricht ist nicht schema-valide.' + marker);
       this.report.zeigeMitPfaden(
         'Als Entwurf gespeichert — Nachricht nicht schema-valide',
@@ -415,6 +438,29 @@ export class TestmessageCreateService {
       );
     }
     return true;
+  }
+
+  /**
+   * Abgleich der Nachricht gegen die gebundene Fassung (#31) — leer ohne
+   * Bindung. Das Blatt-Wissen kommt aus dem Baum: ob ein Pfad selbst einen Wert
+   * traegt, steht im Schema und nicht in den beiden Dokumenten; der Abgleich
+   * selbst bleibt dadurch zustandslos.
+   */
+  private pruefeKonformitaet(): { pfad: string; text: string }[] {
+    const vorgabe = this.state.vorgabe();
+    if (!vorgabe) return [];
+    return this.konformitaet.pruefe(
+      vorgabe,
+      { elemente: this.state.elemente(), auspraegungen: this.state.auspraegungen() },
+      {
+        istBlatt: (pfad) => {
+          const it = this.nav.findItemByPath(pfad);
+          if (!it) return false;
+          const node = it.kind === 'el' ? it.node : this.tree.ctxNode(it.parentNode, it.ausp.id);
+          return this.tree.isLeaf(node);
+        },
+      },
+    );
   }
 
   /**

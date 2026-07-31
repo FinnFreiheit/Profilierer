@@ -16,6 +16,7 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `ExportService`                | Schematron-, Beispiel-XML-Export, Druckzeilen (+ Guard für offene Entscheidungen)                                     |
 | `ExcelExportService`           | Excel-Export im NGem-Abstimmungslayout (ExcelJS, dynamisch geladen)                                                   |
 | `GuidedService`                | Geführter Modus: offene Entscheidungspunkte, Fortschritt, Sprung zum nächsten Punkt                                   |
+| `KonformitaetService`          | Zustandsloser Abgleich Testnachricht ↔ eingefrorene Profilkopie (Verstoßliste)                                        |
 | `DiffService`                  | Versionsvergleich (flach), Diff-Karte, Vergleichsordner laden                                                         |
 | `ProfilDiffService`            | Feldgenauer Vergleich zweier Profil-Dokumente (Arbeitsstand ↔ Version/Abnahme)                                        |
 | `XmlDiffService`               | Struktureller Vergleich zweier XJustiz-Instanzen (Testnachricht ↔ Abnahme-Fassung)                                    |
@@ -222,6 +223,16 @@ Zwei Fallen der **Neu-Erzeugung**, die vorher unter dem Klonen verborgen lagen:
 Die beiden Speicherwege behandeln invalides XML bewusst **unterschiedlich**: das Zurückschreiben bietet nach Rückfrage den Entwurf an (für Nachrichten gibt es kein Autosave — ein Speicher-Verbot würde Arbeit vernichten), während ein _neuer_ Eintrag dasselbe harte Tor wie der Upload durchläuft. Eine reparierte Nachricht verliert ihr Entwurfs-Kennzeichen wieder, weil `entwurf` bei jedem Zurückschreiben mitgesendet wird.
 
 Beide Erzeugungswege behandeln Validierungsfehler, die **nur** auf bekannte Schema-Erweiterungen zurückgehen, als bewusste Abweichung: kein Entwurfs-Kennzeichen, Download bleibt frei (Klassifikation via `ValidationMarkerService`).
+
+## KonformitaetService
+
+Abgleich einer Testnachricht gegen die eingefrorene Profilkopie — „profilkonform" wird geprüft, nicht behauptet (Issue #31). `pruefe(vorgabe, instanz, umgebung?)` ist **zustandslos**: der Dienst liest weder Store noch Sitzung, sondern bekommt die gebundene Fassung (`ProfileDoc`) und das Instanz-Modell (`elemente`/`auspraegungen`) übergeben. Damit läuft er auch über einen gespeicherten Eintrag ohne laufende Sitzung — und genau darum geht es: eine Nachricht kann später bearbeitet oder gegen eine geänderte Fassung fortgesetzt werden, das Erzwingen im Durchlauf trägt dann nicht mehr.
+
+Fünf Verstoßarten, je eine eigene Meldung mit Pfad (im Bericht klickbar): `ausgeschlossen` (belegter Pfad, den die Fassung ausschließt — auch geerbt, unter Nennung des ausschließenden Vorfahren), `wert` (Wert außerhalb der freigegebenen Codelisten-Auswahl), `vorkommen` (zwingend gesetztes Vorkommen fehlt; eine Kopie erfüllt es über `vonId`), `kardinalitaet` (Mindest-/Höchstanzahl der Profilierung, Zählkonvention wie `GuidedService.vorkommenAnzahl`) und `pflichtwert` (zwingend gesetztes **Blatt** ohne Wert, je Vorkommen aufgelöst).
+
+Blatt-Wissen steht im Schema, nicht in den beiden Dokumenten — es kommt als reine Funktion `umgebung.istBlatt` herein (im Werkzeug aus dem Baum, im Test als Tabelle). Ohne sie entfällt die Pflichtwert-Prüfung, statt zu raten. Die Vorgabe wird mit denselben Regeln gelesen wie im Store: pfadgenau vor generisch (`ohneVorkommen`) und Kopien über ihre Herkunft.
+
+`TestmessageCreateService.speichern` ruft den Abgleich **neben** der Schemavalidierung: Verstöße setzen das Entwurfs-Kennzeichen und öffnen den Bericht („Als Entwurf gespeichert — nicht profilkonform"). Getestet in `konformitaet.service.spec.ts` (je Verstoßart ein Fall plus der verstoßfreie).
 
 ## XmlValidationService, ValidationMarkerService & ValidationReportService
 
