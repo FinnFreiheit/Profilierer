@@ -200,10 +200,17 @@ export class Testdaten {
       this.fassungWahl.set(abnahme?.id ?? '');
       this.createProfil.set(e);
     } catch {
-      // Ohne Versionsliste bleibt der Arbeitsstand als einzige Fassung.
+      // Ohne Versionsliste bleibt der Arbeitsstand als einzige Fassung. Bei einer
+      // abgenommenen Profilierung ist das die falsche Bindung — sonst wuerde
+      // stillschweigend ein nicht abgenommener Stand gebunden.
       this.fassungen.set([]);
       this.fassungWahl.set('');
       this.createProfil.set(e);
+      this.toast.show(
+        e.abgenommen
+          ? 'Fassungen nicht ladbar — vorbelegt ist der Arbeitsstand, nicht die abgenommene Fassung.'
+          : 'Fassungen nicht ladbar — es steht nur der Arbeitsstand zur Wahl.',
+      );
     } finally {
       this.createLoading.set(false);
     }
