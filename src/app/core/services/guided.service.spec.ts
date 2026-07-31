@@ -51,6 +51,7 @@ const XSD_VORKOMMEN = `<?xml version="1.0" encoding="UTF-8"?>
   </xs:sequence></xs:complexType>
   <xs:complexType name="Type.Test2.Bet"><xs:sequence>
     <xs:element name="rolle" type="xs:string" minOccurs="0"/>
+    <xs:element name="kontakt" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
   </xs:sequence></xs:complexType>
 </xs:schema>`;
 
@@ -504,6 +505,75 @@ describe('GuidedService', () => {
 
     beforeEach(() => {
       state.messageCreate.set({ msgName: M, entryId: null, name: null });
+    });
+
+    describe('Vorkommen erben die generische Festlegung (Issue #59)', () => {
+      it('ausgeschlossenes Kind erzeugt im benannten Vorkommen keinen Entscheidungspunkt', () => {
+        // Die Profilierung adressiert `…/beteiligung/name`; im Baum steht das
+        // Element unter dem Vorkommen (`…/beteiligung@v1/name`). Ohne Auflösung
+        // des Vorkommen-Pfades blieb es dort ein offener Punkt und war
+        // befuellbar — obwohl die gebundene Fassung es ausschliesst.
+        bindeVorgabe(
+          // Der Traeger ist zwingend, damit der Walk ueberhaupt in den Teilbaum
+          // laeuft — sonst liefe die Zusicherung leer.
+          {
+            [`${M}/beteiligung`]: { status: V.pflicht },
+            [`${M}/beteiligung/name`]: { status: V.excl },
+          },
+          {},
+          { [`${M}/beteiligung`]: [{ id: 'v1', name: 'Notar/in' }] },
+        );
+
+        expect(pfade()).toContain(`${M}/beteiligung@v1`);
+
+        expect(state.vorgabeGesperrt(`${M}/beteiligung@v1/name`)).toBeTrue();
+        expect(pfade()).not.toContain(`${M}/beteiligung@v1/name`);
+        expect(svc.punktAt(`${M}/beteiligung@v1/name`)).toBeNull();
+      });
+
+      it('der exakte Vorkommen-Pfad der Vorgabe gewinnt: dort bleibt es zwingend', () => {
+        bindeVorgabe(
+          {
+            [`${M}/beteiligung`]: { status: V.pflicht },
+            [`${M}/beteiligung/name`]: { status: V.excl },
+            [`${M}/beteiligung@v1/name`]: { status: V.pflicht },
+          },
+          {},
+          {
+            [`${M}/beteiligung`]: [
+              { id: 'v1', name: 'Notar/in' },
+              { id: 'v2', name: 'Betroffene Person' },
+            ],
+          },
+        );
+
+        expect(state.vorgabeGesperrt(`${M}/beteiligung@v1/name`)).toBeFalse();
+        expect(svc.punktAt(`${M}/beteiligung@v1/name`)?.art).toBe('wert');
+        // Das Nachbar-Vorkommen ohne eigene Unter-Profilierung bleibt gesperrt.
+        expect(state.vorgabeGesperrt(`${M}/beteiligung@v2/name`)).toBeTrue();
+      });
+
+      it('eingegrenzte Kardinalitaet eines Kindpfads wirkt im Vorkommen', () => {
+        // `kontakt` liegt INNERHALB des Vorkommen-Traegers und ist im Schema
+        // unbegrenzt; die Profilierung grenzt generisch auf 1 ein. Ohne
+        // Auflösung des Vorkommen-Pfades blieb das ohne Wirkung — der Trägerpfad
+        // allein taugt als Nachweis nicht, dort ist nichts aufzuloesen.
+        ladeVorkommenFixture();
+        state.messageCreate.set({ msgName: M2, entryId: null, name: null });
+        bindeVorgabe(
+          {
+            [`${M2}/beteiligung`]: { status: V.pflicht },
+            [`${M2}/beteiligung/kontakt`]: { max: '1' },
+          },
+          {},
+          { [`${M2}/beteiligung`]: [{ id: 'v1', name: 'Notar/in' }] },
+        );
+        state.addAusp(`${M2}/beteiligung@v1/kontakt`, 'Vorkommen 1');
+
+        const grund = svc.kardSperreHinzu(`${M2}/beteiligung@v1/kontakt`);
+        expect(grund).toContain('1');
+        expect(grund).toContain('Profilierung');
+      });
     });
 
     describe('zwingend gesetzt', () => {

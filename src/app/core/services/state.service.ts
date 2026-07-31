@@ -160,10 +160,18 @@ export class StateService {
    * Wirkung, die *allein aus der Vorgabe* stammt: null, sobald der Durchlauf am
    * Pfad eine eigene Entscheidung fuehrt (dann ist die Entscheidung massgeblich)
    * oder keine Vorgabe gebunden ist.
+   *
+   * Ueber `profilWirkungGeerbt`, also mit Auflösung des Vorkommen-Pfades: was
+   * generisch ausgeschlossen ist, ist in jedem Vorkommen gesperrt. Die Prueefung
+   * auf die eigene Entscheidung bleibt pfadgenau — entschieden wird am konkreten
+   * Vorkommen. Vorher las diese Stelle `profilWirkung`, wodurch ein
+   * ausgeschlossenes Element innerhalb einer benannten Auspraegung befuellbar
+   * blieb: der Vorfahren-Check in `vorgabeGesperrt` trifft nur den
+   * Traegerknoten, nicht das Kind darunter (Issue #59).
    */
   private vorgabeWirkung(path: string): Wirkung | null {
     if (this.elemente()[path]?.status) return null;
-    return this.profilWirkung(path);
+    return this.profilWirkungGeerbt(path);
   }
 
   /**
@@ -461,6 +469,15 @@ export class StateService {
    * `minProfil`/`maxProfil` sagen je Grenze, ob sie aus der Profilierung
    * stammt (statt aus dem Schema) — die Begruendung der Kardinalitaets-Sperren
    * im gefuehrten Durchlauf nennt die Quelle.
+   *
+   * Die Vorgabe wird ueber `vorgabeProfileGeerbt` gelesen, also mit Auflösung
+   * des Vorkommen-Pfades: eine generisch eingegrenzte Kardinalitaet gilt in
+   * jedem Vorkommen. Vorher stand hier der pfadgenaue Zugriff, wodurch die
+   * Eingrenzung innerhalb einer benannten Auspraegung wirkungslos blieb — die
+   * Anzeige nannte die Schema-Grenzen, die Mindestanzahl wurde nicht
+   * materialisiert und die Hoechstanzahl nicht gesperrt (Issue #59). Der exakte
+   * Eintrag gewinnt als Ganzes, nicht je Feld gemischt — dieselbe Regel wie bei
+   * Werten und Anmerkungen.
    */
   effKard(node: TreeNode): {
     min: string;
@@ -470,7 +487,7 @@ export class StateService {
     maxProfil: boolean;
   } {
     const p = this.elemente()[node.path] ?? {};
-    const v = this.vorgabeProfile(node.path);
+    const v = this.vorgabeProfileGeerbt(node.path);
     const minProfil = !!(p.min || v?.min);
     const maxProfil = !!(p.max || v?.max);
     return {
