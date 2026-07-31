@@ -722,6 +722,41 @@ describe('GuidedService', () => {
 
         expect(svc.kardSperreHinzu(anlage)).toBeNull();
         expect(svc.kardSperreEntfernen(anlage)).toBeNull();
+        expect(svc.kardSperreWeglassen(anlage)).toBeNull();
+      });
+
+      // ── Zaehlkonvention der Vorkommen (Issue #50) ──────────────────
+
+      it('zaehlt ein weggelassenes Element als kein Vorkommen', () => {
+        bindeKard({ [beteiligung]: { max: '1' } });
+
+        // Ohne eigene Auspraegungen steht das enthaltene Element fuer genau ein
+        // Vorkommen — die Hoechstanzahl 1 ist damit erreicht.
+        expect(svc.kardSperreHinzu(beteiligung)).toContain('1');
+
+        // Weggelassen traegt es keines; das erste Vorkommen ist wieder moeglich.
+        svc.setzeAufnahme(beteiligung, false);
+        expect(svc.kardSperreHinzu(beteiligung)).toBeNull();
+      });
+
+      it('setzt eine Mindestanzahl von 1 gegen das Weglassen durch, statt sie nur zu zaehlen', () => {
+        bindeKard({ [beteiligung]: { min: '1' } });
+
+        const grund = svc.kardSperreWeglassen(beteiligung);
+        expect(grund).toContain('1');
+        expect(grund).toContain('Profilierung');
+
+        svc.setzeAufnahme(beteiligung, false);
+        expect(state.wirkungOf(beteiligung)).not.toBe('ausgeschlossen');
+      });
+
+      it('laesst Optionales ohne Eingrenzung im Profil weiterhin weglassen', () => {
+        bindeKard({});
+
+        expect(svc.kardSperreWeglassen(beteiligung)).toBeNull();
+
+        svc.setzeAufnahme(beteiligung, false);
+        expect(state.wirkungOf(beteiligung)).toBe('ausgeschlossen');
       });
     });
 

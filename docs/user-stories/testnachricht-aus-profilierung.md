@@ -102,11 +102,17 @@ Profil frei konfigurierbar):
 
 **Kardinalität**
 
-- **Hart:** Profil-`min` wird automatisch als Vorkommen angelegt und ist nicht
-  entfernbar; bei erreichtem Profil-`max` ist „+ weiteres Vorkommen" gesperrt,
-  mit Begründung am Knopf. Kardinalität wird später als Schematron-Regel scharf
-  geschaltet — eine Testnachricht, die dagegen verstößt, würde die Prüfung des
-  eigenen Profils nicht bestehen.
+- **Hart:** Profil-`min` wird durchgesetzt und ist nicht unterschreitbar; bei
+  erreichtem Profil-`max` ist „+ weiteres Vorkommen" gesperrt, mit Begründung am
+  Knopf. Kardinalität wird später als Schematron-Regel scharf geschaltet — eine
+  Testnachricht, die dagegen verstößt, würde die Prüfung des eigenen Profils
+  nicht bestehen.
+- **Zählkonvention:** Ein Element ohne benannte Ausprägungen ist **ein**
+  Vorkommen (der generische Unterbaum); ein weggelassenes ist **keines**. Als
+  Vorkommen angelegt wird darum erst `min ≥ 2`; `min = 1` erfüllt das Element
+  selbst und wird durchgesetzt, indem es sich nicht weglassen lässt. Ohne diese
+  Festlegung bliebe „`min` wird materialisiert" für den häufigsten Fall eine
+  reine Zählregel ohne Zähne.
 - **Konfliktregel:** Trägt ein Element `ausgeschlossen` **und** `min ≥ 1`,
   gewinnt der Ausschluss; der Widerspruch wird beim Start des Durchlaufs als
   Profil-Mangel gemeldet (mit Sprung zum Element im Profil-Editor), statt eine
@@ -237,7 +243,10 @@ Profil frei konfigurierbar):
 
 ### D. Kardinalität
 
-- Profil-`min` wird automatisch angelegt und lässt sich nicht entfernen.
+- Profil-`min ≥ 2` wird beim Start als Vorkommen angelegt; die entstandenen
+  Vorkommen lassen sich nicht entfernen.
+- Profil-`min = 1` erfüllt das Element selbst — es lässt sich nicht weglassen,
+  und die Sperre nennt den Grund.
 - Bei erreichtem Profil-`max` ist „+ weiteres Vorkommen" gesperrt und nennt den
   Grund.
 

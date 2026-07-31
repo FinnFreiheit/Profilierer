@@ -214,12 +214,19 @@
             <button
               [class.active]="g.weggelassen"
               [class.gWeg]="true"
-              title="Element weglassen — der Teilbaum wird übersprungen (erneut klicken: zurücknehmen)"
+              [disabled]="!!g.weglassSperre"
+              [title]="
+                g.weglassSperre ||
+                'Element weglassen — der Teilbaum wird übersprungen (erneut klicken: zurücknehmen)'
+              "
               (click)="aufnahme(false)"
             >
               weglassen
             </button>
           </div>
+          @if (g.weglassSperre) {
+            <div class="gHint">{{ g.weglassSperre }} Weglassen ist nicht möglich.</div>
+          }
         }
 
         @if (g.art === 'wert') {

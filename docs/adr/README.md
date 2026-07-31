@@ -20,6 +20,7 @@ Architecture Decision Records halten wesentliche Richtungsentscheidungen mit Beg
 | [0012](0012-abnahme-rollenkonzept.md)               | Abnahme durch die BLK-AG — Zwei-Rollen-Konzept (ergänzt 0007)     | Angenommen                    |
 | [0013](0013-vergleich-seit-abnahme.md)              | „Seit Abnahme geändert" sichtbar — struktureller Vergleich        | Angenommen                    |
 | [0014](0014-hinweise-eigene-ressource.md)           | Hinweise als eigene Ressource neben der Profilierung              | Angenommen                    |
+| [0015](0015-vorkommen-zaehlkonvention.md)           | Vorkommen zählen statt Mindestanzahl 1 zu materialisieren         | Angenommen                    |
 
 ## Vorlage
 
