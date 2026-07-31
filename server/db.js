@@ -16,6 +16,68 @@ const AUTO_DECKEL = 10;
 const docHash = (s) => createHash('sha1').update(s).digest('hex');
 
 /**
+ * Kanonische Serialisierung eines Profil-Dokuments: Objektschluessel sortiert.
+ * Grundlage des Fach-Hashs, der zwei Profil-Staende auf ihre *Aussage* hin
+ * vergleicht — anders als docHash, der bewusst an der Serialisierung haengt.
+ */
+function kanonisch(v) {
+  if (Array.isArray(v)) return '[' + v.map(kanonisch).join(',') + ']';
+  if (v && typeof v === 'object')
+    return (
+      '{' +
+      Object.keys(v)
+        .sort()
+        .filter((k) => v[k] !== undefined)
+        .map((k) => JSON.stringify(k) + ':' + kanonisch(v[k]))
+        .join(',') +
+      '}'
+    );
+  return JSON.stringify(v) ?? 'null';
+}
+
+/**
+ * Hash ueber die fachliche Aussage eines Profil-Dokuments — Grundlage des
+ * Kennzeichens "Profil weiterentwickelt" an einer gebundenen Testnachricht.
+ * `meta.gespeichert` bleibt aussen vor: das Feld wird bei jedem Speichern neu
+ * gesetzt und wuerde sonst jede gebundene Nachricht mit einer Schein-Aenderung
+ * markieren (dieselbe Auslassung trifft der Profil-Vergleich im Frontend, der
+ * die konkreten Unterschiede zeigt — Badge und Liste muessen sich einig sein).
+ * Listen-Reihenfolgen (Statusstufen, Auspraegungen) zaehlen mit: eine
+ * Umsortierung setzt das Badge, ohne dass der Vergleich eine Zeile ausweist —
+ * sie ist eine Aenderung der Profilierung, nur eine, die der Vergleich (noch)
+ * nicht benennt.
+ */
+function fachHash(doc) {
+  let d = doc;
+  if (d && typeof d === 'object' && d.meta && typeof d.meta === 'object') {
+    const meta = { ...d.meta };
+    delete meta.gespeichert;
+    d = { ...d, meta };
+  }
+  return docHash(kanonisch(d));
+}
+
+/**
+ * Spalten der schlanken Testnachrichten-Zeile (ohne xml/entscheidungen/vorgabe).
+ * `profil_weiterentwickelt`: die gebundene Fassung sagt fachlich etwas anderes
+ * als der aktuelle Stand der Profilierung — Grundlage des Kachel-Badges. Ohne
+ * Bindung, ohne eingefrorene Kopie und nach dem Loeschen der Profilierung (kein
+ * `fach_hash` zu vergleichen) bleibt es aus; ein positives "profilkonform" gibt
+ * es bewusst nicht.
+ */
+const TM_COLS = `t.id, t.name, t.nachricht, t.fachmodul, t.xjustiz_version, t.groesse, t.notiz,
+              t.hochgeladen, t.aktualisiert, t.entwurf, t.fortschritt,
+              (t.entscheidungen IS NOT NULL) AS gefuehrt,
+              t.abnahme_ts, t.abnahme_kommentar, (t.abnahme_xml IS NOT NULL) AS abgenommen,
+              (t.abnahme_xml IS NOT NULL AND t.xml != t.abnahme_xml) AS geaendert_seit_abnahme,
+              t.profil_id, t.profil_name, t.fassung,
+              (t.vorgabe_hash IS NOT NULL AND p.fach_hash IS NOT NULL
+               AND p.fach_hash != t.vorgabe_hash) AS profil_weiterentwickelt`;
+
+/** Bindung an die (moeglicherweise geloeschte) Profilierung — daher LEFT JOIN. */
+const TM_FROM = 'FROM testmessages t LEFT JOIN profiles p ON p.id = t.profil_id';
+
+/**
  * SQLite-Zugriffsschicht der Profil-Bibliothek. Eine Tabelle `profiles`: das
  * komplette ProfileDoc als JSON-Spalte `doc`, daneben die abgeleiteten
  * Index-Spalten (Name/Nachricht/Version/Fortschritt/Zeitstempel), aus denen die
@@ -97,6 +159,9 @@ export function openDb(path) {
     if (!cols.has('profil_name')) db.exec('ALTER TABLE testmessages ADD COLUMN profil_name TEXT');
     if (!cols.has('fassung')) db.exec('ALTER TABLE testmessages ADD COLUMN fassung TEXT');
     if (!cols.has('vorgabe')) db.exec('ALTER TABLE testmessages ADD COLUMN vorgabe TEXT');
+    // Fach-Hash der eingefrorenen Kopie — Vergleichsbasis fuer das Kennzeichen
+    // "Profil weiterentwickelt" ohne Deserialisieren der (grossen) Kopie.
+    if (!cols.has('vorgabe_hash')) db.exec('ALTER TABLE testmessages ADD COLUMN vorgabe_hash TEXT');
   }
 
   // Migration: Index-Spalte fuer Schema-Erweiterungen (Dashboard-Badge) nachziehen.
@@ -109,6 +174,7 @@ export function openDb(path) {
     );
     if (!cols.has('n_erw')) db.exec('ALTER TABLE profiles ADD COLUMN n_erw INTEGER');
     if (!cols.has('doc_hash')) db.exec('ALTER TABLE profiles ADD COLUMN doc_hash TEXT');
+    if (!cols.has('fach_hash')) db.exec('ALTER TABLE profiles ADD COLUMN fach_hash TEXT');
     // Abnahme durch die BLK-AG: Referenz auf die eingefrorene Abnahme-Version.
     if (!cols.has('abnahme_version_id'))
       db.exec('ALTER TABLE profiles ADD COLUMN abnahme_version_id TEXT');
@@ -136,6 +202,30 @@ export function openDb(path) {
     }
   }
 
+  // Migration: Fach-Hashes nachziehen — an den Profilen und an den bereits
+  // gebundenen Testnachrichten. Ohne sie bliebe das Kennzeichen "Profil
+  // weiterentwickelt" an Alt-Bestand stumm.
+  {
+    const offen = db.prepare('SELECT id, doc FROM profiles WHERE fach_hash IS NULL').all();
+    if (offen.length) {
+      const set = db.prepare('UPDATE profiles SET fach_hash = ? WHERE id = ?');
+      db.transaction(() => {
+        for (const r of offen) set.run(fachHash(JSON.parse(r.doc)), r.id);
+      })();
+    }
+    const tm = db
+      .prepare(
+        'SELECT id, vorgabe FROM testmessages WHERE vorgabe IS NOT NULL AND vorgabe_hash IS NULL',
+      )
+      .all();
+    if (tm.length) {
+      const set = db.prepare('UPDATE testmessages SET vorgabe_hash = ? WHERE id = ?');
+      db.transaction(() => {
+        for (const r of tm) set.run(fachHash(JSON.parse(r.vorgabe)), r.id);
+      })();
+    }
+  }
+
   const stmt = {
     list: db.prepare(
       `SELECT profiles.id, profiles.name, nachricht, xjustiz_version, n_status, n_ausp, n_erw,
@@ -156,11 +246,12 @@ export function openDb(path) {
     del: db.prepare('DELETE FROM profiles WHERE id = ?'),
     upsert: db.prepare(
       `INSERT INTO profiles
-         (id, doc, doc_hash, name, nachricht, xjustiz_version, n_status, n_ausp, n_erw, gespeichert, aktualisiert)
+         (id, doc, doc_hash, fach_hash, name, nachricht, xjustiz_version, n_status, n_ausp, n_erw, gespeichert, aktualisiert)
        VALUES
-         (@id, @doc, @docHash, @name, @nachricht, @xjustizVersion, @nStatus, @nAusp, @nErw, @gespeichert, @aktualisiert)
+         (@id, @doc, @docHash, @fachHash, @name, @nachricht, @xjustizVersion, @nStatus, @nAusp, @nErw, @gespeichert, @aktualisiert)
        ON CONFLICT(id) DO UPDATE SET
-         doc = excluded.doc, doc_hash = excluded.doc_hash, name = excluded.name, nachricht = excluded.nachricht,
+         doc = excluded.doc, doc_hash = excluded.doc_hash, fach_hash = excluded.fach_hash,
+         name = excluded.name, nachricht = excluded.nachricht,
          xjustiz_version = excluded.xjustiz_version, n_status = excluded.n_status,
          n_ausp = excluded.n_ausp, n_erw = excluded.n_erw, gespeichert = excluded.gespeichert,
          aktualisiert = excluded.aktualisiert`,
@@ -205,33 +296,22 @@ export function openDb(path) {
     abnRef: db.prepare('SELECT abnahme_version_id FROM profiles WHERE id = ?'),
 
     // ── Testnachrichten (zentraler Testdaten-Speicher) ──────────────────
-    tmList: db.prepare(
-      `SELECT id, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
-              entwurf, fortschritt, (entscheidungen IS NOT NULL) AS gefuehrt,
-              abnahme_ts, abnahme_kommentar, (abnahme_xml IS NOT NULL) AS abgenommen,
-              (abnahme_xml IS NOT NULL AND xml != abnahme_xml) AS geaendert_seit_abnahme,
-              profil_id, profil_name, fassung
-       FROM testmessages ORDER BY aktualisiert DESC`,
+    tmList: db.prepare(`SELECT ${TM_COLS} ${TM_FROM} ORDER BY t.aktualisiert DESC`),
+    tmListProfil: db.prepare(
+      `SELECT ${TM_COLS} ${TM_FROM} WHERE t.profil_id = ? ORDER BY t.aktualisiert DESC`,
     ),
     tmGetXml: db.prepare('SELECT xml FROM testmessages WHERE id = ?'),
     tmGetEntscheidungen: db.prepare('SELECT entscheidungen FROM testmessages WHERE id = ?'),
     tmGetVorgabe: db.prepare('SELECT vorgabe FROM testmessages WHERE id = ?'),
-    tmGet: db.prepare(
-      `SELECT id, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
-              entwurf, fortschritt, (entscheidungen IS NOT NULL) AS gefuehrt,
-              abnahme_ts, abnahme_kommentar, (abnahme_xml IS NOT NULL) AS abgenommen,
-              (abnahme_xml IS NOT NULL AND xml != abnahme_xml) AS geaendert_seit_abnahme,
-              profil_id, profil_name, fassung
-       FROM testmessages WHERE id = ?`,
-    ),
+    tmGet: db.prepare(`SELECT ${TM_COLS} ${TM_FROM} WHERE t.id = ?`),
     tmGetRow: db.prepare('SELECT * FROM testmessages WHERE id = ?'),
     tmInsert: db.prepare(
       `INSERT INTO testmessages
          (id, xml, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
-          entwurf, fortschritt, entscheidungen, profil_id, profil_name, fassung, vorgabe)
+          entwurf, fortschritt, entscheidungen, profil_id, profil_name, fassung, vorgabe, vorgabe_hash)
        VALUES
          (@id, @xml, @name, @nachricht, @fachmodul, @xjustizVersion, @groesse, @notiz, @ts, @ts,
-          @entwurf, @fortschritt, @entscheidungen, @profilId, @profilName, @fassung, @vorgabe)`,
+          @entwurf, @fortschritt, @entscheidungen, @profilId, @profilName, @fassung, @vorgabe, @vorgabeHash)`,
     ),
     tmUpdate: db.prepare(
       `UPDATE testmessages SET
@@ -284,6 +364,9 @@ export function openDb(path) {
       profilId: r.profil_id ?? undefined,
       profilName: r.profil_name ?? undefined,
       fassung: r.fassung ?? undefined,
+      // Badge "Profil weiterentwickelt" — die Nachricht wird NICHT nachgezogen,
+      // das Kennzeichen sagt nur, dass die Bindung veraltet ist.
+      profilWeiterentwickelt: !!r.profil_weiterentwickelt || undefined,
     };
   }
 
@@ -357,6 +440,7 @@ export function openDb(path) {
       id,
       doc: docStr,
       docHash: hash,
+      fachHash: fachHash(doc),
       name: entry.name,
       nachricht: entry.nachricht,
       xjustizVersion: entry.xjustizVersion ?? null,
@@ -618,9 +702,14 @@ export function openDb(path) {
 
     // ── Testnachrichten ─────────────────────────────────────────────────
 
-    /** Index-Liste (ohne xml), absteigend nach aktualisiert. */
-    tmList() {
-      return stmt.tmList.all().map(tmEntry);
+    /**
+     * Index-Liste (ohne xml), absteigend nach aktualisiert. `profil` grenzt auf
+     * die an eine Profilierung gebundenen Nachrichten ein ("alle Testdaten
+     * dieses Szenarios zusammen sehen").
+     */
+    tmList({ profil } = {}) {
+      const rows = profil ? stmt.tmListProfil.all(profil) : stmt.tmList.all();
+      return rows.map(tmEntry);
     },
 
     /** Roh-XML zu einer id oder null. */
@@ -692,6 +781,7 @@ export function openDb(path) {
         profilName: profilName ?? null,
         fassung: fassung ?? null,
         vorgabe: vorgabe ? JSON.stringify(vorgabe) : null,
+        vorgabeHash: vorgabe ? fachHash(vorgabe) : null,
         ts: stamp,
       });
       return { id, entry: tmEntry(stmt.tmGet.get(id)) };

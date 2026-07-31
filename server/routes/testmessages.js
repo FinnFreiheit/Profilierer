@@ -28,9 +28,11 @@ export function testmessagesRouter(db, auth) {
     next();
   };
 
-  // Index: schlanke Liste ohne xml, sortiert.
-  r.get('/testmessages', (_req, res) => {
-    res.json(db.tmList());
+  // Index: schlanke Liste ohne xml, sortiert. `?profil=<id>` grenzt auf die an
+  // eine Profilierung gebundenen Nachrichten ein.
+  r.get('/testmessages', (req, res) => {
+    const profil = typeof req.query.profil === 'string' ? req.query.profil : undefined;
+    res.json(db.tmList({ profil }));
   });
 
   // Roh-XML einer Testnachricht (Download/Vorschau).

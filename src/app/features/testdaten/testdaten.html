@@ -20,6 +20,19 @@
         [value]="search()"
         (input)="search.set($any($event.target).value)"
       />
+      @if (profilFilterOptionen().length) {
+        <select
+          class="abnFilter"
+          title="Nur Testdaten einer Profilierung zeigen"
+          [value]="nurProfil()"
+          (change)="nurProfil.set($any($event.target).value)"
+        >
+          <option value="">alle Profilierungen</option>
+          @for (p of profilFilterOptionen(); track p.id) {
+            <option [value]="p.id">{{ p.name }} ({{ p.n }})</option>
+          }
+        </select>
+      }
       <label
         class="abnFilter"
         title="Nur von der BLK-AG abgenommene (valide) Testnachrichten zeigen"
@@ -93,6 +106,15 @@
                   >
                     {{ herkunft(e) }}
                   </button>
+                  @if (e.profilWeiterentwickelt) {
+                    <button
+                      class="pill pillBtn pillAbnWarn"
+                      title="Die Profilierung hat sich seit der Bindung geändert — anzeigen, was anders ist. Die Testnachricht bleibt unverändert."
+                      (click)="zeigeVorgabeDiff(e, $event)"
+                    >
+                      ⚠ Profil weiterentwickelt
+                    </button>
+                  }
                 }
                 @if (e.fortschritt) {
                   <span class="dcProg"
@@ -184,7 +206,11 @@
       <div id="dashEmpty">
         <div class="big">🔍</div>
         <h2>Keine Treffer</h2>
-        <p>Kein Eintrag passt zur Suche „{{ search() }}".</p>
+        @if (search()) {
+          <p>Kein Eintrag passt zur Suche „{{ search() }}".</p>
+        } @else {
+          <p>Kein Eintrag passt zu den gesetzten Filtern.</p>
+        }
       </div>
     }
   } @else {

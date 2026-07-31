@@ -12,6 +12,7 @@ import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
+import { TestmessageStoreService } from '../../core/services/testmessage-store.service';
 import { ProfilDiffService } from '../../core/services/profil-diff.service';
 import { VergleichService } from '../../core/services/vergleich.service';
 import { ProfileDoc, ProfilVersion } from '../../models/profile.model';
@@ -40,8 +41,13 @@ const MAX_ZEILEN = 800;
  * Vorausgewaehlt ist die Abnahme-Version; ueber die Auswahl laesst sich jede
  * andere Version als Basis nehmen.
  *
+ * Zweiter Modus (`vorgabe`): die an einer Testnachricht eingefrorene
+ * Profilkopie gegen den aktuellen Stand derselben Profilierung — der Einstieg
+ * aus dem Badge "Profil weiterentwickelt". Die Basis ist dort die Kopie am
+ * Eintrag und keine Version, also entfaellt die Basis-Auswahl.
+ *
  * Gesteuert vom VergleichService (Muster ValidationDialog) — die Einstiege
- * liegen in Toolbar, Versions-Dialog und Dashboard.
+ * liegen in Toolbar, Versions-Dialog, Dashboard und Testdatenspeicher.
  */
 @Component({
   selector: 'app-profil-diff-dialog',
@@ -53,6 +59,7 @@ export class ProfilDiffDialog {
   private readonly nav = inject(NavService);
   private readonly toast = inject(ToastService);
   private readonly store = inject(ProfileStoreService);
+  private readonly testdaten = inject(TestmessageStoreService);
   private readonly diff = inject(ProfilDiffService);
   private readonly vergleich = inject(VergleichService);
   private readonly dlg = viewChild.required<ElementRef<HTMLDialogElement>>('dlg');
@@ -68,6 +75,13 @@ export class ProfilDiffDialog {
   /** id der gewaehlten Basis-Version. */
   protected readonly basisId = signal<string | null>(null);
   protected readonly profilName = signal('');
+  /**
+   * `version` = eingefrorene Version ↔ Arbeitsstand (Basis waehlbar);
+   * `vorgabe` = gebundene Kopie einer Testnachricht ↔ aktueller Stand.
+   */
+  protected readonly modus = signal<'version' | 'vorgabe'>('version');
+  /** Nur im Modus `vorgabe`: Fassungsbezeichnung der Bindung ("v3"). */
+  private readonly vorgabeFassung = signal('');
   private readonly basisDoc = signal<ProfileDoc | null>(null);
   private readonly standDoc = signal<ProfileDoc | null>(null);
   /** Die verglichene Fassung gehoert zum gerade offenen Profil (Sprung moeglich). */
@@ -108,6 +122,8 @@ export class ProfilDiffDialog {
 
   /** Beschriftung der gewaehlten Basis fuer die Kopfzeile. */
   protected readonly basisText = computed(() => {
+    if (this.modus() === 'vorgabe')
+      return `gebundene Fassung${this.vorgabeFassung() ? ` (${this.vorgabeFassung()})` : ''}`;
     const v = this.versionen().find((x) => x.id === this.basisId());
     return v ? this.versionLabel(v) : '—';
   });
@@ -119,6 +135,9 @@ export class ProfilDiffDialog {
       if (ziel?.art === 'profil') {
         if (!el.open) el.showModal();
         void this.lade(ziel.profilId, ziel.versionId);
+      } else if (ziel?.art === 'vorgabe') {
+        if (!el.open) el.showModal();
+        void this.ladeVorgabe(ziel.testmessageId, ziel.profilId);
       } else if (el.open) {
         el.close();
       }
@@ -129,14 +148,20 @@ export class ProfilDiffDialog {
     this.vergleich.schliesse();
   }
 
-  /** Basis und Arbeitsstand beschaffen und den Vergleich aufbauen. */
-  private async lade(profilId: string, versionId?: string): Promise<void> {
+  /** Zustand fuer einen neuen Vergleich leeren. */
+  private beginne(modus: 'version' | 'vorgabe'): void {
     this.laedt.set(true);
     this.fehler.set('');
     this.nurBereich.set(null);
     this.filter.set('');
     this.basisDoc.set(null);
     this.standDoc.set(null);
+    this.modus.set(modus);
+  }
+
+  /** Basis und Arbeitsstand beschaffen und den Vergleich aufbauen. */
+  private async lade(profilId: string, versionId?: string): Promise<void> {
+    this.beginne('version');
     try {
       const eintrag = this.store.entries().find((e) => e.id === profilId);
       this.profilName.set(eintrag?.name ?? 'Profilierung');
@@ -166,6 +191,43 @@ export class ProfilDiffDialog {
       }
       this.basisId.set(basis.id);
       this.basisDoc.set(basis.doc);
+    } catch {
+      this.fehler.set('Vergleich nicht möglich — Backend nicht erreichbar.');
+    } finally {
+      this.laedt.set(false);
+    }
+  }
+
+  /**
+   * Modus `vorgabe`: die am Testspeicher-Eintrag eingefrorene Profilkopie gegen
+   * den aktuellen Stand der Profilierung. Basis ist die Kopie — sie liegt am
+   * Eintrag und ueberlebt Aenderung und Loeschung der Profilierung; die
+   * Testnachricht selbst wird davon nicht beruehrt.
+   */
+  private async ladeVorgabe(testmessageId: string, profilId: string): Promise<void> {
+    this.beginne('vorgabe');
+    this.versionen.set([]);
+    const eintrag = this.testdaten.entries().find((e) => e.id === testmessageId);
+    this.vorgabeFassung.set(eintrag?.fassung ?? '');
+    try {
+      const bib = this.store.entries().find((e) => e.id === profilId);
+      this.profilName.set(bib?.name || eintrag?.profilName || 'Profilierung');
+
+      const offen = this.state.activeProfileId() === profilId;
+      this.imEditor.set(offen);
+      const stand = offen ? this.state.profileDoc() : await this.store.load(profilId);
+      if (!stand) {
+        this.fehler.set('Die Profilierung wurde nicht gefunden — es gibt keinen aktuellen Stand.');
+        return;
+      }
+      const kopie = await this.testdaten.loadVorgabe(testmessageId);
+      if (!kopie) {
+        this.fehler.set('Zu dieser Testnachricht ist keine Profilfassung gebunden.');
+        return;
+      }
+      this.basisId.set(null);
+      this.basisDoc.set(kopie);
+      this.standDoc.set(stand);
     } catch {
       this.fehler.set('Vergleich nicht möglich — Backend nicht erreichbar.');
     } finally {

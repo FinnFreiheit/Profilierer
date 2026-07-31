@@ -58,6 +58,16 @@ export interface TestmessageEntry {
   profilName?: string;
   /** Bezeichnung der gebundenen Fassung ("v3" bzw. "Arbeitsstand vom …"). */
   fassung?: string;
+  /**
+   * Die gebundene Fassung sagt fachlich etwas anderes als der aktuelle Stand
+   * der Profilierung — Badge "Profil weiterentwickelt". Serverseitig ermittelt
+   * (Fach-Hash-Vergleich), damit Kachel und Filter ohne Zusatz-Request rendern.
+   * Die Nachricht wird dabei NICHT nachgezogen; das Kennzeichen sagt nur, dass
+   * neu zu bauen ist, wer den neuen Stand testen will. Ein positives
+   * "profilkonform" gibt es bewusst nicht — es haenge an jeder Kachel und
+   * verdraengte die Badges mit Aussage.
+   */
+  profilWeiterentwickelt?: boolean;
 }
 
 /**

@@ -5,7 +5,14 @@ import { Injectable, signal } from '@angular/core';
  * Abnahme-Version (der haeufige Einstieg "seit Abnahme geaendert").
  */
 export type VergleichZiel =
-  { art: 'profil'; profilId: string; versionId?: string } | { art: 'xml'; testmessageId: string };
+  | { art: 'profil'; profilId: string; versionId?: string }
+  | { art: 'xml'; testmessageId: string }
+  /**
+   * Die an einer Testnachricht eingefrorene Profilkopie gegen den aktuellen
+   * Stand derselben Profilierung ("Profil weiterentwickelt" — was hat sich
+   * geaendert, und ist meine Testnachricht davon ueberhaupt betroffen?).
+   */
+  | { art: 'vorgabe'; testmessageId: string; profilId: string };
 
 /**
  * Steuert die beiden Vergleichsdialoge ("was hat sich seit der Abnahme
@@ -28,6 +35,15 @@ export class VergleichService {
   /** Testnachricht gegen ihre eingefrorene Abnahme-Fassung vergleichen. */
   oeffneTestnachricht(testmessageId: string): void {
     this.ziel.set({ art: 'xml', testmessageId });
+  }
+
+  /**
+   * Die gebundene Profilfassung einer Testnachricht gegen den aktuellen Stand
+   * der Profilierung vergleichen (Einstieg aus dem Badge "Profil
+   * weiterentwickelt").
+   */
+  oeffneVorgabe(testmessageId: string, profilId: string): void {
+    this.ziel.set({ art: 'vorgabe', testmessageId, profilId });
   }
 
   schliesse(): void {
