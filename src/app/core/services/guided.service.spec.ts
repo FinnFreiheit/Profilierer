@@ -35,6 +35,24 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
 
 const M = 'nachricht.test.0001';
 
+/**
+ * Zweite Fixture nur fuer den Vorkommen-Fall: wiederholbares `beteiligung` mit
+ * einem **schema-optionalen** Blatt `rolle`. Eigenes Schema, damit die
+ * Punkt-Zaehlungen der Haupt-Fixture unberuehrt bleiben.
+ */
+const XSD_VORKOMMEN = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0002" type="Type.Test2.Root"/>
+  <xs:complexType name="Type.Test2.Root"><xs:sequence>
+    <xs:element name="beteiligung" type="Type.Test2.Bet" minOccurs="0" maxOccurs="unbounded"/>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="Type.Test2.Bet"><xs:sequence>
+    <xs:element name="rolle" type="xs:string" minOccurs="0"/>
+  </xs:sequence></xs:complexType>
+</xs:schema>`;
+
+const M2 = 'nachricht.test.0002';
+
 describe('GuidedService', () => {
   let svc: GuidedService;
   let state: StateService;
@@ -56,6 +74,16 @@ describe('GuidedService', () => {
   });
 
   const pfade = (): string[] => svc.punkte().map((p) => p.path);
+
+  /** Schaltet die Testbasis auf die Vorkommen-Fixture (M2) um. */
+  const ladeVorkommenFixture = (): void => {
+    const tree = TestBed.inject(TreeService);
+    const parser = TestBed.inject(XsdParserService);
+    const dom = new DOMParser().parseFromString(XSD_VORKOMMEN, 'application/xml');
+    const idx = parser.buildIndexFrom([{ file: 'xjustiz_0000_test2.xsd', dom }]).idx;
+    state.idx.set(idx);
+    state.root.set(tree.buildRoot(M2, idx));
+  };
 
   describe('Decision-Points', () => {
     it('findet genau die echten Entscheidungen in Dokumentreihenfolge', () => {
@@ -478,6 +506,28 @@ describe('GuidedService', () => {
 
         expect(state.wirkungOf(`${M}/az`)).toBe('pflicht');
         expect(svc.punktAt(`${M}/az`)?.art).toBe('wert');
+      });
+
+      it('gilt auch innerhalb eines Vorkommens — dort kennt die Profilierung nur den generischen Pfad', () => {
+        // Die Vorgabe adressiert `…/beteiligung/rolle`; der Durchlauf fragt
+        // `…/beteiligung@a/rolle`, denn die id entsteht erst zur Laufzeit.
+        ladeVorkommenFixture();
+        state.messageCreate.set({ msgName: M2, entryId: null, name: null });
+        bindeVorgabe({ [`${M2}/beteiligung/rolle`]: { status: V.pflicht } });
+        svc.setzeAufnahme(`${M2}/beteiligung`, true);
+        const a = state.addAusp(`${M2}/beteiligung`, 'Kläger');
+        const rolle = `${M2}/beteiligung@${a}/rolle`;
+
+        // Pflicht-Wert-Punkt statt Aufnehmen/Weglassen-Frage ...
+        expect(svc.punktAt(rolle)?.art).toBe('wert');
+        expect(svc.offeneSet().has(rolle)).toBeTrue();
+        // ... ohne Marker, denn die Profilierung hat sich festgelegt ...
+        expect(svc.markerOf(rolle)).toBeNull();
+
+        // ... und nicht weglassbar.
+        svc.setzeAufnahme(rolle, false);
+        expect(state.wirkungOf(rolle)).not.toBe('ausgeschlossen');
+        expect(svc.punktAt(rolle)?.art).toBe('wert');
       });
     });
 

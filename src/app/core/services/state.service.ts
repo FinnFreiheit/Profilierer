@@ -8,7 +8,7 @@ import {
   Status,
   Wirkung,
 } from '../../models/profile.model';
-import { TreeItem, TreeNode, itemPath } from '../../models/node.model';
+import { TreeItem, TreeNode, itemPath, ohneVorkommen } from '../../models/node.model';
 import { Codelist } from '../../models/codelist.model';
 import { DiffAnc, DiffEntry } from '../../models/diff.model';
 import { XsdDoc, XsdIndex } from '../../models/xsd-index.model';
@@ -99,6 +99,19 @@ export class StateService {
     if (!v) return null;
     const id = v.elemente[path]?.status;
     return (id && v.statuses.find((s) => s.id === id)?.wirkung) || null;
+  }
+
+  /**
+   * Dieselbe Aussage, aber wie der gebundene Durchlauf sie sieht: Vorkommen
+   * erben die Festlegung ihres Traegerelements. Ihre ids entstehen zur Laufzeit
+   * (`…/beteiligung@a1`), die Profilierung kann sie gar nicht adressieren — was
+   * generisch zwingend gesetzt ist, gilt darum in jeder Auspraegung. Nur wo die
+   * gebundene Fassung den Vorkommen-Pfad selbst fuehrt (eigene Auspraegungen),
+   * gewinnt der exakte Pfad. Massgeblich fuer Wirkungen und Marker; die rohe
+   * `profilWirkung` bleibt fuer alles, was pfadgenau bleiben muss.
+   */
+  profilWirkungGeerbt(path: string): Wirkung | null {
+    return this.profilWirkung(path) ?? this.profilWirkung(ohneVorkommen(path));
   }
 
   /**

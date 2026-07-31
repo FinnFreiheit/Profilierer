@@ -45,7 +45,7 @@ Ersetzt das globale `S`/`S.profile` (Z.327-335). Jedes Feld ein Signal, Ableitun
 
 - **Signale:** Schema/Nachricht (`docs, idx, version, standardKennung, msgName, root`), Profil (`meta, statuses, elemente, auspraegungen, erweiterungen`), UI (`selItem, open, codelists, showTech, onlyProfile, showRefs, focusMode, scrollTarget, autosaveInfo, pendingMsg`), Diff (`showDiff, diffMap, diffAnc, idxB`), Validierung (`valFehler, valAnc`).
 - **Ableitungen:** `profileDoc`, `fortschritt` (Festlegungen/Ausprägungen/Erweiterungen, Z.1453).
-- **Profil-Zugriff:** `statusOf/wirkungOf/exclStatus`, `inheritedExcluded/ancestorPaths`, `effKard`, `werteOf/anmerkungOf/beispielOf/refZielOf`, `auspsOf`, `hasNotes`, `boxHidden` (nur-Profil-Filter), `vorgabeSchliesstAus/vorgabeGesperrt` (Sperre der gebundenen Fassung), `profilWirkung` (Festlegung der gebundenen Fassung), `auspNumber/auspLabel`, `refZielKandidaten`, `erweiterungenOf/erweiterungsNamen`.
+- **Profil-Zugriff:** `statusOf/wirkungOf/exclStatus`, `inheritedExcluded/ancestorPaths`, `effKard`, `werteOf/anmerkungOf/beispielOf/refZielOf`, `auspsOf`, `hasNotes`, `boxHidden` (nur-Profil-Filter), `vorgabeSchliesstAus/vorgabeGesperrt` (Sperre der gebundenen Fassung), `profilWirkung/profilWirkungGeerbt` (Festlegung der gebundenen Fassung), `auspNumber/auspLabel`, `refZielKandidaten`, `erweiterungenOf/erweiterungsNamen`.
 - **Mutationen (erzeugen neue Referenzen):** `setElementProfile` (merge + `pruneP`, Z.987-996), `addAusp/removeAusp` (kaskadierend, Z.1017-1035), `addErweiterung/updateErweiterung/removeErweiterung` (kaskadierend über den Präfix `parentPath/~id`, [ADR 0010](adr/0010-schema-erweiterungen-profil-overlay.md)), `renameAusp`, `duplicateElement/copyAusp` (+ private `moveSubProfile/copySubProfile`, Z.1393-1434 — nehmen Erweiterungen mit), `toggleOpen/setOpen`, Status-CRUD (`addStatus/updateStatus/removeStatus/statusUsed`), `patchMeta`, `loadProfile/resetProfile`.
 
 `removeAusp`, `removeErweiterung` und `pruneP` sind der heikelste Teil und **unit-getestet** (`state.service.spec.ts`).
@@ -56,7 +56,7 @@ Unter dem Entscheidungsstand kann ein **zweites** `ProfileDoc` liegen: die `vorg
 
 Die Lesezugriffe fragen zuerst die Entscheidung und fallen auf die Vorgabe zurück, sonst nichts — feldweise für `statusOf/wirkungOf` (der Status der Vorgabe wird über **deren** Stufenliste aufgelöst, Stufen sind je Profilierung frei konfigurierbar), `effKard` (je Grenze), `werteOf`, `anmerkungOf`, `beispielOf`, `refZielOf`; bei `auspsOf` und `erweiterungenOf` gilt der Rückfall je Pfad für die ganze Liste. Ein leeres `werte`-Array ist eine bewusste Einschränkung und fällt **nicht** zurück.
 
-Daneben steht `profilWirkung(path)`: die Wirkung, die die gebundene Fassung für den Pfad **festlegt** — ohne Rücksicht darauf, ob der Durchlauf inzwischen selbst entschieden hat. Das ist die Profil-Aussage, aus der der `GuidedService` seine Wirkungen und Marker ableitet; `null` heißt „die Profilierung sagt hier nichts". „Festlegung" meint dabei die gesetzte Statusstufe: ein Eintrag mit bloßer Anmerkung oder Beispielwert ist keine Aussage über die Verwendung.
+Daneben steht `profilWirkung(path)`: die Wirkung, die die gebundene Fassung für den Pfad **festlegt** — ohne Rücksicht darauf, ob der Durchlauf inzwischen selbst entschieden hat. Das ist die Profil-Aussage; `null` heißt „die Profilierung sagt hier nichts". „Festlegung" meint dabei die gesetzte Statusstufe: ein Eintrag mit bloßer Anmerkung oder Beispielwert ist keine Aussage über die Verwendung. `profilWirkungGeerbt(path)` legt den Vorkommen-Rückfall darüber (`ohneVorkommen`) — **daraus** leitet der `GuidedService` Wirkungen und Marker ab; die rohe `profilWirkung` bleibt für alles, was pfadgenau bleiben muss (etwa die Sperr-Prüfungen, die ihre Vererbung selbst führen).
 
 Beide Schichten bleiben getrennt: `profileDoc`/`fortschritt` sehen nur den Entscheidungsstand, keine Mutation fasst die Vorgabe an, und `loadProfile` räumt sie (die Bindung gehört zum Durchlauf, nicht zum Dokument). Ohne gesetzte Vorgabe verhält sich der Store unverändert.
 
@@ -142,7 +142,7 @@ Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten
 
 **Gebundener Durchlauf:** Was die Vorgabe ausschließt (`StateService.vorgabeSchliesstAus`), wird im Struktur-Walk **vor** dem Punkt abgeschnitten — kein Entscheidungspunkt, kein Abstieg, auch nicht in Vorkommen. Das ist der Unterschied zum Ausschluss durch eine eigene Entscheidung des Durchlaufs (Wirkung `ausgeschlossen` auf `elemente`): der bleibt Punkt und zählt als getroffene Entscheidung.
 
-**Wirkungen der Vorgabe im Durchlauf** (maßgeblich ist die Wirkung, nicht der Name der Stufe — `StateService.profilWirkung` liest sie ohne die Entscheidungsschicht):
+**Wirkungen der Vorgabe im Durchlauf** (maßgeblich ist die Wirkung, nicht der Name der Stufe — `StateService.profilWirkungGeerbt` liest sie ohne die Entscheidungsschicht und mit dem Vorkommen-Rückfall, siehe unten):
 
 | Wirkung der Vorgabe | Verhalten im Durchlauf                                                                                                                                                   | Marker             |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ |
@@ -152,7 +152,9 @@ Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten
 | `markierung`        | wie `optional`                                                                                                                                                           | `zu klären`        |
 | keine Festlegung    | Schema-Semantik                                                                                                                                                          | `nicht profiliert` |
 
-`markerOf(path)` liefert den Marker (`PunktMarker`), `DecisionPoint.marker` führt ihn am Punkt mit. Er beschreibt die **Aussage der Profilierung**, nicht die Antwort des Anwenders — er bleibt also stehen, nachdem entschieden wurde. **Vorkommen erben die Aussage ihres Trägerelements** (`ohneVorkommen`): ihre IDs entstehen zur Laufzeit, die Profilierung kann sie gar nicht adressieren; nur wo sie es doch tut (eigene Ausprägungen der gebundenen Fassung), gewinnt der exakte Pfad.
+**Vorkommen erben die Aussage ihres Trägerelements** (`profilWirkungGeerbt`, Rückfall über `ohneVorkommen`): ihre IDs entstehen zur Laufzeit, die Profilierung kann sie gar nicht adressieren; nur wo sie es doch tut (eigene Ausprägungen der gebundenen Fassung), gewinnt der exakte Pfad. Das gilt für **Wirkung und Marker gemeinsam** — was generisch zwingend gesetzt ist, ist auch in `…/beteiligung@a1/rolle` Pflicht und nicht abwählbar; sonst verlöre die Festlegung genau dort ihre Wirkung, wo sie zugleich keinen Marker trägt.
+
+`markerOf(path)` liefert den Marker (`PunktMarker`), `DecisionPoint.marker` führt ihn am Punkt mit. Er beschreibt die **Aussage der Profilierung**, nicht die Antwort des Anwenders — er bleibt also stehen, nachdem entschieden wurde.
 
 `markerZaehlung` zählt die **berührten** markierten Elemente — was in der Nachricht landet, also Optionales erst mit der Aufnahme und Weggelassenes nie; synthetische Gruppen (choice/sequence) bleiben außen vor. Der `TestmessageCreateService` hängt die Zahlen beim Speichern als Sammelmeldung an den Toast.
 

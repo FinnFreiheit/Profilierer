@@ -1,5 +1,5 @@
 import { Injectable, Signal, computed, inject } from '@angular/core';
-import { TreeNode, itemPath, ohneVorkommen } from '../../models/node.model';
+import { TreeNode, itemPath } from '../../models/node.model';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
@@ -109,9 +109,12 @@ export class GuidedService {
     // Zwingend gesetzt: die gebundene Fassung verlangt das Element, auch wo das
     // Schema es freistellt. Es ist damit kein Aufnehmen/Weglassen-Punkt mehr,
     // sondern Pflicht-Rueckgrat — Blaetter brauchen einen typkonformen Wert,
-    // Container werden ohne Rueckfrage betreten.
+    // Container werden ohne Rueckfrage betreten. Wie der Marker ueber
+    // profilWirkungGeerbt, damit die Festlegung auch innerhalb eines Vorkommens
+    // greift — sonst verlangte der Durchlauf am Traegerelement, was er in der
+    // Auspraegung wieder freigibt.
     const zwingend = (path: string): boolean =>
-      instanz && this.state.profilWirkung(path) === 'pflicht';
+      instanz && this.state.profilWirkungGeerbt(path) === 'pflicht';
     const punkte: DecisionPoint[] = [];
     const seqOf = new Map<string, number>();
     const wertNodes = new Map<string, PlaceholderNode>();
@@ -306,10 +309,7 @@ export class GuidedService {
   markerOf(path: string): PunktMarker | null {
     if (!this.instanzModus() || !this.state.hatVorgabe()) return null;
     if (this.state.vorgabeGesperrt(path)) return null; // gesperrt traegt seinen eigenen Marker
-    // Vorkommen erben die Aussage ihres Traegerelements: ihre ids entstehen zur
-    // Laufzeit, die Profilierung kann sie gar nicht adressieren. Nur wo sie es
-    // doch tut (eigene Auspraegungen der gebundenen Fassung), gewinnt der Pfad.
-    const w = this.state.profilWirkung(path) ?? this.state.profilWirkung(ohneVorkommen(path));
+    const w = this.state.profilWirkungGeerbt(path);
     if (w === 'markierung') return 'zuklaeren';
     return w ? null : 'nichtprofiliert';
   }
@@ -577,7 +577,7 @@ export class GuidedService {
    * Durchlauf kann das Szenario nicht unterlaufen.
    */
   setzeAufnahme(path: string, aufnehmen: boolean | null): void {
-    if (!aufnehmen && this.state.profilWirkung(path) === 'pflicht') return;
+    if (!aufnehmen && this.state.profilWirkungGeerbt(path) === 'pflicht') return;
     if (aufnehmen === null) {
       this.state.setElementProfile(path, { status: undefined });
       return;
