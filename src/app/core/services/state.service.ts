@@ -49,6 +49,41 @@ export class StateService {
   readonly auspraegungen = signal<Record<string, Auspraegung[]>>({});
   readonly erweiterungen = signal<Record<string, Erweiterung[]>>({});
 
+  // ── Vorgabe-Schicht (eingefrorene Profilkopie) ──────────────────────
+  /**
+   * Zweites Profil-Dokument unter dem Entscheidungsstand: die **Vorgabe**
+   * (Spec "Testnachricht gefuehrt aus einer Profilierung"). Waehrend eines
+   * Durchlaufs ist sie schreibgeschuetzt — keine Mutation des Stores fasst sie
+   * an; gesetzt und geleert wird sie ausschliesslich ueber `setVorgabe` /
+   * `clearVorgabe`. Die Lesezugriffe (Wirkung, Kardinalitaet, Codelisten-Werte,
+   * Auspraegungen, Anmerkung, Beispielwert, Verweisziel) fragen zuerst die
+   * Entscheidungsschicht (`elemente`/`auspraegungen`) und fallen auf die
+   * Vorgabe zurueck. Ohne gesetzte Vorgabe (`null`) verhaelt sich der Store
+   * exakt wie zuvor.
+   */
+  readonly vorgabe = signal<ProfileDoc | null>(null);
+
+  /** Laeuft der Durchlauf gegen eine gebundene Profilfassung? */
+  readonly hatVorgabe = computed(() => !!this.vorgabe());
+
+  /**
+   * Bindet eine Profilfassung als Vorgabe. Das Dokument wird beim Setzen
+   * kopiert: die Vorgabe ist eine eingefrorene Fassung und darf sich nicht
+   * aendern, wenn der Aufrufer sein Ausgangsdokument spaeter weiterbearbeitet.
+   */
+  setVorgabe(doc: ProfileDoc): void {
+    this.vorgabe.set(structuredClone(doc));
+  }
+
+  clearVorgabe(): void {
+    this.vorgabe.set(null);
+  }
+
+  /** Der Element-Eintrag der Vorgabe zu einem Pfad (null ohne Vorgabe/Eintrag). */
+  private vorgabeProfile(path: string): ElementProfile | null {
+    return this.vorgabe()?.elemente[path] ?? null;
+  }
+
   // ── Ansicht / Bibliothek ────────────────────────────────────────────
   /** Dashboard (Bibliothek) vs. Baum-Editor vs. Testdaten-Speicher. Startseite ist das Dashboard. */
   readonly view = signal<'dashboard' | 'editor' | 'testdaten'>('dashboard');
@@ -185,10 +220,18 @@ export class StateService {
     return this.statuses().find((s) => s.wirkung === 'optional') ?? null;
   }
 
-  /** statusOf (Z.997). */
+  /**
+   * statusOf (Z.997) — Entscheidung, sonst Vorgabe. Der Status der Vorgabe wird
+   * ueber **deren** Stufenliste aufgeloest: Statusstufen sind je Profilierung
+   * frei konfigurierbar, dieselbe id kann in beiden Schichten etwas anderes
+   * bedeuten. Massgeblich ist die Wirkung, nicht der Name.
+   */
   statusOf(path: string): Status | null {
     const p = this.elemente()[path];
-    return p?.status ? this.statusById(p.status) : null;
+    if (p?.status) return this.statusById(p.status);
+    const v = this.vorgabe();
+    const vStatus = v?.elemente[path]?.status;
+    return (vStatus && v?.statuses.find((s) => s.id === vStatus)) || null;
   }
 
   /** wirkungOf (Z.998). */
@@ -209,10 +252,41 @@ export class StateService {
     return this.ancestorPaths(path).some((a) => this.wirkungOf(a) === 'ausgeschlossen');
   }
 
-  /** hasNotes (Z.1011-1014). */
+  /**
+   * Freigegebene Codelisten-Werte — Entscheidung, sonst Vorgabe. Ein leeres
+   * Array ist eine explizite Einschraenkung („keine Werte zugelassen", siehe
+   * isEmptyProfile) und faellt daher nicht auf die Vorgabe zurueck; nur ein
+   * fehlender Eintrag tut das.
+   */
+  werteOf(path: string): string[] | null {
+    return this.elemente()[path]?.werte ?? this.vorgabeProfile(path)?.werte ?? null;
+  }
+
+  /**
+   * Anmerkung — Entscheidung, sonst Vorgabe (dort der fachliche Hilfetext zum
+   * Entscheidungspunkt). Ein leerer Text zaehlt wie keiner.
+   */
+  anmerkungOf(path: string): string | null {
+    return this.elemente()[path]?.anmerkung || this.vorgabeProfile(path)?.anmerkung || null;
+  }
+
+  /**
+   * Beispielwert — Entscheidung, sonst Vorgabe. Im gebundenen Durchlauf ist der
+   * Wert der Vorgabe ein Vorschlag, kein gesetzter Wert (Spec "vorschlagen statt
+   * vorbelegen"); wer den Punkt beantwortet, schreibt in die Entscheidung.
+   */
+  beispielOf(path: string): string | null {
+    return this.elemente()[path]?.beispiel || this.vorgabeProfile(path)?.beispiel || null;
+  }
+
+  /** Verweisziel-Pfad (Z.1179-1183) — Entscheidung, sonst Vorgabe. */
+  refZielOf(path: string): string | null {
+    return this.elemente()[path]?.refZiel || this.vorgabeProfile(path)?.refZiel || null;
+  }
+
+  /** hasNotes (Z.1011-1014) — ueber die effektiven Lesezugriffe, also inkl. Vorgabe. */
   hasNotes(path: string): boolean {
-    const p = this.elemente()[path];
-    return !!(p && (p.anmerkung || p.beispiel || (p.werte && p.werte.length)));
+    return !!(this.anmerkungOf(path) || this.beispielOf(path) || this.werteOf(path)?.length);
   }
 
   /**
@@ -303,10 +377,18 @@ export class StateService {
     if (!an) this.expandValueBranches();
   }
 
-  /** effKard (Z.1007-1010): effektive Kardinalitaet inkl. Override. */
+  /**
+   * effKard (Z.1007-1010): effektive Kardinalitaet inkl. Override —
+   * Entscheidung, sonst Vorgabe, sonst Schema (je Grenze getrennt).
+   */
   effKard(node: TreeNode): { min: string; max: string; changed: boolean } {
     const p = this.elemente()[node.path] ?? {};
-    return { min: p.min || node.min, max: p.max || node.max, changed: !!(p.min || p.max) };
+    const v = this.vorgabeProfile(node.path);
+    return {
+      min: p.min || v?.min || node.min,
+      max: p.max || v?.max || node.max,
+      changed: !!(p.min || p.max || v?.min || v?.max),
+    };
   }
 
   // ── Profil-Mutationen ───────────────────────────────────────────────
@@ -363,9 +445,13 @@ export class StateService {
     );
   }
 
-  /** auspsOf (Z.1015). */
+  /**
+   * auspsOf (Z.1015) — Entscheidung, sonst Vorgabe. Der Rueckfall gilt je Pfad
+   * fuer die ganze Liste: sobald der Durchlauf an einem Element eigene
+   * Vorkommen fuehrt, sind sie massgeblich (kein Mischen beider Schichten).
+   */
   auspsOf(path: string): Auspraegung[] | null {
-    return this.auspraegungen()[path] ?? null;
+    return this.auspraegungen()[path] ?? this.vorgabe()?.auspraegungen[path] ?? null;
   }
 
   /** addAusp (Z.1017-1022): haengt eine benannte Auspraegung an. */
@@ -584,6 +670,10 @@ export class StateService {
     // Session danach neu.
     this.messageEdit.set(null);
     this.messageCreate.set(null);
+    // Die Vorgabe gehoert zum Durchlauf, nicht zum Dokument: mit dem
+    // Profil-Einstieg endet die Bindung. Die Einstiege, die gebunden fuehren,
+    // setzen sie danach explizit (wie messageCreate).
+    this.clearVorgabe();
     // Die reine Schema-Ansicht endet mit jedem Profil-Einstieg; bei der
     // Nachrichtenwahl innerhalb der Schema-Ansicht stellt loadMessage sie
     // danach wieder her.

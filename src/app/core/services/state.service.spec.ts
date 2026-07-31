@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { StateService } from './state.service';
 import { TreeItem, TreeNode } from '../../models/node.model';
+import { ProfileDoc } from '../../models/profile.model';
+import { newProfile } from '../profile-defaults';
 
 function node(path: string, over: Partial<TreeNode> = {}): TreeNode {
   return {
@@ -473,6 +475,207 @@ describe('StateService', () => {
       s.loadProfile({ meta: {}, statuses: [], elemente: {}, auspraegungen: {}, erweiterungen: {} });
       expect(s.valFehler()).toBeNull();
       expect(s.valAnc()).toBeNull();
+    });
+  });
+
+  describe('Vorgabe-Schicht', () => {
+    /** Ein Vorgabe-Dokument mit eigenen Statusstufen (Stufen sind je Profil frei). */
+    function vorgabeDoc(over: Partial<ProfileDoc> = {}): ProfileDoc {
+      return { ...newProfile(), ...over };
+    }
+
+    it('setVorgabe setzt, clearVorgabe leert die Vorgabe', () => {
+      expect(s.vorgabe()).toBeNull();
+      expect(s.hatVorgabe()).toBeFalse();
+
+      s.setVorgabe(vorgabeDoc({ elemente: { 'm/a': { status: 's1' } } }));
+
+      expect(s.hatVorgabe()).toBeTrue();
+      expect(s.vorgabe()!.elemente['m/a']).toEqual({ status: 's1' });
+
+      s.clearVorgabe();
+
+      expect(s.vorgabe()).toBeNull();
+      expect(s.hatVorgabe()).toBeFalse();
+    });
+
+    it('Wirkung: Entscheidung vor Vorgabe, Vorgabe-Status ueber deren eigene Stufen', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          // Eigene Stufenliste mit anderen ids als der Entscheidungsstand.
+          statuses: [
+            { id: 'v1', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+          ],
+          elemente: { 'm/a': { status: 'v1' }, 'm/b': { status: 'v1' } },
+        }),
+      );
+      s.setElementProfile('m/a', { status: 's1' }); // Entscheidung: zwingend
+
+      expect(s.wirkungOf('m/a')).toBe('pflicht');
+      expect(s.statusOf('m/a')?.id).toBe('s1');
+      expect(s.wirkungOf('m/b')).toBe('ausgeschlossen');
+      expect(s.statusOf('m/b')?.name).toBe('nicht verwendet');
+      expect(s.wirkungOf('m/c')).toBeNull();
+      expect(s.statusOf('m/c')).toBeNull();
+    });
+
+    it('Kardinalitaet: Entscheidung vor Vorgabe, sonst Schema', () => {
+      const n = node('m/a', { min: '0', max: 'unbounded' });
+      const ohne = node('m/b', { min: '0', max: '1' });
+      s.setVorgabe(vorgabeDoc({ elemente: { 'm/a': { min: '1', max: '3' } } }));
+
+      expect(s.effKard(n)).toEqual({ min: '1', max: '3', changed: true });
+      expect(s.effKard(ohne)).toEqual({ min: '0', max: '1', changed: false });
+
+      s.setElementProfile('m/a', { max: '2' });
+      expect(s.effKard(n)).toEqual({ min: '1', max: '2', changed: true });
+    });
+
+    it('Auspraegungen: Entscheidung vor Vorgabe, je Pfad als ganze Liste', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          auspraegungen: {
+            'm/bet': [{ id: 'v1', name: 'Notar/in' }],
+            'm/anlage': [{ id: 'v2', name: 'Urkunde' }],
+          },
+        }),
+      );
+
+      expect(s.auspsOf('m/bet')!.map((a) => a.name)).toEqual(['Notar/in']);
+      expect(s.auspsOf('m/anlage')!.map((a) => a.name)).toEqual(['Urkunde']);
+      expect(s.auspsOf('m/sonst')).toBeNull();
+
+      s.addAusp('m/bet', 'Betroffene Person');
+      expect(s.auspsOf('m/bet')!.map((a) => a.name)).toEqual(['Betroffene Person']);
+    });
+
+    it('Codelisten-Werte: Entscheidung vor Vorgabe; leere Liste bleibt Einschraenkung', () => {
+      s.setVorgabe(
+        vorgabeDoc({ elemente: { 'm/rolle': { werte: ['01', '02'] }, 'm/art': { werte: ['A'] } } }),
+      );
+
+      expect(s.werteOf('m/rolle')).toEqual(['01', '02']);
+      expect(s.werteOf('m/ohne')).toBeNull();
+
+      s.setElementProfile('m/rolle', { werte: ['01'] });
+      expect(s.werteOf('m/rolle')).toEqual(['01']);
+
+      // Leeres Array ist eine bewusste Einschraenkung („keine Werte zugelassen")
+      // und faellt nicht auf die Vorgabe zurueck.
+      s.setElementProfile('m/art', { werte: [] });
+      expect(s.werteOf('m/art')).toEqual([]);
+    });
+
+    it('Anmerkung: Entscheidung vor Vorgabe', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          elemente: { 'm/a': { anmerkung: 'aus dem Profil' }, 'm/b': { anmerkung: 'Hilfetext' } },
+        }),
+      );
+      s.setElementProfile('m/a', { anmerkung: 'im Durchlauf notiert' });
+
+      expect(s.anmerkungOf('m/a')).toBe('im Durchlauf notiert');
+      expect(s.anmerkungOf('m/b')).toBe('Hilfetext');
+      expect(s.anmerkungOf('m/c')).toBeNull();
+    });
+
+    it('Beispielwert: Entscheidung vor Vorgabe', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          elemente: { 'm/az': { beispiel: '1 C 234/25' }, 'm/datum': { beispiel: '2025-01-01' } },
+        }),
+      );
+      s.setElementProfile('m/az', { beispiel: '9 O 1/26' });
+
+      expect(s.beispielOf('m/az')).toBe('9 O 1/26');
+      expect(s.beispielOf('m/datum')).toBe('2025-01-01');
+      expect(s.beispielOf('m/leer')).toBeNull();
+    });
+
+    it('Verweisziel: Entscheidung vor Vorgabe', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          elemente: {
+            'm/ref1': { refZiel: 'm/bet@v1' },
+            'm/ref2': { refZiel: 'm/bet@v2' },
+          },
+        }),
+      );
+      s.setElementProfile('m/ref1', { refZiel: 'm/bet@eigen' });
+
+      expect(s.refZielOf('m/ref1')).toBe('m/bet@eigen');
+      expect(s.refZielOf('m/ref2')).toBe('m/bet@v2');
+      expect(s.refZielOf('m/ref3')).toBeNull();
+    });
+
+    it('hasNotes erkennt Inhalt der Vorgabe (Anmerkung/Beispiel/Werte)', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          elemente: {
+            'm/a': { anmerkung: 'x' },
+            'm/b': { beispiel: 'y' },
+            'm/c': { werte: ['1'] },
+          },
+        }),
+      );
+      expect(s.hasNotes('m/a')).toBeTrue();
+      expect(s.hasNotes('m/b')).toBeTrue();
+      expect(s.hasNotes('m/c')).toBeTrue();
+      expect(s.hasNotes('m/d')).toBeFalse();
+    });
+
+    it('bleibt unveraendert — weder durch Entscheidungen noch ueber das Ausgangsdokument', () => {
+      const quelle = vorgabeDoc({
+        elemente: { 'm/a': { status: 's1', anmerkung: 'Profil', werte: ['01'] } },
+        auspraegungen: { 'm/bet': [{ id: 'v1', name: 'Notar/in' }] },
+      });
+      s.setVorgabe(quelle);
+      const eingefroren = JSON.stringify(s.vorgabe());
+
+      // Entscheidungen des Durchlaufs …
+      s.setElementProfile('m/a', { status: 's3', anmerkung: 'anders', werte: [] });
+      const id = s.addAusp('m/bet', 'Betroffene Person');
+      s.removeAusp('m/bet', id);
+      s.removeStatus('s1');
+      // … und eine spaetere Aenderung am Ausgangsdokument (eingefrorene Kopie).
+      quelle.elemente['m/a'] = { status: 'weg' };
+      quelle.auspraegungen['m/bet'] = [];
+
+      expect(JSON.stringify(s.vorgabe())).toBe(eingefroren);
+    });
+
+    it('Entscheidungsstand bleibt frei von Vorgabe-Werten (getrennt serialisierbar)', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          meta: { name: 'Profil X' },
+          elemente: { 'm/a': { status: 's1', beispiel: 'v' } },
+          auspraegungen: { 'm/bet': [{ id: 'v1', name: 'Notar/in' }] },
+          erweiterungen: { 'm/x': [{ id: 'x1', name: 'zusatz', min: '1', max: '1' }] },
+        }),
+      );
+      s.setElementProfile('m/b', { beispiel: 'im Durchlauf gesetzt' });
+
+      const doc = s.profileDoc();
+      expect(Object.keys(doc.elemente)).toEqual(['m/b']);
+      expect(doc.auspraegungen).toEqual({});
+      expect(doc.erweiterungen).toEqual({});
+      expect(doc.meta.name).toBeUndefined();
+      expect(s.fortschritt()).toEqual({ nStatus: 0, nAusp: 0, nErw: 0 });
+      // Die Vorgabe bleibt daneben fuer sich serialisierbar.
+      expect(Object.keys(s.vorgabe()!.elemente)).toEqual(['m/a']);
+    });
+
+    it('loadProfile beendet die Bindung (jeder Profil-Einstieg raeumt die Vorgabe)', () => {
+      s.setVorgabe(vorgabeDoc({ elemente: { 'm/a': { status: 's1' } } }));
+      s.loadProfile(newProfile());
+      expect(s.vorgabe()).toBeNull();
+      expect(s.wirkungOf('m/a')).toBeNull();
+    });
+
+    it('inheritedExcluded greift auch bei ausgeschlossenem Vorfahren aus der Vorgabe', () => {
+      s.setVorgabe(vorgabeDoc({ elemente: { 'm/a': { status: 's3' } } }));
+      expect(s.inheritedExcluded('m/a/b/c')).toBeTrue();
+      expect(s.inheritedExcluded('m/x')).toBeFalse();
     });
   });
 });
