@@ -13,6 +13,27 @@ export function unterPfad(pfad: string, praefix: string): boolean {
   return pfad === praefix || pfad.startsWith(praefix + '/') || pfad.startsWith(praefix + '@');
 }
 
+/** Datum eines Hinweises im Projektformat YY.MM.DD. */
+export function hinweisDatum(zeit: number): string {
+  const d = new Date(zeit);
+  const zwei = (n: number): string => String(n).padStart(2, '0');
+  return `${zwei(d.getFullYear() % 100)}.${zwei(d.getMonth() + 1)}.${zwei(d.getDate())}`;
+}
+
+/**
+ * Herkunftszeile eines Hinweises: „Müller (BLK-AG), 26.07.30" (Issue #40).
+ * Der Name ist Selbstauskunft, das Rollenkennzeichen stammt vom Server.
+ * **Ohne Autor** bleibt nur das Datum — migrierte Altbestaende tragen keinen
+ * Namens- und Rollenzusatz, und ein erfundener waere schlimmer als keiner.
+ */
+export function hinweisHerkunft(h: Pick<Hinweis, 'autor' | 'rolle' | 'zeit'>): string {
+  const datum = hinweisDatum(h.zeit);
+  const name = h.autor?.trim();
+  if (!name) return datum;
+  const rolle = h.rolle === 'ag' ? ' (BLK-AG)' : h.rolle === 'extern' ? ' (extern)' : '';
+  return `${name}${rolle}, ${datum}`;
+}
+
 /**
  * Nutzertext zu einem gescheiterten Hinweis-Schreibvorgang. Der Status wird
  * bewusst per Duck-Typing gelesen (`HinweisFehler` traegt ihn), damit dieses

@@ -8,6 +8,7 @@ import { TreeService } from './tree.service';
 import { ValueService } from './value.service';
 import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
+import { hinweisHerkunft } from '../util/hinweis.util';
 import { ExportService } from './export.service';
 import { HinweisStoreService } from './hinweis-store.service';
 import { fmtKard } from '../util/pretty.util';
@@ -199,8 +200,15 @@ export class ExcelExportService {
    * (erledigte werden nicht exportiert). Leerer String = kein Hinweis, die
    * Zusatzspalte entfaellt dann ganz.
    */
+  /**
+   * Alle **offenen** Hinweise eines Elements untereinander, je Zeile mit
+   * Herkunft: „Müller (BLK-AG), 26.07.30: Text" (Issue #40). Migrierte
+   * Altbestaende ohne Autor tragen nur ihr Datum.
+   */
   private hinweisZelle(pfad: string): string {
-    return (this.hinweise.offeneJePfad().get(pfad) ?? []).map((h) => h.text).join('\n');
+    return (this.hinweise.offeneJePfad().get(pfad) ?? [])
+      .map((h) => `${hinweisHerkunft(h)}: ${h.text}`)
+      .join('\n');
   }
 
   /** Szenariozelle: Statusname, Anmerkung angehaengt, Werte/Verweis darunter. */

@@ -114,19 +114,34 @@ test('Hinweise: anlegen, listen, aendern, abhaken, loeschen', async (t) => {
   );
 });
 
-test('Hinweise: Server stempelt den Zeitpunkt selbst und ignoriert Client-Angaben', async (t) => {
-  const { api } = await start(t);
+test('Hinweise: Server stempelt Zeitpunkt und Rolle selbst, Name ist Selbstauskunft (#40)', async (t) => {
+  const { api } = await start(t, { agKey: AG_KEY });
   const id = await neuesProfil(api);
   const vorher = Date.now();
+  // Ohne Schluessel: Rolle "extern" — auch wenn der Client "ag" behauptet.
   const r = await api('POST', `/profiles/${id}/hinweise`, {
-    body: { pfad: 'm/az', text: 'x', zeit: 5, autor: 'Ich', rolle: 'ag', id: 'gewuenscht' },
+    body: { pfad: 'm/az', text: 'x', zeit: 5, autor: ' Müller ', rolle: 'ag', id: 'gewuenscht' },
   });
   assert.equal(r.status, 201);
   assert.notEqual(r.body.hinweis.id, 'gewuenscht');
-  assert.ok(r.body.hinweis.zeit >= vorher);
-  // Autor/Rolle bleiben in diesem Ticket leer (kommen mit der Autorschaft).
-  assert.equal(r.body.hinweis.autor, undefined);
-  assert.equal(r.body.hinweis.rolle, undefined);
+  assert.ok(r.body.hinweis.zeit >= vorher); // nicht die 5 des Clients
+  assert.equal(r.body.hinweis.autor, 'Müller'); // Name uebernommen, getrimmt
+  assert.equal(r.body.hinweis.rolle, 'extern');
+
+  // Mit gueltigem Schluessel: Rolle "ag".
+  const ag = await api('POST', `/profiles/${id}/hinweise`, {
+    body: { pfad: 'm/az', text: 'y', autor: 'Schmidt' },
+    key: AG_KEY,
+  });
+  assert.equal(ag.body.hinweis.rolle, 'ag');
+  assert.equal(ag.body.hinweis.autor, 'Schmidt');
+
+  // Ohne Namensangabe bleibt der Eintrag namenlos (wie migrierter Altbestand).
+  const ohne = await api('POST', `/profiles/${id}/hinweise`, {
+    body: { pfad: 'm/az', text: 'z' },
+  });
+  assert.equal(ohne.body.hinweis.autor, undefined);
+  assert.equal(ohne.body.hinweis.rolle, 'extern');
 });
 
 test('Hinweise: unbekanntes Profil bzw. unbekannter Hinweis → 404, leerer Text → 400', async (t) => {

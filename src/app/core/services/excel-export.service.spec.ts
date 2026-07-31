@@ -7,6 +7,7 @@ import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
 import { HinweisStoreService } from './hinweis-store.service';
 import { Hinweis } from '../../models/profile.model';
+import { hinweisDatum } from '../util/hinweis.util';
 
 // ── Excel-Export im NGem-Abstimmungslayout ────────────────────────────
 
@@ -201,14 +202,23 @@ describe('ExcelExportService (NGem-Layout)', () => {
   });
 
   it('alle offenen Hinweise eines Elements stehen untereinander in einer Zelle', async () => {
+    // Je Zeile die Herkunft: „Name (Rolle), Datum: Text" (#40). Ein Eintrag
+    // ohne Autor (migrierter Altbestand) traegt nur sein Datum.
     hinweise.hinweise.set([
-      hw('h1', `${M2}/fachdaten/aktenzeichen`, 'Mit Registergericht klären'),
+      {
+        ...hw('h1', `${M2}/fachdaten/aktenzeichen`, 'Mit Registergericht klären'),
+        autor: 'Müller',
+        rolle: 'ag',
+      },
       hw('h2', `${M2}/fachdaten/aktenzeichen`, 'Format noch offen'),
     ]);
     const wb = await exportiert();
     const haupt = inhalt(wb, 'Notar an Gemeinde');
     expect(haupt).toContain('Hinweise');
-    expect(haupt).toContain('Mit Registergericht klären\nFormat noch offen');
+    const datum = hinweisDatum(1000);
+    expect(haupt).toContain(
+      `Müller (BLK-AG), ${datum}: Mit Registergericht klären\n${datum}: Format noch offen`,
+    );
   });
 
   it('erledigte Hinweise werden nicht exportiert; ohne Hinweise keine Zusatzspalte', async () => {

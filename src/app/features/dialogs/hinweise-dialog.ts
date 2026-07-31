@@ -5,7 +5,8 @@ import { NavService } from '../../core/services/nav.service';
 import { ToastService } from '../../core/services/toast.service';
 import { LoggerService } from '../../core/services/logger.service';
 import { pretty } from '../../core/util/pretty.util';
-import { hinweisFehlerText } from '../../core/util/hinweis.util';
+import { hinweisFehlerText, hinweisHerkunft } from '../../core/util/hinweis.util';
+import { Hinweis } from '../../models/profile.model';
 
 /**
  * Uebersicht aller Hinweise (US "Hinweis pro Element"): jeder Hinweis steht
@@ -61,9 +62,12 @@ export class HinweiseDialog {
     return seg.includes('@') ? this.state.auspLabel(pfad) : pretty(seg);
   }
 
-  /** Zeitpunkt kurz und lesbar (Datum genuegt fuer die Uebersicht). */
-  protected datum(zeit: number): string {
-    return new Date(zeit).toLocaleDateString('de-DE');
+  /**
+   * Herkunft eines Eintrags: „Müller (BLK-AG), 26.07.30" (Issue #40).
+   * Migrierte Altbestaende ohne Autor zeigen nur das Datum.
+   */
+  protected herkunft(h: Hinweis): string {
+    return hinweisHerkunft(h);
   }
 
   /**

@@ -647,20 +647,24 @@ export function openDb(path) {
     },
 
     /**
-     * Hinweis anlegen. `zeit` stempelt der Server selbst, `autor`/`rolle`
-     * bleiben leer (die Autorschaft kommt mit einer eigenen Story) — vom Client
-     * mitgeschickte Werte werden ignoriert. null, wenn das Profil fehlt.
+     * Hinweis anlegen (Issue #40). Der Name ist **Selbstauskunft** und kommt vom
+     * Client; `zeit` und `rolle` setzt der Server selbst — die Rolle leitet sich
+     * aus dem mitgeschickten AG-Schluessel ab und ist deshalb belastbar, auch
+     * wenn der Klarname es nicht ist. Vom Client mitgeschickte Werte fuer beides
+     * werden ignoriert (die Signatur nimmt sie gar nicht erst entgegen).
+     * null, wenn das Profil fehlt.
      */
-    hinweisAnlegen(profilId, { pfad, text }, ts) {
+    hinweisAnlegen(profilId, { pfad, text, autor }, ts, rolle) {
       if (!stmt.exists.get(profilId)) return null;
       const id = randomUUID();
+      const name = String(autor ?? '').trim();
       stmt.hwInsert.run({
         id,
         profilId,
         pfad: String(pfad ?? ''),
         text: String(text ?? '').trim(),
-        autor: null,
-        rolle: null,
+        autor: name || null,
+        rolle: rolle === 'ag' || rolle === 'extern' ? rolle : null,
         zeit: ts ?? Date.now(),
         erledigt: null,
       });
