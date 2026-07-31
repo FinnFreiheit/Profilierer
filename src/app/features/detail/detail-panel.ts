@@ -146,7 +146,15 @@ export class DetailPanel {
     const kmax = isAusp ? '1' : n.max === 'unbounded' ? '*' : n.max;
 
     const showAusps = !isAusp && this.tree.isRepeatable(n) && !n.synthetic;
-    const auspList = showAusps ? (this.state.auspsOf(path) ?? []) : [];
+    // Je Vorkommen der Grund, warum es nicht entfernbar ist (zwingend gesetzt,
+    // #28) — null, solange es entfernbar ist. Getrennt von der Anzahl-Sperre,
+    // die fuer die ganze Liste gilt.
+    const auspList = showAusps
+      ? (this.state.auspsOf(path) ?? []).map((a) => ({
+          ...a,
+          sperre: this.guided.auspSperreEntfernen(path, a.id),
+        }))
+      : [];
 
     // Blatt-Eigenschaft des ausgewaehlten Items (Ausprägung: ihr Kontext-Knoten).
     const leaf = isAusp
@@ -616,7 +624,9 @@ export class DetailPanel {
   }
 
   protected delAuspRow(id: string): void {
-    const sperre = this.guided.kardSperreEntfernen(this.path());
+    const sperre =
+      this.guided.auspSperreEntfernen(this.path(), id) ??
+      this.guided.kardSperreEntfernen(this.path());
     if (sperre) {
       this.toast.show(sperre);
       return;

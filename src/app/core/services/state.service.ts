@@ -599,13 +599,13 @@ export class StateService {
    * Auswahl und Oeffnungszustaende.
    */
   removeAusp(path: string, id: string): void {
-    // Nur auf einer **eigenen** Liste: eine reine Vorgabe-Liste bleibt
-    // unberuehrt. Ob die benannten Vorkommen der Profilierung ueberhaupt
-    // entfernbar sein sollen, entscheidet das Ticket "Auspraegungen der
-    // Profilierung als Vorkommen materialisieren" (#28, AC "nicht entfernbar")
-    // — hier waere es eine Vorfestlegung. Nach einem `addAusp` ist die Liste
-    // materialisiert, dann greift diese Mutation wie auf jeder eigenen Liste.
-    if (!this.auspraegungen()[path]?.some((a) => a.id === id)) return;
+    // Auch auf einer reinen Vorgabe-Liste (ueber `auspsOf`): benannte Vorkommen
+    // der gebundenen Fassung sind entfernbar, **ausser** die Fassung setzt das
+    // Vorkommen zwingend — diese Sperre huetet `GuidedService`
+    // (`auspSperreEntfernen`), damit sie einen Grund nennen kann, statt hier
+    // stillschweigend nichts zu tun. Der Store bleibt die mechanische Schicht
+    // (#28, entschieden nach der Rueckstellung in #50).
+    if (!this.auspsOf(path)?.some((a) => a.id === id)) return;
     const prefix = path + '@' + id;
     const vorgabeListe = this.vorgabe()?.auspraegungen[path];
 
@@ -975,9 +975,11 @@ export class StateService {
   renameAusp(listPath: string, id: string, name: string): void {
     const clean = name.trim();
     this.auspraegungen.update((m) => {
-      // Nur auf einer eigenen Liste (siehe removeAusp).
-      if (!m[listPath]) return m;
-      const list = this.materialisiere(m[listPath], undefined);
+      // Auch auf einer Vorgabe-Liste (siehe removeAusp): das Umbenennen
+      // materialisiert sie und laesst die eingefrorene Fassung unberuehrt.
+      const vorgabeListe = this.vorgabe()?.auspraegungen[listPath];
+      if (!m[listPath] && !vorgabeListe) return m;
+      const list = this.materialisiere(m[listPath], vorgabeListe);
       const a = list.find((x) => x.id === id);
       if (a && clean) a.name = clean;
       return { ...m, [listPath]: list };

@@ -553,6 +553,44 @@ describe('GuidedService', () => {
         expect(state.vorgabeGesperrt(`${M}/beteiligung@v2/name`)).toBeTrue();
       });
 
+      it('zwingendes Vorkommen ist nicht entfernbar und nennt den Grund', () => {
+        // Spec: "zwingende Auspraegungen sind von Anfang an vorhanden und nicht
+        // entfernbar". Massgeblich ist die Aussage der gebundenen Fassung zum
+        // Vorkommen selbst — eine Auspraegung ohne eigene Festlegung bleibt
+        // entfernbar, sie ist in bestehenden Profilierungen als Beschreibung
+        // gemeint und nicht als Leitplanke (#28).
+        bindeVorgabe(
+          {
+            [`${M}/beteiligung`]: { status: V.pflicht },
+            [`${M}/beteiligung@n1`]: { status: V.pflicht },
+          },
+          {},
+          {
+            [`${M}/beteiligung`]: [
+              { id: 'n1', name: 'Notar/in' },
+              { id: 'n2', name: 'Betroffene Person' },
+            ],
+          },
+        );
+
+        const grund = svc.auspSperreEntfernen(`${M}/beteiligung`, 'n1');
+        expect(grund).toContain('Notar/in');
+        expect(grund).toContain('zwingend');
+        // Ohne eigene Festlegung bleibt das Nachbar-Vorkommen entfernbar.
+        expect(svc.auspSperreEntfernen(`${M}/beteiligung`, 'n2')).toBeNull();
+      });
+
+      it('beim Profilieren sind Vorkommen frei — die Sperre gilt nur im Durchlauf', () => {
+        bindeVorgabe(
+          { [`${M}/beteiligung@n1`]: { status: V.pflicht } },
+          {},
+          { [`${M}/beteiligung`]: [{ id: 'n1', name: 'Notar/in' }] },
+        );
+        state.messageCreate.set(null); // Profil-Modus
+
+        expect(svc.auspSperreEntfernen(`${M}/beteiligung`, 'n1')).toBeNull();
+      });
+
       it('eingegrenzte Kardinalitaet eines Kindpfads wirkt im Vorkommen', () => {
         // `kontakt` liegt INNERHALB des Vorkommen-Traegers und ist im Schema
         // unbegrenzt; die Profilierung grenzt generisch auf 1 ein. Ohne

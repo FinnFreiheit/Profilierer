@@ -530,7 +530,15 @@ export class TreeNode {
     e.stopPropagation();
     const it = this.item();
     if (it.kind !== 'ausp') return;
-    if (this.meldeSperre(this.guided.kardSperreEntfernen(it.parentNode.path))) return;
+    // Zwei Sperren, zwei Gruende: die Anzahl (Mindestanzahl der Profilierung)
+    // und die Identitaet dieses Vorkommens (zwingend gesetzt, #28).
+    if (
+      this.meldeSperre(
+        this.guided.auspSperreEntfernen(it.parentNode.path, it.ausp.id) ??
+          this.guided.kardSperreEntfernen(it.parentNode.path),
+      )
+    )
+      return;
     const frage = this.state.msgMode()
       ? 'Vorkommen „' + it.ausp.name + '" samt Werten löschen?'
       : 'Ausprägung „' + it.ausp.name + '" samt Unter-Profilierung löschen?';
