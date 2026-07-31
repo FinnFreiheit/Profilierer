@@ -27,10 +27,16 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
     <xs:element name="kopf" type="xs:string"/>
     <xs:element name="az" type="xs:string" minOccurs="0"/>
     <xs:element name="anlage" type="Type.Test.Anlage" minOccurs="2" maxOccurs="unbounded"/>
-    <xs:element name="beteiligung" type="Type.Test.Anlage" minOccurs="0" maxOccurs="unbounded"/>
+    <xs:element name="beteiligung" type="Type.Test.Bet" minOccurs="0" maxOccurs="unbounded"/>
   </xs:sequence></xs:complexType>
   <xs:complexType name="Type.Test.Anlage"><xs:sequence>
     <xs:element name="name" type="xs:string"/>
+  </xs:sequence></xs:complexType>
+  <!-- Eigener Typ nur fuer beteiligung: ein wiederholbares Kind innerhalb des
+       Vorkommen-Traegers, ohne die Punkt-Zaehlungen an anlage zu verschieben. -->
+  <xs:complexType name="Type.Test.Bet"><xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+    <xs:element name="kontakt" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
   </xs:sequence></xs:complexType>
 </xs:schema>`;
 
@@ -353,6 +359,31 @@ describe('TestmessageCreateService', () => {
       expect(state.auspsOf(`${M}/beteiligung`)?.length).toBe(2);
       // Die entstandenen Vorkommen sind nicht entfernbar.
       expect(guided.kardSperreEntfernen(`${M}/beteiligung`)).toContain('2');
+    });
+
+    it('materialisiert die Mindestanzahl auch innerhalb eines benannten Vorkommens', async () => {
+      arbeitsstand = doc({
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+          { id: 'v1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' },
+        ],
+        elemente: {
+          // Zwingend, damit der Walk in den Teilbaum absteigt.
+          [`${M}/beteiligung`]: { status: 'v1' },
+          // Generisch eingegrenzt — gilt in jedem Vorkommen (#59).
+          [`${M}/beteiligung/kontakt`]: { min: '2' },
+        },
+        auspraegungen: { [`${M}/beteiligung`]: [{ id: 'n1', name: 'Notar/in' }] },
+      });
+
+      await svc.neuAusProfil(profil(), null);
+
+      // Der Walk muss durch den Vorkommen-Kontext laufen: die Vorkommen gehoeren
+      // an den Pfad des benannten Vorkommens. Am generischen Pfad angelegt waeren
+      // sie unsichtbar — der Baum rendert dort die Auspraegung, nicht die
+      // generischen Kinder.
+      expect(state.auspsOf(`${M}/beteiligung@n1/kontakt`)?.length).toBe(2);
+      expect(state.auspraegungen()[`${M}/beteiligung/kontakt`]).toBeUndefined();
     });
 
     it('laesst die Schema-Kardinalitaet unberuehrt, wo das Profil nichts eingrenzt', async () => {

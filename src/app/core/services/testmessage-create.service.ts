@@ -455,7 +455,17 @@ export class TestmessageCreateService {
         if (min >= 2 && this.tree.isRepeatable(c) && !this.state.auspsOf(c.path)?.length) {
           for (let i = 1; i <= min; i++) this.state.addAusp(c.path, 'Vorkommen ' + i);
         }
-        if (!c.recursive) rec(c, depth + 1);
+        if (c.recursive) continue;
+        // Traegt das Element benannte Vorkommen — eigene oder aus der gebundenen
+        // Fassung —, dann rendert der Baum dort nicht die generischen Kinder,
+        // sondern je Vorkommen einen eigenen Pfadraum (`ctxNode`). Der Abstieg
+        // muss diesen Weg nehmen, sonst materialisiert der Walk unter dem
+        // generischen Pfad, den niemand rendert: der Durchlauf meldete dann
+        // "verlangt mindestens 2 Vorkommen" und zeigte null (Issue #28).
+        const vorkommen = this.state.auspsOf(c.path);
+        if (vorkommen?.length)
+          for (const a of vorkommen) rec(this.tree.ctxNode(c, a.id), depth + 1);
+        else rec(c, depth + 1);
       }
     };
     rec(root, 0);
