@@ -123,6 +123,52 @@ export function profilesRouter(db, auth) {
     res.status(204).end();
   });
 
+  // ── Hinweise (eigene Ressource unterhalb der Profilierung) ───────────
+  // Bewusst NICHT ueber PUT /profiles/:id: ein Volldokument-Schreiben (Autosave
+  // eines anderen Bearbeiters) darf fremde Hinweise nicht loeschen. Der
+  // Abnahme-Schutz gilt hier wie ueberall — abgenommene Profile sind fuer
+  // Externe auch bei Hinweisen gesperrt.
+
+  // Liste (fuer alle lesbar, wie das Dokument selbst).
+  r.get('/profiles/:id/hinweise', (req, res) => {
+    const liste = db.hinweiseList(req.params.id);
+    if (!liste) return res.status(404).json({ error: 'nicht gefunden' });
+    res.json(liste);
+  });
+
+  // Anlegen; Zeitpunkt stempelt der Server.
+  r.post('/profiles/:id/hinweise', schutz, (req, res) => {
+    const { pfad, text } = req.body ?? {};
+    if (!String(text ?? '').trim()) return res.status(400).json({ error: 'kein Text' });
+    const hinweis = db.hinweisAnlegen(req.params.id, { pfad, text });
+    if (!hinweis) return res.status(404).json({ error: 'nicht gefunden' });
+    res.status(201).json({ hinweis });
+  });
+
+  // Volltausch (JSON-Import einer Profildatei) — ersetzt, fuehrt nicht zusammen.
+  r.put('/profiles/:id/hinweise', schutz, (req, res) => {
+    if (!Array.isArray(req.body)) return res.status(400).json({ error: 'Array erwartet' });
+    const liste = db.hinweiseErsetzen(req.params.id, req.body);
+    if (!liste) return res.status(404).json({ error: 'nicht gefunden' });
+    res.json(liste);
+  });
+
+  // Text aendern und/oder abhaken.
+  r.patch('/profiles/:id/hinweise/:hid', schutz, (req, res) => {
+    const { text, erledigt } = req.body ?? {};
+    const hinweis = db.hinweisAendern(req.params.id, req.params.hid, { text, erledigt });
+    if (hinweis === 'leer') return res.status(400).json({ error: 'kein Text' });
+    if (!hinweis) return res.status(404).json({ error: 'nicht gefunden' });
+    res.json({ hinweis });
+  });
+
+  // Loeschen.
+  r.delete('/profiles/:id/hinweise/:hid', schutz, (req, res) => {
+    if (!db.hinweisLoeschen(req.params.id, req.params.hid))
+      return res.status(404).json({ error: 'nicht gefunden' });
+    res.status(204).end();
+  });
+
   // ── Abnahme (BLK-AG) ─────────────────────────────────────────────────
 
   // Die eingefrorene Abnahme-Fassung inkl. Dokument (Direkteinstieg fuer den

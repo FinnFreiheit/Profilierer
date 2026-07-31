@@ -34,6 +34,7 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `ErweiterungDialogService`     | Zustand des Erweiterungs-Dialogs (Anlage einer Schema-Erweiterung aus Baum/Detailpanel)                               |
 | `PersistenceService`           | XSD laden, Autosave (async, Race-Schutz), Profil öffnen/anlegen, Datei-Import/-Export                                 |
 | `ProfileStoreService`          | Profil-Bibliothek: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal                                             |
+| `HinweisStoreService`          | Hinweise am Element: eigene Ressource neben der Profilierung (HTTP-CRUD, `hinweise`-Signal + Sichten)                 |
 | `MigrationService`             | Einmalige Übernahme der localStorage-Bibliothek ins Backend                                                           |
 | `DownloadService`              | Blob-Download + Profil-Dateinamen                                                                                     |
 | `SearchService`                | Baum-Suchindex + Ranking                                                                                              |
@@ -206,13 +207,21 @@ Beide Erzeugungswege behandeln Validierungsfehler, die **nur** auf bekannte Sche
 
 ## PersistenceService
 
-`loadXsdFiles` (Z.1746, inkl. pendingMsg-Anwendung), Autosave-`effect` mit Debounce (800 ms) → `autosaveNow` (async `store.upsert`, In-Flight-Reschedule gegen Lost Updates, gedrosselter Fehler-Toast), `openFromLibrary`/`createNew` (async), `saveProfile`/`exportDoc` (v2-JSON-Datei), `loadProfileFile` + `migrateV1` (v1→v2). Alle Bibliotheks-Zugriffe laufen über den `ProfileStoreService`.
+`loadXsdFiles` (Z.1746, inkl. pendingMsg-Anwendung), Autosave-`effect` mit Debounce (800 ms) → `autosaveNow` (async `store.upsert`, In-Flight-Reschedule gegen Lost Updates, gedrosselter Fehler-Toast), `openFromLibrary`/`createNew` (async), `saveProfile`/`exportDoc`/`exportProfil` (JSON-Datei, Format 4), `loadProfileFile` + `migrateV1` (v1→v2). Alle Bibliotheks-Zugriffe laufen über den `ProfileStoreService`.
+
+**Hinweise** ([ADR 0014](adr/0014-hinweise-eigene-ressource.md)): Ein `effect` spiegelt `state.activeProfileId` in den `HinweisStoreService` — Profilwechsel lädt nach, Verlassen des Editors leert. Der Datei-Export führt Dokument und Hinweise wieder zusammen (`exportDoc(doc, hinweise)`, Schlüssel `hinweise` neben `elemente`), der Import trennt sie: Hinweise aus dem eigenen Schlüssel bzw. — bei Dateien vor Format 4 — aus den Altfeldern im Dokument (`hinweiseAusDatei`/`hinweiseAusAltformat` in `core/util/hinweis.util.ts`, gleiche Regel wie die Server-Migration), und werden per Volltausch geschrieben.
 
 **Versionen** ([US Profilierung versionieren](user-stories/profilierung-versionieren.md)): `flushAutosave` wartet auch auf laufende Upserts (sonst fröre „Version anlegen" einen veralteten Stand ein); `openFromLibrary` flusht zuerst, legt fire-and-forget einen serverseitig entprellten Öffnen-Snapshot an und übergibt an den privaten Helfer `uebernehmeDoc` (Versions-Angleich + Nachricht aufbauen); `restoreVersion(versionId)` stellt eine Version des aktiven Profils in-place wieder her (Server sichert den Arbeitsstand vorher als Sicherheits-Version) — bewusst nicht über `openFromLibrary`, damit kein weiterer Öffnen-Snapshot entsteht.
 
 ## ProfileStoreService
 
 Einzige Persistenz-Kapsel der Profil-Bibliothek — spricht das Backend per nativem `fetch` an ([ADR 0007](adr/0007-datenbank-backend.md)). `entries` (Signal, reaktive Index-Fassade fürs Dashboard), `refresh` (GET `/api/profiles`), `load` (GET, 404→null), `upsert`/`create`/`duplicate`/`rename`/`delete` (async, pflegen `entries` mit dem vom Server gelieferten `LibraryEntry`), `importAll` (Migration), dazu die Versions-API `listVersions`/`createVersion`/`restoreVersion`/`deleteVersion` (`/api/profiles/:id/versions…`; Schreib-Calls pflegen `entries`, der Entry trägt `nVersionen`/`letzteVersionNr`/`geaendert` fürs Kennzeichen „geändert seit vX"). Getestet mit gemocktem `fetch` (`profile-store.service.spec.ts`).
+
+## HinweisStoreService
+
+Ablage der Hinweise am Element — eine **eigene Ressource** neben der Profilierung ([ADR 0014](adr/0014-hinweise-eigene-ressource.md)), bewusst nicht in der `elemente`-Map des `StateService`. Bedient `/api/profiles/:id/hinweise…` per nativem `fetch`; `lade(id | null)` füllt bzw. leert das Signal `hinweise` (gesteuert vom `PersistenceService` entlang `activeProfileId`), `anlegen`/`aendern`/`loeschen` pflegen es nach jedem Schreib-Call, `ersetzeAlle(profilId, liste)` ist der Volltausch des Datei-Imports, `hole(profilId)` liest ein fremdes Profil für den Export aus dem Dashboard.
+
+Abgeleitete Sichten (alle `computed`): `eintraege` (offene vor erledigten, dann Pfad und Zeit — die Reihenfolge der Übersicht), `nOffen` (Toolbar-Zähler), `jePfad`/`offeneJePfad` (Detail-Panel bzw. Baum-Marker und Excel-Zelle), `anc` (Vorfahren-Aggregat für zugeklappte Äste, Präfix-Logik wie `valAnc`). Getestet mit gemocktem `fetch` (`hinweis-store.service.spec.ts`).
 
 ## MigrationService
 

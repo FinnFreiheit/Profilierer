@@ -183,8 +183,7 @@ export class Dashboard {
   protected async exportEntry(id: string, e: Event): Promise<void> {
     e.stopPropagation();
     try {
-      const doc = await this.store.load(id);
-      if (doc) this.persistence.exportDoc(doc);
+      await this.persistence.exportProfil(id);
     } catch {
       this.toast.show('Export fehlgeschlagen — Backend nicht erreichbar.');
     }

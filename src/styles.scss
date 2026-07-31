@@ -358,11 +358,22 @@ label.menuItem:has(input:disabled) {
   font-size: 11px;
   word-break: break-all;
 }
-.hinweisListe .hwErledigt {
+.hinweisListe .hwBody {
+  flex: 1;
+  min-width: 0;
+}
+.hwErledigt {
   opacity: 0.55;
 }
-.hinweisListe .hwErledigt .hwText {
+.hwErledigt .hwText {
   text-decoration: line-through;
+}
+/* Loeschen-Kreuz an einem Hinweis (Uebersicht und Detail-Panel). */
+.hwWeg {
+  flex: none;
+  padding: 0 6px;
+  line-height: 1.4;
+  color: var(--muted);
 }
 /* Versions-Dialog (versionenDlg): Snapshot-Liste mit Aktionen. */
 .verAnlegen {
@@ -389,17 +400,22 @@ label.menuItem:has(input:disabled) {
   margin-top: 3px;
   color: var(--muted);
 }
-/* Erledigt-Checkbox im Detail-Panel unterhalb des Hinweis-Textfelds. */
-.dsec .hinweisErledigt {
+/* Vorhandene Hinweise im Detail-Panel, ueber dem Eingabefeld. */
+.dsec .hwZeile {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
-  margin-top: 5px;
+  margin-bottom: 4px;
   font-size: 12.5px;
-  color: var(--muted);
-  text-transform: none;
-  letter-spacing: normal;
-  font-weight: 400;
+}
+.dsec .hwZeile input[type='checkbox'] {
+  margin-top: 2px;
+  flex: none;
+}
+.dsec .hwZeile .hwText {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
 }
 @keyframes flashSel {
   0% {

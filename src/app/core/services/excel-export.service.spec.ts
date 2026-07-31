@@ -5,6 +5,8 @@ import { TreeService } from './tree.service';
 import { XsdParserService } from './xsd-parser.service';
 import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
+import { HinweisStoreService } from './hinweis-store.service';
+import { Hinweis } from '../../models/profile.model';
 
 // ── Excel-Export im NGem-Abstimmungslayout ────────────────────────────
 
@@ -30,9 +32,13 @@ const XSD_NGEM = `<?xml version="1.0" encoding="UTF-8"?>
 
 const M2 = 'nachricht.test.0002';
 
+/** Ein Hinweis-Stub (Hinweise liegen im HinweisStoreService, nicht im Profil). */
+const hw = (id: string, pfad: string, text: string): Hinweis => ({ id, pfad, text, zeit: 1000 });
+
 describe('ExcelExportService (NGem-Layout)', () => {
   let svc: ExcelExportService;
   let state: StateService;
+  let hinweise: HinweisStoreService;
   let downloaded: { name: string; content: BlobPart }[];
 
   beforeEach(() => {
@@ -51,6 +57,7 @@ describe('ExcelExportService (NGem-Layout)', () => {
     });
     svc = TestBed.inject(ExcelExportService);
     state = TestBed.inject(StateService);
+    hinweise = TestBed.inject(HinweisStoreService);
     const tree = TestBed.inject(TreeService);
     const parser = TestBed.inject(XsdParserService);
     const dom = new DOMParser().parseFromString(XSD_NGEM, 'application/xml');
@@ -193,21 +200,21 @@ describe('ExcelExportService (NGem-Layout)', () => {
     expect(haupt).toContain('Nachbeauftragung'); // Beschreibung als desc-Zeile
   });
 
-  it('offener Hinweis erscheint in der Zusatzspalte "Hinweise"', async () => {
-    state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, {
-      hinweis: 'Mit Registergericht klären',
-    });
+  it('alle offenen Hinweise eines Elements stehen untereinander in einer Zelle', async () => {
+    hinweise.hinweise.set([
+      hw('h1', `${M2}/fachdaten/aktenzeichen`, 'Mit Registergericht klären'),
+      hw('h2', `${M2}/fachdaten/aktenzeichen`, 'Format noch offen'),
+    ]);
     const wb = await exportiert();
     const haupt = inhalt(wb, 'Notar an Gemeinde');
     expect(haupt).toContain('Hinweise');
-    expect(haupt).toContain('Mit Registergericht klären');
+    expect(haupt).toContain('Mit Registergericht klären\nFormat noch offen');
   });
 
   it('erledigte Hinweise werden nicht exportiert; ohne Hinweise keine Zusatzspalte', async () => {
-    state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, {
-      hinweis: 'Mit Registergericht klären',
-      hinweisErledigt: true,
-    });
+    hinweise.hinweise.set([
+      { ...hw('h1', `${M2}/fachdaten/aktenzeichen`, 'Mit Registergericht klären'), erledigt: true },
+    ]);
     const wb = await exportiert();
     const haupt = inhalt(wb, 'Notar an Gemeinde');
     expect(haupt).not.toContain('Hinweise');

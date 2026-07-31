@@ -5,6 +5,7 @@ import { DispositionService } from '../../core/services/disposition.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
+import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { MessagePicker } from '../message-picker/message-picker';
 import { Search } from '../search/search';
 import { Menu } from '../../shared/menu/menu';
@@ -27,6 +28,7 @@ export class Toolbar {
   private readonly guided = inject(GuidedService);
   private readonly toast = inject(ToastService);
   private readonly store = inject(ProfileStoreService);
+  protected readonly hinweise = inject(HinweisStoreService);
 
   readonly metaClick = output<void>();
   readonly statusClick = output<void>();

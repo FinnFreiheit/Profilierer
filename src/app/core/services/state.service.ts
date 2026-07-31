@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   Auspraegung,
   ElementProfile,
@@ -17,6 +17,7 @@ import { MessageCreateSession, MessageEditSession } from '../../models/testmessa
 import { newProfile } from '../profile-defaults';
 import { pretty } from '../util/pretty.util';
 import { REF_TARGETS } from '../refs';
+import { HinweisStoreService } from './hinweis-store.service';
 
 /**
  * Zentraler Signals-Store. Ersetzt das globale `S`/`S.profile` aus
@@ -29,6 +30,13 @@ import { REF_TARGETS } from '../refs';
  */
 @Injectable({ providedIn: 'root' })
 export class StateService {
+  /**
+   * Hinweise liegen als eigene Ressource neben der Profilierung (ADR 0014) und
+   * sind kein Teil dieses Stores — gelesen wird hier nur, welche Elemente einen
+   * tragen, damit sie im "nur Werte"-Modus sichtbar bleiben.
+   */
+  private readonly hinweisStore = inject(HinweisStoreService);
+
   // ── Schema / Nachricht ──────────────────────────────────────────────
   readonly docs = signal<XsdDoc[]>([]);
   readonly idx = signal<XsdIndex | null>(null);
@@ -356,7 +364,7 @@ export class StateService {
    * `ancestorPaths` (nur '/') schliesst das den Traegerknoten einer Auspraegung
    * ein: zu `…/beteiligung@a1/rolle` gehoert auch `…/beteiligung`. Ohne diesen
    * Knoten haengt der Ast im Baum in der Luft, denn die Auspraegungs-Kaesten
-   * werden als seine Kinder gerendert (Praefix-Logik wie in `hinweisAnc`).
+   * werden als seine Kinder gerendert (Praefix-Logik wie `HinweisStoreService.anc`).
    */
   private vorfahrenPfade(path: string): string[] {
     const r: string[] = [];
@@ -367,54 +375,21 @@ export class StateService {
 
   /**
    * Pfade, die im "nur Werte"-Modus sichtbar bleiben: jedes Element mit Inhalt
-   * (Beispielwert, Anmerkung, Codelisten-Werte) samt seiner Vorfahren, damit der
-   * Weg von der Wurzel zu jedem Wert erhalten bleibt.
+   * (Beispielwert, Anmerkung, Codelisten-Werte, Hinweis) samt seiner Vorfahren,
+   * damit der Weg von der Wurzel zu jedem Wert erhalten bleibt.
    */
   private readonly valuePaths = computed<ReadonlySet<string>>(() => {
     const set = new Set<string>();
-    for (const [path, p] of Object.entries(this.elemente())) {
-      if (!p || !(p.beispiel || p.anmerkung || p.hinweis || (p.werte && p.werte.length))) continue;
+    const merke = (path: string): void => {
       set.add(path);
       for (const a of this.vorfahrenPfade(path)) set.add(a);
+    };
+    for (const [path, p] of Object.entries(this.elemente())) {
+      if (!p || !(p.beispiel || p.anmerkung || (p.werte && p.werte.length))) continue;
+      merke(path);
     }
+    for (const pfad of this.hinweisStore.jePfad().keys()) merke(pfad);
     return set;
-  });
-
-  /**
-   * Alle Hinweise (interne Review-Notizen) als Liste fuer die Uebersicht:
-   * offene vor erledigten, innerhalb dessen nach Pfad (deterministisch).
-   */
-  readonly hinweisEintraege = computed<{ pfad: string; text: string; erledigt: boolean }[]>(() => {
-    const r: { pfad: string; text: string; erledigt: boolean }[] = [];
-    for (const [pfad, p] of Object.entries(this.elemente())) {
-      if (p?.hinweis) r.push({ pfad, text: p.hinweis, erledigt: !!p.hinweisErledigt });
-    }
-    r.sort((a, b) => Number(a.erledigt) - Number(b.erledigt) || a.pfad.localeCompare(b.pfad));
-    return r;
-  });
-
-  /** Anzahl offener Hinweise (Toolbar-Zaehler). */
-  readonly nOffeneHinweise = computed(
-    () => this.hinweisEintraege().filter((e) => !e.erledigt).length,
-  );
-
-  /**
-   * Vorfahren-Aggregat der offenen Hinweise: Pfad → Anzahl im Teilbaum darunter
-   * (Sammel-Marker fuer zugeklappte Aeste; Praefix-Logik wie valAnc im
-   * ValidationMarkerService, Grenzen '/' und '@').
-   */
-  readonly hinweisAnc = computed<ReadonlyMap<string, number>>(() => {
-    const anc = new Map<string, number>();
-    for (const e of this.hinweisEintraege()) {
-      if (e.erledigt) continue;
-      for (let i = 0; i < e.pfad.length; i++) {
-        if (e.pfad[i] === '/' || e.pfad[i] === '@') {
-          const p = e.pfad.slice(0, i);
-          anc.set(p, (anc.get(p) ?? 0) + 1);
-        }
-      }
-    }
-    return anc;
   });
 
   /** "nur Profil" blendet Ausgeschlossenes aus (renderBox Z.1211), "nur Werte" alles Wertlose. */
@@ -515,16 +490,7 @@ export class StateService {
    * aufgehoben wird die Einschraenkung mit `werte: undefined`.
    */
   private isEmptyProfile(p: ElementProfile): boolean {
-    return (
-      !p.status &&
-      !p.anmerkung &&
-      !p.beispiel &&
-      !p.min &&
-      !p.max &&
-      !p.refZiel &&
-      !p.werte &&
-      !p.hinweis
-    );
+    return !p.status && !p.anmerkung && !p.beispiel && !p.min && !p.max && !p.refZiel && !p.werte;
   }
 
   /**

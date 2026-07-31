@@ -52,10 +52,28 @@ export interface ElementProfile {
   werte?: string[];
   /** Verweisziel-Pfad (Z.1179-1183). */
   refZiel?: string;
-  /** Interner Review-Hinweis; offene Hinweise erscheinen im Excel-Export, nicht im XML. */
-  hinweis?: string;
-  /** Nur relevant, wenn `hinweis` gesetzt; haelt allein keinen Eintrag am Leben. */
-  hinweisErledigt?: boolean;
+}
+
+/**
+ * Ein Hinweis an einem Element — Rueckmeldung im Abstimmungsbetrieb. Hinweise
+ * sind eine **eigene Ressource** neben der Profilierung (eigene Ablage, eigene
+ * Endpunkte, siehe HinweisStoreService und ADR 0014) und gehoeren bewusst nicht
+ * mehr ins ProfileDoc: dort loeschte sie der naechste Autosave eines anderen
+ * Bearbeiters, und der Abnahme-Hash reagierte auf jede Notiz.
+ * Offene Hinweise erscheinen im Excel-Export, nie im XML.
+ */
+export interface Hinweis {
+  id: string;
+  /** Element, an dem der Hinweis haengt (Pfad wie in `elemente`). */
+  pfad: string;
+  text: string;
+  /** Selbstauskunft des Verfassers; leer bei migriertem Altbestand. */
+  autor?: string;
+  /** Serverseitig gestempelt; leer bei migriertem Altbestand. */
+  rolle?: 'ag' | 'extern';
+  /** ms-Timestamp, serverseitig gesetzt. */
+  zeit: number;
+  erledigt?: boolean;
 }
 
 /** Metadaten des Profils (mName/mAutor/mDatum/mBeschr, Z.289-292). */

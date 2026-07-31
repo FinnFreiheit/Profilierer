@@ -97,7 +97,7 @@ describe('ProfilDiffService', () => {
     const p = 'nachricht.x/kopf';
     const a = doc({
       elemente: {
-        [p]: { min: '0', max: '1', anmerkung: 'alt', beispiel: 'A', refZiel: 'z1', hinweis: 'h' },
+        [p]: { min: '0', max: '1', anmerkung: 'alt', beispiel: 'A', refZiel: 'z1', status: 's1' },
       },
     });
     const b = doc({
@@ -108,8 +108,7 @@ describe('ProfilDiffService', () => {
           anmerkung: 'neu',
           beispiel: 'B',
           refZiel: 'z2',
-          hinweis: 'h',
-          hinweisErledigt: true,
+          status: 's1',
         },
       },
     });
@@ -120,9 +119,11 @@ describe('ProfilDiffService', () => {
     expect(nach['anmerkung']).toEqual(['alt', 'neu']);
     expect(nach['beispiel']).toEqual(['A', 'B']);
     expect(nach['refZiel']).toEqual(['z1', 'z2']);
-    expect(nach['hinweisErledigt']).toEqual([undefined, 'erledigt']);
     // Unveraenderte Felder tauchen nicht auf.
+    expect(nach['status']).toBeUndefined();
+    // Hinweise sind kein Feld des Elementprofils mehr (eigene Ressource).
     expect(nach['hinweis']).toBeUndefined();
+    expect(nach['hinweisErledigt']).toBeUndefined();
   });
 
   it('vergleicht Werte-Einschraenkungen als Menge und liefert ein Delta', () => {

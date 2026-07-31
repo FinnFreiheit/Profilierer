@@ -34,8 +34,8 @@ const ELEMENT_FELDER: { feld: keyof ElementProfile; label: string }[] = [
   { feld: 'beispiel', label: 'Beispielwert' },
   { feld: 'anmerkung', label: 'Anmerkung' },
   { feld: 'refZiel', label: 'Verweisziel' },
-  { feld: 'hinweis', label: 'Interner Hinweis' },
-  { feld: 'hinweisErledigt', label: 'Hinweis-Stand' },
+  // Hinweise sind kein Feld des Elementprofils mehr (eigene Ressource, ADR 0014)
+  // und tauchen im Vergleich der Profilstaende folgerichtig nicht mehr auf.
 ];
 
 const STATUS_FELDER: { feld: keyof Status; label: string }[] = [
@@ -156,7 +156,6 @@ function elementWert(
     // von "keine Einschraenkung" unterscheidbar bleiben.
     return liste.length ? [...liste].sort().join(', ') : '(keine Werte zugelassen)';
   }
-  if (feld === 'hinweisErledigt') return v ? 'erledigt' : 'offen';
   return String(v);
 }
 

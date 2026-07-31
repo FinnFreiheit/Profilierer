@@ -15,6 +15,8 @@ import { DispositionService } from '../../core/services/disposition.service';
 import { CodelistService } from '../../core/services/codelist.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ErweiterungDialogService } from '../../core/services/erweiterung-dialog.service';
+import { HinweisStoreService } from '../../core/services/hinweis-store.service';
+import { LoggerService } from '../../core/services/logger.service';
 import { itemPath } from '../../models/node.model';
 import { fmtKard, kardText, pretty } from '../../core/util/pretty.util';
 import { ERW_DATENTYPEN, ERW_NAME_MUSTER } from '../../core/profile-defaults';
@@ -39,12 +41,27 @@ export class DetailPanel {
   private readonly codelistSvc = inject(CodelistService);
   private readonly toast = inject(ToastService);
   private readonly erwDialog = inject(ErweiterungDialogService);
+  private readonly hinweise = inject(HinweisStoreService);
+  private readonly log = inject(LoggerService);
 
   /**
    * Filtertext der Codelisten-Werte. Wird beim Wechsel des selektierten Elements
    * geleert — sonst filtert ein alter Suchtext unsichtbar weiter, wenn die neue
    * Liste kein Filterfeld zeigt (≤ 15 Werte), und die Werte-Liste bleibt leer.
    */
+  /**
+   * Eingabefeld „Hinweis hinzufuegen". Wie der Codelisten-Filter beim Wechsel
+   * des selektierten Elements geleert — sonst wanderte ein angefangener Text
+   * mit und landete beim naechsten Blur am falschen Element.
+   */
+  protected readonly neuerHinweis = linkedSignal({
+    source: () => {
+      const it = this.state.selItem();
+      return it ? itemPath(it) : '';
+    },
+    computation: () => '',
+  });
+
   protected readonly clFilter = linkedSignal({
     source: () => {
       const it = this.state.selItem();
@@ -263,8 +280,8 @@ export class DetailPanel {
       codelist,
       ref,
       anmerkung: p.anmerkung ?? '',
-      hinweis: p.hinweis ?? '',
-      hinweisErledigt: !!p.hinweisErledigt,
+      // Hinweise sind eine eigene Ressource (ADR 0014) und kommen nicht aus `p`.
+      hinweise: this.hinweise.jePfad().get(path) ?? [],
       beispiel: p.beispiel ?? '',
       // Klartext hinter dem belegten Code (Story 4) — null, wenn kein Code-Feld
       // oder Liste (noch) nicht geladen.
@@ -470,18 +487,39 @@ export class DetailPanel {
     this.state.setElementProfile(this.path(), { [key]: v || undefined });
   }
 
-  /** Hinweistext setzen; Leeren loescht auch das Erledigt-Flag. */
-  protected setHinweis(e: Event): void {
-    const v = (e.target as HTMLTextAreaElement).value.trim();
-    this.state.setElementProfile(
-      this.path(),
-      v ? { hinweis: v } : { hinweis: undefined, hinweisErledigt: undefined },
-    );
+  protected onNeuerHinweis(e: Event): void {
+    this.neuerHinweis.set((e.target as HTMLTextAreaElement).value);
   }
 
-  protected toggleHinweisErledigt(e: Event): void {
+  /**
+   * Neuen Hinweis am Element anlegen. Das Eingabefeld wird geleert — der
+   * Hinweis steht danach als eigener Eintrag in der Liste darueber (mehrere je
+   * Element, kein Ueberschreiben).
+   */
+  protected addHinweis(): void {
+    const text = this.neuerHinweis().trim();
+    if (!text) return;
+    this.neuerHinweis.set('');
+    void this.hinweisSchreiben(this.hinweise.anlegen(this.path(), text));
+  }
+
+  protected toggleHinweisErledigt(id: string, e: Event): void {
     const checked = (e.target as HTMLInputElement).checked;
-    this.state.setElementProfile(this.path(), { hinweisErledigt: checked || undefined });
+    void this.hinweisSchreiben(this.hinweise.aendern(id, { erledigt: checked }));
+  }
+
+  protected loescheHinweis(id: string): void {
+    void this.hinweisSchreiben(this.hinweise.loeschen(id));
+  }
+
+  /** Schreibfehler sichtbar machen — die Liste bliebe sonst stumm veraltet. */
+  private async hinweisSchreiben(p: Promise<unknown>): Promise<void> {
+    try {
+      await p;
+    } catch (e) {
+      this.log.error('Hinweise', 'Schreiben fehlgeschlagen', e);
+      this.toast.show('Hinweis konnte nicht gespeichert werden — Backend nicht erreichbar.');
+    }
   }
 
   protected onAuspNameSelf(e: Event): void {
