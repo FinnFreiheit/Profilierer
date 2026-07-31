@@ -594,6 +594,54 @@
       </div>
     }
 
+    <!-- Hinweise sind der Rueckmeldekanal (#42): sie bleiben auch im
+         schreibgeschuetzten Editor einer abgenommenen Profilierung bedienbar —
+         als einziges Feld. Ausserhalb dieses Falls gilt die alte Regel
+         (bearbeitbar, kein Nachrichten-Modus). -->
+    @if (hinweiseBedienbar()) {
+      <div class="dsec">
+        <label>Hinweise</label>
+        @if (roEff()) {
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
+            Von der BLK-AG abgenommen — nur dieses Feld ist bedienbar. Ihre Rückmeldung bleibt am
+            Element hängen; die Profilierung selbst bleibt unverändert.
+          </div>
+        }
+        @for (h of v.hinweise; track h.id) {
+          <div class="hwZeile" [class.hwErledigt]="h.erledigt">
+            @if (darfAendern(h.id)) {
+              <input
+                type="checkbox"
+                title="Hinweis abarbeiten"
+                [checked]="h.erledigt"
+                (change)="toggleHinweisErledigt(h.id, $event)"
+              />
+            }
+            <span class="hwText" [title]="herkunft(h)">{{ h.text }}</span>
+            @if (darfAendern(h.id)) {
+              <button class="hwWeg" title="Hinweis löschen" (click)="loescheHinweis(h.id)">
+                ×
+              </button>
+            }
+          </div>
+        }
+        <textarea
+          #hinweisFeld
+          placeholder="Hinweis hinzufügen — erscheint im Excel-Export, nie im XML"
+          [value]="neuerHinweis()"
+          (input)="onNeuerHinweis($event)"
+          (change)="addHinweis()"
+        ></textarea>
+        <input
+          type="text"
+          style="width: 100%; margin-top: 4px"
+          placeholder="Ihr Name — erscheint am Hinweis (Rolle setzt der Server)"
+          [value]="hinweise.autor()"
+          (change)="onAutor($event)"
+        />
+      </div>
+    }
+
     @if (!roEff()) {
       <!-- Review-Notizen gehoeren zur Profilierung, nicht in eine Instanz. -->
       @if (!msgMode()) {
@@ -604,37 +652,6 @@
             [value]="v.anmerkung"
             (change)="setField('anmerkung', $event)"
           ></textarea>
-        </div>
-        <div class="dsec">
-          <label>Hinweise</label>
-          @for (h of v.hinweise; track h.id) {
-            <div class="hwZeile" [class.hwErledigt]="h.erledigt">
-              <input
-                type="checkbox"
-                title="Hinweis abarbeiten"
-                [checked]="h.erledigt"
-                (change)="toggleHinweisErledigt(h.id, $event)"
-              />
-              <span class="hwText" [title]="herkunft(h)">{{ h.text }}</span>
-              <button class="hwWeg" title="Hinweis löschen" (click)="loescheHinweis(h.id)">
-                ×
-              </button>
-            </div>
-          }
-          <textarea
-            #hinweisFeld
-            placeholder="Hinweis hinzufügen — erscheint im Excel-Export, nie im XML"
-            [value]="neuerHinweis()"
-            (input)="onNeuerHinweis($event)"
-            (change)="addHinweis()"
-          ></textarea>
-          <input
-            type="text"
-            style="width: 100%; margin-top: 4px"
-            placeholder="Ihr Name — erscheint am Hinweis (Rolle setzt der Server)"
-            [value]="hinweise.autor()"
-            (change)="onAutor($event)"
-          />
         </div>
       }
       @if (v.refNummer) {

@@ -213,6 +213,20 @@ export function openDb(path) {
     if (!cols.has('vorgabe_hash')) db.exec('ALTER TABLE testmessages ADD COLUMN vorgabe_hash TEXT');
   }
 
+  // Migration: Urheber-Merkmal am Hinweis (Issue #42). Wer einen Hinweis ohne
+  // AG-Schluessel anlegt, bekommt ein Geheimnis zurueck und darf damit **seinen
+  // eigenen** Eintrag in derselben Sitzung noch aendern oder loeschen. Die id
+  // allein taugt dafuer nicht: die Liste ist fuer alle lesbar.
+  {
+    const cols = new Set(
+      db
+        .prepare('PRAGMA table_info(hinweise)')
+        .all()
+        .map((c) => c.name),
+    );
+    if (!cols.has('token')) db.exec('ALTER TABLE hinweise ADD COLUMN token TEXT');
+  }
+
   // Migration: Index-Spalte fuer Schema-Erweiterungen (Dashboard-Badge) nachziehen.
   {
     const cols = new Set(
@@ -353,8 +367,8 @@ export function openDb(path) {
     ),
     hwGet: db.prepare('SELECT * FROM hinweise WHERE id = ? AND profil_id = ?'),
     hwInsert: db.prepare(
-      `INSERT INTO hinweise (id, profil_id, pfad, text, autor, rolle, zeit, erledigt)
-       VALUES (@id, @profilId, @pfad, @text, @autor, @rolle, @zeit, @erledigt)`,
+      `INSERT INTO hinweise (id, profil_id, pfad, text, autor, rolle, zeit, erledigt, token)
+       VALUES (@id, @profilId, @pfad, @text, @autor, @rolle, @zeit, @erledigt, @token)`,
     ),
     hwUpdate: db.prepare(
       'UPDATE hinweise SET text = @text, erledigt = @erledigt WHERE id = @id AND profil_id = @profilId',
@@ -613,6 +627,7 @@ export function openDb(path) {
             rolle: h.rolle,
             zeit: h.zeit,
             erledigt: h.erledigt,
+            token: null,
           });
         return out;
       })();
@@ -658,6 +673,10 @@ export function openDb(path) {
       if (!stmt.exists.get(profilId)) return null;
       const id = randomUUID();
       const name = String(autor ?? '').trim();
+      // Urheber-Merkmal (Issue #42): ein Geheimnis, das nur der Anleger
+      // zurueckbekommt. Damit darf er seinen eigenen Eintrag noch aendern oder
+      // loeschen, auch ohne AG-Schluessel an einer abgenommenen Profilierung.
+      const token = randomUUID();
       stmt.hwInsert.run({
         id,
         profilId,
@@ -667,8 +686,20 @@ export function openDb(path) {
         rolle: rolle === 'ag' || rolle === 'extern' ? rolle : null,
         zeit: ts ?? Date.now(),
         erledigt: null,
+        token,
       });
-      return hinweisZeile(stmt.hwGet.get(id, profilId));
+      // Das Token steht **nur** in dieser Antwort, nie in der Liste.
+      return { ...hinweisZeile(stmt.hwGet.get(id, profilId)), token };
+    },
+
+    /**
+     * Ist das mitgeschickte Geheimnis das des Hinweises? Grundlage der Ausnahme
+     * "der Urheber darf seinen eigenen Eintrag noch korrigieren" (Issue #42).
+     * Die id allein taugt als Nachweis nicht — die Liste ist fuer alle lesbar.
+     */
+    hinweisIstUrheber(profilId, id, token) {
+      const row = stmt.hwGet.get(id, profilId);
+      return !!row && !!row.token && !!token && row.token === token;
     },
 
     /** Text und/oder Erledigt-Zustand aendern (undefined = unberuehrt). null, wenn unbekannt. */
@@ -737,6 +768,7 @@ export function openDb(path) {
             rolle: h.rolle === 'ag' || h.rolle === 'extern' ? h.rolle : null,
             zeit: Number.isFinite(h.zeit) ? h.zeit : (ts ?? Date.now()),
             erledigt: h.erledigt ? 1 : null,
+            token: null,
           });
         }
         return stmt.hwList.all(profilId).map(hinweisZeile);
@@ -936,6 +968,7 @@ export function openDb(path) {
                 rolle: null,
                 zeit: it.aktualisiert ?? Date.now(),
                 erledigt: h.erledigt ? 1 : null,
+                token: null,
               });
           }
           n++;
@@ -1151,6 +1184,7 @@ export function openDb(path) {
               rolle: null,
               zeit: r.aktualisiert ?? Date.now(),
               erledigt: h.erledigt ? 1 : null,
+              token: null,
             });
             n++;
           }

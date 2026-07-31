@@ -45,6 +45,13 @@ export class HinweisStoreService {
   private readonly log = inject(LoggerService);
   private readonly rolle = inject(RolleService);
 
+  /**
+   * Selbst angelegte Hinweise dieser Sitzung: id -> Urheber-Geheimnis (#42).
+   * Nur im Speicher — mit dem Tab endet die Sitzung und damit das Recht, den
+   * eigenen Eintrag an einer abgenommenen Profilierung noch zu aendern.
+   */
+  private readonly eigene = new Map<string, string>();
+
   /** Profil, dessen Hinweise geladen sind (null = keins offen). */
   private readonly profilId = signal<string | null>(null);
 
@@ -181,12 +188,18 @@ export class HinweisStoreService {
     const id = this.profilId();
     if (!id || !text.trim()) return null;
     const autor = this.autor().trim();
-    const { hinweis } = await this.req<{ hinweis: Hinweis }>(this.pfad(id), {
+    const { hinweis } = await this.req<{ hinweis: Hinweis & { token?: string } }>(this.pfad(id), {
       method: 'POST',
       body: JSON.stringify({ pfad, text: text.trim(), autor: autor || undefined }),
     });
-    this.hinweise.update((l) => [...l, hinweis]);
-    return hinweis;
+    // Urheber-Merkmal (Issue #42): nur in dieser Antwort. Damit darf der
+    // Anleger seinen eigenen Eintrag in **derselben Sitzung** noch korrigieren
+    // oder zuruecknehmen, auch ohne AG-Schluessel an einem abgenommenen Profil.
+    // Bewusst nur im Speicher: mit dem Tab endet die Sitzung.
+    const { token, ...rest } = hinweis;
+    if (token) this.eigene.set(hinweis.id, token);
+    this.hinweise.update((l) => [...l, rest]);
+    return rest;
   }
 
   /** Text aendern und/oder abhaken (nur die uebergebenen Felder). */
@@ -195,7 +208,7 @@ export class HinweisStoreService {
     if (!id) return;
     const { hinweis } = await this.req<{ hinweis: Hinweis }>(
       this.pfad(id, `/${encodeURIComponent(hinweisId)}`),
-      { method: 'PATCH', body: JSON.stringify(patch) },
+      { method: 'PATCH', body: JSON.stringify(patch), headers: this.urheberHeader(hinweisId) },
     );
     this.hinweise.update((l) => l.map((h) => (h.id === hinweisId ? hinweis : h)));
   }
@@ -204,8 +217,23 @@ export class HinweisStoreService {
   async loeschen(hinweisId: string): Promise<void> {
     const id = this.profilId();
     if (!id) return;
-    await this.req<void>(this.pfad(id, `/${encodeURIComponent(hinweisId)}`), { method: 'DELETE' });
+    await this.req<void>(this.pfad(id, `/${encodeURIComponent(hinweisId)}`), {
+      method: 'DELETE',
+      headers: this.urheberHeader(hinweisId),
+    });
+    this.eigene.delete(hinweisId);
     this.hinweise.update((l) => l.filter((h) => h.id !== hinweisId));
+  }
+
+  /** Nachweis der Urheberschaft, soweit dieser Browser den Eintrag angelegt hat. */
+  private urheberHeader(hinweisId: string): Record<string, string> {
+    const token = this.eigene.get(hinweisId);
+    return token ? { 'x-hinweis-token': token } : {};
+  }
+
+  /** Darf dieser Browser den Eintrag ohne AG-Schluessel anfassen (#42)? */
+  istEigener(hinweisId: string): boolean {
+    return this.eigene.has(hinweisId);
   }
 
   /**

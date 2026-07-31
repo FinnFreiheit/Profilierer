@@ -23,12 +23,13 @@ async function start(t, { agKey, db: vorhandene } = {}) {
     srv.close();
     if (!vorhandene) db.close();
   });
-  const api = async (method, path, { body, key } = {}) => {
+  const api = async (method, path, { body, key, token } = {}) => {
     const r = await fetch(base + path, {
       method,
       headers: {
         ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
         ...(key !== undefined ? { 'x-ag-key': key } : {}),
+        ...(token !== undefined ? { 'x-hinweis-token': token } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
@@ -225,35 +226,108 @@ test('Hinweise beruehren "geaendert seit Abnahme" nicht', async (t) => {
   assert.equal(danach.geaendertSeitAbnahme, undefined);
 });
 
-// ── Rechte (in diesem Ticket unveraendert) ────────────────────────────
+// ── Rechte an abgenommenen Profilierungen (Issue #42) ─────────────────
 
-test('Schutz: an abgenommenen Profilen bleiben Hinweise fuer Externe gesperrt', async (t) => {
+test('Abgenommen: Externe duerfen anlegen, aber nichts wegraeumen', async (t) => {
   const { api } = await start(t, { agKey: AG_KEY });
   const id = await neuesProfil(api);
-  const h = await api('POST', `/profiles/${id}/hinweise`, { body: { pfad: 'a', text: 't' } });
+  const fremd = await api('POST', `/profiles/${id}/hinweise`, { body: { pfad: 'a', text: 't' } });
   await api('POST', `/profiles/${id}/abnahme`, { body: {}, key: AG_KEY });
-  const hid = h.body.hinweis.id;
+  const fid = fremd.body.hinweis.id;
+
+  // Anlegen gelingt ohne Schluessel — genau darum geht es in diesem Ticket.
+  const eigen = await api('POST', `/profiles/${id}/hinweise`, {
+    body: { pfad: 'a', text: 'Rueckmeldung von aussen', autor: 'Müller' },
+  });
+  assert.equal(eigen.status, 201);
+  assert.equal(eigen.body.hinweis.rolle, 'extern');
+  // Das Urheber-Merkmal steht nur in dieser Antwort, nie in der Liste.
+  assert.ok(eigen.body.hinweis.token);
+  const liste = (await api('GET', `/profiles/${id}/hinweise`)).body;
+  assert.ok(liste.every((h) => h.token === undefined));
+
+  // Fremde Eintraege bleiben ohne Schluessel gesperrt.
   assert.equal(
-    (await api('POST', `/profiles/${id}/hinweise`, { body: { pfad: 'a', text: 'neu' } })).status,
+    (await api('PATCH', `/profiles/${id}/hinweise/${fid}`, { body: { erledigt: true } })).status,
     403,
   );
-  assert.equal(
-    (await api('PATCH', `/profiles/${id}/hinweise/${hid}`, { body: { erledigt: true } })).status,
-    403,
-  );
-  assert.equal((await api('DELETE', `/profiles/${id}/hinweise/${hid}`)).status, 403);
-  assert.equal((await api('PUT', `/profiles/${id}/hinweise`, { body: [] })).status, 403);
-  // Lesen bleibt frei, die AG darf schreiben.
-  assert.equal((await api('GET', `/profiles/${id}/hinweise`)).status, 200);
+  assert.equal((await api('DELETE', `/profiles/${id}/hinweise/${fid}`)).status, 403);
+  // Auch mit dem eigenen Token: es weist genau einen Eintrag aus.
   assert.equal(
     (
-      await api('PATCH', `/profiles/${id}/hinweise/${hid}`, {
+      await api('PATCH', `/profiles/${id}/hinweise/${fid}`, {
+        body: { erledigt: true },
+        token: eigen.body.hinweis.token,
+      })
+    ).status,
+    403,
+  );
+  // Volltausch bleibt gesperrt (er raeumte alle fremden Hinweise weg).
+  assert.equal((await api('PUT', `/profiles/${id}/hinweise`, { body: [] })).status, 403);
+
+  // Der eigene Eintrag bleibt in derselben Sitzung korrigierbar.
+  const eid = eigen.body.hinweis.id;
+  const token = eigen.body.hinweis.token;
+  assert.equal(
+    (await api('PATCH', `/profiles/${id}/hinweise/${eid}`, { body: { text: 'korrigiert' }, token }))
+      .status,
+    200,
+  );
+  assert.equal((await api('DELETE', `/profiles/${id}/hinweise/${eid}`, { token })).status, 204);
+
+  // Ohne Token faellt auch der eigene Eintrag unter den Schutz.
+  const ohne = await api('POST', `/profiles/${id}/hinweise`, { body: { pfad: 'a', text: 'x' } });
+  assert.equal(
+    (await api('DELETE', `/profiles/${id}/hinweise/${ohne.body.hinweis.id}`)).status,
+    403,
+  );
+
+  // Mit AG-Schluessel gelingt alles.
+  assert.equal(
+    (
+      await api('PATCH', `/profiles/${id}/hinweise/${fid}`, {
         body: { erledigt: true },
         key: AG_KEY,
       })
     ).status,
     200,
   );
+  assert.equal(
+    (await api('DELETE', `/profiles/${id}/hinweise/${fid}`, { key: AG_KEY })).status,
+    204,
+  );
+  // Lesen bleibt fuer alle frei.
+  assert.equal((await api('GET', `/profiles/${id}/hinweise`)).status, 200);
+});
+
+test('Abgenommen: der Hinweis laesst Dokument und Abnahme-Kennzeichen unberuehrt', async (t) => {
+  const { api } = await start(t, { agKey: AG_KEY });
+  const id = await neuesProfil(api);
+  await api('POST', `/profiles/${id}/abnahme`, { body: {}, key: AG_KEY });
+  const vorher = (await api('GET', '/profiles')).body.find((p) => p.id === id);
+
+  assert.equal(
+    (await api('POST', `/profiles/${id}/hinweise`, { body: { pfad: 'a', text: 'extern' } })).status,
+    201,
+  );
+
+  const nachher = (await api('GET', '/profiles')).body.find((p) => p.id === id);
+  assert.equal(nachher.abgenommen, true);
+  assert.ok(!nachher.geaendertSeitAbnahme); // "geändert seit Abnahme" bleibt aus
+  assert.equal(nachher.aktualisiert, vorher.aktualisiert); // Dokument unberuehrt
+  assert.deepEqual((await api('GET', `/profiles/${id}`)).body.elemente, doc().elemente);
+});
+
+test('Nicht abgenommen: jede Hinweis-Operation bleibt fuer alle frei', async (t) => {
+  const { api } = await start(t, { agKey: AG_KEY });
+  const id = await neuesProfil(api);
+  const h = await api('POST', `/profiles/${id}/hinweise`, { body: { pfad: 'a', text: 't' } });
+  const hid = h.body.hinweis.id;
+  assert.equal(
+    (await api('PATCH', `/profiles/${id}/hinweise/${hid}`, { body: { erledigt: true } })).status,
+    200,
+  );
+  assert.equal((await api('DELETE', `/profiles/${id}/hinweise/${hid}`)).status, 204);
 });
 
 // ── Import (Volltausch) ───────────────────────────────────────────────

@@ -126,6 +126,20 @@ export class DetailPanel {
   /** Nachrichten-Modus: eine Instanz wird erstellt oder bearbeitet (Werte statt Profil). */
   protected readonly msgMode = this.state.msgMode;
 
+  /**
+   * Ist der Rueckmeldekanal bedienbar (Issue #42)? Beim Profilieren wie bisher;
+   * zusaetzlich im **schreibgeschuetzten** Editor einer abgenommenen
+   * Profilierung — dort ist das Hinweisfeld das einzige bedienbare Element.
+   * Gebunden an "Abnahme-Schreibschutz aktiv **und** ein Profil geladen": in
+   * der reinen Schema-Ansicht und im Nachrichten-Modus gibt es kein Profil, an
+   * dem ein Hinweis haengen koennte.
+   */
+  protected readonly hinweiseBedienbar = computed(() => {
+    if (this.msgMode() || this.state.schemaView()) return false;
+    if (!this.roEff()) return true;
+    return this.state.abnahmeSchreibschutz() && !!this.state.activeProfileId();
+  });
+
   /** Gefuehrte Testnachricht-Erstellung (US "Testnachricht gefuehrt erstellen"). */
   protected readonly isCreate = this.state.isMessageCreate;
 
@@ -622,6 +636,18 @@ export class DetailPanel {
       this.hinweise.setzeAutor(prompt('Ihr Name — er erscheint an Ihren Hinweisen:') ?? '');
     if (await this.hinweisSchreiben(this.hinweise.anlegen(this.path(), text)))
       this.neuerHinweis.set('');
+  }
+
+  /**
+   * Darf dieser Eintrag geaendert/abgehakt/geloescht werden (Issue #42)? An
+   * einer abgenommenen Profilierung ist das der AG vorbehalten — Ausnahme ist
+   * der selbst angelegte Eintrag derselben Sitzung. Der Server entscheidet
+   * dasselbe noch einmal; hier geht es darum, keine Knoepfe anzubieten, die
+   * ohnehin abgewiesen wuerden.
+   */
+  protected darfAendern(hinweisId: string): boolean {
+    if (!this.state.abnahmeSchreibschutz()) return true;
+    return this.hinweise.istEigener(hinweisId);
   }
 
   protected onAutor(e: Event): void {

@@ -140,7 +140,13 @@ export function profilesRouter(db, auth) {
   // Selbstauskunft und kommt aus dem Body; die Rolle leitet sich allein aus dem
   // mitgeschickten AG-Schluessel ab — nur so bleibt sie belastbar. Ein vom
   // Client gesetztes `rolle`/`zeit` wird nicht durchgereicht.
-  r.post('/profiles/:id/hinweise', schutz, (req, res) => {
+  //
+  // **Ohne `schutz`** (Issue #42): an einer abgenommenen Profilierung darf
+  // jeder einen Hinweis anlegen — genau dort entsteht der meiste
+  // Rueckmeldebedarf. Das Profil-Dokument bleibt unberuehrt, das
+  // Abnahme-Kennzeichen ebenso; der Schreibschutz auf allen uebrigen
+  // Endpunkten gilt unveraendert.
+  r.post('/profiles/:id/hinweise', (req, res) => {
     const { pfad, text, autor } = req.body ?? {};
     if (!String(text ?? '').trim()) return res.status(400).json({ error: 'kein Text' });
     const hinweis = db.hinweisAnlegen(
@@ -161,8 +167,24 @@ export function profilesRouter(db, auth) {
     res.json(liste);
   });
 
+  // Aendern, Loeschen und Erledigt-Setzen sind an einer abgenommenen
+  // Profilierung der AG vorbehalten (Issue #42) — sonst raeumte ein Externer
+  // fremde Rueckmeldungen weg. **Einzige Ausnahme:** der Urheber darf seinen
+  // eigenen, gerade angelegten Eintrag noch korrigieren oder zuruecknehmen; er
+  // weist sich mit dem Geheimnis aus, das er beim Anlegen zurueckbekommen hat
+  // (Header `x-hinweis-token`). Die id taugt dafuer nicht — die Liste ist fuer
+  // alle lesbar.
+  const hinweisSchutz = (req, res, next) => {
+    if (!db.abgenommen(req.params.id) || auth.istAg(req)) return next();
+    if (db.hinweisIstUrheber(req.params.id, req.params.hid, req.get('x-hinweis-token') ?? ''))
+      return next();
+    return res.status(403).json({
+      error: 'von der BLK-AG abgenommen — fremde Hinweise ändern nur mit AG-Schluessel',
+    });
+  };
+
   // Text aendern und/oder abhaken.
-  r.patch('/profiles/:id/hinweise/:hid', schutz, (req, res) => {
+  r.patch('/profiles/:id/hinweise/:hid', hinweisSchutz, (req, res) => {
     const { text, erledigt } = req.body ?? {};
     const hinweis = db.hinweisAendern(req.params.id, req.params.hid, { text, erledigt });
     if (hinweis === 'leer') return res.status(400).json({ error: 'kein Text' });
@@ -171,7 +193,7 @@ export function profilesRouter(db, auth) {
   });
 
   // Loeschen.
-  r.delete('/profiles/:id/hinweise/:hid', schutz, (req, res) => {
+  r.delete('/profiles/:id/hinweise/:hid', hinweisSchutz, (req, res) => {
     if (!db.hinweisLoeschen(req.params.id, req.params.hid))
       return res.status(404).json({ error: 'nicht gefunden' });
     res.status(204).end();
