@@ -627,10 +627,11 @@ describe('StateService', () => {
       expect(s.vorgabe()!.auspraegungen['m/bet']!.map((a) => a.name)).toEqual(['Notar/in']);
     });
 
-    it('removeAusp und renameAusp lassen eine reine Vorgabe-Liste unberuehrt', () => {
-      // Ob die benannten Vorkommen der Profilierung entfernbar sein sollen,
-      // entscheidet #28 ("nicht entfernbar" steht dort als AC) — dieses Ticket
-      // verlangt nur, dass `addAusp` die Liste nicht verdeckt.
+    it('removeAusp und renameAusp greifen auch auf einer reinen Vorgabe-Liste', () => {
+      // Entschieden in #28: benannte Vorkommen der gebundenen Fassung sind
+      // entfernbar und umbenennbar; die Sperre fuer *zwingend* gesetzte
+      // Vorkommen huetet der GuidedService (`auspSperreEntfernen`), damit sie
+      // einen Grund nennen kann. Der Store bleibt die mechanische Schicht.
       s.setVorgabe(
         vorgabeDoc({
           auspraegungen: {
@@ -645,8 +646,12 @@ describe('StateService', () => {
       s.renameAusp('m/bet', 'v2', 'Beteiligte Person');
       s.removeAusp('m/bet', 'v1');
 
-      expect(s.auspsOf('m/bet')!.map((a) => a.name)).toEqual(['Notar/in', 'Betroffene Person']);
-      expect(s.auspraegungen()['m/bet']).toBeUndefined();
+      expect(s.auspsOf('m/bet')!.map((a) => a.name)).toEqual(['Beteiligte Person']);
+      // Die eingefrorene Fassung bleibt unberuehrt.
+      expect(s.vorgabe()!.auspraegungen['m/bet']!.map((a) => a.name)).toEqual([
+        'Notar/in',
+        'Betroffene Person',
+      ]);
     });
 
     it('nach dem Materialisieren greifen die Mutationen, ohne die Vorgabe anzufassen', () => {

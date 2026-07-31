@@ -546,6 +546,30 @@ export class GuidedService {
   }
 
   /**
+   * Grund, warum dieses **Vorkommen** nicht entfernt werden darf — null, wenn es
+   * entfernbar ist. Massgeblich ist die Aussage der gebundenen Fassung **zum
+   * Vorkommen selbst**: setzt sie es zwingend, beschreibt es das Szenario und
+   * bleibt (Spec "zwingende Auspraegungen sind von Anfang an vorhanden und nicht
+   * entfernbar"). Eine Auspraegung **ohne** eigene Festlegung bleibt entfernbar —
+   * sie ist der Normalfall bestehender Profilierungen und dort als Beschreibung
+   * gemeint, nicht als Leitplanke.
+   *
+   * Getrennt von `kardSperreEntfernen`, das die Anzahl huetet: hier geht es um
+   * die Identitaet eines benannten Vorkommens. Beide koennen zutreffen, der
+   * Aufrufer nimmt den ersten Grund.
+   */
+  auspSperreEntfernen(listPath: string, auspId: string): string | null {
+    if (!this.instanzModus()) return null; // beim Profilieren sind sie Entwurfsmittel
+    // **Pfadgenau**, nicht geerbt: dass das Traegerelement zwingend ist, sagt nur,
+    // dass es vorkommen muss — nicht, dass jedes einzelne benannte Vorkommen
+    // bleiben muss. Ueber `profilWirkungGeerbt` waere jedes Vorkommen eines
+    // zwingenden Elements unentfernbar, auch ein selbst angelegtes.
+    if (this.state.profilWirkung(`${listPath}@${auspId}`) !== 'pflicht') return null;
+    const name = this.state.auspsOf(listPath)?.find((a) => a.id === auspId)?.name;
+    return `Die Profilierung setzt das Vorkommen${name ? ` „${name}"` : ''} zwingend.`;
+  }
+
+  /**
    * Grund, warum auf diesen Zweig **nicht umgeschaltet** werden darf — null,
    * wenn die Wahl frei ist. Die Zweigwahl schliesst die Geschwister aus; traegt
    * einer davon eine Mindestanzahl der **Profilierung**, ist das derselbe

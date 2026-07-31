@@ -368,8 +368,9 @@
                   </button>
                 }
                 <button
-                  [disabled]="!!v.kardEntfernenSperre"
+                  [disabled]="!!(a.sperre || v.kardEntfernenSperre)"
                   [title]="
+                    a.sperre ||
                     v.kardEntfernenSperre ||
                     (msgMode() ? 'Vorkommen löschen' : 'Ausprägung löschen')
                   "
