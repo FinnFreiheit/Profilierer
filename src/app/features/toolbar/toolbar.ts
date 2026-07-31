@@ -99,8 +99,13 @@ export class Toolbar {
   protected readonly fortschrittText = computed(() => {
     // Gefuehrter Modus: verbleibende echte Entscheidungen statt Festlegungs-Summe.
     if (this.state.guided() && this.hasRoot()) {
-      const { x, y } = this.guided.fortschritt();
-      return `${x} von ${y} entschieden`;
+      // Drei getrennte Zahlen (Issue #41): Restarbeit und Klaerungsbedarf sind
+      // zweierlei — geparkte Punkte zaehlen zu keiner der beiden Mengen.
+      const { x, y, zuKlaeren } = this.guided.fortschritt();
+      const offen = y - x - zuKlaeren;
+      return zuKlaeren
+        ? `${x} von ${y} entschieden · ${offen} offen · ${zuKlaeren} zu klären`
+        : `${x} von ${y} entschieden`;
     }
     const { nStatus, nAusp } = this.state.fortschritt();
     return nStatus ? `${nStatus} Festlegungen${nAusp ? ' · ' + nAusp + ' Ausprägungen' : ''}` : '';

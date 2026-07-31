@@ -114,6 +114,9 @@
           @if (g.offen) {
             <span class="gOffen">offen</span>
           }
+          @if (g.geparkt) {
+            <span class="gOffen">zu klären</span>
+          }
         </label>
 
         @if (g.isChoice) {
@@ -146,7 +149,7 @@
                       ? 'Erneut klicken: zurück auf „wie Standard“ (Taste ' + d.taste + ')'
                       : 'Taste ' + d.taste
                 "
-                (click)="!d.disabled && setStatus(d.active ? '' : d.id)"
+                (click)="!d.disabled && setStatus(d.active ? '' : d.id, d.markierung && !d.active)"
               >
                 {{ d.label }}
               </button>
@@ -170,7 +173,7 @@
             Nächster offener ({{ g.nOffen }})
           </button>
         </div>
-        <div class="gKbdHint">Tastatur: ← → navigieren · z / o / n entscheiden</div>
+        <div class="gKbdHint">Tastatur: ← → navigieren · z / o / n entscheiden · k zu klären</div>
       </div>
     }
 
@@ -619,6 +622,7 @@
             </div>
           }
           <textarea
+            #hinweisFeld
             placeholder="Hinweis hinzufügen — erscheint im Excel-Export, nie im XML"
             [value]="neuerHinweis()"
             (input)="onNeuerHinweis($event)"

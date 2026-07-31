@@ -234,16 +234,37 @@ describe('GuidedService', () => {
 
   describe('istEntschieden / Fortschritt', () => {
     it('startet mit 0 von Y; Disposition erhoeht X', () => {
-      expect(svc.fortschritt()).toEqual({ x: 0, y: 6 });
+      expect(svc.fortschritt()).toEqual({ x: 0, y: 6, zuKlaeren: 0 });
       state.setElementProfile(`${M}/az`, { status: S.optional });
-      expect(svc.fortschritt()).toEqual({ x: 1, y: 6 });
+      expect(svc.fortschritt()).toEqual({ x: 1, y: 6, zuKlaeren: 0 });
       expect(svc.istEntschieden(`${M}/az`)).toBeTrue();
     });
 
-    it('Wirkung markierung ("zu klaeren") zaehlt als offen', () => {
+    it('Wirkung markierung ("zu klaeren") parkt den Punkt: weder offen noch entschieden (#41)', () => {
       state.setElementProfile(`${M}/az`, { status: S.markierung });
+
       expect(svc.istEntschieden(`${M}/az`)).toBeFalse();
-      expect(svc.offeneSet().has(`${M}/az`)).toBeTrue();
+      expect(svc.offeneSet().has(`${M}/az`)).toBeFalse();
+      expect(svc.geparkteSet().has(`${M}/az`)).toBeTrue();
+      // Drei getrennte Zahlen: entschieden, offen, zu klaeren.
+      expect(svc.fortschritt()).toEqual({ x: 0, y: 6, zuKlaeren: 1 });
+
+      // "Naechster offener" laeuft nicht mehr in den eigenen Merker.
+      expect(svc.nextOpen(null)).not.toBe(`${M}/az`);
+
+      // Eine echte Disposition loest die Parkstellung auf.
+      state.setElementProfile(`${M}/az`, { status: S.optional });
+      expect(svc.geparkteSet().size).toBe(0);
+      expect(svc.fortschritt()).toEqual({ x: 1, y: 6, zuKlaeren: 0 });
+    });
+
+    it('im Instanz-Modus gibt es die vierte Entscheidung nicht (#41)', () => {
+      state.setElementProfile(`${M}/az`, { status: S.markierung });
+      state.messageCreate.set({ msgName: M, entryId: null, name: null });
+
+      expect(svc.geparkteSet().size).toBe(0);
+      expect(svc.fortschritt().zuKlaeren).toBe(0);
+      expect(svc.setzeDisposition('markierung')).toBeFalse();
     });
 
     it('Anmerkung allein entscheidet nicht', () => {
@@ -256,7 +277,7 @@ describe('GuidedService', () => {
     it('nimmt den Teilbaum aus der Zaehlung; der Knoten selbst bleibt entschieden', () => {
       state.setElementProfile(`${M}/_auswahl`, { status: S.excl });
       expect(pfade()).toEqual([`${M}/az`, `${M}/_auswahl`, `${M}/beteiligung`, `${M}/_gruppe`]);
-      expect(svc.fortschritt()).toEqual({ x: 1, y: 4 });
+      expect(svc.fortschritt()).toEqual({ x: 1, y: 4, zuKlaeren: 0 });
     });
 
     it('ist nicht-destruktiv: Ruecknahme stellt Unter-Entscheidungen wieder her', () => {
@@ -1184,7 +1205,7 @@ describe('GuidedService', () => {
         expect(pfade()).toContain(`${M}/~e1`);
         // Das zwingende Vorkommen ist per Definition erledigt (es existiert),
         // die uebrigen Punkte sind offen.
-        expect(svc.fortschritt()).toEqual({ x: 1, y: y0 + 2 });
+        expect(svc.fortschritt()).toEqual({ x: 1, y: y0 + 2, zuKlaeren: 0 });
       });
     });
   });

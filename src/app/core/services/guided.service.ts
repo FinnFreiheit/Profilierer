@@ -329,19 +329,43 @@ export class GuidedService {
   /** Alle Entscheidungspunkte in Dokumentreihenfolge. */
   readonly punkte: Signal<DecisionPoint[]> = computed(() => this.walk().punkte);
 
-  /** Offene (unentschiedene) Punkt-Pfade — O(1)-Lookup fuer den Baum. */
+  /**
+   * **Geparkte** Punkte (Issue #41): das Element traegt eine Statusstufe mit
+   * Wirkung `markierung` ("zu klaeren"). Sie sind bewusst weder entschieden noch
+   * offen — die fachliche Frage steht noch aus, der Durchlauf soll aber
+   * weiterlaufen koennen. Nur im **Profil**-Modus: in einer konkreten Nachricht
+   * gibt es keine offene Festlegung (die vierte Entscheidung existiert dort
+   * nicht), und `markierung` bedeutete dort weder Aufnahme noch Ausschluss.
+   */
+  readonly geparkteSet: Signal<ReadonlySet<string>> = computed(() => {
+    const set = new Set<string>();
+    if (this.instanzModus()) return set;
+    for (const p of this.walk().punkte) {
+      if (this.state.wirkungOf(p.path) === 'markierung') set.add(p.path);
+    }
+    return set;
+  });
+
+  /** Offene (unentschiedene, nicht geparkte) Punkt-Pfade — O(1)-Lookup fuer den Baum. */
   readonly offeneSet: Signal<ReadonlySet<string>> = computed(() => {
+    const geparkt = this.geparkteSet();
     const set = new Set<string>();
     for (const p of this.walk().punkte) {
+      if (geparkt.has(p.path)) continue; // geparkt: sichtbar erledigt-vertagt
       if (!this.istEntschiedenPunkt(p)) set.add(p.path);
     }
     return set;
   });
 
-  /** Fortschritt: X entschiedene von Y echten Nutzer-Entscheidungen. */
-  readonly fortschritt: Signal<{ x: number; y: number }> = computed(() => {
+  /**
+   * Fortschritt: X entschiedene von Y echten Nutzer-Entscheidungen, dazu die
+   * geparkten (Issue #41). Restarbeit und Klaerungsbedarf sind zwei Dinge und
+   * werden getrennt ausgewiesen: `x + offen + zuKlaeren === y`.
+   */
+  readonly fortschritt: Signal<{ x: number; y: number; zuKlaeren: number }> = computed(() => {
     const y = this.walk().punkte.length;
-    return { x: y - this.offeneSet().size, y };
+    const zuKlaeren = this.geparkteSet().size;
+    return { x: y - this.offeneSet().size - zuKlaeren, y, zuKlaeren };
   });
 
   /**
@@ -634,7 +658,10 @@ export class GuidedService {
    */
   nextOpen(fromPath?: string | null): string | null {
     const { punkte, seqOf } = this.walk();
-    const offen = punkte.filter((p) => !this.istEntschiedenPunkt(p));
+    // Geparkte Punkte werden uebersprungen (Issue #41) — sonst liefe die
+    // Fuehrung immer wieder in den eigenen Merker, statt ihn zu vertagen.
+    const geparkt = this.geparkteSet();
+    const offen = punkte.filter((p) => !geparkt.has(p.path) && !this.istEntschiedenPunkt(p));
     if (!offen.length) return null;
     const fromSeq = fromPath != null ? (seqOf.get(fromPath) ?? -1) : -1;
     return (offen.find((p) => p.seq > fromSeq) ?? offen[0]!).path;
@@ -673,15 +700,20 @@ export class GuidedService {
    * Dispositions-Buttons im Detail-Panel). false, wenn nichts selektiert ist
    * oder die Profilierung keine Stufe mit passender Wirkung konfiguriert hat.
    */
-  setzeDisposition(wirkung: 'pflicht' | 'optional' | 'ausgeschlossen'): boolean {
+  setzeDisposition(wirkung: 'pflicht' | 'optional' | 'ausgeschlossen' | 'markierung'): boolean {
     const path = this.selPath();
     if (path == null) return false;
+    // „Zu klären" gibt es nur beim Profilieren: eine konkrete Nachricht kann
+    // keine offene Festlegung tragen (#41).
+    if (wirkung === 'markierung' && this.instanzModus()) return false;
     const st =
       wirkung === 'pflicht'
         ? this.state.pflichtStatus()
         : wirkung === 'optional'
           ? this.state.optionalStatus()
-          : this.state.exclStatus();
+          : wirkung === 'ausgeschlossen'
+            ? this.state.exclStatus()
+            : this.state.markierungStatus();
     if (!st) return false;
     this.disposition.setzeStatus(path, st.id);
     this.gotoNextOpen();
