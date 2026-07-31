@@ -165,6 +165,13 @@ export class DetailPanel {
       restricted: boolean;
       werte: string[] | null;
       allowedCount: number;
+      /**
+       * Zahl der freigegebenen Codes, die in den anzeigbaren Zeilen tatsaechlich
+       * vorkommen. 0 bei gesetzter Einschraenkung heisst: die geladene Liste
+       * fuehrt keinen der freigegebenen Codes (Versionsdrift, Tippfehler) — der
+       * Hinweis darf dann nicht auf eine Liste verweisen, die nichts anbietet.
+       */
+      allowedSichtbar: number;
       total: number;
       showFilter: boolean;
       manualText: string;
@@ -203,6 +210,7 @@ export class DetailPanel {
         restricted: !!werte,
         werte: codes,
         allowedCount: allowed.size,
+        allowedSichtbar: eff ? eff.filter((w) => allowed.has(w.value)).length : 0,
         // Bezugsgroesse „x von y" ist die geladene Liste; sind die Zeilen aus den
         // freigegebenen Eintraegen synthetisiert, gibt es kein y (0 = nicht zeigen).
         total: geladeneWerte ? geladeneWerte.length : 0,
@@ -460,8 +468,11 @@ export class DetailPanel {
       weglassSperre: this.guided.kardSperreWeglassen(path),
       marker: this.guided.markerOf(path),
       // Anmerkung der Profilierung als Hilfetext am Entscheidungspunkt: sie ist
-      // oft die Begruendung, warum das Feld so aussehen muss.
-      hilfetext: this.state.hatVorgabe() ? (this.state.anmerkungOf(path) ?? '') : '',
+      // oft die Begruendung, warum das Feld so aussehen muss. Bewusst
+      // `vorgabeAnmerkung` und nicht `anmerkungOf` — letzteres zieht die
+      // Entscheidung vor und zeigte, sobald der Durchlauf eigene Anmerkungen
+      // fuehren darf, eine eigene Notiz als „Anmerkung der Profilierung".
+      hilfetext: this.state.hatVorgabe() ? (this.state.vorgabeAnmerkung(path) ?? '') : '',
     };
   });
 
@@ -525,7 +536,23 @@ export class DetailPanel {
   }
 
   protected setField(key: 'min' | 'max' | 'anmerkung' | 'beispiel', e: Event): void {
-    const v = (e.target as HTMLInputElement | HTMLTextAreaElement).value.trim();
+    const el = e.target as HTMLInputElement | HTMLTextAreaElement;
+    const v = el.value.trim();
+    // Die Werte-Einschraenkung wird hier ebenso geprueft wie im Baum
+    // (`tree-node.onValueChange`). Vorher hing sie im Detailbereich allein am
+    // `readOnly` des Feldes, das nur bei `codelist?.restricted` gesetzt wird —
+    // eine `werte`-Einschraenkung an einem Blatt *ohne* Codeliste (ueber Import
+    // oder Migration erreichbar) blockierte im Baum, hier nicht. Die Invariante
+    // "nur freigegebene Werte landen im Modell" darf nicht an einem
+    // Template-Attribut haengen.
+    if (key === 'beispiel' && this.msgMode()) {
+      const verstoss = this.values.werteVerstoss(this.path(), v);
+      if (verstoss) {
+        this.toast.show(verstoss + ' Zulässig sind nur die Werte aus der Liste.');
+        el.value = this.state.elemente()[this.path()]?.beispiel ?? '';
+        return;
+      }
+    }
     this.state.setElementProfile(this.path(), { [key]: v || undefined });
   }
 

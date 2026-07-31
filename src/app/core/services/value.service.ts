@@ -208,6 +208,28 @@ export class ValueService {
   }
 
   /**
+   * Freigegebene Codes, die die **geladene** Codeliste nicht fuehrt — leer,
+   * solange sich Profilierung und Liste decken. Typisch bei Versionsdrift
+   * (das Profil nennt Codes einer aelteren Fassung) oder einem Tippfehler im
+   * Profil.
+   *
+   * Der Fall ist eine Sackgasse, wenn *alle* freigegebenen Codes fehlen: die
+   * Werteliste zeigt dann keine Zeile, die freie Eingabe ist gesperrt, und der
+   * Zaehler behauptet weiter „2 von 300 zugelassen". Deshalb wird er beim Start
+   * des Durchlaufs als Widerspruch der Profilierung gemeldet, statt still eine
+   * unbefuellbare Nachricht zu erzeugen. `eff = null` (Liste nicht geladen)
+   * ergibt keine Aussage — dort greift der synthetische Ausweg aus
+   * `werteZeilen`.
+   */
+  codesOhneDeckung(eff: readonly EnumWert[] | null, werte: readonly string[] | null): string[] {
+    if (!eff || !werte?.length) return [];
+    const vorhanden = new Set(eff.map((w) => w.value));
+    return this.werteZeilen(werte)
+      .map((w) => w.value)
+      .filter((c) => !vorhanden.has(c));
+  }
+
+  /**
    * Folgezustand des Umschalters „alle zeigen". `vorher = null` heisst
    * Elementwechsel — dann beginnt die Ansicht wieder bei „nur zugelassene"
    * (AC "der Umschalter steht bei jedem Elementwechsel wieder auf nur

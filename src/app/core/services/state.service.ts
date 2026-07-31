@@ -116,6 +116,17 @@ export class StateService {
   }
 
   /**
+   * Anmerkung **der Vorgabe** — der fachliche Hilfetext, den die Profilierung an
+   * den Entscheidungspunkt schreibt. Gegenstueck zu `vorgabeBeispiel` und aus
+   * demselben Grund eine eigene Lesart: `anmerkungOf` zieht die Entscheidung
+   * vor, und sobald der Durchlauf eigene Anmerkungen fuehren darf, zeigte der
+   * Hilfetext-Block sonst die eigene Notiz als „Anmerkung der Profilierung".
+   */
+  vorgabeAnmerkung(path: string): string | null {
+    return this.vorgabeProfileGeerbt(path)?.anmerkung || null;
+  }
+
+  /**
    * Was die gebundene Fassung fuer diesen Pfad **festlegt** — unabhaengig davon,
    * ob der Durchlauf inzwischen eine eigene Entscheidung getroffen hat. Das ist
    * die Profil-Aussage, aus der die Fuehrung ihre Wirkungen und Marker ableitet:

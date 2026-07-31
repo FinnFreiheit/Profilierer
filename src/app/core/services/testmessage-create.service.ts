@@ -21,6 +21,7 @@ import { ToastService } from './toast.service';
 import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
 import { ValidationMarkerService } from './validation-marker.service';
+import { ValueService } from './value.service';
 import { ReportEintrag } from '../../models/validation.model';
 
 /**
@@ -47,6 +48,8 @@ export class TestmessageCreateService {
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
   private readonly marker = inject(ValidationMarkerService);
+  /** Nur fuer die Codelisten-Deckung in `meldeWidersprueche`. */
+  private readonly values = inject(ValueService);
 
   /**
    * Neue Sitzung: Schema der Version sicherstellen, Nachricht laden (leerer
@@ -174,6 +177,27 @@ export class TestmessageCreateService {
         text: `${name} (${pfad}): Mindestanzahl ${min}, aber „${schliesstAus(anc)!.name}" an ${kurz(anc)} (${anc}) — der Ausschluss gilt für den ganzen Teilbaum, das Element bleibt leer.`,
       });
     }
+
+    // Zweiter Widerspruch: die Profilierung gibt Codes frei, die die geladene
+    // Codeliste nicht (mehr) fuehrt. Deckt sie *keinen* der freigegebenen Codes,
+    // ist der Durchlauf dort in einer Sackgasse — die Werteliste zeigt keine
+    // Zeile, die freie Eingabe ist gesperrt, und der Zaehler behauptet weiter
+    // "n von m zugelassen". Ohne geladene Liste (extern gepflegt) greift
+    // stattdessen der synthetische Ausweg, das ist kein Widerspruch.
+    for (const [pfad, p] of Object.entries(doc.elemente)) {
+      if (!p.werte?.length) continue;
+      const it = this.nav.findItemByPath(pfad);
+      const cl = it?.kind === 'el' ? it.node.codelist : null;
+      if (!cl) continue;
+      const eff = this.values.clWerte(cl);
+      const fehlen = this.values.codesOhneDeckung(eff, p.werte);
+      if (!fehlen.length || fehlen.length < p.werte.length) continue;
+      eintraege.push({
+        pfad,
+        text: `${kurz(pfad)} (${pfad}): Die Profilierung gibt nur ${fehlen.map((c) => `„${c}"`).join(', ')} frei — die geladene Codeliste ${cl.kennung} führt davon keinen Code. Kein Wert ist auswählbar; zu klären, ob die Profilierung eine andere Listenfassung meint.`,
+      });
+    }
+
     if (!eintraege.length) return;
     this.report.zeigeMitPfaden(
       'Widersprüche in der Profilierung',
