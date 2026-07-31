@@ -5,6 +5,7 @@ import { NavService } from '../../core/services/nav.service';
 import { ToastService } from '../../core/services/toast.service';
 import { LoggerService } from '../../core/services/logger.service';
 import { pretty } from '../../core/util/pretty.util';
+import { hinweisFehlerText } from '../../core/util/hinweis.util';
 
 /**
  * Uebersicht aller Hinweise (US "Hinweis pro Element"): jeder Hinweis steht
@@ -41,9 +42,13 @@ export class HinweiseDialog {
     this.nav.jumpTo(pfad);
   }
 
-  protected toggleErledigt(id: string, e: Event): void {
-    const checked = (e.target as HTMLInputElement).checked;
-    void this.melde(this.hinweise.aendern(id, { erledigt: checked }));
+  protected async toggleErledigt(id: string, e: Event): Promise<void> {
+    const el = e.target as HTMLInputElement;
+    const checked = el.checked;
+    // Scheitert das Schreiben, bleibt der Store unveraendert — die Checkbox
+    // haette ihren neuen Zustand dann behalten, obwohl nichts passiert ist.
+    if (!(await this.melde(this.hinweise.aendern(id, { erledigt: checked }))))
+      el.checked = !checked;
   }
 
   protected loesche(id: string): void {
@@ -61,13 +66,18 @@ export class HinweiseDialog {
     return new Date(zeit).toLocaleDateString('de-DE');
   }
 
-  /** Schreibfehler sichtbar machen — der Store haelt sonst einen alten Stand. */
-  private async melde(p: Promise<unknown>): Promise<void> {
+  /**
+   * Schreibfehler sichtbar machen — der Store haelt sonst einen alten Stand.
+   * Gibt zurueck, ob der Schreibvorgang durchging.
+   */
+  private async melde(p: Promise<unknown>): Promise<boolean> {
     try {
       await p;
+      return true;
     } catch (e) {
       this.log.error('Hinweise', 'Schreiben fehlgeschlagen', e);
-      this.toast.show('Hinweis konnte nicht gespeichert werden — Backend nicht erreichbar.');
+      this.toast.show(hinweisFehlerText(e));
+      return false;
     }
   }
 }

@@ -361,6 +361,7 @@ export function openDb(path) {
     ),
     hwDel: db.prepare('DELETE FROM hinweise WHERE id = ? AND profil_id = ?'),
     hwDelAll: db.prepare('DELETE FROM hinweise WHERE profil_id = ?'),
+    hwCount: db.prepare('SELECT COUNT(*) AS n FROM hinweise WHERE profil_id = ?'),
 
     // ── Testnachrichten (zentraler Testdaten-Speicher) ──────────────────
     tmList: db.prepare(`SELECT ${TM_COLS} ${TM_FROM} ORDER BY t.aktualisiert DESC`),
@@ -684,6 +685,29 @@ export function openDb(path) {
     },
 
     /**
+     * Alle Hinweise auf und unter einem Pfad loeschen — Gegenstueck zur Kaskade
+     * im Client, wenn eine Auspraegung oder Schema-Erweiterung entfernt wird:
+     * das Element ist weg, sein Hinweis darf nicht in der Ablage zurueckbleiben.
+     *
+     * Gefiltert wird in JS und nicht per LIKE: Pfadsegmente sind NCNames und
+     * duerfen '_' enthalten, das LIKE als Platzhalter liest. Die Grenzen '/' und
+     * '@' entsprechen `unterPfad` im Client — ohne sie traefe `…/anlage` auch
+     * `…/anlageArt`. Gibt die Anzahl entfernter Zeilen zurueck.
+     */
+    hinweiseLoeschenUnter(profilId, praefix) {
+      const p = String(praefix ?? '');
+      if (!p) return 0;
+      const treffer = stmt.hwList
+        .all(profilId)
+        .filter((r) => r.pfad === p || r.pfad.startsWith(p + '/') || r.pfad.startsWith(p + '@'));
+      if (!treffer.length) return 0;
+      return db.transaction(() => {
+        for (const r of treffer) stmt.hwDel.run(r.id, profilId);
+        return treffer.length;
+      })();
+    },
+
+    /**
      * Alle Hinweise eines Profils ersetzen (JSON-Import einer Datei). Bewusst
      * ein Volltausch statt Zusammenfuehren — Konfliktlogik gehoert nicht in den
      * Dateiaustausch. Anders als beim Anlegen bleiben `zeit`, `autor` und
@@ -881,7 +905,32 @@ export function openDb(path) {
         let n = 0;
         for (const it of list) {
           if (!it || !it.id || !it.doc) continue;
+          // Hier sind die Altfelder im Dokument der Normalfall, nicht ein
+          // Fremdkoerper: eingeliefert werden localStorage-Staende und
+          // Notfallkopien von *vor* der Umstellung. `upsert` verwirft sie
+          // (Einliefer-Schutz), also vorher herausloesen und als Liste
+          // schreiben — sonst verlor der erste Start nach dem Upgrade die
+          // Hinweise stillschweigend, entgegen der Zusage "vorhandene Hinweise
+          // aus alten Staenden sind unveraendert vorhanden".
+          const gefunden = hinweiseHerausloesen(it.doc);
           upsert(it.id, it.doc, it.aktualisiert);
+          // Nur, wenn die Ablage zu diesem Profil noch leer ist: sie ist die
+          // fuehrende Quelle. Ein eingeliefertes Alt-Dokument darf neuere
+          // Hinweise nicht ersetzen, und ein zweiter Lauf derselben Kopie darf
+          // sie nicht verdoppeln.
+          if (gefunden.length && !stmt.hwCount.get(it.id).n) {
+            for (const h of gefunden)
+              stmt.hwInsert.run({
+                id: randomUUID(),
+                profilId: it.id,
+                pfad: h.pfad,
+                text: h.text,
+                autor: null,
+                rolle: null,
+                zeit: it.aktualisiert ?? Date.now(),
+                erledigt: h.erledigt ? 1 : null,
+              });
+          }
           n++;
         }
         return n;

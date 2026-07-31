@@ -143,6 +143,37 @@ describe('HinweisStoreService (HTTP)', () => {
       ).toEqual(['fertig']);
     });
 
+    it('loescheUnter raeumt Traeger und Teilbaum, laesst Nachbarn stehen', async () => {
+      handlers['GET api/profiles/p3/hinweise'] = () =>
+        json([
+          hw('1', { pfad: 'm/bet@a1' }),
+          hw('2', { pfad: 'm/bet@a1/rolle' }),
+          hw('3', { pfad: 'm/bet@a1/anschrift@b2/ort' }),
+          hw('4', { pfad: 'm/bet@a2' }),
+          hw('5', { pfad: 'm/betArt' }),
+          hw('6', { pfad: 'm/bet' }),
+        ]);
+      await store.lade('p3');
+      handlers['DELETE api/profiles/p3/hinweise?praefix=m%2Fbet%40a1'] = () =>
+        json({ entfernt: 3 });
+      await store.loescheUnter('m/bet@a1');
+      expect(store.hinweise().map((h) => h.id)).toEqual(['4', '5', '6']);
+    });
+
+    it('loescheUnter spart den Request, wenn der Teilbaum keinen Hinweis traegt', async () => {
+      handlers['GET api/profiles/p4/hinweise'] = () => json([hw('1', { pfad: 'm/bet@a2' })]);
+      await store.lade('p4');
+      // Kein handler fuer das DELETE: ein Request wuerde 500 liefern und werfen.
+      await store.loescheUnter('m/bet@a1');
+      expect(store.hinweise().map((h) => h.id)).toEqual(['1']);
+    });
+
+    it('loescheUnter ist ohne offenes Profil ein No-Op (Nachrichten-Modus)', async () => {
+      await store.lade(null);
+      await store.loescheUnter('m/bet@a1');
+      expect(store.hinweise()).toEqual([]);
+    });
+
     it('anc zaehlt offene Hinweise auf allen Vorfahren (Grenzen / und @)', async () => {
       handlers['GET api/profiles/p2/hinweise'] = () =>
         json([

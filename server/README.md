@@ -47,14 +47,24 @@ Server, `autor`/`rolle` bleiben vorerst leer — Client-Angaben werden ignoriert
 `PATCH /api/profiles/:id/hinweise/:hid` (Body `{text?, erledigt?}`) ·
 `DELETE /api/profiles/:id/hinweise/:hid` ·
 `PUT /api/profiles/:id/hinweise` (Volltausch für den Datei-Import; erhält
-`zeit`/`autor`/`rolle` der Datei — ersetzt, führt nicht zusammen).
+`zeit`/`autor`/`rolle` der Datei — ersetzt, führt nicht zusammen) ·
+`DELETE /api/profiles/:id/hinweise?praefix=<pfad>` (Teilbaum: der Träger selbst
+und alles darunter, Grenzen `/` und `@`; kein Treffer ist kein Fehler). Den
+Teilbaum-Weg nutzt der Client, wenn eine Ausprägung oder Schema-Erweiterung
+entfernt wird — das Element ist weg, sein Hinweis darf nicht zurückbleiben.
+Gefiltert wird in JS statt per `LIKE`: Pfadsegmente sind NCNames und dürfen `_`
+enthalten, das `LIKE` als Platzhalter liest.
 Hinweise liegen bewusst **außerhalb** des Profil-Dokuments: sonst löschte der
 nächste Autosave eines anderen Bearbeiters (`PUT /profiles/:id` aus einem
 älteren Browser-Stand) fremde Hinweise, und „geändert seit Abnahme" reagierte
 auf jede Notiz. Hinweisfelder in eingelieferten Dokumenten werden verworfen (wie
 Abnahme-Felder). Der Abnahme-Schutz gilt auf den Schreib-Endpunkten wie überall.
 Profil-Löschen kaskadiert, Duplizieren übernimmt die Hinweise (neue ids),
-Versionen frieren sie nicht ein. Beim Serverstart hebt `migriereHinweise()` den
+Versionen frieren sie nicht ein. `importAll` (localStorage-Migration,
+Notfallkopien) löst die Altfelder vor dem `upsert` heraus und schreibt sie in die
+Tabelle — aber nur, solange dort zu diesem Profil nichts liegt: die Tabelle ist
+die führende Quelle, ein spät eingelieferter Alt-Stand darf neuere Hinweise nicht
+ersetzen und ein zweiter Flush sie nicht verdoppeln. Beim Serverstart hebt `migriereHinweise()` den
 Altbestand einmalig aus den Dokumenten in die Tabelle (gesteuert über
 `PRAGMA user_version`, der Lauf ist auch für sich idempotent; die
 eingefrorenen Dokumente und ihre Hashes werden mit umgestellt, damit die

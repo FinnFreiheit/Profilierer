@@ -78,5 +78,19 @@ aufbohren — hätte den Schutz zu einer Ausnahmeliste gemacht und keines der dr
   liest.
 - Das Duplizieren eines Elements (`duplicateElement`) nimmt die Hinweise des Quellpfads nicht mehr
   mit — sie hängen am Pfad, nicht am Elementprofil.
+- Umgekehrt muss das **Entfernen** eines Elements sie ausdrücklich mitnehmen: `removeAusp` und
+  `removeErweiterung` kaskadieren über `elemente`/`auspraegungen`/`erweiterungen`, die Hinweise
+  liegen aber daneben. Ohne eigenen Aufruf blieben sie zurück, zählten weiter im Toolbar-Zähler,
+  standen in der Übersicht und erzeugten über `HinweisStoreService.anc()` einen Sammel-Marker an
+  einem Vorfahren, dessen Sprung ins Leere geht. Der Weg dafür ist
+  `DELETE /profiles/:id/hinweise?praefix=<pfad>`, aufgerufen aus der Kaskade selbst — die
+  Invariante hängt an ihr, nicht an den vier Bedienstellen. Solange kein Profil offen ist
+  (Nachrichten-Modus, Dashboard) ist der Aufruf ein No-Op, die Hinweise gehören dort keinem
+  geladenen Profil.
+- Eingelieferte Alt-Stände (`importAll`: localStorage-Migration, Notfallkopien) tragen die
+  Hinweisfelder noch im Dokument. Weil `upsert` sie als Einlieferungsschutz verwirft, löst
+  `importAll` sie **vorher** heraus und schreibt sie in die Ablage — aber nur, wenn dort zu diesem
+  Profil noch nichts liegt: die Ablage ist die führende Quelle, ein spät eingelieferter Alt-Stand
+  darf neuere Hinweise nicht ersetzen und ein zweiter Flush derselben Kopie sie nicht verdoppeln.
 - Offen für Folge-Tickets: Autor und serverseitiges Rollenkennzeichen, Anlegerecht für Externe an
   abgenommenen Ständen, Zähler auf der Dashboard-Karte.

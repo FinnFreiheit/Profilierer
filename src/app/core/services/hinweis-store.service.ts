@@ -2,10 +2,25 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Hinweis } from '../../models/profile.model';
 import { LoggerService } from './logger.service';
 import { RolleService } from './rolle.service';
-import { HinweisEingabe } from '../util/hinweis.util';
+import { HinweisEingabe, unterPfad } from '../util/hinweis.util';
 
 /** Basis-URL der Profil-API (wie im ProfileStoreService: relativ, gegen <base href>). */
 const API_BASE = 'api';
+
+/**
+ * Fehler eines Hinweis-Requests, mit HTTP-Status. Der Status entscheidet die
+ * Meldung an den Nutzer: 403 ist kein Ausfall, sondern der Abnahme-Schutz —
+ * "Backend nicht erreichbar" waere dort eine falsche Ursache.
+ */
+export class HinweisFehler extends Error {
+  constructor(
+    readonly status: number,
+    nachricht: string,
+  ) {
+    super(nachricht);
+    this.name = 'HinweisFehler';
+  }
+}
 
 /**
  * Ablage der Hinweise (Rueckmeldungen am Element) — eine eigene Ressource neben
@@ -97,7 +112,8 @@ export class HinweisStoreService {
         ...init?.headers,
       },
     });
-    if (!r.ok) throw new Error(`Hinweise: ${init?.method ?? 'GET'} ${path} → ${r.status}`);
+    if (!r.ok)
+      throw new HinweisFehler(r.status, `Hinweise: ${init?.method ?? 'GET'} ${path} → ${r.status}`);
     if (r.status === 204) return undefined as T;
     return (await r.json()) as T;
   }
@@ -164,6 +180,26 @@ export class HinweisStoreService {
     if (!id) return;
     await this.req<void>(this.pfad(id, `/${encodeURIComponent(hinweisId)}`), { method: 'DELETE' });
     this.hinweise.update((l) => l.filter((h) => h.id !== hinweisId));
+  }
+
+  /**
+   * Alle Hinweise unter einem Pfad loeschen — der Traeger selbst und alles
+   * darunter ('/' und '@' als Grenzen, wie `anc`). Gegenstueck zur Kaskade in
+   * `StateService.removeAusp`/`removeErweiterung`: verschwindet das Element,
+   * darf sein Hinweis nicht in der Ablage zurueckbleiben, wo er weiterzaehlt
+   * und einen Sammel-Marker an einem Vorfahren erzeugt, dessen Sprung ins Leere
+   * geht. Ohne offenes Profil (Nachrichten-Modus, Dashboard) ein No-Op.
+   */
+  async loescheUnter(pfad: string): Promise<void> {
+    const id = this.profilId();
+    if (!id) return;
+    // Nichts zu tun, wenn der Teilbaum keinen Hinweis traegt — der haeufige Fall,
+    // und er spart den Request beim Aufraeumen ganzer Aeste.
+    if (!this.hinweise().some((h) => unterPfad(h.pfad, pfad))) return;
+    await this.req<void>(this.pfad(id, `?praefix=${encodeURIComponent(pfad)}`), {
+      method: 'DELETE',
+    });
+    this.hinweise.update((l) => l.filter((h) => !unterPfad(h.pfad, pfad)));
   }
 
   /**
