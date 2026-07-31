@@ -8,6 +8,12 @@ import { HinweisEingabe, unterPfad } from '../util/hinweis.util';
 const API_BASE = 'api';
 
 /**
+ * Browser-Ablage des Autornamens (Issue #40) — Selbstauskunft, einmal
+ * hinterlegt und danach vorbelegt, analog zum gemerkten AG-Schluessel.
+ */
+export const AUTOR_STORAGE = 'xjp.hinweisAutor';
+
+/**
  * Fehler eines Hinweis-Requests, mit HTTP-Status. Der Status entscheidet die
  * Meldung an den Nutzer: 403 ist kein Ausfall, sondern der Abnahme-Schutz —
  * "Backend nicht erreichbar" waere dort eine falsche Ursache.
@@ -44,6 +50,21 @@ export class HinweisStoreService {
 
   /** Hinweise des offenen Profils, in Server-Reihenfolge. */
   readonly hinweise = signal<Hinweis[]>([]);
+
+  /**
+   * Der gemerkte Autorname (Issue #40). Reine Selbstauskunft: er wandert als
+   * `autor` an den Server, das belastbare Rollenkennzeichen stempelt der Server
+   * selbst aus dem AG-Schluessel. Ueberlebt den Reload im Browser-Storage.
+   */
+  readonly autor = signal<string>(localStorage.getItem(AUTOR_STORAGE) ?? '');
+
+  /** Namen merken (leer = wieder fragen). */
+  setzeAutor(name: string): void {
+    const clean = name.trim();
+    this.autor.set(clean);
+    if (clean) localStorage.setItem(AUTOR_STORAGE, clean);
+    else localStorage.removeItem(AUTOR_STORAGE);
+  }
 
   // ── Abgeleitete Sichten ─────────────────────────────────────────────
 
@@ -151,13 +172,18 @@ export class HinweisStoreService {
     return this.req<Hinweis[]>(this.pfad(profilId));
   }
 
-  /** Neuen Hinweis am Element anlegen; Zeitpunkt stempelt der Server. */
+  /**
+   * Neuen Hinweis am Element anlegen. Mitgeschickt wird allein der Name
+   * (Selbstauskunft); Zeitpunkt und Rollenkennzeichen stempelt der Server —
+   * er leitet die Rolle aus dem AG-Schluessel ab (Issue #40).
+   */
   async anlegen(pfad: string, text: string): Promise<Hinweis | null> {
     const id = this.profilId();
     if (!id || !text.trim()) return null;
+    const autor = this.autor().trim();
     const { hinweis } = await this.req<{ hinweis: Hinweis }>(this.pfad(id), {
       method: 'POST',
-      body: JSON.stringify({ pfad, text: text.trim() }),
+      body: JSON.stringify({ pfad, text: text.trim(), autor: autor || undefined }),
     });
     this.hinweise.update((l) => [...l, hinweis]);
     return hinweis;

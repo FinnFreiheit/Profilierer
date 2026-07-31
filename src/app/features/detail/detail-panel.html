@@ -612,7 +612,7 @@
                 [checked]="h.erledigt"
                 (change)="toggleHinweisErledigt(h.id, $event)"
               />
-              <span class="hwText">{{ h.text }}</span>
+              <span class="hwText" [title]="herkunft(h)">{{ h.text }}</span>
               <button class="hwWeg" title="Hinweis löschen" (click)="loescheHinweis(h.id)">
                 ×
               </button>
@@ -624,6 +624,13 @@
             (input)="onNeuerHinweis($event)"
             (change)="addHinweis()"
           ></textarea>
+          <input
+            type="text"
+            style="width: 100%; margin-top: 4px"
+            placeholder="Ihr Name — erscheint am Hinweis (Rolle setzt der Server)"
+            [value]="hinweise.autor()"
+            (change)="onAutor($event)"
+          />
         </div>
       }
       @if (v.refNummer) {

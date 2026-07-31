@@ -19,7 +19,8 @@ import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { LoggerService } from '../../core/services/logger.service';
 import { itemPath } from '../../models/node.model';
 import { fmtKard, kardText, pretty } from '../../core/util/pretty.util';
-import { hinweisFehlerText } from '../../core/util/hinweis.util';
+import { hinweisFehlerText, hinweisHerkunft } from '../../core/util/hinweis.util';
+import { Hinweis } from '../../models/profile.model';
 import { ERW_DATENTYPEN, ERW_NAME_MUSTER } from '../../core/profile-defaults';
 import { REF_LABELS, refKindEff, refKindOf, refTraeger } from '../../core/refs';
 
@@ -42,7 +43,7 @@ export class DetailPanel {
   private readonly codelistSvc = inject(CodelistService);
   private readonly toast = inject(ToastService);
   private readonly erwDialog = inject(ErweiterungDialogService);
-  private readonly hinweise = inject(HinweisStoreService);
+  protected readonly hinweise = inject(HinweisStoreService);
   private readonly log = inject(LoggerService);
 
   /**
@@ -600,8 +601,22 @@ export class DetailPanel {
   protected async addHinweis(): Promise<void> {
     const text = this.neuerHinweis().trim();
     if (!text) return;
+    // Beim ersten Hinweis einmalig nach dem Namen fragen (Issue #40); danach ist
+    // er vorbelegt und am Feld aenderbar. Ein Abbruch haelt den Hinweis nicht
+    // auf — die Rueckmeldung ist wichtiger als der Klarname.
+    if (!this.hinweise.autor())
+      this.hinweise.setzeAutor(prompt('Ihr Name — er erscheint an Ihren Hinweisen:') ?? '');
     if (await this.hinweisSchreiben(this.hinweise.anlegen(this.path(), text)))
       this.neuerHinweis.set('');
+  }
+
+  protected onAutor(e: Event): void {
+    this.hinweise.setzeAutor((e.target as HTMLInputElement).value);
+  }
+
+  /** „Müller (BLK-AG), 26.07.30" — Herkunft am Hinweis (Issue #40). */
+  protected herkunft(h: Hinweis): string {
+    return hinweisHerkunft(h);
   }
 
   protected async toggleHinweisErledigt(id: string, e: Event): Promise<void> {

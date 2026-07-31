@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { HinweisStoreService } from './hinweis-store.service';
+import { AUTOR_STORAGE, HinweisStoreService } from './hinweis-store.service';
 import { Hinweis } from '../../models/profile.model';
 
 /** Ein Hinweis-Stub. */
@@ -51,6 +51,29 @@ describe('HinweisStoreService (HTTP)', () => {
     await store.anlegen('m/az', 'zweiter');
     expect(store.hinweise().map((h) => h.id)).toEqual(['a', 'b']);
     expect(gesendet['POST api/profiles/p1/hinweise']).toEqual({ pfad: 'm/az', text: 'zweiter' });
+  });
+
+  it('schickt den gemerkten Autornamen mit; ohne Namen bleibt das Feld weg (#40)', async () => {
+    handlers['GET api/profiles/p1/hinweise'] = () => json([]);
+    await store.lade('p1');
+    handlers['POST api/profiles/p1/hinweise'] = () => json({ hinweis: hw('a') }, 201);
+
+    // Ohne hinterlegten Namen: nur Pfad und Text — der Server traegt dann nichts ein.
+    store.setzeAutor('');
+    await store.anlegen('m/az', 'ohne Namen');
+    expect(gesendet['POST api/profiles/p1/hinweise']).toEqual({ pfad: 'm/az', text: 'ohne Namen' });
+
+    store.setzeAutor('  Müller  ');
+    expect(store.autor()).toBe('Müller'); // getrimmt gemerkt
+    expect(localStorage.getItem(AUTOR_STORAGE)).toBe('Müller'); // ueberlebt den Reload
+    await store.anlegen('m/az', 'mit Namen');
+    expect(gesendet['POST api/profiles/p1/hinweise']).toEqual({
+      pfad: 'm/az',
+      text: 'mit Namen',
+      autor: 'Müller',
+    });
+    // Rolle und Zeit schickt der Client nie mit — sie stempelt der Server.
+    store.setzeAutor('');
   });
 
   it('anlegen ohne geladenes Profil tut nichts', async () => {

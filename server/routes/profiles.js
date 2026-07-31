@@ -136,11 +136,19 @@ export function profilesRouter(db, auth) {
     res.json(liste);
   });
 
-  // Anlegen; Zeitpunkt stempelt der Server.
+  // Anlegen; Zeitpunkt und Rolle stempelt der Server (Issue #40). Der Name ist
+  // Selbstauskunft und kommt aus dem Body; die Rolle leitet sich allein aus dem
+  // mitgeschickten AG-Schluessel ab — nur so bleibt sie belastbar. Ein vom
+  // Client gesetztes `rolle`/`zeit` wird nicht durchgereicht.
   r.post('/profiles/:id/hinweise', schutz, (req, res) => {
-    const { pfad, text } = req.body ?? {};
+    const { pfad, text, autor } = req.body ?? {};
     if (!String(text ?? '').trim()) return res.status(400).json({ error: 'kein Text' });
-    const hinweis = db.hinweisAnlegen(req.params.id, { pfad, text });
+    const hinweis = db.hinweisAnlegen(
+      req.params.id,
+      { pfad, text, autor },
+      undefined,
+      auth.istAg(req) ? 'ag' : 'extern',
+    );
     if (!hinweis) return res.status(404).json({ error: 'nicht gefunden' });
     res.status(201).json({ hinweis });
   });
