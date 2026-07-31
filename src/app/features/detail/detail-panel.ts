@@ -155,6 +155,9 @@ export class DetailPanel {
           sperre: this.guided.auspSperreEntfernen(path, a.id),
         }))
       : [];
+    // Gebundener Durchlauf: waehlbare Quellen fuer ein weiteres Vorkommen —
+    // null, wo Vorkommen frei angelegt werden duerfen (#28).
+    const auspKopieKandidaten = showAusps ? this.guided.auspKopieKandidaten(path) : null;
 
     // Blatt-Eigenschaft des ausgewaehlten Items (Ausprägung: ihr Kontext-Knoten).
     const leaf = isAusp
@@ -309,6 +312,7 @@ export class DetailPanel {
       kardHint: isAusp ? 'genau 1' : 'Standard',
       showAusps,
       auspList,
+      auspKopieKandidaten,
       // Kardinalitaet des Durchlaufs: Grund der Sperre bzw. null (Issue #27).
       kardHinzuSperre: showAusps ? this.guided.kardSperreHinzu(path) : null,
       kardEntfernenSperre: showAusps ? this.guided.kardSperreEntfernen(path) : null,
@@ -815,6 +819,10 @@ export class DetailPanel {
    * erster Klick fuehrt den generischen Unterbaum als "Fall 1" weiter und legt
    * ein leeres zweites Vorkommen an (duplicateElement); danach je Klick eines.
    * Bei erreichter Hoechstanzahl gesperrt (Grund im Toast und am Knopf).
+   *
+   * Fuehrt die gebundene Fassung am Element Auspraegungen, gibt es diesen Weg
+   * nicht — dort entsteht jedes weitere Vorkommen als Kopie einer profilierten
+   * Auspraegung (`addVorkommenAusProfil`, #28).
    */
   protected addVorkommen(): void {
     const sperre = this.guided.kardSperreHinzu(this.path());
@@ -825,6 +833,11 @@ export class DetailPanel {
     const list = this.state.auspsOf(this.path());
     if (!list?.length) this.state.duplicateElement(this.path());
     else this.state.addAusp(this.path(), 'Vorkommen ' + (list.length + 1));
+  }
+
+  /** Weiteres Vorkommen als Kopie der gewaehlten profilierten Auspraegung (#28). */
+  protected addVorkommenAusProfil(auspId: string): void {
+    this.copyVorkommen(auspId);
   }
 
   /**

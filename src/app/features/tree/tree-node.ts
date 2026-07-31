@@ -549,6 +549,20 @@ export class TreeNode {
     const it = this.item();
     if (it.kind !== 'el') return;
     if (this.meldeSperre(this.guided.kardSperreHinzu(it.node.path))) return;
+    // Gebundener Durchlauf mit profilierten Auspraegungen: kein leeres Vorkommen,
+    // sondern die Kopie einer profilierten Auspraegung (#28). Gibt es nur eine,
+    // ist die Wahl eindeutig; sonst faellt sie im Detailbereich, wo jede Quelle
+    // ihren Knopf hat.
+    const kandidaten = this.guided.auspKopieKandidaten(it.node.path);
+    if (kandidaten) {
+      if (kandidaten.length === 1) {
+        this.state.copyAusp(it.node.path, kandidaten[0]!.id);
+        return;
+      }
+      this.state.selItem.set(it);
+      this.toast.show('Bitte im Detailbereich wählen, welche Ausprägung kopiert wird.');
+      return;
+    }
     this.state.addAusp(it.node.path);
   }
 

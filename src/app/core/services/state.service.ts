@@ -87,9 +87,56 @@ export class StateService {
     this.vorgabe.set(null);
   }
 
+  /**
+   * Derselbe Pfad, wie ihn die **Vorgabe** kennt: Vorkommen, die als Kopie einer
+   * profilierten Auspraegung entstanden sind (`vonId`, #28), tragen eine zur
+   * Laufzeit erzeugte id, die in der eingefrorenen Fassung nicht vorkommt. Fuer
+   * jeden Lesezugriff auf die Vorgabe wird sie darum auf die id der Quelle
+   * zurueckgeschrieben — nur so wirkt im kopierten Vorkommen die
+   * Unter-Profilierung der Auspraegung, aus der es entstanden ist.
+   *
+   * Segmentweise, weil die eigene Liste am jeweiligen Listen-Pfad haengt: die
+   * Vorfahren werden im **eigenen** Pfadraum nachgeschlagen und im **Vorgabe**-
+   * Pfadraum aufgebaut.
+   */
+  private vorgabePfad(path: string): string {
+    if (!path.includes('@')) return path;
+    let eigen = '';
+    let ziel = '';
+    for (const seg of path.split('/')) {
+      const at = seg.lastIndexOf('@');
+      const name = at < 0 ? seg : seg.slice(0, at);
+      const id = at < 0 ? null : seg.slice(at + 1);
+      const listeEigen = eigen ? eigen + '/' + name : name;
+      const listeZiel = ziel ? ziel + '/' + name : name;
+      if (id === null) {
+        eigen = listeEigen;
+        ziel = listeZiel;
+        continue;
+      }
+      const von = this.auspraegungen()[listeEigen]?.find((a) => a.id === id)?.vonId;
+      eigen = listeEigen + '@' + id;
+      ziel = listeZiel + '@' + (von ?? id);
+    }
+    return ziel;
+  }
+
   /** Der Element-Eintrag der Vorgabe zu einem Pfad (null ohne Vorgabe/Eintrag). */
   private vorgabeProfile(path: string): ElementProfile | null {
-    return this.vorgabe()?.elemente[path] ?? null;
+    const v = this.vorgabe();
+    if (!v) return null;
+    return v.elemente[path] ?? v.elemente[this.vorgabePfad(path)] ?? null;
+  }
+
+  /**
+   * Die Auspraegungsliste der Vorgabe zu einem Pfad — mit derselben Aufloesung
+   * kopierter Vorkommen wie `vorgabeProfile`, damit eine Kopie auch die
+   * benannten Unter-Vorkommen ihrer Quelle erbt.
+   */
+  vorgabeAusps(path: string): Auspraegung[] | null {
+    const v = this.vorgabe();
+    if (!v) return null;
+    return v.auspraegungen[path] ?? v.auspraegungen[this.vorgabePfad(path)] ?? null;
   }
 
   /**
@@ -139,7 +186,8 @@ export class StateService {
   profilWirkung(path: string): Wirkung | null {
     const v = this.vorgabe();
     if (!v) return null;
-    const id = v.elemente[path]?.status;
+    // Ueber `vorgabeProfile`, also mit Aufloesung kopierter Vorkommen (#28).
+    const id = this.vorgabeProfile(path)?.status;
     return (id && v.statuses.find((s) => s.id === id)?.wirkung) || null;
   }
 
@@ -550,7 +598,7 @@ export class StateService {
    * Vorkommen fuehrt, sind sie massgeblich (kein Mischen beider Schichten).
    */
   auspsOf(path: string): Auspraegung[] | null {
-    return this.auspraegungen()[path] ?? this.vorgabe()?.auspraegungen[path] ?? null;
+    return this.auspraegungen()[path] ?? this.vorgabeAusps(path) ?? null;
   }
 
   /**
@@ -586,7 +634,7 @@ export class StateService {
   addAusp(path: string, name?: string): string {
     const id = 'a' + Date.now().toString(36) + ++this.auspN;
     this.auspraegungen.update((m) => {
-      const list = this.materialisiere(m[path], this.vorgabe()?.auspraegungen[path]);
+      const list = this.materialisiere(m[path], this.vorgabeAusps(path) ?? undefined);
       list.push({ id, name: name || 'Ausprägung ' + (list.length + 1) });
       return { ...m, [path]: list };
     });
@@ -607,7 +655,7 @@ export class StateService {
     // (#28, entschieden nach der Rueckstellung in #50).
     if (!this.auspsOf(path)?.some((a) => a.id === id)) return;
     const prefix = path + '@' + id;
-    const vorgabeListe = this.vorgabe()?.auspraegungen[path];
+    const vorgabeListe = this.vorgabeAusps(path) ?? undefined;
 
     this.auspraegungen.update((m) => {
       const next = { ...m };
@@ -977,7 +1025,7 @@ export class StateService {
     this.auspraegungen.update((m) => {
       // Auch auf einer Vorgabe-Liste (siehe removeAusp): das Umbenennen
       // materialisiert sie und laesst die eingefrorene Fassung unberuehrt.
-      const vorgabeListe = this.vorgabe()?.auspraegungen[listPath];
+      const vorgabeListe = this.vorgabeAusps(listPath) ?? undefined;
       if (!m[listPath] && !vorgabeListe) return m;
       const list = this.materialisiere(m[listPath], vorgabeListe);
       const a = list.find((x) => x.id === id);
@@ -1040,10 +1088,23 @@ export class StateService {
 
   /** copyAusp (Z.1425-1434): Auspraegung samt Unter-Profilierung kopieren. */
   copyAusp(parentPath: string, auspId: string): void {
-    const list = this.auspsOf(parentPath) ?? [];
-    const src = list.find((a) => a.id === auspId);
+    // Quelle auch dann, wenn sie nur in der gebundenen Fassung steht: im
+    // Durchlauf entstehen weitere Vorkommen als Kopie einer **profilierten**
+    // Auspraegung, und die bleibt waehlbar, nachdem sie aus der eigenen Liste
+    // entfernt wurde (#28).
+    const src =
+      this.auspsOf(parentPath)?.find((a) => a.id === auspId) ??
+      this.vorgabeAusps(parentPath)?.find((a) => a.id === auspId);
     if (!src) return;
     const nid = this.addAusp(parentPath, src.name + ' (Kopie)');
+    // Herkunft flach halten: die Kopie einer Kopie zeigt auf dieselbe
+    // profilierte Auspraegung, sonst muesste jeder Lesezugriff eine Kette
+    // aufloesen.
+    const vonId = src.vonId ?? auspId;
+    this.auspraegungen.update((m) => {
+      const list = (m[parentPath] ?? []).map((a) => (a.id === nid ? { ...a, vonId } : a));
+      return { ...m, [parentPath]: list };
+    });
     const from = parentPath + '@' + auspId;
     const to = parentPath + '@' + nid;
     const fromProfile = this.elemente()[from];

@@ -591,6 +591,103 @@ describe('GuidedService', () => {
         expect(svc.auspSperreEntfernen(`${M}/beteiligung`, 'n1')).toBeNull();
       });
 
+      it('optionales Vorkommen ist ein Aufnehmen/Weglassen-Punkt (#28)', () => {
+        // Spec #28: "optionale erscheinen als Entscheidungspunkt aufnehmen /
+        // weglassen" — ohne diese Unterscheidung galte ein Vorkommen mit seinem
+        // blossen Dasein als entschieden.
+        bindeVorgabe(
+          {
+            [`${M}/beteiligung`]: { status: V.pflicht },
+            [`${M}/beteiligung@n1`]: { status: V.pflicht },
+            [`${M}/beteiligung@n2`]: { status: V.optional },
+          },
+          {},
+          {
+            [`${M}/beteiligung`]: [
+              { id: 'n1', name: 'Notar/in' },
+              { id: 'n2', name: 'Zeuge/Zeugin' },
+            ],
+          },
+        );
+
+        // Zwingend: da, entschieden. Optional: offener Punkt bis zur Antwort.
+        expect(svc.punktAt(`${M}/beteiligung@n1`)?.art).toBe('auspraegung');
+        expect(svc.punktAt(`${M}/beteiligung@n2`)?.art).toBe('element');
+        expect(svc.offeneSet().has(`${M}/beteiligung@n2`)).toBeTrue();
+        // In das nicht aufgenommene Vorkommen steigt der Durchlauf nicht ab.
+        expect(pfade()).not.toContain(`${M}/beteiligung@n2/name`);
+
+        svc.setzeAufnahme(`${M}/beteiligung@n2`, true);
+        expect(svc.offeneSet().has(`${M}/beteiligung@n2`)).toBeFalse();
+        expect(pfade()).toContain(`${M}/beteiligung@n2/name`);
+
+        svc.setzeAufnahme(`${M}/beteiligung@n2`, false);
+        expect(svc.offeneSet().has(`${M}/beteiligung@n2`)).toBeFalse();
+      });
+
+      it('eine selbst angelegte Kopie ist aufgenommen, kein neuer offener Punkt', () => {
+        bindeVorgabe(
+          {
+            [`${M}/beteiligung`]: { status: V.pflicht },
+            [`${M}/beteiligung@n2`]: { status: V.optional },
+          },
+          {},
+          { [`${M}/beteiligung`]: [{ id: 'n2', name: 'Zeuge/Zeugin' }] },
+        );
+        state.copyAusp(`${M}/beteiligung`, 'n2');
+
+        const kopie = state.auspsOf(`${M}/beteiligung`)!.find((a) => a.vonId === 'n2')!;
+        expect(svc.punktAt(`${M}/beteiligung@${kopie.id}`)?.art).toBe('auspraegung');
+        expect(svc.offeneSet().has(`${M}/beteiligung@${kopie.id}`)).toBeFalse();
+      });
+
+      it('Kandidaten fuer ein weiteres Vorkommen sind die profilierten Auspraegungen (#28)', () => {
+        bindeVorgabe(
+          { [`${M}/beteiligung`]: { status: V.pflicht } },
+          {},
+          {
+            [`${M}/beteiligung`]: [
+              { id: 'n1', name: 'Notar/in' },
+              { id: 'n2', name: 'Zeuge/Zeugin' },
+            ],
+          },
+        );
+
+        expect(svc.auspKopieKandidaten(`${M}/beteiligung`)?.map((a) => a.name)).toEqual([
+          'Notar/in',
+          'Zeuge/Zeugin',
+        ]);
+        // Auch nachdem der Durchlauf ein Vorkommen entfernt hat: waehlbar bleibt,
+        // was die Profilierung beschreibt.
+        state.removeAusp(`${M}/beteiligung`, 'n1');
+        expect(svc.auspKopieKandidaten(`${M}/beteiligung`)?.length).toBe(2);
+        // Ohne Auspraegungen der Vorgabe bleibt die freie Anlage.
+        expect(svc.auspKopieKandidaten(`${M}/anlage`)).toBeNull();
+
+        state.messageCreate.set(null); // beim Profilieren gilt die Kopier-Pflicht nicht
+        expect(svc.auspKopieKandidaten(`${M}/beteiligung`)).toBeNull();
+      });
+
+      it('die Kopie erbt die Unter-Profilierung ihrer Quelle (#28)', () => {
+        bindeVorgabe(
+          {
+            [`${M}/beteiligung`]: { status: V.pflicht },
+            [`${M}/beteiligung/name`]: { status: V.excl },
+            [`${M}/beteiligung@n1/name`]: { status: V.pflicht, beispiel: 'Musterfrau' },
+          },
+          {},
+          { [`${M}/beteiligung`]: [{ id: 'n1', name: 'Notar/in' }] },
+        );
+        state.copyAusp(`${M}/beteiligung`, 'n1');
+        const kopie = state.auspsOf(`${M}/beteiligung`)!.find((a) => a.vonId === 'n1')!;
+
+        // Generisch ausgeschlossen, in der Quelle zwingend — die Kopie folgt der
+        // Quelle, nicht dem generischen Pfad.
+        expect(state.vorgabeGesperrt(`${M}/beteiligung@${kopie.id}/name`)).toBeFalse();
+        expect(svc.punktAt(`${M}/beteiligung@${kopie.id}/name`)?.art).toBe('wert');
+        expect(state.vorgabeBeispiel(`${M}/beteiligung@${kopie.id}/name`)).toBe('Musterfrau');
+      });
+
       it('eingegrenzte Kardinalitaet eines Kindpfads wirkt im Vorkommen', () => {
         // `kontakt` liegt INNERHALB des Vorkommen-Traegers und ist im Schema
         // unbegrenzt; die Profilierung grenzt generisch auf 1 ein. Ohne
