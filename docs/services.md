@@ -177,6 +177,8 @@ Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten
 
 Die Zweigwahl eines Auswahl-Punkts ist derselbe Vorgang wie das Weglassen: sie schließt die Geschwister aus. `kardSperreZweigwechsel(auswahlPath, zweigPath)` liefert den Grund, wenn dabei ein Zweig ausgeschlossen würde, den die Profilierung mit einer Mindestanzahl verlangt; der Radio-Knopf ist dann gesperrt und `waehleZweig` verweigert die Umschaltung. Ohne diese Prüfung wäre das `✕` am Zweig gesperrt, der Klick auf den Nachbarzweig hätte ihn aber still ausgeschlossen. Der schema-eigene `min=1` eines Zweigs zählt nicht mit — sonst wäre jede Auswahl unveränderlich.
 
+**Codelisten-Deckung.** `ValueService.codesOhneDeckung(eff, werte)` nennt die freigegebenen Codes, die die geladene Codeliste nicht führt (Versionsdrift, Tippfehler im Profil). Fehlen **alle**, ist der Durchlauf dort in einer Sackgasse: die Werteliste zeigt keine Zeile, die freie Eingabe ist gesperrt, und der Zähler behauptet weiter „n von m zugelassen". `TestmessageCreateService.meldeWidersprueche` meldet das deshalb beim Start als Widerspruch der Profilierung — neben „ausgeschlossen und zugleich Mindestanzahl ≥ 1" —, und der Hilfetext am Feld nennt die Ursache statt auf eine leere Liste zu verweisen. Ist die Liste gar nicht geladen (extern gepflegt), gibt es keine Aussage; dort greift der synthetische Ausweg aus `werteZeilen`.
+
 **Zählkonvention der Vorkommen** (`vorkommenAnzahl`, Issue #50 — bewusst festgeschrieben, weil die Materialisierung benannter Ausprägungen darauf aufsetzt):
 
 - Führt das Element benannte Ausprägungen, ist ihre Zahl maßgeblich.

@@ -245,7 +245,7 @@ describe('ValueService.vorschlagFor', () => {
     );
   });
 
-  it('wuerfelt nur freigegebene Codelisten-Werte', () => {
+  it('wuerfelt nur freigegebene Codelisten-Werte — den ersten, nicht irgendeinen', () => {
     bindeVorgabe({ 'm/rolle': { werte: ['02', '03'] } });
     const wert = svc.dummyFor({
       name: 'rolle',
@@ -253,7 +253,18 @@ describe('ValueService.vorschlagFor', () => {
       typeName: 'Code.Rolle',
       codelist: rolle,
     });
-    expect(['02', '03']).toContain(wert);
+    // `dummyFor` ist deterministisch: der erste freigegebene Eintrag. Eine
+    // Zusicherung gegen beide Kandidaten liesse auch eine Zufallsauswahl durch
+    // und damit ausgerechnet die Eigenschaft offen, auf die es hier ankommt.
+    expect(wert).toBe('02');
+  });
+
+  it('wuerfelt den Code, auch wenn der Eintrag Code und Beschreibung traegt', () => {
+    // Freigegebene Eintraege duerfen aus dem Freitextfeld stammen.
+    bindeVorgabe({ 'm/rolle': { werte: ['03 — Zeuge/Zeugin'] } });
+    expect(
+      svc.dummyFor({ name: 'rolle', path: 'm/rolle', typeName: 'Code.Rolle', codelist: rolle }),
+    ).toBe('03');
   });
 
   it('die Verweisnummer geht dem Vorschlag vor — sie muss an beiden Enden stimmen', () => {
@@ -401,6 +412,47 @@ describe('ValueService.sichtbareWerte', () => {
   it('zugelassene Werte ausserhalb der Liste erzeugen keine Zeilen', () => {
     const s = svc.sichtbareWerte(alle, ['A', 'Z'], false, 'profil');
     expect(codes(s.sichtbar)).toEqual(['A']);
+  });
+});
+
+describe('ValueService.codesOhneDeckung', () => {
+  let svc: ValueService;
+
+  const alle: EnumWert[] = [
+    { value: 'A', label: 'Anlage' },
+    { value: 'B', label: 'Beschluss' },
+  ];
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    svc = TestBed.inject(ValueService);
+  });
+
+  it('nennt die freigegebenen Codes, die die geladene Liste nicht fuehrt', () => {
+    expect(svc.codesOhneDeckung(alle, ['A', 'X', 'Y'])).toEqual(['X', 'Y']);
+  });
+
+  it('leer, solange sich Profilierung und Liste decken', () => {
+    expect(svc.codesOhneDeckung(alle, ['A', 'B'])).toEqual([]);
+  });
+
+  it('vergleicht den reinen Code, auch bei Eintraegen mit Beschreibung', () => {
+    expect(svc.codesOhneDeckung(alle, ['A — Anlage'])).toEqual([]);
+  });
+
+  it('ohne geladene Liste keine Aussage — dort greift der synthetische Ausweg', () => {
+    expect(svc.codesOhneDeckung(null, ['X'])).toEqual([]);
+  });
+
+  it('ohne Einschraenkung keine Aussage', () => {
+    expect(svc.codesOhneDeckung(alle, null)).toEqual([]);
+    expect(svc.codesOhneDeckung(alle, [])).toEqual([]);
+  });
+
+  it('alle Codes ohne Deckung — die Sackgasse, die gemeldet werden muss', () => {
+    // Kein freigegebener Code in der Liste: die Werteliste zeigt keine Zeile,
+    // die freie Eingabe ist gesperrt, der Zaehler sagt weiter "2 von 2".
+    expect(svc.codesOhneDeckung(alle, ['X', 'Y']).length).toBe(2);
   });
 });
 
