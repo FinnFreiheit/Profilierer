@@ -68,10 +68,40 @@ export class Testdaten {
   private readonly genDlg = viewChild.required<ElementRef<HTMLDialogElement>>('genDlg');
   private readonly createDlg = viewChild.required<ElementRef<HTMLDialogElement>>('createDlg');
 
+  constructor() {
+    // Index beim Betreten der Ansicht auffrischen: das Kennzeichen "Profil
+    // weiterentwickelt" haengt am serverseitigen Vergleich und veraltet, sobald
+    // im Editor an einer gebundenen Profilierung gearbeitet wurde.
+    void this.store.refresh().catch(() => {
+      /* Backend offline — die vorhandene Liste bleibt stehen. */
+    });
+  }
+
   protected readonly search = signal('');
 
   /** Filter "nur abgenommene" (valide Testdaten der BLK-AG schnell finden). */
   protected readonly nurAbgenommene = signal(false);
+
+  /**
+   * Filter nach Profilierung: id der gebundenen Profilierung, '' = alle.
+   * Arbeitet auf dem geladenen Index (die Herkunft steht dort bereits) — kein
+   * Zusatz-Request, und die Auswahlliste bleibt vollstaendig.
+   */
+  protected readonly nurProfil = signal('');
+
+  /** Profilierungen, an die ueberhaupt Testnachrichten gebunden sind. */
+  protected readonly profilFilterOptionen = computed<{ id: string; name: string; n: number }[]>(
+    () => {
+      const map = new Map<string, { id: string; name: string; n: number }>();
+      for (const e of this.store.entries()) {
+        if (!e.profilId) continue;
+        const t = map.get(e.profilId);
+        if (t) t.n++;
+        else map.set(e.profilId, { id: e.profilId, name: e.profilName || '(ohne Namen)', n: 1 });
+      }
+      return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    },
+  );
 
   /** Laufende Generierung (Profil-id) — sperrt Doppelklicks im Dialog. */
   protected readonly generating = signal<string | null>(null);
@@ -89,9 +119,15 @@ export class Testdaten {
   /** Gefiltert (Suche) und nach Fachmodul → Nachricht gruppiert. */
   protected readonly gruppen = computed<Gruppe[]>(() => {
     const q = this.search().trim().toLowerCase();
+    const profil = this.nurProfil();
     const list = this.store
       .entries()
-      .filter((e) => this.matches(e, q) && (!this.nurAbgenommene() || e.abgenommen));
+      .filter(
+        (e) =>
+          this.matches(e, q) &&
+          (!this.nurAbgenommene() || e.abgenommen) &&
+          (!profil || e.profilId === profil),
+      );
     const map = new Map<string, TestmessageEntry[]>();
     for (const e of list) {
       const key = e.fachmodul || 'sonstige';
@@ -584,6 +620,17 @@ export class Testdaten {
   /** Kachel-Text der Herkunft: "aus Profil „X" (v3)". */
   protected herkunft(e: TestmessageEntry): string {
     return `aus Profil „${e.profilName || '(ohne Namen)'}"${e.fassung ? ` (${e.fassung})` : ''}`;
+  }
+
+  /**
+   * Badge "Profil weiterentwickelt": zeigt feldgenau, was sich zwischen der
+   * gebundenen Fassung und dem aktuellen Stand der Profilierung geaendert hat.
+   * Die Testnachricht selbst bleibt unberuehrt — nachgezogen wird nichts.
+   */
+  protected zeigeVorgabeDiff(e: TestmessageEntry, ev: Event): void {
+    ev.stopPropagation();
+    if (!e.profilId) return;
+    this.vergleich.oeffneVorgabe(e.id, e.profilId);
   }
 
   /**

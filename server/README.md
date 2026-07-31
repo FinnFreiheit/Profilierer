@@ -41,7 +41,8 @@ doc-String) auf beiden Tabellen speist Entprellung und das
 „geändert seit vX"-Kennzeichen im Entry.
 
 **Testnachrichten** (Tabelle `testmessages`): `GET /api/testmessages` (schlanker
-Index ohne XML) · `GET /api/testmessages/:id/xml` ·
+Index ohne XML; `?profil=<id>` grenzt auf eine Profilierung ein) ·
+`GET /api/testmessages/:id/xml` ·
 `GET /api/testmessages/:id/entscheidungen` (Stand der geführten Erstellung) ·
 `GET /api/testmessages/:id/vorgabe` (eingefrorene Kopie der gebundenen
 Profilfassung, 404 ohne Bindung) · `POST /api/testmessages` ·
@@ -52,6 +53,13 @@ unveränderliche Vorgabe. Herkunft (id/Name/Fassung) trägt der Index mit, damit
 Kachel und Sprung ins Profil ohne Zusatz-Request rendern; die Kopie steht
 bewusst ohne Fremdschlüssel auf `profiles` und bleibt lesbar, wenn die
 Profilierung geändert oder gelöscht wird.
+Das Kennzeichen `profilWeiterentwickelt` im Index vergleicht den **Fach-Hash**
+der eingefrorenen Kopie (`vorgabe_hash`) mit dem der Profilierung
+(`profiles.fach_hash`) — sha1 über eine kanonische Serialisierung (Schlüssel
+sortiert, `meta.gespeichert` ausgelassen), damit Autosave und Serialisierungs-
+Reihenfolge kein Schein-Badge erzeugen. Ohne Bindung und nach dem Löschen der
+Profilierung bleibt es aus; ein positives „profilkonform" gibt es bewusst nicht.
+Nachgezogen wird nie — das Kennzeichen sagt nur, dass die Bindung veraltet ist.
 
 **Abnahme (BLK-AG, [ADR 0012](../docs/adr/0012-abnahme-rollenkonzept.md)):**
 `POST /api/login` (Body `{key}` → `{konfiguriert, ok}`) ·

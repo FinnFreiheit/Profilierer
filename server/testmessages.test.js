@@ -210,6 +210,106 @@ test('Alt-Eintraege ohne Bindung bleiben lesbar und aenderbar', () => {
   db.close();
 });
 
+// ── Badge "Profil weiterentwickelt" (Kennzeichen im schlanken Index) ────
+
+/** Ein vollstaendiges Profil-Dokument als Bindungs-Vorlage. */
+const profilDoc = (over = {}) => ({
+  meta: { name: 'Nachlass-Szenario', nachricht: 'nachricht.dabag.antrag.2900001' },
+  statuses: [{ id: 's1', name: 'zwingend', farbe: '#2f6f3e', wirkung: 'pflicht' }],
+  elemente: { 'nachricht.dabag.antrag.2900001/grunddaten': { status: 's1' } },
+  auspraegungen: {},
+  erweiterungen: {},
+  ...over,
+});
+
+test('Kennzeichen: gebundene Fassung entspricht dem aktuellen Stand → kein Badge', () => {
+  const db = openDb(':memory:');
+  const doc = profilDoc();
+  const { id: pid } = db.create(doc);
+  db.tmCreate(
+    input({ profilId: pid, profilName: 'Nachlass-Szenario', fassung: 'v1', vorgabe: doc }),
+  );
+  assert.equal(db.tmList()[0].profilWeiterentwickelt, undefined);
+  db.close();
+});
+
+test('Kennzeichen: Profilierung weiterentwickelt → Badge im Index', () => {
+  const db = openDb(':memory:');
+  const doc = profilDoc();
+  const { id: pid } = db.create(doc);
+  const { id } = db.tmCreate(input({ profilId: pid, fassung: 'v1', vorgabe: doc }));
+  db.upsert(
+    pid,
+    profilDoc({
+      elemente: { 'nachricht.dabag.antrag.2900001/grunddaten': { status: 's1', min: '2' } },
+    }),
+  );
+  assert.equal(db.tmList()[0].profilWeiterentwickelt, true);
+  assert.equal(db.tmUpdate(id, { notiz: 'x' }).profilWeiterentwickelt, true);
+  db.close();
+});
+
+test('Kennzeichen: erneutes Speichern ohne fachliche Aenderung ist keine Weiterentwicklung', () => {
+  const db = openDb(':memory:');
+  const doc = profilDoc();
+  const { id: pid } = db.create(doc);
+  db.tmCreate(input({ profilId: pid, fassung: 'v1', vorgabe: doc }));
+  // Autosave setzt meta.gespeichert neu und serialisiert die Schluessel anders —
+  // beides ist keine Aussageaenderung und darf kein Badge ausloesen.
+  db.upsert(pid, {
+    erweiterungen: {},
+    auspraegungen: {},
+    elemente: { 'nachricht.dabag.antrag.2900001/grunddaten': { status: 's1' } },
+    statuses: [{ wirkung: 'pflicht', farbe: '#2f6f3e', name: 'zwingend', id: 's1' }],
+    meta: {
+      nachricht: 'nachricht.dabag.antrag.2900001',
+      name: 'Nachlass-Szenario',
+      gespeichert: '2026-07-31',
+    },
+  });
+  assert.equal(db.tmList()[0].profilWeiterentwickelt, undefined);
+  db.close();
+});
+
+test('Kennzeichen: keines ohne Bindung und keines nach dem Loeschen der Profilierung', () => {
+  const db = openDb(':memory:');
+  const doc = profilDoc();
+  const { id: pid } = db.create(doc);
+  db.tmCreate(input({ name: 'ohne Bindung' }));
+  db.tmCreate(input({ name: 'gebunden', profilId: pid, fassung: 'v1', vorgabe: doc }));
+  db.upsert(pid, profilDoc({ auspraegungen: { a: [{ id: 'x1', name: 'Notar/in' }] } }));
+  const gebunden = db.tmList().find((e) => e.name === 'gebunden');
+  assert.equal(
+    db.tmList().find((e) => e.name === 'ohne Bindung').profilWeiterentwickelt,
+    undefined,
+  );
+  assert.equal(gebunden.profilWeiterentwickelt, true);
+  // Ohne die Profilierung gibt es keinen "aktuellen Stand" mehr — die Herkunft
+  // bleibt als Historie, das Badge faellt weg.
+  db.delete(pid);
+  const nachher = db.tmList().find((e) => e.name === 'gebunden');
+  assert.equal(nachher.profilId, pid);
+  assert.equal(nachher.profilWeiterentwickelt, undefined);
+  db.close();
+});
+
+test('tmList filtert nach Profilierung', () => {
+  const db = openDb(':memory:');
+  const doc = profilDoc();
+  const { id: a } = db.create(doc);
+  const { id: b } = db.create(profilDoc({ meta: { name: 'Anderes' } }));
+  db.tmCreate(input({ name: 'zu A', profilId: a, fassung: 'v1', vorgabe: doc }));
+  db.tmCreate(input({ name: 'zu B', profilId: b, fassung: 'v1', vorgabe: doc }));
+  db.tmCreate(input({ name: 'ohne Bindung' }));
+  assert.deepEqual(
+    db.tmList({ profil: a }).map((e) => e.name),
+    ['zu A'],
+  );
+  assert.equal(db.tmList().length, 3); // ohne Filter unveraendert
+  assert.deepEqual(db.tmList({ profil: 'gibtsnicht' }), []);
+  db.close();
+});
+
 test('testmessages und profiles teilen sich die DB ohne Kollision', () => {
   const db = openDb(':memory:');
   db.create({ meta: { name: 'P' }, statuses: [], elemente: {}, auspraegungen: {} });
