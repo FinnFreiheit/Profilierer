@@ -58,7 +58,7 @@ Neue Logik in Services mit Unit-Tests absichern (Muster: `*.spec.ts` neben der Q
 - Commit-Trailer:
 
   ```
-  Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
   ```
 
 - Remote `origin` zeigt auf `github.com:FinnFreiheit/Profilierer` (Push nach Absprache).

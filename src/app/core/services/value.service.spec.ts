@@ -164,6 +164,29 @@ describe('ValueService.placeholderFor', () => {
       expect(svc.wertProblem(node, 'XX')).toContain('kein Wert der Codeliste');
     });
 
+    it('meldet einen belegten, aber nicht freigegebenen Code (Nachlese zu #38, #55)', () => {
+      const cl: CodelistInfo = {
+        typeName: 'Code.Test',
+        nameLang: 'Teststaaten',
+        kennung: 'urn:test:staaten',
+        beschreibung: '',
+        werte: [
+          { value: 'DE', label: 'Deutschland' },
+          { value: 'FR', label: 'Frankreich' },
+        ],
+      };
+      const node = { name: 'staat', path: 'm/staat', typeName: 'Code.Test', codelist: cl };
+      state.setElementProfile('m/staat', { werte: ['DE'] });
+
+      // In der Liste, aber von der Profilierung ausgeschlossen: seit der
+      // Filterung der Werteliste (#38) waere er sonst voellig unauffaellig.
+      expect(svc.wertProblem(node, 'FR')).toContain('nicht freigegeben');
+      expect(svc.wertProblem(node, 'DE')).toBeNull();
+      // Ohne Einschraenkung bleibt alles aus der Liste zulaessig.
+      state.setElementProfile('m/staat', { werte: undefined });
+      expect(svc.wertProblem(node, 'FR')).toBeNull();
+    });
+
     it('leere Werte und unbekannte Typen sind kein Problem', () => {
       expect(svc.wertProblem(leaf('geburtsdatum', 'Type.GDS.Datumsangabe'), '')).toBeNull();
       expect(svc.wertProblem(leaf('freitext', 'Type.Unbekannt'), 'irgendwas')).toBeNull();

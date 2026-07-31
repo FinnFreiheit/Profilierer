@@ -191,17 +191,34 @@ describe('NavService — Sprung zu Gesperrtem der gebundenen Fassung', () => {
     });
   });
 
-  it('blendet Ausgeschlossenes ein — sonst zeigt der Sprung auf einen unsichtbaren Kasten', () => {
+  it('Sprung aus einer Meldung blendet Ausgeschlossenes ein (sichtbarMachen)', () => {
     expect(state.boxHidden('m/a')).toBeTrue();
 
-    nav.jumpTo('m/a');
+    nav.jumpTo('m/a', true);
 
     expect(state.onlyProfile()).toBeTrue();
     expect(state.boxHidden('m/a')).toBeFalse();
   });
 
+  it('nimmt auch "nur Werte" zurueck — es prueft vor dem Vorgabe-Zweig (#49)', () => {
+    state.onlyValues.set(true);
+    expect(state.boxHidden('m/b')).toBeTrue();
+
+    nav.jumpTo('m/b', true);
+
+    expect(state.onlyValues()).toBeFalse();
+    expect(state.boxHidden('m/b')).toBeFalse();
+  });
+
+  it('der gewoehnliche Sprung laesst die Ansicht in Ruhe (Nachlese zu #27, #49)', () => {
+    // Bis dahin schaltete **jeder** Sprung auf einen gesperrten Pfad global
+    // "nur Profil" ein — auch aus Suche und Krumen — und nahm es nie zurueck.
+    nav.jumpTo('m/a');
+    expect(state.onlyProfile()).toBeFalse();
+  });
+
   it('laesst die Ansicht bei nicht gesperrten Zielen unveraendert', () => {
-    nav.jumpTo('m/b');
+    nav.jumpTo('m/b', true);
     expect(state.onlyProfile()).toBeFalse();
   });
 });

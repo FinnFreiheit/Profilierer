@@ -48,6 +48,6 @@ export class ValidationDialog {
   protected springe(e: ReportEintrag): void {
     if (!e.pfad) return;
     this.report.schliesse();
-    this.nav.jumpTo(e.pfad);
+    this.nav.jumpTo(e.pfad, true);
   }
 }

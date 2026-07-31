@@ -728,6 +728,18 @@ describe('GuidedService', () => {
         expect(svc.auspSperreEntfernen(`${M}/beteiligung`, 'n1')).toBeNull();
       });
 
+      it('unbekannter Pfad sperrt nicht (Nachlese zu #27, #49)', () => {
+        bindeVorgabe({ [`${M}/beteiligung`]: { min: '2', max: '3' } });
+
+        // Was der Baum nicht kennt, rendert er auch nicht — es gibt dort weder
+        // einen Knopf zu sperren noch ein Vorkommen zu schuetzen.
+        expect(svc.kardSperreHinzu(`${M}/gibtsnicht`)).toBeNull();
+        expect(svc.kardSperreEntfernen(`${M}/gibtsnicht`)).toBeNull();
+        expect(svc.kardSperreWeglassen(`${M}/gibtsnicht`)).toBeNull();
+        // Am bekannten Pfad greift dieselbe Eingrenzung weiterhin.
+        expect(svc.kardSperreWeglassen(`${M}/beteiligung`)).toContain('2');
+      });
+
       it('optionales Vorkommen ist ein Aufnehmen/Weglassen-Punkt (#28)', () => {
         // Spec #28: "optionale erscheinen als Entscheidungspunkt aufnehmen /
         // weglassen" — ohne diese Unterscheidung galte ein Vorkommen mit seinem

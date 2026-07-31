@@ -122,7 +122,7 @@ export class HinweiseDialog {
   /** Sprung zum betroffenen Knoten — der modale Dialog muss vorher zu. */
   protected springe(pfad: string): void {
     this.schliesse();
-    this.nav.jumpTo(pfad);
+    this.nav.jumpTo(pfad, true);
   }
 
   protected async toggleErledigt(id: string, e: Event): Promise<void> {

@@ -539,6 +539,13 @@ export class DetailPanel {
    */
   protected readonly clSicht = computed(() => {
     const cl = this.vm()?.codelist;
+    // Reihenfolge der Ableitung, entschieden in der Nachlese zu #38 (Issue #55):
+    // `roEff()` gewinnt gegen `msgMode()`. Ein im gebundenen Durchlauf
+    // ausgeschlossener Pfad gilt damit als **Lesen** und behaelt den Umschalter
+    // „alle zeigen" — die Frage „was hat die Profilierung ausgeschlossen?" ist
+    // auch dort legitim, und uebernehmbar ist ohnehin nichts (die Zeilen rendern
+    // im roEff()-Zweig ohne Klick-Uebernahme). Das AC aus #38 („im
+    // Nachrichten-Modus keinen Umschalter") meint den befuellbaren Fall.
     const modus: WerteModus = this.roEff() ? 'lesen' : this.msgMode() ? 'nachricht' : 'profil';
     return this.values.sichtbareWerte(cl?.eff ?? null, cl?.werte, this.clAlle(), modus);
   });
