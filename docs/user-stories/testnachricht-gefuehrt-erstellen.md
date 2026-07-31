@@ -49,6 +49,11 @@ Bereits vorhanden und wiederverwendbar:
   geladenes Schema" falls ein Fremdschema geladen ist) und dann die
   **Nachricht** (durchsuchbar). Danach direkt im Baum-Editor mit aktiver
   Führung.
+  _Nachgezogen (Spec „Testnachricht geführt aus einer Profilierung"):_ Der
+  Dialog fragt inzwischen zuerst die **Herkunft** — „aus Schema" (dieser Weg)
+  oder „aus Profilierung". Bei „aus Profilierung" entfallen Versions- und
+  Nachrichtenwahl; stattdessen werden Profil und zu bindende Fassung gewählt,
+  und der Durchlauf läuft gegen die eingefrorene Kopie dieser Fassung.
 - **Startzustand: leerer Baum.** Keine Vorbelegung mit Platzhalterwerten.
   Pflichtstrukturen (`min≥1`) sind automatisch _vorhanden_ (bei `min≥2`
   entsprechend mehrfach), aber **jedes Pflichtfeld muss aktiv befüllt werden**.

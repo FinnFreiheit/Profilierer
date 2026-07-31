@@ -678,4 +678,73 @@ describe('StateService', () => {
       expect(s.inheritedExcluded('m/x')).toBeFalse();
     });
   });
+
+  describe('Ausschluss durch die Vorgabe (gebundener Durchlauf)', () => {
+    /** Vorgabe mit eigener Stufenliste: v9 schliesst aus. */
+    function bindeVorgabe(elemente: Record<string, { status?: string }>): void {
+      s.setVorgabe({
+        ...newProfile(),
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+          { id: 'v1', name: 'zwingend', farbe: '#B23B3B', wirkung: 'pflicht' },
+        ],
+        elemente,
+      });
+    }
+
+    it('erkennt den Ausschluss der Vorgabe und vererbt ihn auf den Teilbaum', () => {
+      bindeVorgabe({ 'm/a': { status: 'v9' }, 'm/b': { status: 'v1' } });
+
+      expect(s.vorgabeGesperrt('m/a')).toBeTrue();
+      expect(s.vorgabeGesperrt('m/a/kind')).toBeTrue();
+      // Auch ueber die Vorkommen-Grenze hinweg (Traegerknoten der Auspraegung).
+      expect(s.vorgabeGesperrt('m/a@x1/kind')).toBeTrue();
+      expect(s.vorgabeGesperrt('m/b')).toBeFalse();
+      expect(s.vorgabeGesperrt('m/c')).toBeFalse();
+    });
+
+    it('eine eigene Entscheidung ist keine Sperre (weglassen im Durchlauf)', () => {
+      bindeVorgabe({});
+      s.setElementProfile('m/a', { status: 's3' }); // im Durchlauf weggelassen
+
+      expect(s.wirkungOf('m/a')).toBe('ausgeschlossen');
+      expect(s.vorgabeGesperrt('m/a')).toBeFalse();
+    });
+
+    it('ohne Bindung gibt es keine Sperre', () => {
+      s.setElementProfile('m/a', { status: 's3' });
+      expect(s.vorgabeGesperrt('m/a')).toBeFalse();
+      expect(s.vorgabeGesperrt('m/a/kind')).toBeFalse();
+    });
+
+    it('blendet Ausgeschlossenes aus und zeigt es erst mit "nur Profil"', () => {
+      bindeVorgabe({ 'm/a': { status: 'v9' } });
+
+      expect(s.boxHidden('m/a')).toBeTrue();
+      expect(s.boxHidden('m/a/kind')).toBeTrue();
+      expect(s.boxHidden('m/b')).toBeFalse();
+
+      s.onlyProfile.set(true);
+      expect(s.boxHidden('m/a')).toBeFalse();
+      expect(s.boxHidden('m/a/kind')).toBeFalse();
+    });
+
+    it('im Durchlauf Weggelassenes bleibt sichtbar (die Entscheidung ist korrigierbar)', () => {
+      bindeVorgabe({});
+      s.setElementProfile('m/a', { status: 's3' });
+      expect(s.boxHidden('m/a')).toBeFalse();
+      // Auch mit "nur Profil": der Schalter zeigt Ausgeschlossenes, er versteckt
+      // im gebundenen Durchlauf nichts.
+      s.onlyProfile.set(true);
+      expect(s.boxHidden('m/a')).toBeFalse();
+    });
+
+    it('ohne Bindung blendet "nur Profil" Ausgeschlossenes weiterhin aus', () => {
+      s.setElementProfile('m/a', { status: 's3' });
+      expect(s.boxHidden('m/a')).toBeFalse();
+      s.onlyProfile.set(true);
+      expect(s.boxHidden('m/a')).toBeTrue();
+      expect(s.boxHidden('m/a/kind')).toBeTrue();
+    });
+  });
 });

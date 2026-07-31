@@ -5,6 +5,7 @@ import {
   TestmessageFortschritt,
   TestmessageInput,
 } from '../../models/testmessage.model';
+import { ProfileDoc } from '../../models/profile.model';
 import { LoggerService } from './logger.service';
 import { RolleService } from './rolle.service';
 
@@ -90,6 +91,17 @@ export class TestmessageStoreService {
     if (!r.ok)
       throw new Error(`Testdaten-Backend: GET /testmessages/${id}/entscheidungen → ${r.status}`);
     return (await r.json()) as GuidedMessageState;
+  }
+
+  /**
+   * Die eingefrorene Kopie der gebundenen Profilfassung (Vorgabe des
+   * Durchlaufs); 404 → null (Nachricht ohne Profil-Bindung).
+   */
+  async loadVorgabe(id: string): Promise<ProfileDoc | null> {
+    const r = await fetch(`${API_BASE}/testmessages/${encodeURIComponent(id)}/vorgabe`);
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`Testdaten-Backend: GET /testmessages/${id}/vorgabe → ${r.status}`);
+    return (await r.json()) as ProfileDoc;
   }
 
   // ── Schreiben ───────────────────────────────────────────────────────

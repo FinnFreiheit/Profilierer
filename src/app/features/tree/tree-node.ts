@@ -132,7 +132,11 @@ export class TreeNode {
     const it = this.item();
     const n = this.node();
     const path = this.path();
-    const readOnly = this.state.readOnly();
+    // Gebundener Durchlauf: von der Profilierung Ausgeschlossenes ist gesperrt —
+    // kein Eingabefeld, keine Aktionen (US "Testnachricht aus einer
+    // Profilierung"). Sichtbar wird es nur ueber "nur Profil" (boxHidden).
+    const gesperrt = this.state.vorgabeGesperrt(path);
+    const readOnly = this.state.readOnly() || gesperrt;
     const st = this.state.statusOf(path);
     const inhExcl = this.state.inheritedExcluded(path);
     const excluded = st?.wirkung === 'ausgeschlossen';
@@ -266,6 +270,17 @@ export class TreeNode {
         cls: 't-hsub',
         text: hSub + (hSub === 1 ? ' Hinweis' : ' Hinweise'),
         title: 'Offene Hinweise in untergeordneten Elementen',
+      });
+    // Gebundener Durchlauf: Sperre samt Begruendung sichtbar machen.
+    if (gesperrt)
+      tags.push({
+        cls: 't-lock',
+        text: 'Profil: nicht verwendet',
+        title:
+          (this.state.vorgabeSchliesstAus(path)
+            ? 'Die gebundene Profilierung schließt dieses Element aus — nicht befüllbar.'
+            : 'Übergeordnetes Element ist ausgeschlossen — der Teilbaum entfällt.') +
+          (this.state.anmerkungOf(path) ? '\n' + this.state.anmerkungOf(path) : ''),
       });
     // Gefuehrter Modus: offene Entscheidungspunkte markieren.
     if (this.state.guided() && !readOnly && this.guided.offeneSet().has(path))

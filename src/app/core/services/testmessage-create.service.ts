@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { TreeNode } from '../../models/node.model';
+import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
 import { GuidedMessageState, TestmessageEntry } from '../../models/testmessage.model';
 import {
   frageTestnachrichtName,
@@ -13,6 +14,7 @@ import { GuidedService } from './guided.service';
 import { ExportService } from './export.service';
 import { TestmessageStoreService } from './testmessage-store.service';
 import { TestmessageGenerationService } from './testmessage-generation.service';
+import { ProfileStoreService } from './profile-store.service';
 import { PersistenceService } from './persistence.service';
 import { ToastService } from './toast.service';
 import { XmlValidationService } from './xml-validation.service';
@@ -37,6 +39,7 @@ export class TestmessageCreateService {
   private readonly guided = inject(GuidedService);
   private readonly exporter = inject(ExportService);
   private readonly store = inject(TestmessageStoreService);
+  private readonly profiles = inject(ProfileStoreService);
   private readonly generator = inject(TestmessageGenerationService);
   private readonly persistence = inject(PersistenceService);
   private readonly toast = inject(ToastService);
@@ -72,26 +75,96 @@ export class TestmessageCreateService {
   }
 
   /**
+   * Neue Sitzung mit **Profil-Bindung** (US "Testnachricht aus einer
+   * Profilierung"): die gewaehlte Fassung — Arbeitsstand oder eine nummerierte
+   * Version — wird geladen und als eingefrorene Vorgabe in den Durchlauf
+   * gelegt. Version und Nachrichtentyp werden nicht abgefragt; sie stammen aus
+   * der Profilierung. Wirft Error mit Nutzertext.
+   */
+  async neuAusProfil(profil: LibraryEntry, versionId: string | null): Promise<void> {
+    const { doc, fassung } = await this.ladeFassung(profil, versionId);
+    const msgName = doc.meta?.nachricht || profil.nachricht;
+    if (!msgName)
+      throw new Error('Die Profilierung nennt keinen Nachrichtentyp — zuerst dort festlegen.');
+
+    await this.persistence.flushAutosave();
+    this.state.activeProfileId.set(null);
+    this.state.abnahmeSchreibschutz.set(false); // siehe neuErstellen
+    await this.generator.ensureSchema(doc.meta?.xjustizVersion ?? profil.xjustizVersion);
+    if (!this.state.idx()?.el[msgName])
+      throw new Error('Nachricht nicht im geladenen Schema gefunden: ' + msgName);
+
+    this.nav.loadMessage(msgName); // setzt Profil zurueck, leert Sessions und Vorgabe
+    // Danach binden: jeder Profil-Einstieg raeumt die Vorgabe (loadProfile).
+    this.state.setVorgabe(doc);
+    this.legeMindestVorkommenAn(this.state.root()!);
+    this.state.messageCreate.set({
+      msgName,
+      xjustizVersion: doc.meta?.xjustizVersion ?? profil.xjustizVersion ?? undefined,
+      entryId: null,
+      name: null,
+      profilId: profil.id,
+      profilName: doc.meta?.name || profil.name,
+      fassung,
+    });
+    this.state.guided.set(true);
+    this.state.view.set('editor');
+    this.guided.gotoNextOpen();
+  }
+
+  /**
+   * Die zu bindende Fassung samt Bezeichnung: `null` = Arbeitsstand ("Arbeitsstand
+   * vom …"), sonst die nummerierte Version ("v3"). Die Bezeichnung wird am
+   * Eintrag mitgefuehrt und bleibt lesbar, wenn die Profilierung spaeter
+   * geaendert oder geloescht wird.
+   */
+  private async ladeFassung(
+    profil: LibraryEntry,
+    versionId: string | null,
+  ): Promise<{ doc: ProfileDoc; fassung: string }> {
+    if (versionId) {
+      const ver = await this.profiles.loadVersion(profil.id, versionId);
+      if (!ver) throw new Error('Fassung der Profilierung nicht gefunden.');
+      return { doc: ver.doc, fassung: 'v' + ver.nr };
+    }
+    const doc = await this.profiles.load(profil.id);
+    if (!doc) throw new Error('Profilierung nicht gefunden.');
+    const datum = new Date(profil.aktualisiert).toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+    return { doc, fassung: 'Arbeitsstand vom ' + datum };
+  }
+
+  /**
    * Entwurf fortsetzen: Entscheidungsstand laden, Schema/Nachricht
-   * wiederherstellen und am naechsten offenen Punkt weitermachen.
+   * wiederherstellen und am naechsten offenen Punkt weitermachen. Bei einer
+   * profilgebundenen Nachricht wird die **eingefrorene Kopie** mitgeladen —
+   * nicht die inzwischen weiterentwickelte Profilfassung.
    */
   async fortsetzen(entry: TestmessageEntry): Promise<void> {
     const stand = await this.store.loadEntscheidungen(entry.id);
     if (!stand)
       throw new Error('Kein Entscheidungsstand gespeichert — Nachricht wird nur geöffnet.');
+    const vorgabe = entry.profilId ? await this.store.loadVorgabe(entry.id) : null;
     await this.persistence.flushAutosave();
     this.state.activeProfileId.set(null);
     this.state.abnahmeSchreibschutz.set(false); // siehe neuErstellen
     await this.generator.ensureSchema(stand.xjustizVersion ?? entry.xjustizVersion);
     if (!this.state.idx()?.el[stand.msgName])
       throw new Error('Nachricht nicht im geladenen Schema gefunden: ' + stand.msgName);
-    this.state.loadProfile(stand.profil); // leert Sessions, readOnly aus
+    this.state.loadProfile(stand.profil); // leert Sessions, readOnly aus, Vorgabe raus
     this.nav.loadMessage(stand.msgName, true);
+    if (vorgabe) this.state.setVorgabe(vorgabe);
     this.state.messageCreate.set({
       msgName: stand.msgName,
       xjustizVersion: stand.xjustizVersion ?? entry.xjustizVersion,
       entryId: entry.id,
       name: entry.name || null,
+      profilId: entry.profilId,
+      profilName: entry.profilName,
+      fassung: entry.fassung,
     });
     this.state.guided.set(true);
     this.state.view.set('editor');
@@ -174,6 +247,12 @@ export class TestmessageCreateService {
         entwurf,
         fortschritt: { x, y },
         entscheidungen,
+        // Profil-Bindung: Herkunft und die eingefrorene Kopie der gebundenen
+        // Fassung — nur beim Anlegen, danach unveraenderlich.
+        profilId: session.profilId,
+        profilName: session.profilName,
+        fassung: session.fassung,
+        vorgabe: this.state.vorgabe() ?? undefined,
       });
       this.state.messageCreate.set({ ...session, entryId: id, name });
     }
@@ -197,13 +276,16 @@ export class TestmessageCreateService {
 
   /**
    * Mindest-Vorkommen (minOccurs >= 2) entlang des Pflicht-Rueckgrats als
-   * Auspraegungen anlegen — Teil der "Pflicht wird erzwungen"-Regel.
+   * Auspraegungen anlegen — Teil der "Pflicht wird erzwungen"-Regel. Was die
+   * gebundene Profilfassung ausschliesst, bleibt aussen vor (der Ausschluss
+   * gewinnt gegen die Schema-Mindestanzahl).
    */
   private legeMindestVorkommenAn(root: TreeNode): void {
     const rec = (n: TreeNode, depth: number): void => {
       if (depth > 25) return;
       this.tree.expandNode(n);
       for (const c of n.children ?? []) {
+        if (this.state.vorgabeSchliesstAus(c.path)) continue;
         if (c.synthetic) {
           // choice bricht das Rueckgrat, optionale Gruppen ebenso.
           if (c.model === 'choice' || c.min === '0') continue;

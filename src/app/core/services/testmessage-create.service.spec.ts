@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { TestmessageCreateService } from './testmessage-create.service';
 import { TestmessageStoreService } from './testmessage-store.service';
 import { TestmessageGenerationService } from './testmessage-generation.service';
+import { ProfileStoreService, VersionMitDoc } from './profile-store.service';
 import { PersistenceService } from './persistence.service';
 import { ToastService } from './toast.service';
 import { XmlValidationService, XmlValidierung } from './xml-validation.service';
@@ -10,6 +11,7 @@ import { StateService } from './state.service';
 import { GuidedService } from './guided.service';
 import { XsdParserService } from './xsd-parser.service';
 import { XsdDoc } from '../../models/xsd-index.model';
+import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
 import { GuidedMessageState, TestmessageInput } from '../../models/testmessage.model';
 
 /**
@@ -38,6 +40,10 @@ describe('TestmessageCreateService', () => {
   let created: TestmessageInput[];
   let patched: { id: string; patch: Record<string, unknown> }[];
   let entscheidungen: GuidedMessageState | null;
+  let gespeicherteVorgabe: ProfileDoc | null;
+  /** Vom Profil-Backend geliefertes Arbeitsstand-Dokument bzw. Version. */
+  let arbeitsstand: ProfileDoc | null;
+  let version: VersionMitDoc | null;
   /** Stub-Ergebnis der Schemavalidierung; Tests schalten um. */
   let pruefung: XmlValidierung;
 
@@ -45,6 +51,9 @@ describe('TestmessageCreateService', () => {
     created = [];
     patched = [];
     entscheidungen = null;
+    gespeicherteVorgabe = null;
+    arbeitsstand = null;
+    version = null;
     pruefung = { status: 'valide', fehler: [], fehlerDetails: [] };
     TestBed.configureTestingModule({
       providers: [
@@ -59,6 +68,14 @@ describe('TestmessageCreateService', () => {
               patched.push({ id, patch });
             },
             loadEntscheidungen: async () => entscheidungen,
+            loadVorgabe: async () => gespeicherteVorgabe,
+          },
+        },
+        {
+          provide: ProfileStoreService,
+          useValue: {
+            load: async () => arbeitsstand,
+            loadVersion: async () => version,
           },
         },
         { provide: TestmessageGenerationService, useValue: { ensureSchema: async () => {} } },
@@ -234,6 +251,168 @@ describe('TestmessageCreateService', () => {
       await expectAsync(
         svc.fortsetzen({ id: 'x', name: 'y', groesse: 1, hochgeladen: 0, aktualisiert: 0 }),
       ).toBeRejected();
+    });
+  });
+
+  describe('neuAusProfil (Bindung an eine Profilfassung)', () => {
+    /** Bibliothekseintrag der Profilierung (Arbeitsstand vom 30.07.2026). */
+    const profil = (over: Partial<LibraryEntry> = {}): LibraryEntry => ({
+      id: 'p1',
+      name: 'Nachlass-Szenario',
+      nachricht: M,
+      xjustizVersion: '3.6.2',
+      nStatus: 3,
+      nAusp: 0,
+      aktualisiert: Date.UTC(2026, 6, 30, 10, 0),
+      ...over,
+    });
+
+    /** Profil-Dokument mit ausgeschlossenem az-Blatt. */
+    const doc = (over: Partial<ProfileDoc> = {}): ProfileDoc => ({
+      meta: { name: 'Nachlass-Szenario', nachricht: M, xjustizVersion: '3.6.2' },
+      statuses: [
+        { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+      ],
+      elemente: { [`${M}/az`]: { status: 'v9' } },
+      auspraegungen: {},
+      erweiterungen: {},
+      ...over,
+    });
+
+    it('bindet den Arbeitsstand als Vorgabe und startet ohne Versions-/Nachrichtenwahl', async () => {
+      arbeitsstand = doc();
+
+      await svc.neuAusProfil(profil(), null);
+
+      expect(state.msgName()).toBe(M); // Nachrichtentyp stammt aus dem Profil
+      expect(state.hatVorgabe()).toBeTrue();
+      expect(state.vorgabe()!.elemente[`${M}/az`]).toEqual({ status: 'v9' });
+      expect(state.messageCreate()).toEqual(
+        jasmine.objectContaining({
+          msgName: M,
+          entryId: null,
+          profilId: 'p1',
+          profilName: 'Nachlass-Szenario',
+          fassung: 'Arbeitsstand vom 30.07.2026',
+        }),
+      );
+      expect(state.guided()).toBeTrue();
+      expect(state.view()).toBe('editor');
+      // Der Entscheidungsstand bleibt leer — die Vorgabe ist eine eigene Schicht.
+      expect(state.elemente()).toEqual({});
+    });
+
+    it('bindet eine nummerierte Version und nennt sie als Fassung', async () => {
+      version = { id: 'ver3', nr: 3, erstellt: 0, doc: doc() };
+
+      await svc.neuAusProfil(profil(), 'ver3');
+
+      expect(state.messageCreate()!.fassung).toBe('v3');
+      expect(state.vorgabe()!.elemente[`${M}/az`]).toEqual({ status: 'v9' });
+    });
+
+    it('friert die Fassung ein — spaetere Aenderungen am Quelldokument wirken nicht', async () => {
+      const quelle = doc();
+      arbeitsstand = quelle;
+
+      await svc.neuAusProfil(profil(), null);
+      quelle.elemente[`${M}/az`] = { status: 'anders' };
+
+      expect(state.vorgabe()!.elemente[`${M}/az`]).toEqual({ status: 'v9' });
+    });
+
+    it('wirft, wenn die Profilierung keinen Nachrichtentyp nennt', async () => {
+      arbeitsstand = doc({ meta: { name: 'ohne Nachricht' } });
+      await expectAsync(svc.neuAusProfil(profil({ nachricht: null }), null)).toBeRejected();
+    });
+
+    it('wirft, wenn die Fassung nicht ladbar ist', async () => {
+      arbeitsstand = null;
+      await expectAsync(svc.neuAusProfil(profil(), null)).toBeRejected();
+    });
+
+    it('legt keine Mindest-Vorkommen unter ausgeschlossenen Elementen an', async () => {
+      arbeitsstand = doc({ elemente: { [`${M}/anlage`]: { status: 'v9' } } });
+
+      await svc.neuAusProfil(profil(), null);
+
+      expect(state.auspraegungen()[`${M}/anlage`]).toBeUndefined();
+    });
+
+    it('speichern legt Herkunft und eingefrorene Kopie am Eintrag ab', async () => {
+      arbeitsstand = doc();
+      await svc.neuAusProfil(profil(), null);
+      spyOn(window, 'prompt').and.returnValue('Testfall 1.xml');
+
+      expect(await svc.speichern()).toBeTrue();
+
+      const input = created[0]!;
+      expect(input.profilId).toBe('p1');
+      expect(input.profilName).toBe('Nachlass-Szenario');
+      expect(input.fassung).toBe('Arbeitsstand vom 30.07.2026');
+      expect(input.vorgabe!.elemente[`${M}/az`]).toEqual({ status: 'v9' });
+      // Entscheidungsstand und Vorgabe bleiben getrennt.
+      expect(input.entscheidungen!.profil.elemente[`${M}/az`]).toBeUndefined();
+    });
+
+    it('fortsetzen laedt die gebundene Kopie, nicht die aktuelle Profilfassung', async () => {
+      entscheidungen = {
+        msgName: M,
+        xjustizVersion: '3.6.2',
+        profil: {
+          meta: {},
+          statuses: state.statuses(),
+          elemente: { [`${M}/kopf`]: { beispiel: 'Az 1' } },
+          auspraegungen: {},
+          erweiterungen: {},
+        },
+      };
+      gespeicherteVorgabe = doc();
+      // Die Profilierung wurde inzwischen weiterentwickelt — das darf nicht wirken.
+      arbeitsstand = doc({ elemente: {} });
+
+      await svc.fortsetzen({
+        id: 'id-alt',
+        name: 'Entwurf.xml',
+        groesse: 1,
+        hochgeladen: 0,
+        aktualisiert: 0,
+        profilId: 'p1',
+        profilName: 'Nachlass-Szenario',
+        fassung: 'v3',
+      });
+
+      expect(state.hatVorgabe()).toBeTrue();
+      expect(state.wirkungOf(`${M}/az`)).toBe('ausgeschlossen');
+      expect(state.messageCreate()).toEqual(
+        jasmine.objectContaining({ profilId: 'p1', fassung: 'v3' }),
+      );
+    });
+
+    it('ungebundene Alt-Eintraege setzen wie bisher fort (keine Vorgabe)', async () => {
+      entscheidungen = {
+        msgName: M,
+        xjustizVersion: '3.6.2',
+        profil: {
+          meta: {},
+          statuses: state.statuses(),
+          elemente: {},
+          auspraegungen: {},
+          erweiterungen: {},
+        },
+      };
+      gespeicherteVorgabe = null;
+
+      await svc.fortsetzen({
+        id: 'id-alt',
+        name: 'Alt.xml',
+        groesse: 1,
+        hochgeladen: 0,
+        aktualisiert: 0,
+      });
+
+      expect(state.hatVorgabe()).toBeFalse();
+      expect(state.messageCreate()!.profilId).toBeUndefined();
     });
   });
 });

@@ -311,6 +311,26 @@ describe('ExportService (Schematron)', () => {
       expect(xml).toContain('<kopf>Beispieltext</kopf>');
       expect(xml).toContain('<email>');
     });
+
+    it('von der gebundenen Profilfassung Ausgeschlossenes erscheint nicht in der Instanz', () => {
+      // Vorgabe mit eigener Stufenliste: az und der versionskopf-Ast entfallen.
+      state.setVorgabe({
+        meta: {},
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+        ],
+        elemente: { [`${M}/az`]: { status: 'v9' }, [`${M}/versionskopf`]: { status: 'v9' } },
+        auspraegungen: {},
+        erweiterungen: {},
+      });
+      state.setElementProfile(`${M}/az`, { beispiel: 'darf nicht erscheinen' });
+
+      const xml = instanz();
+      expect(xml).not.toContain('<az>');
+      expect(xml).not.toContain('<versionskopf');
+      expect(xml).not.toContain('<titel>'); // Teilbaum entfaellt mit
+      expect(xml).toContain('<kopf>');
+    });
   });
 
   // ── Schema-Erweiterungen (US Schema-Erweiterung) ──────────────────────

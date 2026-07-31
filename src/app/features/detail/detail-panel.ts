@@ -182,10 +182,17 @@ export class DetailPanel {
         }
       : null;
 
+    // Gebundener Durchlauf: was die Profilierung ausschliesst, ist gesperrt —
+    // kein Entscheidungspunkt, kein Eingabefeld, aber mit Begruendung sichtbar
+    // (US "Testnachricht aus einer Profilierung").
+    const gesperrt = this.state.vorgabeGesperrt(path);
+
     return {
       isAusp,
       erw,
       istErweiterung: !!n.erweiterung,
+      gesperrt,
+      sperrGrund: gesperrt ? this.sperrGrund(path, st?.name) : '',
       auspName: isAusp ? it.ausp.name : '',
       parentName: n.name,
       title: pretty(n.name),
@@ -227,6 +234,20 @@ export class DetailPanel {
       curStatusName: st?.name ?? 'wie Standard',
     };
   });
+
+  /**
+   * Begruendung der Sperre: eigener Ausschluss der gebundenen Fassung (mit dem
+   * Namen der Statusstufe) oder Vererbung aus einem ausgeschlossenen Vorfahren;
+   * die fachliche Anmerkung des Profils kommt als Begruendung dazu.
+   */
+  private sperrGrund(path: string, statusName?: string): string {
+    const eigen = this.state.vorgabeSchliesstAus(path);
+    const kern = eigen
+      ? `Die gebundene Profilierung setzt dieses Element auf „${statusName || 'nicht verwendet'}" — es ist nicht befüllbar und erscheint nicht in der Testnachricht.`
+      : 'Ein übergeordnetes Element ist in der gebundenen Profilierung ausgeschlossen — der Teilbaum entfällt.';
+    const anm = this.state.anmerkungOf(path);
+    return anm ? `${kern}\nBegründung aus der Profilierung: ${anm}` : kern;
+  }
 
   /**
    * Gefuehrte Entscheidung (US "Profilierung gefuehrt erstellen"): Dispositions-
@@ -306,6 +327,8 @@ export class DetailPanel {
     const it = this.state.selItem();
     if (!it) return null;
     const path = itemPath(it);
+    // Von der gebundenen Profilierung Ausgeschlossenes ist kein Entscheidungspunkt.
+    if (this.state.vorgabeGesperrt(path)) return null;
     const punkt = this.guided.punktAt(path);
     const offene = this.guided.offeneSet();
     const w = this.state.wirkungOf(path);

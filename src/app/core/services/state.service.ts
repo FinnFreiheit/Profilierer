@@ -84,6 +84,41 @@ export class StateService {
     return this.vorgabe()?.elemente[path] ?? null;
   }
 
+  /**
+   * Wirkung, die *allein aus der Vorgabe* stammt: null, sobald der Durchlauf am
+   * Pfad eine eigene Entscheidung fuehrt (dann ist die Entscheidung massgeblich)
+   * oder keine Vorgabe gebunden ist. Aufgeloest ueber die Stufenliste der
+   * Vorgabe — Stufen sind je Profilierung frei konfigurierbar.
+   */
+  private vorgabeWirkung(path: string): Wirkung | null {
+    const v = this.vorgabe();
+    if (!v || this.elemente()[path]?.status) return null;
+    const id = v.elemente[path]?.status;
+    return (id && v.statuses.find((s) => s.id === id)?.wirkung) || null;
+  }
+
+  /**
+   * Schliesst die gebundene Profilfassung diesen Pfad selbst aus? (ohne
+   * Vererbung — fuer den Struktur-Walk, der den Teilbaum ohnehin abschneidet).
+   */
+  vorgabeSchliesstAus(path: string): boolean {
+    return this.vorgabeWirkung(path) === 'ausgeschlossen';
+  }
+
+  /**
+   * Ist der Pfad im gebundenen Durchlauf gesperrt — durch die Vorgabe selbst
+   * oder durch einen ausgeschlossenen Vorfahren (der Ausschluss vererbt sich auf
+   * den Teilbaum, ueber Vorkommen-Grenzen hinweg)? Gesperrtes ist nicht
+   * befuellbar, standardmaessig ausgeblendet und wird nur ueber "nur Profil"
+   * sichtbar. Eine *eigene* Weglassen-Entscheidung des Durchlaufs ist keine
+   * Sperre — sie bleibt sichtbar und korrigierbar.
+   */
+  vorgabeGesperrt(path: string): boolean {
+    if (!this.vorgabe()) return false;
+    if (this.vorgabeSchliesstAus(path)) return true;
+    return this.vorfahrenPfade(path).some((a) => this.vorgabeSchliesstAus(a));
+  }
+
   // ── Ansicht / Bibliothek ────────────────────────────────────────────
   /** Dashboard (Bibliothek) vs. Baum-Editor vs. Testdaten-Speicher. Startseite ist das Dashboard. */
   readonly view = signal<'dashboard' | 'editor' | 'testdaten'>('dashboard');
@@ -358,6 +393,13 @@ export class StateService {
   /** "nur Profil" blendet Ausgeschlossenes aus (renderBox Z.1211), "nur Werte" alles Wertlose. */
   boxHidden(path: string): boolean {
     if (this.onlyValues() && !this.valuePaths().has(path)) return true;
+    // Gebundener Durchlauf: was die Profilierung ausschliesst, ist nicht
+    // befuellbar und lenkt beim Befuellen nur ab — standardmaessig ausgeblendet,
+    // ueber "nur Profil" nachzusehen (dort gesperrt, mit Begruendung). Der
+    // Schalter bedeutet hier also "Ausgeschlossenes der Profilierung zeigen";
+    // eigene Weglassen-Entscheidungen des Durchlaufs bleiben immer sichtbar,
+    // sonst verschwaende der Klick auf "weglassen" den gerade bearbeiteten Ast.
+    if (this.hatVorgabe()) return this.vorgabeGesperrt(path) && !this.onlyProfile();
     if (!this.onlyProfile()) return false;
     const st = this.statusOf(path);
     return st?.wirkung === 'ausgeschlossen' || this.inheritedExcluded(path);

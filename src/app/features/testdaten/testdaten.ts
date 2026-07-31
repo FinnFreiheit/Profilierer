@@ -11,6 +11,7 @@ import { TestmessageStoreService } from '../../core/services/testmessage-store.s
 import { StateService } from '../../core/services/state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
+import { PersistenceService } from '../../core/services/persistence.service';
 import { TestmessageGenerationService } from '../../core/services/testmessage-generation.service';
 import { TestmessageCreateService } from '../../core/services/testmessage-create.service';
 import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
@@ -21,7 +22,7 @@ import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { TestmessageEntry } from '../../models/testmessage.model';
-import { LibraryEntry } from '../../models/profile.model';
+import { LibraryEntry, ProfilVersion } from '../../models/profile.model';
 import { MessageRef } from '../../models/xsd-index.model';
 import { parseTestmessage } from '../../core/util/testmessage.util';
 import { firstLine } from '../../core/util/pretty.util';
@@ -52,6 +53,7 @@ export class Testdaten {
   protected readonly rolle = inject(RolleService);
   private readonly toast = inject(ToastService);
   private readonly profiles = inject(ProfileStoreService);
+  private readonly persistence = inject(PersistenceService);
   private readonly generator = inject(TestmessageGenerationService);
   private readonly creator = inject(TestmessageCreateService);
   private readonly edit = inject(TestmessageEditService);
@@ -119,12 +121,25 @@ export class Testdaten {
     this.state.view.set('dashboard');
   }
 
-  // ── Neu erstellen (gefuehrt aus einem Schema) ───────────────────────
+  // ── Neu erstellen (gefuehrt aus Schema oder Profilierung) ───────────
+
+  /**
+   * Herkunft der neuen Testnachricht: "aus Schema" (Version + Nachricht waehlen)
+   * oder "aus Profilierung" (Profil + zu bindende Fassung; Version und
+   * Nachrichtentyp stammen dann aus der Profilierung). null = noch offen.
+   */
+  protected readonly createQuelle = signal<'schema' | 'profil' | null>(null);
 
   /** Im Dialog gewaehlte Schemaversion (null = noch keine gewaehlt). */
   protected readonly createVersion = signal<string | null>(null);
   protected readonly createLoading = signal(false);
   protected readonly msgFilter = signal('');
+
+  /** Gewaehlte Profilierung und deren Fassungen (Arbeitsstand + Versionen). */
+  protected readonly createProfil = signal<LibraryEntry | null>(null);
+  protected readonly fassungen = signal<ProfilVersion[]>([]);
+  /** Gewaehlte Fassung: '' = Arbeitsstand, sonst die id der Version. */
+  protected readonly fassungWahl = signal('');
 
   /**
    * Waehlbare Schemata: hinterlegte Versionen, plus das aktuell geladene
@@ -153,9 +168,68 @@ export class Testdaten {
   });
 
   protected openCreate(): void {
+    this.createQuelle.set(null);
     this.createVersion.set(null);
+    this.createProfil.set(null);
+    this.fassungen.set([]);
+    this.fassungWahl.set('');
     this.msgFilter.set('');
+    void this.profiles
+      .refresh()
+      .catch(this.toast.fail('Profile konnten nicht geladen werden — Backend nicht erreichbar.'));
     this.createDlg().nativeElement.showModal();
+  }
+
+  /** Schritt 0: "aus Schema" oder "aus Profilierung". */
+  protected waehleQuelle(q: 'schema' | 'profil'): void {
+    this.createQuelle.set(q);
+  }
+
+  /**
+   * Schritt 1 (aus Profilierung): Profil waehlen und dessen Fassungen laden.
+   * Bei abgenommenen Profilierungen ist die Abnahme-Fassung vorbelegt — sonst
+   * der Arbeitsstand.
+   */
+  protected async chooseProfil(e: LibraryEntry): Promise<void> {
+    if (this.createLoading()) return;
+    this.createLoading.set(true);
+    try {
+      const list = await this.profiles.listVersions(e.id);
+      this.fassungen.set(list);
+      const abnahme = e.abgenommen ? list.find((v) => v.abnahme) : null;
+      this.fassungWahl.set(abnahme?.id ?? '');
+      this.createProfil.set(e);
+    } catch {
+      // Ohne Versionsliste bleibt der Arbeitsstand als einzige Fassung.
+      this.fassungen.set([]);
+      this.fassungWahl.set('');
+      this.createProfil.set(e);
+    } finally {
+      this.createLoading.set(false);
+    }
+  }
+
+  /** Beschriftung einer Version im Fassungs-Radio. */
+  protected fassungLabel(v: ProfilVersion): string {
+    const teile = [`v${v.nr}`];
+    if (v.abnahme) teile.push('Abnahme-Fassung');
+    if (v.kommentar) teile.push(v.kommentar);
+    return teile.join(' · ');
+  }
+
+  /** Schritt 2 (aus Profilierung): Durchlauf mit Bindung an die Fassung starten. */
+  protected async startAusProfil(): Promise<void> {
+    const p = this.createProfil();
+    if (!p || this.createLoading()) return;
+    this.createLoading.set(true);
+    try {
+      await this.creator.neuAusProfil(p, this.fassungWahl() || null);
+      this.createDlg().nativeElement.close();
+    } catch (err) {
+      this.toast.showError(err, 'Erstellen fehlgeschlagen.');
+    } finally {
+      this.createLoading.set(false);
+    }
   }
 
   /** Schritt 1: Version waehlen (laedt bei Bedarf das hinterlegte Schema). */
@@ -496,6 +570,24 @@ export class Testdaten {
     return e.abnahmeZeit
       ? new Date(e.abnahmeZeit).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })
       : '';
+  }
+
+  // ── Profil-Herkunft (gebundene Testnachricht) ───────────────────────
+
+  /** Kachel-Text der Herkunft: "aus Profil „X" (v3)". */
+  protected herkunft(e: TestmessageEntry): string {
+    return `aus Profil „${e.profilName || '(ohne Namen)'}"${e.fassung ? ` (${e.fassung})` : ''}`;
+  }
+
+  /**
+   * Sprung in die gebundene Profilierung (Festlegung nachlesen). Die
+   * Herkunftsangabe bleibt auch dann stehen, wenn das Profil geloescht wurde —
+   * openFromLibrary meldet das dann.
+   */
+  protected oeffneProfil(e: TestmessageEntry, ev: Event): void {
+    ev.stopPropagation();
+    if (!e.profilId) return;
+    void this.persistence.openFromLibrary(e.profilId);
   }
 
   // ── Anzeige-Helfer ──────────────────────────────────────────────────

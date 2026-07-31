@@ -34,6 +34,13 @@
       }
     }
 
+    @if (v.gesperrt) {
+      <div class="dsec">
+        <span class="dsecTitel">Von der Profilierung ausgeschlossen</span>
+        <div class="docbox">{{ v.sperrGrund }}</div>
+      </div>
+    }
+
     @if (v.erw; as erw) {
       @if (!ro() && !msgMode()) {
         <div class="dsec">
@@ -237,7 +244,9 @@
       </div>
     }
 
-    @if (!ro()) {
+    <!-- Gesperrtes (Ausschluss der gebundenen Profilfassung) bekommt keine
+         Bedienelemente, sondern nur die Lese-Ansicht darunter. -->
+    @if (!ro() && !v.gesperrt) {
       <!-- Im gefuehrten Modus ersetzt der Guided-Block den vollen Status-Strip
            (drei Dispositionen statt aller konfigurierten Stufen). Bei der
            Testnachricht-Erstellung gibt es keine Status-/Kardinalitaets-
