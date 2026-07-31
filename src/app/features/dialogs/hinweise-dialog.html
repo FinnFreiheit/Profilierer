@@ -25,7 +25,7 @@
             [title]="'Geführte Entscheidung „' + e.badge + '“ — die fachliche Frage ist offen.'"
             >{{ e.badge }}</span
           >
-        } @else {
+        } @else if (e.aenderbar) {
           <input
             type="checkbox"
             title="Hinweis abarbeiten"
@@ -39,7 +39,7 @@
           <div class="hwText">{{ e.text }}</div>
           <div class="hwPfad">{{ e.herkunft }}{{ e.herkunft ? ' · ' : '' }}{{ e.pfad }}</div>
         </div>
-        @if (!e.geparkt) {
+        @if (!e.geparkt && e.aenderbar) {
           <button
             class="hwWeg"
             title="Hinweis löschen"

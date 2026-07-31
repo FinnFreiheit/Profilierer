@@ -26,6 +26,8 @@ interface Zeile {
   badge: string;
   farbe: string;
   erledigt: boolean;
+  /** Darf der Betrachter abhaken/loeschen? (Abnahme-Schutz, #42) */
+  aenderbar: boolean;
 }
 
 /**
@@ -74,6 +76,7 @@ export class HinweiseDialog {
       badge: stufe?.name ?? 'zu klären',
       farbe: stufe?.farbe ?? 'var(--muted)',
       erledigt: false,
+      aenderbar: false,
     }));
     const rest: Zeile[] = this.hinweise
       .eintraege()
@@ -87,6 +90,11 @@ export class HinweiseDialog {
         badge: '',
         farbe: '',
         erledigt: !!h.erledigt,
+        // An einer abgenommenen Profilierung sind Abhaken, Aendern und Loeschen
+        // der AG vorbehalten (#42) — Ausnahme ist der selbst angelegte Eintrag
+        // derselben Sitzung. Was der Server abweist, bietet die Uebersicht gar
+        // nicht erst an.
+        aenderbar: !this.state.abnahmeSchreibschutz() || this.hinweise.istEigener(h.id),
       }));
     return [...oben, ...rest];
   });
