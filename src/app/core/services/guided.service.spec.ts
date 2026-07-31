@@ -343,6 +343,30 @@ describe('GuidedService', () => {
       expect(svc.offeneSet().has(`${M}/_auswahl/telefon`)).toBeFalse();
     });
 
+    it('Zweigwechsel umgeht die Mindestanzahl der Profilierung nicht', () => {
+      // Die Wahl schliesst die Geschwister aus — verlangt die Profilierung einen
+      // davon, waere das ✕ am Zweig gesperrt, der Radio-Klick auf den Nachbarn
+      // schloesse ihn aber still aus (Issue #50).
+      state.setVorgabe({
+        meta: {},
+        statuses: [{ id: 'w1', name: 'zwingend', farbe: '#a00', wirkung: 'pflicht' }],
+        elemente: { [`${M}/_auswahl/email`]: { min: '1' } },
+        auspraegungen: {},
+        erweiterungen: {},
+      });
+
+      const grund = svc.kardSperreZweigwechsel(`${M}/_auswahl`, `${M}/_auswahl/telefon`);
+      expect(grund).toContain('Profilierung');
+      svc.waehleZweig(`${M}/_auswahl`, `${M}/_auswahl/telefon`);
+      expect(state.wirkungOf(`${M}/_auswahl/email`)).not.toBe('ausgeschlossen');
+      expect(state.wirkungOf(`${M}/_auswahl/telefon`)).not.toBe('pflicht');
+
+      // Auf den verlangten Zweig selbst darf gewechselt werden.
+      expect(svc.kardSperreZweigwechsel(`${M}/_auswahl`, `${M}/_auswahl/email`)).toBeNull();
+      svc.waehleZweig(`${M}/_auswahl`, `${M}/_auswahl/email`);
+      expect(state.wirkungOf(`${M}/_auswahl/email`)).toBe('pflicht');
+    });
+
     it('aufnehmen steigt ab (neue Punkte), weglassen entscheidet ohne Abstieg', () => {
       const y0 = svc.fortschritt().y;
       svc.setzeAufnahme(`${M}/_gruppe`, true);
@@ -757,6 +781,17 @@ describe('GuidedService', () => {
 
         svc.setzeAufnahme(beteiligung, false);
         expect(state.wirkungOf(beteiligung)).toBe('ausgeschlossen');
+      });
+
+      it('sperrt nicht bei einer Mindestanzahl aus dem Schema', () => {
+        bindeKard({});
+
+        // `anlage` traegt minOccurs=2 aus dem Schema, das Profil grenzt nichts
+        // ein. Auf diesem Zweig (`!minProfil`) ruht die ganze Begruendung der
+        // ADR: sperrte er mit, waeren Pflicht-Rueckgrat und Zweigwechsel tot.
+        // Der vorige Test genuegt dafuer nicht — dort ist schon `min < 1`
+        // hinreichend, dieser Fall traegt `min = 2`.
+        expect(svc.kardSperreWeglassen(anlage)).toBeNull();
       });
     });
 

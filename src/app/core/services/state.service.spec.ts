@@ -595,7 +595,10 @@ describe('StateService', () => {
       expect(s.vorgabe()!.auspraegungen['m/bet']!.map((a) => a.name)).toEqual(['Notar/in']);
     });
 
-    it('removeAusp und renameAusp greifen auch auf einer Liste der Vorgabe', () => {
+    it('removeAusp und renameAusp lassen eine reine Vorgabe-Liste unberuehrt', () => {
+      // Ob die benannten Vorkommen der Profilierung entfernbar sein sollen,
+      // entscheidet #28 ("nicht entfernbar" steht dort als AC) — dieses Ticket
+      // verlangt nur, dass `addAusp` die Liste nicht verdeckt.
       s.setVorgabe(
         vorgabeDoc({
           auspraegungen: {
@@ -608,14 +611,34 @@ describe('StateService', () => {
       );
 
       s.renameAusp('m/bet', 'v2', 'Beteiligte Person');
-      expect(s.auspsOf('m/bet')!.map((a) => a.name)).toEqual(['Notar/in', 'Beteiligte Person']);
-
       s.removeAusp('m/bet', 'v1');
-      expect(s.auspsOf('m/bet')!.map((a) => a.id)).toEqual(['v2']);
+
+      expect(s.auspsOf('m/bet')!.map((a) => a.name)).toEqual(['Notar/in', 'Betroffene Person']);
+      expect(s.auspraegungen()['m/bet']).toBeUndefined();
+    });
+
+    it('nach dem Materialisieren greifen die Mutationen, ohne die Vorgabe anzufassen', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          auspraegungen: {
+            'm/bet': [
+              { id: 'v1', name: 'Notar/in' },
+              { id: 'v2', name: 'Betroffene Person' },
+            ],
+          },
+        }),
+      );
+
+      // `addAusp` materialisiert — ab da ist es eine eigene Liste wie jede andere.
+      s.addAusp('m/bet', 'Dritte');
+      s.renameAusp('m/bet', 'v2', 'Beteiligte Person');
+      s.removeAusp('m/bet', 'v1');
+      expect(s.auspsOf('m/bet')!.map((a) => a.name)).toEqual(['Beteiligte Person', 'Dritte']);
 
       // Die geleerte eigene Liste faellt nicht auf die Vorgabe zurueck — sonst
       // kaemen die entfernten Vorkommen mit dem naechsten Lesezugriff wieder.
       s.removeAusp('m/bet', 'v2');
+      s.removeAusp('m/bet', s.auspsOf('m/bet')![0]!.id);
       expect(s.auspsOf('m/bet')).toEqual([]);
       // Die eingefrorene Kopie bleibt unangetastet.
       expect(s.vorgabe()!.auspraegungen['m/bet']!.map((a) => a.name)).toEqual([
@@ -703,7 +726,7 @@ describe('StateService', () => {
       expect(s.vorgabe()!.erweiterungen['m/a']!.map((e) => e.name)).toEqual(['zusatzProfil']);
     });
 
-    it('updateErweiterung und removeErweiterung greifen auch auf einer Liste der Vorgabe', () => {
+    it('updateErweiterung und removeErweiterung lassen eine reine Vorgabe-Liste unberuehrt', () => {
       s.setVorgabe(
         vorgabeDoc({
           erweiterungen: {
@@ -716,12 +739,31 @@ describe('StateService', () => {
       );
 
       s.updateErweiterung('m/a', 'v2', { name: 'zwei neu' });
-      expect(s.erweiterungenOf('m/a')!.map((e) => e.name)).toEqual(['eins', 'zwei neu']);
-
       s.removeErweiterung('m/a', 'v1');
-      expect(s.erweiterungenOf('m/a')!.map((e) => e.id)).toEqual(['v2']);
+
+      expect(s.erweiterungenOf('m/a')!.map((e) => e.name)).toEqual(['eins', 'zwei']);
+      expect(s.erweiterungen()['m/a']).toBeUndefined();
+    });
+
+    it('nach dem Materialisieren greifen auch die Erweiterungs-Mutationen', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          erweiterungen: {
+            'm/a': [
+              { id: 'v1', name: 'eins', min: '1', max: '1' },
+              { id: 'v2', name: 'zwei', min: '1', max: '1' },
+            ],
+          },
+        }),
+      );
+
+      s.addErweiterung('m/a', { name: 'drei', min: '0', max: '1' });
+      s.updateErweiterung('m/a', 'v2', { name: 'zwei neu' });
+      s.removeErweiterung('m/a', 'v1');
+      expect(s.erweiterungenOf('m/a')!.map((e) => e.name)).toEqual(['zwei neu', 'drei']);
 
       s.removeErweiterung('m/a', 'v2');
+      s.removeErweiterung('m/a', s.erweiterungenOf('m/a')![0]!.id);
       expect(s.erweiterungenOf('m/a')).toEqual([]);
       expect(s.vorgabe()!.erweiterungen['m/a']!.map((e) => e.name)).toEqual(['eins', 'zwei']);
     });

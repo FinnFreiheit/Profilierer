@@ -545,6 +545,32 @@ export class GuidedService {
     return `${this.quelle(k.minProfil)} verlangt mindestens ${k.min} Vorkommen.`;
   }
 
+  /**
+   * Grund, warum auf diesen Zweig **nicht umgeschaltet** werden darf — null,
+   * wenn die Wahl frei ist. Die Zweigwahl schliesst die Geschwister aus; traegt
+   * einer davon eine Mindestanzahl der **Profilierung**, ist das derselbe
+   * Vorgang, den `kardSperreWeglassen` am einzelnen Element verhindert, nur
+   * ueber den Radio-Knopf. Ohne die Pruefung waere das ✕ am Zweig gesperrt,
+   * der Klick auf den Nachbarzweig schloesse ihn aber still aus.
+   *
+   * Dass ein choice-Zweig zugleich verlangt und durch die Wahl eines anderen
+   * ausgeschlossen wuerde, ist ein Widerspruch **in der Profilierung** — der
+   * Durchlauf loest ihn nicht auf, er verweigert die Umschaltung und nennt den
+   * Grund. Der schema-eigene `min=1` eines Zweigs zaehlt nicht mit
+   * (`kardSperreWeglassen` prueft `minProfil`), sonst waere jede Auswahl
+   * unveraenderlich.
+   */
+  kardSperreZweigwechsel(auswahlPath: string, zweigPath: string): string | null {
+    const p = this.punktAt(auswahlPath);
+    if (!p || p.art !== 'auswahl') return null;
+    for (const k of p.kinder ?? []) {
+      if (k === zweigPath) continue;
+      const grund = this.kardSperreWeglassen(k);
+      if (grund) return grund;
+    }
+    return null;
+  }
+
   // ── Spur-Navigation ─────────────────────────────────────────────────
 
   /**
@@ -693,6 +719,11 @@ export class GuidedService {
     const pflicht = this.state.pflichtStatus();
     const excl = this.state.exclStatus();
     if (!p || p.art !== 'auswahl' || !pflicht || !excl) return;
+    // Die Zweigwahl schliesst die Geschwister aus — und ist damit derselbe
+    // Vorgang, den `kardSperreWeglassen` an einem einzelnen Element verhindert.
+    // Ohne diese Pruefung umgaeht der Radio-Klick die Sperre: das ✕ am Zweig
+    // waere gesperrt, der Klick auf den Nachbarn schloesse ihn still aus.
+    if (this.kardSperreZweigwechsel(auswahlPath, zweigPath)) return;
     for (const k of p.kinder ?? []) {
       this.state.setElementProfile(k, { status: k === zweigPath ? pflicht.id : excl.id });
     }

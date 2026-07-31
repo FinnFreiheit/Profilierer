@@ -43,7 +43,16 @@ Nachricht dadurch anders aussähe. Der Name („Vorkommen 1") wäre reines Gerü
 `kardSperreWeglassen(path)` nennt den Grund, warum ein Element nicht weggelassen werden darf;
 `setzeAufnahme` verweigert das Weglassen wie bei zwingend gesetzten Elementen, und jeder weitere Weg,
 der eine Angabe entfernt (`✕` im Baum, „✕ Angabe entfernen" im Detailbereich), prüft mit — nach dem
-Muster der Hinzufügen-Sperre: `[disabled]` am Knopf **und** ein Guard in der Aktion.
+Muster der Hinzufügen-Sperre: `[disabled]` am Knopf **und** ein Guard in der Aktion. Der Guard im
+Detailbereich ist heute defensiv: der Knopf steht nur im Bearbeiten-Modus, und dort gibt es noch
+keine Bindung — er wird wirksam, sobald sie gehalten wird (#32).
+
+**Auch die Zweigwahl ist ein Weglassen.** Sie schließt die Geschwister aus, umgeht die Sperre also
+über den Radio-Knopf statt über das `✕`. `kardSperreZweigwechsel` prüft deshalb vor dem Umschalten
+alle Zweige, die dabei ausgeschlossen würden; trägt einer eine Mindestanzahl der Profilierung, bleibt
+der Knopf gesperrt und nennt den Grund. Dass ein Zweig zugleich verlangt und durch die Wahl eines
+anderen ausgeschlossen wäre, ist ein Widerspruch **in der Profilierung** — der Durchlauf löst ihn
+nicht auf, er benennt ihn.
 
 **Maßgeblich ist allein die Eingrenzung der Profilierung** (`effKard().minProfil`). Die
 Mindestanzahl des Schemas macht ein Element ohnehin zum Pflicht-Rückgrat ohne Aufnahme-Frage; ein
@@ -62,5 +71,15 @@ unmöglich.
 - Die Materialisierung benannter Ausprägungen (#28) setzt auf einer ausgesprochenen Regel auf. Wo
   eine Ausprägung existiert, ist sie das Vorkommen — dort fallen Zählung und Materialisierung
   ohnehin zusammen.
+- `addAusp`/`addErweiterung` materialisieren die Liste der gebundenen Fassung, statt sie zu
+  verdecken — sonst verschwänden die zwingenden Vorkommen der Profilierung mit dem ersten eigenen
+  Eintrag aus Baum und Instanz, weil der Rückfall je Pfad für die **ganze** Liste gilt. Eine dadurch
+  leergeräumte eigene Liste bleibt als leere Liste stehen, solange die Vorgabe am Pfad eine führt;
+  fiele sie weg, käme das Entfernte mit dem nächsten Lesezugriff zurück.
+- Eine **reine** Vorgabe-Liste bleibt dagegen unberührt: `removeAusp`, `renameAusp`,
+  `updateErweiterung` und `removeErweiterung` greifen nur auf einer eigenen Liste. Ob die benannten
+  Ausprägungen der Profilierung überhaupt entfernbar sein sollen, entscheidet #28 — dort steht
+  „nicht entfernbar" als Akzeptanzkriterium, hier wäre es eine Vorfestlegung.
 - Abgesichert in `guided.service.spec.ts` (Zählung eines weggelassenen Elements, Durchsetzung von
-  `min = 1`, unverändertes Weglassen ohne Eingrenzung im Profil).
+  `min = 1` inkl. Zweigwechsel, unverändertes Weglassen ohne Eingrenzung im Profil) und
+  `state.service.spec.ts` (Materialisierung, Unberührtheit der reinen Vorgabe-Liste).
