@@ -233,8 +233,17 @@ export class App implements OnInit {
         e.preventDefault();
         return;
       }
+      // k = „zu klären": parkt den Punkt sichtbar (#41).
       const wirkung =
-        key === 'z' ? 'pflicht' : key === 'o' ? 'optional' : key === 'n' ? 'ausgeschlossen' : null;
+        key === 'z'
+          ? 'pflicht'
+          : key === 'o'
+            ? 'optional'
+            : key === 'n'
+              ? 'ausgeschlossen'
+              : key === 'k'
+                ? 'markierung'
+                : null;
       if (wirkung) {
         if (this.guided.setzeDisposition(wirkung)) e.preventDefault();
         return;

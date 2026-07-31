@@ -1,36 +1,53 @@
 <dialog #dlg id="hinweiseDlg">
   <h3 style="margin-top: 0">Hinweise</h3>
   <p style="font-size: 12.5px; color: var(--muted); margin-top: 0">
-    {{ hinweise.nOffen() }} offen / {{ hinweise.eintraege().length }} gesamt — Klick springt zum
-    Element.
+    {{ hinweise.nOffen() }} offen / {{ hinweise.eintraege().length }} gesamt
+    @if (zuKlaeren()) {
+      · {{ zuKlaeren() }} zu klären
+    }
+    — Klick springt zum Element.
   </p>
   <div class="validFehler hinweisListe">
-    @for (e of hinweise.eintraege(); track e.id) {
+    @for (e of zeilen(); track e.id) {
       <div
         class="vfItem klickbar hwItem"
         [class.hwErledigt]="e.erledigt"
         title="Zum Element springen"
         (click)="springe(e.pfad)"
       >
-        <input
-          type="checkbox"
-          title="Hinweis abarbeiten"
-          [checked]="e.erledigt"
-          (click)="$event.stopPropagation()"
-          (change)="toggleErledigt(e.id, $event)"
-        />
+        @if (e.geparkt) {
+          <!-- Geparkte Punkte tragen keine Erledigt-Checkbox: sie verlassen den
+               Eimer, sobald am Element eine echte Disposition gesetzt wird (#41). -->
+          <span
+            class="tag"
+            [style.background]="e.farbe"
+            [style.color]="'#fff'"
+            [title]="'Geführte Entscheidung „' + e.badge + '“ — die fachliche Frage ist offen.'"
+            >{{ e.badge }}</span
+          >
+        } @else {
+          <input
+            type="checkbox"
+            title="Hinweis abarbeiten"
+            [checked]="e.erledigt"
+            (click)="$event.stopPropagation()"
+            (change)="toggleErledigt(e.id, $event)"
+          />
+        }
         <div class="hwBody">
           <div class="hwTitel">{{ label(e.pfad) }}</div>
           <div class="hwText">{{ e.text }}</div>
-          <div class="hwPfad">{{ herkunft(e) }} · {{ e.pfad }}</div>
+          <div class="hwPfad">{{ e.herkunft }}{{ e.herkunft ? ' · ' : '' }}{{ e.pfad }}</div>
         </div>
-        <button
-          class="hwWeg"
-          title="Hinweis löschen"
-          (click)="$event.stopPropagation(); loesche(e.id)"
-        >
-          ×
-        </button>
+        @if (!e.geparkt) {
+          <button
+            class="hwWeg"
+            title="Hinweis löschen"
+            (click)="$event.stopPropagation(); loesche(e.id)"
+          >
+            ×
+          </button>
+        }
       </div>
     } @empty {
       <div class="vfItem" style="color: var(--muted)">Keine Hinweise vorhanden.</div>

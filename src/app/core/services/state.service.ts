@@ -390,6 +390,16 @@ export class StateService {
   }
 
   /**
+   * Die Statusstufe mit Wirkung "markierung" — die vierte gefuehrte Entscheidung
+   * "zu klaeren" (Issue #41). Wie die anderen drei ueber die **Wirkung**
+   * aufgeloest, damit umbenannte oder eigene Stufen greifen; fehlt sie der
+   * Profilierung, ist der Knopf deaktiviert.
+   */
+  markierungStatus(): Status | null {
+    return this.statuses().find((s) => s.wirkung === 'markierung') ?? null;
+  }
+
+  /**
    * statusOf (Z.997) — Entscheidung, sonst Vorgabe. Der Status der Vorgabe wird
    * ueber **deren** Stufenliste aufgeloest: Statusstufen sind je Profilierung
    * frei konfigurierbar, dieselbe id kann in beiden Schichten etwas anderes

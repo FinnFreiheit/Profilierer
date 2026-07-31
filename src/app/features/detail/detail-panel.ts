@@ -1,10 +1,12 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   computed,
   inject,
   linkedSignal,
   signal,
+  viewChild,
 } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { TreeService } from '../../core/services/tree.service';
@@ -105,6 +107,9 @@ export class DetailPanel {
   protected readonly erwDatentypen = ERW_DATENTYPEN;
   /** Pfad, fuer den im Datentyp-Select "Sonstiger…" gewaehlt wurde (noch ohne Freitext). */
   private readonly erwSonstig = signal<string | null>(null);
+
+  /** Eingabefeld „Hinweis hinzufuegen" — Fokusziel der Entscheidung „zu klären" (#41). */
+  private readonly hinweisFeld = viewChild<ElementRef<HTMLTextAreaElement>>('hinweisFeld');
 
   /** Betrachtungsmodus: Editier-Controls werden im Template ausgeblendet. */
   protected readonly ro = this.state.readOnly;
@@ -388,12 +393,14 @@ export class DetailPanel {
     const path = itemPath(it);
     const cur = this.state.elemente()[path]?.status ?? null;
 
-    // Drei feste Dispositionen, an die Wirkung gebunden (Fallback: disabled,
+    // Vier feste Dispositionen, an die Wirkung gebunden (Fallback: disabled,
     // wenn die Profilierung keine Stufe mit passender Wirkung konfiguriert hat).
+    // Die vierte parkt den Punkt sichtbar, statt ihn offen zu lassen (#41).
     const dispo = [
       { st: this.state.pflichtStatus(), fallback: 'zwingend', taste: 'z' },
       { st: this.state.optionalStatus(), fallback: 'anzugeben, wenn vorhanden', taste: 'o' },
       { st: this.state.exclStatus(), fallback: 'nicht verwendet', taste: 'n' },
+      { st: this.state.markierungStatus(), fallback: 'zu klären', taste: 'k' },
     ].map((d) => ({
       id: d.st?.id ?? '',
       label: d.st?.name ?? d.fallback,
@@ -401,6 +408,8 @@ export class DetailPanel {
       active: !!d.st && cur === d.st.id,
       disabled: !d.st,
       taste: d.taste,
+      /** „Zu klären": setzt den Status und stellt den Cursor ins Hinweisfeld (#41). */
+      markierung: d.st?.wirkung === 'markierung',
     }));
 
     // Auswahl-Schritt: zulaessige Alternativen einschraenken — sowohl fuer
@@ -431,6 +440,8 @@ export class DetailPanel {
       path,
       offen: offene.has(path),
       nOffen: offene.size,
+      /** Punkt geparkt („zu klären", #41) — weder offen noch entschieden. */
+      geparkt: this.guided.geparkteSet().has(path),
       dispo,
       isChoice,
       synthChoice,
@@ -537,10 +548,13 @@ export class DetailPanel {
 
   // ── Aktionen ────────────────────────────────────────────────────────
 
-  protected setStatus(id: string): void {
+  protected setStatus(id: string, insHinweisfeld = false): void {
     // Zentrale Statusaenderung: kaskadiert bei aufnehmender Wirkung die
     // Zwingend-Vorbelegung in den Teilbaum darunter (DispositionService).
     this.disposition.setzeStatus(this.path(), id || undefined);
+    // „Zu klären" parkt den Punkt und stellt den Cursor ins Hinweisfeld (#41) —
+    // ein Text ist nicht erzwungen, damit der Tastaturfluss nicht abreisst.
+    if (insHinweisfeld) queueMicrotask(() => this.hinweisFeld()?.nativeElement.focus());
   }
 
   /**
