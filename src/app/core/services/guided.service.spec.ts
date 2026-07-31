@@ -5,6 +5,7 @@ import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
 import { XsdParserService } from './xsd-parser.service';
 import { XsdDoc } from '../../models/xsd-index.model';
+import { Erweiterung } from '../../models/profile.model';
 import { itemPath } from '../../models/node.model';
 
 /**
@@ -34,6 +35,24 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
 
 const M = 'nachricht.test.0001';
 
+/**
+ * Zweite Fixture nur fuer den Vorkommen-Fall: wiederholbares `beteiligung` mit
+ * einem **schema-optionalen** Blatt `rolle`. Eigenes Schema, damit die
+ * Punkt-Zaehlungen der Haupt-Fixture unberuehrt bleiben.
+ */
+const XSD_VORKOMMEN = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0002" type="Type.Test2.Root"/>
+  <xs:complexType name="Type.Test2.Root"><xs:sequence>
+    <xs:element name="beteiligung" type="Type.Test2.Bet" minOccurs="0" maxOccurs="unbounded"/>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="Type.Test2.Bet"><xs:sequence>
+    <xs:element name="rolle" type="xs:string" minOccurs="0"/>
+  </xs:sequence></xs:complexType>
+</xs:schema>`;
+
+const M2 = 'nachricht.test.0002';
+
 describe('GuidedService', () => {
   let svc: GuidedService;
   let state: StateService;
@@ -55,6 +74,16 @@ describe('GuidedService', () => {
   });
 
   const pfade = (): string[] => svc.punkte().map((p) => p.path);
+
+  /** Schaltet die Testbasis auf die Vorkommen-Fixture (M2) um. */
+  const ladeVorkommenFixture = (): void => {
+    const tree = TestBed.inject(TreeService);
+    const parser = TestBed.inject(XsdParserService);
+    const dom = new DOMParser().parseFromString(XSD_VORKOMMEN, 'application/xml');
+    const idx = parser.buildIndexFrom([{ file: 'xjustiz_0000_test2.xsd', dom }]).idx;
+    state.idx.set(idx);
+    state.root.set(tree.buildRoot(M2, idx));
+  };
 
   describe('Decision-Points', () => {
     it('findet genau die echten Entscheidungen in Dokumentreihenfolge', () => {
@@ -418,6 +447,218 @@ describe('GuidedService', () => {
 
       expect(svc.fuellePflichtfelder()).toBe(0);
       expect(state.elemente()[`${M}/kopf`]).toBeUndefined();
+    });
+  });
+
+  // ── Wirkungen der Vorgabe im Durchlauf (Issue #26) ────────────────────
+
+  describe('Gebundener Durchlauf: Wirkungen der Vorgabe', () => {
+    /** Vorgabe mit eigener Stufenliste (w1 pflicht, w2 optional, w3 excl, w4 markierung). */
+    const V = { pflicht: 'w1', optional: 'w2', excl: 'w3', markierung: 'w4' };
+
+    const bindeVorgabe = (
+      elemente: Record<string, { status?: string }>,
+      erweiterungen: Record<string, Erweiterung[]> = {},
+      auspraegungen: Record<string, { id: string; name: string }[]> = {},
+    ): void => {
+      state.setVorgabe({
+        meta: {},
+        statuses: [
+          { id: V.pflicht, name: 'zwingend', farbe: '#a00', wirkung: 'pflicht' },
+          { id: V.optional, name: 'anzugeben, wenn vorhanden', farbe: '#0a0', wirkung: 'optional' },
+          { id: V.excl, name: 'nicht verwendet', farbe: '#888', wirkung: 'ausgeschlossen' },
+          { id: V.markierung, name: 'zu klären', farbe: '#fa0', wirkung: 'markierung' },
+        ],
+        elemente,
+        auspraegungen,
+        erweiterungen,
+      });
+    };
+
+    beforeEach(() => {
+      state.messageCreate.set({ msgName: M, entryId: null, name: null });
+    });
+
+    describe('zwingend gesetzt', () => {
+      it('macht ein Schema-optionales Blatt zum Pflicht-Wert-Punkt', () => {
+        bindeVorgabe({ [`${M}/az`]: { status: V.pflicht } });
+
+        expect(svc.punktAt(`${M}/az`)?.art).toBe('wert');
+        expect(svc.offeneSet().has(`${M}/az`)).toBeTrue();
+        expect(svc.offenePflicht()).toBe(3); // kopf, _auswahl, az
+        state.setElementProfile(`${M}/az`, { beispiel: '12 C 34/26' });
+        expect(svc.offeneSet().has(`${M}/az`)).toBeFalse();
+      });
+
+      it('verlangt den Teilbaum: der Container wird ohne Aufnahme-Frage betreten', () => {
+        bindeVorgabe({ [`${M}/_gruppe`]: { status: V.pflicht } });
+
+        // Kein Aufnehmen/Weglassen-Punkt mehr — stattdessen sein Pflicht-Kind.
+        expect(svc.punktAt(`${M}/_gruppe`)).toBeNull();
+        expect(svc.punktAt(`${M}/_gruppe/detail`)?.art).toBe('wert');
+        expect(svc.offeneSet().has(`${M}/_gruppe/detail`)).toBeTrue();
+      });
+
+      it('laesst sich nicht weglassen', () => {
+        bindeVorgabe({ [`${M}/az`]: { status: V.pflicht } });
+
+        svc.setzeAufnahme(`${M}/az`, false);
+
+        expect(state.wirkungOf(`${M}/az`)).toBe('pflicht');
+        expect(svc.punktAt(`${M}/az`)?.art).toBe('wert');
+      });
+
+      it('gilt auch innerhalb eines Vorkommens — dort kennt die Profilierung nur den generischen Pfad', () => {
+        // Die Vorgabe adressiert `…/beteiligung/rolle`; der Durchlauf fragt
+        // `…/beteiligung@a/rolle`, denn die id entsteht erst zur Laufzeit.
+        ladeVorkommenFixture();
+        state.messageCreate.set({ msgName: M2, entryId: null, name: null });
+        bindeVorgabe({ [`${M2}/beteiligung/rolle`]: { status: V.pflicht } });
+        svc.setzeAufnahme(`${M2}/beteiligung`, true);
+        const a = state.addAusp(`${M2}/beteiligung`, 'Kläger');
+        const rolle = `${M2}/beteiligung@${a}/rolle`;
+
+        // Pflicht-Wert-Punkt statt Aufnehmen/Weglassen-Frage ...
+        expect(svc.punktAt(rolle)?.art).toBe('wert');
+        expect(svc.offeneSet().has(rolle)).toBeTrue();
+        // ... ohne Marker, denn die Profilierung hat sich festgelegt ...
+        expect(svc.markerOf(rolle)).toBeNull();
+
+        // ... und nicht weglassbar.
+        svc.setzeAufnahme(rolle, false);
+        expect(state.wirkungOf(rolle)).not.toBe('ausgeschlossen');
+        expect(svc.punktAt(rolle)?.art).toBe('wert');
+      });
+    });
+
+    describe('anzugeben, wenn vorhanden', () => {
+      it('bleibt Entscheidungspunkt; unbeantwortet zaehlt als offen', () => {
+        bindeVorgabe({ [`${M}/az`]: { status: V.optional } });
+
+        expect(svc.punktAt(`${M}/az`)?.art).toBe('element');
+        expect(svc.offeneSet().has(`${M}/az`)).toBeTrue();
+        expect(svc.offenePflicht()).toBe(2); // kopf + _auswahl — die Frage selbst ist nicht kritisch
+
+        svc.setzeAufnahme(`${M}/az`, false);
+        expect(svc.offeneSet().has(`${M}/az`)).toBeFalse();
+      });
+    });
+
+    describe('reine Markierung ("zu klaeren")', () => {
+      it('verhaelt sich wie optional: Entscheidungspunkt, offen, kein Abstieg', () => {
+        bindeVorgabe({ [`${M}/_gruppe`]: { status: V.markierung } });
+
+        expect(svc.punktAt(`${M}/_gruppe`)?.art).toBe('element');
+        expect(svc.offeneSet().has(`${M}/_gruppe`)).toBeTrue();
+        expect(pfade()).not.toContain(`${M}/_gruppe/detail`); // erst mit der Aufnahme
+
+        svc.setzeAufnahme(`${M}/_gruppe`, true);
+        expect(pfade()).toContain(`${M}/_gruppe/detail`);
+      });
+
+      it('ist als ungeklaert gekennzeichnet — auch nach der eigenen Entscheidung', () => {
+        bindeVorgabe({ [`${M}/az`]: { status: V.markierung } });
+
+        expect(svc.markerOf(`${M}/az`)).toBe('zuklaeren');
+        expect(svc.punktAt(`${M}/az`)?.marker).toBe('zuklaeren');
+
+        // Die offene Frage der Profilierung bleibt offen, auch wenn der
+        // Durchlauf das Element aufnimmt.
+        svc.setzeAufnahme(`${M}/az`, true);
+        expect(svc.markerOf(`${M}/az`)).toBe('zuklaeren');
+      });
+    });
+
+    describe('ohne Festlegung', () => {
+      it('folgt der Schema-Semantik und traegt den Marker "nicht profiliert"', () => {
+        bindeVorgabe({ [`${M}/az`]: { status: V.optional } });
+
+        // Schema-Pflicht bleibt Pflicht, Schema-optional bleibt Entscheidungspunkt.
+        expect(svc.punktAt(`${M}/kopf`)?.art).toBe('wert');
+        expect(svc.punktAt(`${M}/beteiligung`)?.art).toBe('element');
+        expect(svc.markerOf(`${M}/kopf`)).toBe('nichtprofiliert');
+        expect(svc.punktAt(`${M}/beteiligung`)?.marker).toBe('nichtprofiliert');
+        // Was die Profilierung festlegt, traegt den Marker nicht.
+        expect(svc.markerOf(`${M}/az`)).toBeNull();
+      });
+
+      it('gilt nicht fuer Vorkommen — sie erben die Aussage ihres Traegerelements', () => {
+        bindeVorgabe({
+          [`${M}/beteiligung`]: { status: V.pflicht },
+          [`${M}/beteiligung/name`]: { status: V.markierung },
+        });
+        // Vorkommen entstehen zur Laufzeit; ihre ids kennt die Profilierung nicht.
+        const a = state.addAusp(`${M}/beteiligung`, 'Kläger');
+
+        expect(svc.markerOf(`${M}/beteiligung@${a}`)).toBeNull();
+        expect(svc.markerOf(`${M}/beteiligung@${a}/name`)).toBe('zuklaeren');
+      });
+
+      it('gibt es ohne gebundene Fassung nicht', () => {
+        expect(svc.markerOf(`${M}/kopf`)).toBeNull();
+        expect(svc.punktAt(`${M}/kopf`)?.marker).toBeUndefined();
+      });
+    });
+
+    describe('Zaehlung der beruehrten Elemente (Sammelmeldung beim Speichern)', () => {
+      it('zaehlt nur, was in der Nachricht landet', () => {
+        bindeVorgabe({ [`${M}/az`]: { status: V.markierung } });
+
+        // kopf: Schema-Pflicht ohne Festlegung. az: noch nicht aufgenommen.
+        expect(svc.markerZaehlung()).toEqual({ ungeklaert: 0, nichtProfiliert: 1 });
+
+        svc.setzeAufnahme(`${M}/az`, true);
+        expect(svc.markerZaehlung()).toEqual({ ungeklaert: 1, nichtProfiliert: 1 });
+
+        svc.setzeAufnahme(`${M}/az`, false);
+        expect(svc.markerZaehlung()).toEqual({ ungeklaert: 0, nichtProfiliert: 1 });
+      });
+
+      it('ist ohne gebundene Fassung leer', () => {
+        expect(svc.markerZaehlung()).toEqual({ ungeklaert: 0, nichtProfiliert: 0 });
+      });
+    });
+
+    describe('Schema-Erweiterungen der Profilierung', () => {
+      const ERW: Erweiterung = {
+        id: 'e1',
+        name: 'zusatzAngabe',
+        min: '1',
+        max: '1',
+        datentyp: 'string',
+      };
+
+      it('sind regulaere Entscheidungspunkte', () => {
+        bindeVorgabe({}, { [M]: [ERW] });
+
+        expect(svc.punktAt(`${M}/~e1`)?.art).toBe('wert');
+        expect(svc.offeneSet().has(`${M}/~e1`)).toBeTrue();
+        expect(svc.offenePflicht()).toBe(3); // kopf, _auswahl, Erweiterung
+
+        state.setElementProfile(`${M}/~e1`, { beispiel: 'Zusatz' });
+        expect(svc.offeneSet().has(`${M}/~e1`)).toBeFalse();
+      });
+    });
+
+    describe('Fortschritt', () => {
+      it('zaehlt die profilbedingten Punkte mit', () => {
+        const y0 = svc.fortschritt().y; // 5 ohne Bindung
+
+        bindeVorgabe(
+          { [`${M}/beteiligung`]: { status: V.pflicht } },
+          { [M]: [{ id: 'e1', name: 'zusatzAngabe', min: '1', max: '1', datentyp: 'string' }] },
+          { [`${M}/beteiligung`]: [{ id: 'v1', name: 'Notar/in' }] },
+        );
+
+        // Statt der Aufnahme-Frage zu `beteiligung` stehen jetzt das zwingende
+        // Vorkommen und sein Pflicht-Blatt an, dazu die Schema-Erweiterung.
+        expect(pfade()).toContain(`${M}/beteiligung@v1`);
+        expect(pfade()).toContain(`${M}/beteiligung@v1/name`);
+        expect(pfade()).toContain(`${M}/~e1`);
+        // Das zwingende Vorkommen ist per Definition erledigt (es existiert),
+        // die uebrigen Punkte sind offen.
+        expect(svc.fortschritt()).toEqual({ x: 1, y: y0 + 2 });
+      });
     });
   });
 });

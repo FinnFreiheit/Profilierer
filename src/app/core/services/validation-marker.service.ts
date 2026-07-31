@@ -37,11 +37,7 @@ export class ValidationMarkerService {
     // Folge-Element melden — ein Fehlertext, dessen Subjekt ein bekannter
     // Erweiterungs-Name ist, geht trotzdem auf die Erweiterung zurueck.
     // Konservativ: nur das erste Element '…' im Text zaehlt.
-    const erwNamen = new Set(
-      Object.values(this.state.erweiterungen())
-        .flat()
-        .map((e) => e.name),
-    );
+    const erwNamen = this.state.erweiterungsNamen();
     const nenntErweiterung = (text: string): boolean => {
       const m = text.match(/Element '(?:\{[^}]*\})?([^']+)'/);
       return !!m && erwNamen.has(m[1]!);

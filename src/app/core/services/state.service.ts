@@ -8,7 +8,7 @@ import {
   Status,
   Wirkung,
 } from '../../models/profile.model';
-import { TreeItem, TreeNode, itemPath } from '../../models/node.model';
+import { TreeItem, TreeNode, itemPath, ohneVorkommen } from '../../models/node.model';
 import { Codelist } from '../../models/codelist.model';
 import { DiffAnc, DiffEntry } from '../../models/diff.model';
 import { XsdDoc, XsdIndex } from '../../models/xsd-index.model';
@@ -85,16 +85,43 @@ export class StateService {
   }
 
   /**
-   * Wirkung, die *allein aus der Vorgabe* stammt: null, sobald der Durchlauf am
-   * Pfad eine eigene Entscheidung fuehrt (dann ist die Entscheidung massgeblich)
-   * oder keine Vorgabe gebunden ist. Aufgeloest ueber die Stufenliste der
-   * Vorgabe — Stufen sind je Profilierung frei konfigurierbar.
+   * Was die gebundene Fassung fuer diesen Pfad **festlegt** — unabhaengig davon,
+   * ob der Durchlauf inzwischen eine eigene Entscheidung getroffen hat. Das ist
+   * die Profil-Aussage, aus der die Fuehrung ihre Wirkungen und Marker ableitet:
+   * `pflicht` = zwingend (nicht abwaehlbar), `optional` = anzugeben wenn
+   * vorhanden, `markierung` = "zu klaeren", `null` = die Profilierung sagt
+   * nichts ("nicht profiliert", Schema-Semantik gilt). Aufgeloest ueber die
+   * Stufenliste **der Vorgabe** — Stufen sind je Profilierung frei
+   * konfigurierbar, dieselbe id kann in beiden Schichten etwas anderes bedeuten.
    */
-  private vorgabeWirkung(path: string): Wirkung | null {
+  profilWirkung(path: string): Wirkung | null {
     const v = this.vorgabe();
-    if (!v || this.elemente()[path]?.status) return null;
+    if (!v) return null;
     const id = v.elemente[path]?.status;
     return (id && v.statuses.find((s) => s.id === id)?.wirkung) || null;
+  }
+
+  /**
+   * Dieselbe Aussage, aber wie der gebundene Durchlauf sie sieht: Vorkommen
+   * erben die Festlegung ihres Traegerelements. Ihre ids entstehen zur Laufzeit
+   * (`…/beteiligung@a1`), die Profilierung kann sie gar nicht adressieren — was
+   * generisch zwingend gesetzt ist, gilt darum in jeder Auspraegung. Nur wo die
+   * gebundene Fassung den Vorkommen-Pfad selbst fuehrt (eigene Auspraegungen),
+   * gewinnt der exakte Pfad. Massgeblich fuer Wirkungen und Marker; die rohe
+   * `profilWirkung` bleibt fuer alles, was pfadgenau bleiben muss.
+   */
+  profilWirkungGeerbt(path: string): Wirkung | null {
+    return this.profilWirkung(path) ?? this.profilWirkung(ohneVorkommen(path));
+  }
+
+  /**
+   * Wirkung, die *allein aus der Vorgabe* stammt: null, sobald der Durchlauf am
+   * Pfad eine eigene Entscheidung fuehrt (dann ist die Entscheidung massgeblich)
+   * oder keine Vorgabe gebunden ist.
+   */
+  private vorgabeWirkung(path: string): Wirkung | null {
+    if (this.elemente()[path]?.status) return null;
+    return this.profilWirkung(path);
   }
 
   /**
@@ -558,9 +585,30 @@ export class StateService {
 
   // ── Schema-Erweiterungen ────────────────────────────────────────────
 
+  /**
+   * erweiterungenOf — Entscheidung, sonst Vorgabe. Wie `auspsOf` gilt der
+   * Rueckfall je Elternpfad fuer die ganze Liste. Im gebundenen Durchlauf sind
+   * die Schema-Erweiterungen der Profilierung damit regulaerer Teil des Baums:
+   * sie werden befuellt wie jedes andere Element (Spec "Testnachricht aus einer
+   * Profilierung" — sonst fehlten zwingend gesetzte Elemente und die Nachricht
+   * waere nicht profilkonform).
+   */
   erweiterungenOf(parentPath: string): Erweiterung[] | null {
-    return this.erweiterungen()[parentPath] ?? null;
+    return this.erweiterungen()[parentPath] ?? this.vorgabe()?.erweiterungen[parentPath] ?? null;
   }
+
+  /**
+   * Namen aller bekannten Schema-Erweiterungen — aus dem Entscheidungsstand und
+   * aus der gebundenen Fassung. Im gebundenen Durchlauf stammen die
+   * Erweiterungen aus der Profilierung; ohne diese Schicht hielte die
+   * Validierung deren Fehler faelschlich fuer echte Schemaverstoesse.
+   */
+  readonly erweiterungsNamen = computed<ReadonlySet<string>>(() => {
+    const namen = new Set<string>();
+    for (const quelle of [this.erweiterungen(), this.vorgabe()?.erweiterungen ?? {}])
+      for (const liste of Object.values(quelle)) for (const e of liste) namen.add(e.name);
+    return namen;
+  });
 
   /** Haengt eine Schema-Erweiterung unter `parentPath` an (Muster addAusp). */
   addErweiterung(parentPath: string, daten: Omit<Erweiterung, 'id'>): string {

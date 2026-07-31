@@ -56,3 +56,12 @@ export function itemPath(it: TreeItem): string {
 export function istErweiterungsPfad(pfad: string): boolean {
   return pfad.includes('/~');
 }
+
+/**
+ * Der Pfad ohne Vorkommen-Segmente (`…/beteiligung@a7/name` → `…/beteiligung/name`)
+ * — der generische Schema-Pfad, unter dem eine Profilierung ohne eigene
+ * Auspraegungen ihre Aussagen fuehrt.
+ */
+export function ohneVorkommen(pfad: string): string {
+  return pfad.replace(/@[^/]+/g, '');
+}
