@@ -75,6 +75,7 @@ export class TestmessageCreateService {
     });
     this.state.guided.set(true);
     this.state.view.set('editor');
+    this.guided.loeseEindeutigeVerweise();
     this.guided.gotoNextOpen();
   }
 
@@ -113,6 +114,9 @@ export class TestmessageCreateService {
     });
     this.state.guided.set(true);
     this.state.view.set('editor');
+    // Verweise mit genau einem zulaessigen Ziel sind ohne Zutun erledigt (#30) —
+    // vor dem Sprung auf den ersten offenen Punkt, damit er sie ueberspringt.
+    this.guided.loeseEindeutigeVerweise();
     this.guided.gotoNextOpen();
     this.meldeWidersprueche(doc);
   }
@@ -305,6 +309,7 @@ export class TestmessageCreateService {
     this.state.messageCreate.set({ ...session, entryId: null, name: null });
     this.state.guided.set(true);
     this.state.view.set('editor');
+    this.guided.loeseEindeutigeVerweise();
     this.guided.gotoNextOpen();
   }
 

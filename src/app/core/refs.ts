@@ -26,3 +26,35 @@ export function refKindOf(node: TreeNode): string | null {
   if (/^ref\./.test(node.name)) return node.name.slice(4);
   return null;
 }
+
+/**
+ * Der **Traeger** eines Verweises: der Knoten, an dem das Verweisziel haengt.
+ * Ein Blatt `ref.rollennummer` traegt nur die Nummer; die Art des Verweises
+ * steht im Typ seines Traegers (`Type.GDS.Ref.Rollennummer`), und dort gehoert
+ * auch die Zielangabe hin. Ueber synthetische Gruppen (sequence/choice) hinweg,
+ * die zwischen Traeger und Blatt liegen koennen. Ist der Knoten selbst der
+ * Traeger, gibt die Funktion ihn zurueck; ohne Traeger null.
+ */
+export function refTraeger(node: TreeNode): TreeNode | null {
+  if ((node.typeName || '').startsWith('Type.GDS.Ref.')) return node;
+  if (!/^ref\./.test(node.name)) return null;
+  let p = node.parent;
+  let tiefe = 0;
+  while (p && tiefe++ < 4) {
+    if ((p.typeName || '').startsWith('Type.GDS.Ref.')) return p;
+    if (!p.synthetic) break;
+    p = p.parent;
+  }
+  return null;
+}
+
+/**
+ * Die Verweis-Art **mit** Blatt-Aufloesung: am Blatt `ref.rollennummer` liefert
+ * `refKindOf` die kleingeschriebene Elementbezeichnung, die in `REF_TARGETS`
+ * nicht vorkommt — die Zielkandidaten blieben ungefiltert. Hier gewinnt die Art
+ * des Traegers (Issue #30).
+ */
+export function refKindEff(node: TreeNode): string | null {
+  const traeger = refTraeger(node);
+  return traeger ? refKindOf(traeger) : refKindOf(node);
+}

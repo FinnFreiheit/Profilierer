@@ -57,6 +57,32 @@ const XSD_VORKOMMEN = `<?xml version="1.0" encoding="UTF-8"?>
 
 const M2 = 'nachricht.test.0002';
 
+/**
+ * Dritte Fixture fuer die Verweise (Issue #30): ein wiederholbares
+ * `beteiligung` mit dem Nummern-Blatt `rollennummer` und ein Verweis-Traeger
+ * `verweis` vom Typ `Type.GDS.Ref.Rollennummer`, unter dem allein das
+ * Nummern-Blatt `ref.rollennummer` liegt — genau der Aufbau des
+ * Grunddatensatzes.
+ */
+const XSD_VERWEIS = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0003" type="Type.Test3.Root"/>
+  <xs:complexType name="Type.Test3.Root"><xs:sequence>
+    <xs:element name="beteiligung" type="Type.Test3.Bet" minOccurs="0" maxOccurs="unbounded"/>
+    <xs:element name="anlage" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+    <xs:element name="verweis" type="Type.GDS.Ref.Rollennummer"/>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="Type.Test3.Bet"><xs:sequence>
+    <xs:element name="rollennummer" type="xs:string" minOccurs="0"/>
+    <xs:element name="name" type="xs:string" minOccurs="0"/>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="Type.GDS.Ref.Rollennummer"><xs:sequence>
+    <xs:element name="ref.rollennummer" type="xs:string"/>
+  </xs:sequence></xs:complexType>
+</xs:schema>`;
+
+const M3 = 'nachricht.test.0003';
+
 describe('GuidedService', () => {
   let svc: GuidedService;
   let state: StateService;
@@ -88,6 +114,96 @@ describe('GuidedService', () => {
     state.idx.set(idx);
     state.root.set(tree.buildRoot(M2, idx));
   };
+
+  /** Schaltet die Testbasis auf die Verweis-Fixture (M3) um. */
+  const ladeVerweisFixture = (): void => {
+    const tree = TestBed.inject(TreeService);
+    const parser = TestBed.inject(XsdParserService);
+    const dom = new DOMParser().parseFromString(XSD_VERWEIS, 'application/xml');
+    const idx = parser.buildIndexFrom([{ file: 'xjustiz_0000_test3.xsd', dom }]).idx;
+    state.idx.set(idx);
+    state.root.set(tree.buildRoot(M3, idx));
+  };
+
+  // ── Verweise: Ziel-Vorkommen statt Nummer (Issue #30) ─────────────────
+
+  describe('Verweise', () => {
+    beforeEach(() => {
+      ladeVerweisFixture();
+      state.messageCreate.set({ msgName: M3, entryId: null, name: null });
+    });
+
+    it('bietet die Ziel-Vorkommen an, unterscheidbar nach Nummer', () => {
+      state.addAusp(`${M3}/beteiligung`, 'Notar/in');
+      state.addAusp(`${M3}/beteiligung`, 'Notar/in');
+      // Artfremdes Vorkommen: `Rollennummer` zielt laut REF_TARGETS nur auf
+      // `beteiligung`.
+      state.addAusp(`${M3}/anlage`, 'Schriftsatz');
+
+      const ziele = svc.verweisZiele(`${M3}/verweis`);
+      expect(ziele.length).toBe(2);
+      expect(ziele[0]!.label).toContain('Vorkommen 1');
+      expect(ziele[1]!.label).toContain('Vorkommen 2');
+
+      // Auch am Nummern-Blatt, wo der gefuehrte Punkt liegt: die Art kommt vom
+      // Traeger. Ohne diese Aufloesung waere sie „rollennummer", stuende nicht in
+      // REF_TARGETS — und die Anlage laege mit in der Auswahl.
+      const amBlatt = svc.verweisZiele(`${M3}/verweis/ref.rollennummer`);
+      expect(amBlatt.map((z) => z.path)).toEqual(ziele.map((z) => z.path));
+    });
+
+    it('vergibt mit der Zielwahl die Nummer an beiden Enden', () => {
+      const id1 = state.addAusp(`${M3}/beteiligung`, 'Notar/in');
+      state.addAusp(`${M3}/beteiligung`, 'Zeuge/Zeugin');
+
+      svc.waehleVerweisZiel(`${M3}/verweis`, `${M3}/beteiligung@${id1}`);
+
+      expect(state.refZielOf(`${M3}/verweis`)).toBe(`${M3}/beteiligung@${id1}`);
+      expect(state.elemente()[`${M3}/verweis/ref.rollennummer`]?.beispiel).toBe('1');
+      expect(state.elemente()[`${M3}/beteiligung@${id1}/rollennummer`]?.beispiel).toBe('1');
+    });
+
+    it('loest ein eindeutiges Ziel ohne Zutun auf, mehrdeutige nicht', () => {
+      const id1 = state.addAusp(`${M3}/beteiligung`, 'Notar/in');
+
+      expect(svc.loeseEindeutigeVerweise()).toBe(1);
+      expect(state.refZielOf(`${M3}/verweis`)).toBe(`${M3}/beteiligung@${id1}`);
+      expect(svc.offeneSet().has(`${M3}/verweis/ref.rollennummer`)).toBeFalse();
+
+      // Zweites Vorkommen: der naechste Lauf laesst die getroffene Wahl stehen.
+      state.addAusp(`${M3}/beteiligung`, 'Zeuge/Zeugin');
+      expect(svc.loeseEindeutigeVerweise()).toBe(0);
+      expect(state.refZielOf(`${M3}/verweis`)).toBe(`${M3}/beteiligung@${id1}`);
+    });
+
+    it('grenzt die Auswahl auf das von der Profilierung festgelegte Ziel ein', () => {
+      // Die gebundene Fassung fuehrt zwei Auspraegungen und legt fest, dass der
+      // Verweis auf die erste zielt: waehlbar sind nur deren Vorkommen.
+      state.setVorgabe({
+        meta: {},
+        statuses: [{ id: 'w1', name: 'zwingend', farbe: '#a00', wirkung: 'pflicht' }],
+        elemente: { [`${M3}/verweis`]: { refZiel: `${M3}/beteiligung@n1` } },
+        auspraegungen: {
+          [`${M3}/beteiligung`]: [
+            { id: 'n1', name: 'Notar/in' },
+            { id: 'n2', name: 'Zeuge/Zeugin' },
+          ],
+        },
+        erweiterungen: {},
+      });
+
+      expect(svc.verweisZiele(`${M3}/verweis`).map((z) => z.path)).toEqual([
+        `${M3}/beteiligung@n1`,
+      ]);
+
+      // Eine Kopie desselben Vorkommens bleibt zulaessig — sie ist dieselbe
+      // Auspraegung (#28: `vonId`).
+      state.copyAusp(`${M3}/beteiligung`, 'n1');
+      expect(svc.verweisZiele(`${M3}/verweis`).length).toBe(2);
+      // Das fremde Vorkommen bleibt draussen.
+      expect(svc.verweisZiele(`${M3}/verweis`).some((z) => z.path.endsWith('@n2'))).toBeFalse();
+    });
+  });
 
   describe('Decision-Points', () => {
     it('findet genau die echten Entscheidungen in Dokumentreihenfolge', () => {

@@ -163,6 +163,15 @@ export class StateService {
   }
 
   /**
+   * Verweisziel **der Vorgabe** — welches Vorkommen die Profilierung an diesem
+   * Verweis vorsieht. Grenze der Auswahl im gefuehrten Durchlauf (#30) und
+   * darum eine eigene Lesart neben `refZielOf`, das die eigene Wahl vorzieht.
+   */
+  vorgabeRefZiel(path: string): string | null {
+    return this.vorgabeProfileGeerbt(path)?.refZiel || null;
+  }
+
+  /**
    * Anmerkung **der Vorgabe** — der fachliche Hilfetext, den die Profilierung an
    * den Entscheidungspunkt schreibt. Gegenstueck zu `vorgabeBeispiel` und aus
    * demselben Grund eine eigene Lesart: `anmerkungOf` zieht die Entscheidung
@@ -1051,18 +1060,39 @@ export class StateService {
     });
   }
 
-  /** refZielKandidaten (Z.616-624): moegliche Verweisziele fuer eine Ref-Art. */
-  refZielKandidaten(kind: string): { path: string; label: string }[] {
+  /**
+   * refZielKandidaten (Z.616-624): moegliche Verweisziele fuer eine Ref-Art.
+   *
+   * `beschraenkung` ist das von der **Profilierung** festgelegte Verweisziel:
+   * ein Vorkommen-Pfad, auf den die Auswahl eingeengt wird — zulaessig bleiben
+   * dieses Vorkommen und seine Kopien (`vonId`), also die Vorkommen **derselben
+   * Auspraegung** (Spec #30). Ohne Festlegung bleibt die Liste voll.
+   *
+   * Die Beschriftung nennt die Nummer des Vorkommens, damit mehrere Vorkommen
+   * derselben Auspraegung unterscheidbar sind.
+   */
+  refZielKandidaten(
+    kind: string,
+    beschraenkung?: string | null,
+  ): { path: string; label: string }[] {
     const names = REF_TARGETS[kind] ?? null;
     const out: { path: string; label: string }[] = [];
+    const grenzeListe = beschraenkung ? beschraenkung.slice(0, beschraenkung.lastIndexOf('@')) : '';
+    const grenzeId = beschraenkung ? beschraenkung.slice(beschraenkung.lastIndexOf('@') + 1) : '';
     // Ueber die effektive Lesart: im gebundenen Durchlauf stehen die Vorkommen
     // in der Vorgabe, solange der Durchlauf sie nicht angefasst hat — sonst
     // kennte `auspLabel` ein Ziel, das die Kandidatenliste nicht anbietet (#28).
     for (const [path, list] of this.alleAuspListen()) {
       const elName = path.split('/').pop()!.split('#')[0]!.split('@')[0]!;
       if (names && !names.includes(elName)) continue;
-      for (const a of list)
-        out.push({ path: path + '@' + a.id, label: pretty(elName) + ' → ' + a.name });
+      if (beschraenkung && path !== grenzeListe) continue;
+      list.forEach((a, i) => {
+        if (beschraenkung && a.id !== grenzeId && a.vonId !== grenzeId) return;
+        out.push({
+          path: path + '@' + a.id,
+          label: pretty(elName) + ' → ' + a.name + ' (Vorkommen ' + (i + 1) + ')',
+        });
+      });
     }
     return out;
   }
