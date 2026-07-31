@@ -569,6 +569,38 @@ describe('StateService', () => {
       });
     });
 
+    it('Kardinalitaet der Vorgabe gilt auch im Vorkommen; der exakte Pfad gewinnt', () => {
+      // Gegenstueck zum Ausschluss (Issue #59): ohne Auflösung des Vorkommen-
+      // Pfades blieb eine eingegrenzte Kardinalitaet innerhalb einer benannten
+      // Auspraegung wirkungslos — die Anzeige nannte die Schema-Grenzen, die
+      // Mindestanzahl wurde nicht materialisiert und die Hoechstanzahl nicht
+      // gesperrt.
+      const imVorkommen = node('m/a@x1/kind', { min: '0', max: 'unbounded' });
+      const mitEigenem = node('m/a@x2/kind', { min: '0', max: 'unbounded' });
+      s.setVorgabe(
+        vorgabeDoc({
+          elemente: { 'm/a/kind': { min: '2', max: '3' }, 'm/a@x2/kind': { min: '1', max: '1' } },
+        }),
+      );
+
+      expect(s.effKard(imVorkommen)).toEqual({
+        min: '2',
+        max: '3',
+        changed: true,
+        minProfil: true,
+        maxProfil: true,
+      });
+      // Der exakte Eintrag gilt als Ganzes — wie in `vorgabeProfileGeerbt`, das
+      // ebenfalls den Eintrag waehlt und nicht je Feld mischt.
+      expect(s.effKard(mitEigenem)).toEqual({
+        min: '1',
+        max: '1',
+        changed: true,
+        minProfil: true,
+        maxProfil: true,
+      });
+    });
+
     it('Auspraegungen: Entscheidung vor Vorgabe, je Pfad als ganze Liste', () => {
       s.setVorgabe(
         vorgabeDoc({
@@ -897,6 +929,31 @@ describe('StateService', () => {
       expect(s.vorgabeGesperrt('m/a@x1/kind')).toBeTrue();
       expect(s.vorgabeGesperrt('m/b')).toBeFalse();
       expect(s.vorgabeGesperrt('m/c')).toBeFalse();
+    });
+
+    it('vererbt den Ausschluss eines generischen Kindpfads in jedes Vorkommen', () => {
+      // Die Profilierung kann die zur Laufzeit entstehenden Vorkommen-ids nicht
+      // adressieren (`…@x1`) — was generisch ausgeschlossen ist, gilt darum in
+      // jedem Vorkommen. Ohne diese Auflösung war ein ausgeschlossenes Element
+      // innerhalb einer benannten Auspraegung befuellbar (Issue #59): der
+      // Vorfahren-Check trifft nur den Traegerknoten, nicht das Kind darunter.
+      bindeVorgabe({ 'm/a/kind': { status: 'v9' } });
+
+      expect(s.vorgabeGesperrt('m/a/kind')).toBeTrue();
+      expect(s.vorgabeGesperrt('m/a@x1/kind')).toBeTrue();
+      expect(s.vorgabeGesperrt('m/a@x2/kind/enkel')).toBeTrue();
+      // Nachbarn im Vorkommen bleiben frei.
+      expect(s.vorgabeGesperrt('m/a@x1/anderes')).toBeFalse();
+    });
+
+    it('der exakte Vorkommen-Pfad der Vorgabe gewinnt ueber den generischen', () => {
+      // Unter-Profilierung einer eigenen Auspraegung: dort ist dasselbe Element
+      // zwingend, nicht ausgeschlossen — dieselbe Regel wie bei Werten und
+      // Anmerkungen (`vorgabeProfileGeerbt`).
+      bindeVorgabe({ 'm/a/kind': { status: 'v9' }, 'm/a@x1/kind': { status: 'v1' } });
+
+      expect(s.vorgabeGesperrt('m/a@x1/kind')).toBeFalse();
+      expect(s.vorgabeGesperrt('m/a@x2/kind')).toBeTrue();
     });
 
     it('eine eigene Entscheidung ist keine Sperre (weglassen im Durchlauf)', () => {
