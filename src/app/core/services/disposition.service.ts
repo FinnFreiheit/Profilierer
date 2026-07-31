@@ -51,7 +51,9 @@ export class DispositionService {
     }
     // Eine Auspraegung ist durch ihr Anlegen aufgenommen — jeder Kontextknoten
     // ist ein Anker.
-    for (const [listPath, list] of Object.entries(this.state.auspraegungen())) {
+    // Effektive Lesart (#28): auch die Vorkommen der gebundenen Fassung sind
+    // Anker, solange der Durchlauf sie nicht angefasst hat.
+    for (const [listPath, list] of this.state.alleAuspListen()) {
       for (const a of list) {
         for (const mp of this.sammleRueckgrat(listPath + '@' + a.id)) paths.add(mp);
       }
