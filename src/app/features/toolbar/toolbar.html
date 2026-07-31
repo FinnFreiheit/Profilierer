@@ -244,6 +244,24 @@
       >
         Speichern
       </button>
+      @if (serieMoeglich()) {
+        <app-menu label="Weitere Testnachricht zu diesem Profil" #serie>
+          <button
+            class="menuItem"
+            title="Neue Sitzung mit derselben gebundenen Profilfassung — ohne Werte"
+            (click)="serie.close(); weitereTestnachrichtClick.emit(false)"
+          >
+            leer beginnen
+          </button>
+          <button
+            class="menuItem"
+            title="Werte und Entscheidungsstand der eben gespeicherten Nachricht übernehmen und anpassen"
+            (click)="serie.close(); weitereTestnachrichtClick.emit(true)"
+          >
+            als Kopie der eben gespeicherten
+          </button>
+        </app-menu>
+      }
     } @else if (isMessage()) {
       @if (hatEintrag()) {
         <button

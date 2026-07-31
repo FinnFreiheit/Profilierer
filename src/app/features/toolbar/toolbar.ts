@@ -42,6 +42,8 @@ export class Toolbar {
   readonly saveMessageClick = output<void>();
   readonly updateMessageClick = output<void>();
   readonly saveCreateClick = output<void>();
+  /** Serie fortsetzen; true = als Kopie der eben gespeicherten Nachricht. */
+  readonly weitereTestnachrichtClick = output<boolean>();
 
   protected readonly hasRoot = this.state.hasRoot;
   protected readonly hasIdxB = computed(() => !!this.state.idxB());
@@ -57,6 +59,17 @@ export class Toolbar {
    * keine id und kennen weiterhin nur "als neue Nachricht speichern".
    */
   protected readonly hatEintrag = computed(() => !!this.state.messageEdit()?.entryId);
+
+  /**
+   * "Weitere Testnachricht zu diesem Profil" (Serienerstellung): erst nach dem
+   * Speichern und nur im profilgebundenen Durchlauf — ohne Bindung gaebe es
+   * keine Fassung, an die die naechste Nachricht gebunden waere, und ohne
+   * gespeicherten Eintrag nichts, wovon eine Kopie ausginge.
+   */
+  protected readonly serieMoeglich = computed(() => {
+    const s = this.state.messageCreate();
+    return !!s?.profilId && !!s.entryId;
+  });
 
   /**
    * Abnahme-Badge im Editor-Kopf: Kennzeichen des geoeffneten Bibliotheks-
