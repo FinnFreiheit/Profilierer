@@ -218,12 +218,12 @@
   </app-menu>
 
   <div class="toolgroup">
-    @if (!isMessage() && !isCreate() && state.hinweisEintraege().length) {
+    @if (!isMessage() && !isCreate() && hinweise.eintraege().length) {
       <button
-        title="Übersicht aller internen Hinweise — Klick springt zum Element"
+        title="Übersicht aller Hinweise — Klick springt zum Element"
         (click)="hinweiseClick.emit()"
       >
-        Hinweise ({{ state.nOffeneHinweise() }})
+        Hinweise ({{ hinweise.nOffen() }})
       </button>
     }
     @if ((isCreate() || isMessage()) && !state.readOnly()) {

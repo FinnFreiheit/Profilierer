@@ -564,22 +564,27 @@
           ></textarea>
         </div>
         <div class="dsec">
-          <label>Interner Hinweis</label>
-          <textarea
-            placeholder="Abzuarbeitende Review-Notiz — Excel-Export nur solange offen, nie im XML"
-            [value]="v.hinweis"
-            (change)="setHinweis($event)"
-          ></textarea>
-          @if (v.hinweis) {
-            <label class="hinweisErledigt">
+          <label>Hinweise</label>
+          @for (h of v.hinweise; track h.id) {
+            <div class="hwZeile" [class.hwErledigt]="h.erledigt">
               <input
                 type="checkbox"
-                [checked]="v.hinweisErledigt"
-                (change)="toggleHinweisErledigt($event)"
+                title="Hinweis abarbeiten"
+                [checked]="h.erledigt"
+                (change)="toggleHinweisErledigt(h.id, $event)"
               />
-              erledigt
-            </label>
+              <span class="hwText">{{ h.text }}</span>
+              <button class="hwWeg" title="Hinweis löschen" (click)="loescheHinweis(h.id)">
+                ×
+              </button>
+            </div>
           }
+          <textarea
+            placeholder="Hinweis hinzufügen — erscheint im Excel-Export, nie im XML"
+            [value]="neuerHinweis()"
+            (input)="onNeuerHinweis($event)"
+            (change)="addHinweis()"
+          ></textarea>
         </div>
       }
       @if (!msgMode() || v.leaf) {
@@ -619,13 +624,17 @@
           <div class="docbox">{{ v.anmerkung }}</div>
         </div>
       }
-      @if (v.hinweis) {
+      @if (v.hinweise.length) {
         <div class="dsec">
-          <label>Interner Hinweis</label>
+          <label>Hinweise</label>
           <div class="docbox">
-            {{ v.hinweis }}
-            @if (v.hinweisErledigt) {
-              <span style="color: var(--muted)"> (erledigt)</span>
+            @for (h of v.hinweise; track h.id) {
+              <div [class.hwErledigt]="h.erledigt">
+                {{ h.text }}
+                @if (h.erledigt) {
+                  <span style="color: var(--muted)"> (erledigt)</span>
+                }
+              </div>
             }
           </div>
         </div>

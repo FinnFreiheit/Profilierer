@@ -9,6 +9,7 @@ import { ValueService } from './value.service';
 import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
 import { ExportService } from './export.service';
+import { HinweisStoreService } from './hinweis-store.service';
 import { fmtKard } from '../util/pretty.util';
 
 /** Eine Zeile eines Struktur-Sheets im NGem-Excel-Layout. */
@@ -21,7 +22,7 @@ interface ExcelZeile {
   anzahl?: string;
   status?: string;
   testdaten?: string;
-  /** Offener interner Hinweis (erledigte werden nicht exportiert). */
+  /** Offene Hinweise des Elements, untereinander (erledigte fehlen). */
   hinweis?: string;
 }
 
@@ -71,6 +72,7 @@ export class ExcelExportService {
   private readonly dl = inject(DownloadService);
   private readonly toast = inject(ToastService);
   private readonly exporter = inject(ExportService);
+  private readonly hinweise = inject(HinweisStoreService);
 
   async exportExcel(): Promise<void> {
     if (!this.exporter.bestaetigeOffeneEntscheidungen()) return;
@@ -164,7 +166,7 @@ export class ExcelExportService {
         anzahl: kurzKard(n.min, n.max) + (k.changed ? '\n' + kurzKard(k.min, k.max) : ''),
         status,
         testdaten: (!inh && p.beispiel) || '',
-        hinweis: (!p.hinweisErledigt && p.hinweis) || '',
+        hinweis: this.hinweisZelle(n.path),
       });
       if (n.doc) zeilen.push({ art: 'desc', tiefe, text: n.doc, status: status ? '.' : '' });
       if (kollabiert?.(n) || tiefe >= maxTiefe || n.recursive) continue;
@@ -182,7 +184,7 @@ export class ExcelExportService {
             anzahl: kurzKard(ap.min || '1', ap.max || '1'),
             status: auspInh ? 'entfällt' : this.statusText(cn.path, ap),
             testdaten: (!auspInh && ap.beispiel) || '',
-            hinweis: (!ap.hinweisErledigt && ap.hinweis) || '',
+            hinweis: this.hinweisZelle(cn.path),
           });
           this.sammleZeilen(this.tree.kinder(cn), tiefe + 2, zeilen, undefined, maxTiefe);
         }
@@ -190,6 +192,15 @@ export class ExcelExportService {
       }
       this.sammleZeilen(this.tree.kinder(n), tiefe + 1, zeilen, undefined, maxTiefe);
     }
+  }
+
+  /**
+   * Hinweis-Zelle eines Elements: alle **offenen** Hinweise untereinander
+   * (erledigte werden nicht exportiert). Leerer String = kein Hinweis, die
+   * Zusatzspalte entfaellt dann ganz.
+   */
+  private hinweisZelle(pfad: string): string {
+    return (this.hinweise.offeneJePfad().get(pfad) ?? []).map((h) => h.text).join('\n');
   }
 
   /** Szenariozelle: Statusname, Anmerkung angehaengt, Werte/Verweis darunter. */
@@ -249,7 +260,7 @@ export class ExcelExportService {
     const colAnzahl = colTyp + 1;
     const colStatus = colAnzahl + 1;
     const colTest = colStatus + 1;
-    // Zusatzspalte fuer offene interne Hinweise — nur wenn welche vorhanden sind,
+    // Zusatzspalte fuer offene Hinweise — nur wenn welche vorhanden sind,
     // damit das Referenzlayout sonst unveraendert bleibt.
     const colHinweis = zeilen.some((z) => z.hinweis) ? colTest + 1 : 0;
     for (let c = 1; c < einrueck; c++) ws.getColumn(c).width = 4.8;

@@ -19,6 +19,7 @@ npm run test:server
 ```
 
 - Delegiert an `server/package.json` (`node --test`): `server/profiles.test.js` und `server/testmessages.test.js` laufen gegen eine **In-Memory-SQLite** (`openDb(':memory:')`) — kein laufender Server, kein Netz, keine Datei-DB nötig.
+- **HTTP-Naht:** `server/abnahme.test.js` und `server/hinweise.test.js` montieren die echten Router samt Auth per `createApp(db)` in eine In-Process-Express-App auf einem Ephemeral-Port und sprechen sie per `fetch` an — geprüft wird ausschließlich extern beobachtbares Verhalten (Status, JSON). `hinweise.test.js` deckt den Hinweis-Endpunktsatz, den Schutz gegen Löschen durch ein Volldokument-Schreiben, das Verwerfen eingeschleuster Hinweisfelder, Import/Duplizieren/Versionen und die Start-Migration ab ([ADR 0014](adr/0014-hinweise-eigene-ressource.md)).
 - Einmalige Vorbereitung: `cd server && npm install` (better-sqlite3 ist nativ).
 - Die Frontend-Unit-Tests (`test:ci`, Karma) und die Server-Tests (node:test) sind bewusst getrennt; die vollständige Prüfkette ist `npm run test:ci && npm run test:server`.
 
@@ -28,6 +29,8 @@ npm run test:server
 - `XsdParserService` — `buildIndexFrom`, `particlesOfCT` (inkl. Vererbung), `enumsOfST`, `codelistOf`, `valueKind` gegen ein Inline-XSD-Fixture.
 - `TreeService` — Aufbau/Expansion, `isLeaf`/`isRepeatable`, Ausprägungs-Kontext.
 - `PersistenceService.loadXsdFiles` — End-to-End mit echten `File`-Objekten.
+- `HinweisStoreService` — Laden/Anlegen/Ändern/Löschen/Volltausch gegen ein gestubbtes `fetch`, dazu die abgeleiteten Sichten (Reihenfolge, Zähler, je Pfad, Vorfahren-Aggregat).
+- `PersistenceService` (Profildatei) — Export/Import-Roundtrip inklusive Hinweisen unter eigenem Top-Level-Schlüssel und der Umformung des Altformats (`hinweis`-Feld → Listeneintrag).
 - `CodelistService` — `parseGenericode`, `mergeCodelist` (Versionsvergleich).
 - `pretty.util` — `pretty`/`kardText`/`fmtKard`.
 

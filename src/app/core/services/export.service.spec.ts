@@ -7,6 +7,7 @@ import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
 import { XmlValidationService, XmlValidierung } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
+import { HinweisStoreService } from './hinweis-store.service';
 import { XsdDoc } from '../../models/xsd-index.model';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
@@ -130,8 +131,11 @@ describe('ExportService (Schematron)', () => {
     expect(sch()).not.toContain('schlummert');
   });
 
-  it('interne Hinweise tauchen weder im Schematron noch im Beispiel-XML auf', () => {
-    state.setElementProfile(`${M}/az`, { status: 's1', hinweis: 'INTERN-GEHEIM' });
+  it('Hinweise tauchen weder im Schematron noch im Beispiel-XML auf', () => {
+    state.setElementProfile(`${M}/az`, { status: 's1' });
+    TestBed.inject(HinweisStoreService).hinweise.set([
+      { id: 'h1', pfad: `${M}/az`, text: 'INTERN-GEHEIM', zeit: 1 },
+    ]);
     svc.exportSchematron();
     expect(sch()).not.toContain('INTERN-GEHEIM');
     expect(svc.buildBeispielXml()).not.toContain('INTERN-GEHEIM');

@@ -1,6 +1,6 @@
 import { Injectable, effect, inject } from '@angular/core';
 import { XsdDoc } from '../../models/xsd-index.model';
-import { ProfileDoc } from '../../models/profile.model';
+import { Hinweis, ProfileDoc } from '../../models/profile.model';
 import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
 import { NavService } from './nav.service';
@@ -10,6 +10,8 @@ import { ProfileStoreService } from './profile-store.service';
 import { DownloadService } from './download.service';
 import { BundledSchemaService } from './bundled-schema.service';
 import { RolleService } from './rolle.service';
+import { HinweisStoreService } from './hinweis-store.service';
+import { hinweiseAusDatei } from '../util/hinweis.util';
 import { defaultStatuses, newProfile } from '../profile-defaults';
 
 /** localStorage-Prefix der Notfallkopien (Backend beim Autosave nicht erreichbar). */
@@ -41,6 +43,7 @@ export class PersistenceService {
   private readonly dl = inject(DownloadService);
   private readonly bundled = inject(BundledSchemaService);
   private readonly rolle = inject(RolleService);
+  private readonly hinweise = inject(HinweisStoreService);
 
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   /** Verhindert parallele Upserts (Reihenfolge/Lost-Update-Schutz). */
@@ -88,6 +91,12 @@ export class PersistenceService {
       this.state.abnahmeSchreibschutz.set(schutz);
       this.state.readOnly.set(schutz);
       this.state.autosaveInfo.set(schutz ? 'von der BLK-AG abgenommen — schreibgeschützt' : '');
+    });
+    // Hinweise folgen dem offenen Profil: sie liegen in eigener Ablage (ADR 0014)
+    // und laufen nicht ueber den Autosave. Ein Profilwechsel laedt sie nach, das
+    // Verlassen des Editors (Nachrichten-Modus, Dashboard) leert sie.
+    effect(() => {
+      void this.hinweise.lade(this.state.activeProfileId());
     });
     // Notfallkopien frueherer Sitzungen ans Backend nachtragen (best effort).
     void this.flushNotfallkopien();
@@ -457,17 +466,30 @@ export class PersistenceService {
     this.state.view.set('editor');
   }
 
-  /** Ein beliebiges Profil-Dokument als Datei exportieren (auch nicht-aktiv). */
-  exportDoc(doc: ProfileDoc): void {
+  /**
+   * Ein beliebiges Profil-Dokument als Datei exportieren (auch nicht-aktiv).
+   * Die Hinweise stehen unter einem eigenen Top-Level-Schluessel neben
+   * `elemente`/`auspraegungen` — sie sind kein Teil des Dokuments (ADR 0014),
+   * sollen den Dateiaustausch aber ueberleben.
+   */
+  exportDoc(doc: ProfileDoc, hinweise: Hinweis[] = []): void {
     const json = JSON.stringify(
       {
         app: 'xjustiz-profilierer',
-        formatVersion: 3,
+        formatVersion: 4,
         meta: doc.meta,
         statuses: doc.statuses,
         elemente: doc.elemente,
         auspraegungen: doc.auspraegungen,
         erweiterungen: doc.erweiterungen,
+        hinweise: hinweise.map(({ pfad, text, autor, rolle, zeit, erledigt }) => ({
+          pfad,
+          text,
+          autor,
+          rolle,
+          zeit,
+          erledigt,
+        })),
       },
       null,
       2,
@@ -487,8 +509,27 @@ export class PersistenceService {
       xjustizVersion: this.state.version(),
       gespeichert: new Date().toISOString().slice(0, 10),
     });
-    this.exportDoc(this.state.profileDoc());
+    this.exportDoc(this.state.profileDoc(), this.hinweise.hinweise());
     this.toast.show('Profil gespeichert.');
+  }
+
+  /**
+   * Ein Profil aus der Bibliothek als Datei exportieren (Dashboard, ohne es zu
+   * oeffnen): Dokument und Hinweise liegen getrennt und werden hier wieder
+   * zusammengefuehrt. Gibt false, wenn nichts geschrieben wurde.
+   */
+  async exportProfil(id: string): Promise<boolean> {
+    const doc = await this.store.load(id);
+    if (!doc) return false;
+    let hinweise: Hinweis[] = [];
+    try {
+      hinweise = await this.hinweise.hole(id);
+    } catch (e) {
+      // Ohne Hinweise exportieren ist besser als gar nicht.
+      this.log.warn('Persistenz', `Hinweise zu ${id} nicht ladbar — Export ohne sie`, e);
+    }
+    this.exportDoc(doc, hinweise);
+    return true;
   }
 
   /**
@@ -530,7 +571,12 @@ export class PersistenceService {
               erweiterungen: data.erweiterungen || {},
             }
           : this.migrateV1(data);
+      // Hinweise aus dem eigenen Schluessel bzw. — bei Dateien vor v4 — aus den
+      // Altfeldern im Dokument; sie werden getrennt geschrieben, nicht mit dem
+      // Dokument. Ein Import ersetzt die Hinweise, er fuehrt sie nicht zusammen.
+      const hinweise = hinweiseAusDatei(data, prof, Date.now());
       const id = await this.store.create(prof);
+      if (hinweise.length) await this.hinweise.ersetzeAlle(id, hinweise);
       await this.openFromLibrary(id);
     } catch (e) {
       this.toast.show(

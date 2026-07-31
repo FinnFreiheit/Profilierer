@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { StateService } from './state.service';
+import { HinweisStoreService } from './hinweis-store.service';
 import { TreeItem, TreeNode } from '../../models/node.model';
 import { ProfileDoc } from '../../models/profile.model';
 import { newProfile } from '../profile-defaults';
@@ -392,58 +393,33 @@ describe('StateService', () => {
     });
   });
 
-  describe('Hinweise (interne Review-Notizen)', () => {
-    it('Eintrag mit nur Hinweis ueberlebt das Prune', () => {
-      s.setElementProfile('m/a', { hinweis: 'pruefen' });
-      expect(s.elemente()['m/a']).toEqual({ hinweis: 'pruefen' });
+  describe('Hinweise (eigene Ressource)', () => {
+    /** Hinweise liegen im HinweisStoreService, nicht im Profil-Dokument. */
+    let hinweise: HinweisStoreService;
+
+    beforeEach(() => {
+      hinweise = TestBed.inject(HinweisStoreService);
     });
 
-    it('Leeren des Hinweistexts raeumt den Eintrag weg — auch mit Erledigt-Flag', () => {
-      s.setElementProfile('m/a', { hinweis: 'pruefen', hinweisErledigt: true });
-      s.setElementProfile('m/a', { hinweis: undefined, hinweisErledigt: undefined });
+    it('gehoeren nicht zum Elementprofil — ein Eintrag ohne andere Felder faellt weg', () => {
+      s.setElementProfile('m/a', { anmerkung: 'x' });
+      s.setElementProfile('m/a', { anmerkung: undefined });
       expect(s.elemente()['m/a']).toBeUndefined();
-    });
-
-    it('hinweisErledigt allein haelt keinen Eintrag am Leben', () => {
-      s.setElementProfile('m/a', { hinweisErledigt: true });
+      hinweise.hinweise.set([{ id: 'h1', pfad: 'm/a', text: 'pruefen', zeit: 1 }]);
+      // Der Hinweis haelt keinen Eintrag in `elemente` am Leben.
       expect(s.elemente()['m/a']).toBeUndefined();
-    });
-
-    it('hinweisEintraege sortiert offene vor erledigten, nOffeneHinweise zaehlt nur offene', () => {
-      s.setElementProfile('m/b', { hinweis: 'fertig', hinweisErledigt: true });
-      s.setElementProfile('m/c', { hinweis: 'offen2' });
-      s.setElementProfile('m/a', { hinweis: 'offen1' });
-      expect(s.hinweisEintraege().map((e) => e.pfad)).toEqual(['m/a', 'm/c', 'm/b']);
-      expect(s.nOffeneHinweise()).toBe(2);
-    });
-
-    it('hinweisAnc zaehlt offene Hinweise auf allen Vorfahren (Grenzen / und @)', () => {
-      s.setElementProfile('m/bet@a1/rolle', { hinweis: 'x' });
-      s.setElementProfile('m/bet@a1/name', { hinweis: 'y', hinweisErledigt: true });
-      const anc = s.hinweisAnc();
-      expect(anc.get('m')).toBe(1);
-      expect(anc.get('m/bet')).toBe(1);
-      expect(anc.get('m/bet@a1')).toBe(1);
-      expect(anc.get('m/bet@a1/rolle')).toBeUndefined();
     });
 
     it('hasNotes bleibt false bei nur-Hinweis (t-note getrennt vom Hinweis-Badge)', () => {
-      s.setElementProfile('m/a', { hinweis: 'x' });
+      hinweise.hinweise.set([{ id: 'h1', pfad: 'm/a', text: 'x', zeit: 1 }]);
       expect(s.hasNotes('m/a')).toBeFalse();
     });
 
     it('boxHidden zeigt im nur-Werte-Modus Elemente mit Hinweis samt Vorfahren', () => {
-      s.setElementProfile('m/gds/kopf/az', { hinweis: 'pruefen' });
+      hinweise.hinweise.set([{ id: 'h1', pfad: 'm/gds/kopf/az', text: 'pruefen', zeit: 1 }]);
       s.onlyValues.set(true);
       expect(s.boxHidden('m/gds/kopf/az')).toBe(false);
       expect(s.boxHidden('m/gds')).toBe(false);
-    });
-
-    it('duplicateElement nimmt den Hinweis mit nach Fall 1 (dokumentiertes Verhalten)', () => {
-      s.setElementProfile('m/bet/rolle', { hinweis: 'x' });
-      s.duplicateElement('m/bet');
-      const id1 = s.auspsOf('m/bet')![0]!.id;
-      expect(s.elemente()['m/bet@' + id1 + '/rolle']).toEqual({ hinweis: 'x' });
     });
   });
 

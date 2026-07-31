@@ -8,6 +8,13 @@ import { toEntry } from './fortschritt.js';
 const AUTO_DECKEL = 10;
 
 /**
+ * Schema-Version (PRAGMA user_version), ab der die Hinweise in eigener Ablage
+ * liegen. Spaltenzuwaechse laufen weiter ueber PRAGMA table_info; die Nummer
+ * steuert nur einmalige Daten-Umstellungen.
+ */
+const SCHEMA_HINWEISE = 1;
+
+/**
  * Hash ueber den gespeicherten doc-String — Grundlage fuer "geaendert seit vX"
  * und die Entprellung der Automatik-Versionen. Bewusst ueber die Serialisierung
  * (nicht semantisch): anders serialisierte, gleiche Staende gelten als
@@ -55,6 +62,31 @@ function fachHash(doc) {
     d = { ...d, meta };
   }
   return docHash(kanonisch(d));
+}
+
+/**
+ * Loest die alten Hinweisfelder (`hinweis`/`hinweisErledigt` am Elementprofil)
+ * aus einem Profil-Dokument heraus — in-place. Zwei Aufgaben in einer Funktion,
+ * damit Migration und Einliefer-Schutz dieselbe Regel benutzen: Einliefern
+ * verwirft die Ausbeute, die Migration macht Listeneintraege daraus.
+ * Eintraege, die dadurch leer werden, fallen weg (pruneP-Aequivalent).
+ * Gibt die gefundenen Hinweise als [{ pfad, text, erledigt }] zurueck.
+ */
+function hinweiseHerausloesen(doc) {
+  const gefunden = [];
+  const elemente = doc && typeof doc === 'object' ? doc.elemente : null;
+  if (!elemente || typeof elemente !== 'object') return gefunden;
+  for (const [pfad, p] of Object.entries(elemente)) {
+    if (!p || typeof p !== 'object') continue;
+    if (!('hinweis' in p) && !('hinweisErledigt' in p)) continue;
+    const text = typeof p.hinweis === 'string' ? p.hinweis.trim() : '';
+    const erledigt = !!p.hinweisErledigt;
+    delete p.hinweis;
+    delete p.hinweisErledigt;
+    if (text) gefunden.push({ pfad, text, erledigt });
+    if (!Object.keys(p).length) delete elemente[pfad];
+  }
+  return gefunden;
 }
 
 /**
@@ -117,6 +149,23 @@ export function openDb(path) {
       UNIQUE(profile_id, nr)
     );
     CREATE INDEX IF NOT EXISTS idx_profile_versions_profil ON profile_versions(profile_id, nr DESC);
+
+    -- Hinweise (Rueckmeldungen am Element) liegen bewusst NEBEN dem Profil-
+    -- Dokument: im Dokument wuerde sie der naechste Autosave eines anderen
+    -- Bearbeiters (PUT des Volldokuments aus einem aelteren Browser-Stand)
+    -- lautlos loeschen, und der Abnahme-Hash reagierte auf jede Notiz.
+    -- autor/rolle bleiben bis zur Autorschafts-Story leer (Altbestand: NULL).
+    CREATE TABLE IF NOT EXISTS hinweise (
+      id TEXT PRIMARY KEY,
+      profil_id TEXT NOT NULL,
+      pfad TEXT NOT NULL,
+      text TEXT NOT NULL,
+      autor TEXT,
+      rolle TEXT,                -- 'ag' | 'extern' | NULL
+      zeit INTEGER,
+      erledigt INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_hinweise_profil ON hinweise(profil_id);
 
     CREATE TABLE IF NOT EXISTS testmessages (
       id TEXT PRIMARY KEY,
@@ -295,6 +344,24 @@ export function openDb(path) {
     abnSet: db.prepare('UPDATE profiles SET abnahme_version_id = ? WHERE id = ?'),
     abnRef: db.prepare('SELECT abnahme_version_id FROM profiles WHERE id = ?'),
 
+    // ── Hinweise (eigene Ressource neben dem Profil-Dokument) ───────────
+    // Sortierung: offene vor erledigten, darin nach Pfad und Zeit — die
+    // Uebersicht im Client zeigt genau diese Reihenfolge.
+    hwList: db.prepare(
+      `SELECT * FROM hinweise WHERE profil_id = ?
+       ORDER BY COALESCE(erledigt, 0), pfad, zeit, id`,
+    ),
+    hwGet: db.prepare('SELECT * FROM hinweise WHERE id = ? AND profil_id = ?'),
+    hwInsert: db.prepare(
+      `INSERT INTO hinweise (id, profil_id, pfad, text, autor, rolle, zeit, erledigt)
+       VALUES (@id, @profilId, @pfad, @text, @autor, @rolle, @zeit, @erledigt)`,
+    ),
+    hwUpdate: db.prepare(
+      'UPDATE hinweise SET text = @text, erledigt = @erledigt WHERE id = @id AND profil_id = @profilId',
+    ),
+    hwDel: db.prepare('DELETE FROM hinweise WHERE id = ? AND profil_id = ?'),
+    hwDelAll: db.prepare('DELETE FROM hinweise WHERE profil_id = ?'),
+
     // ── Testnachrichten (zentraler Testdaten-Speicher) ──────────────────
     tmList: db.prepare(`SELECT ${TM_COLS} ${TM_FROM} ORDER BY t.aktualisiert DESC`),
     tmListProfil: db.prepare(
@@ -370,6 +437,19 @@ export function openDb(path) {
     };
   }
 
+  /** Eine hinweise-Zeile als API-Objekt (leere Felder fallen weg). */
+  function hinweisZeile(r) {
+    return {
+      id: r.id,
+      pfad: r.pfad,
+      text: r.text,
+      autor: r.autor ?? undefined,
+      rolle: r.rolle ?? undefined,
+      zeit: r.zeit,
+      erledigt: r.erledigt ? true : undefined,
+    };
+  }
+
   /**
    * Eine profile_versions-Zeile als Versions-Metadaten plus geparstem Dokument
    * (Vergleichs-Endpunkte). Die Metadaten spiegeln versionsList.
@@ -431,6 +511,11 @@ export function openDb(path) {
         delete doc.meta.abnahme;
         delete doc.meta.abgenommen;
       }
+      // Hinweise sind eine eigene Ressource — im Dokument mitgeschickte
+      // Altfelder werden verworfen (nicht uebernommen), sonst faende ein alter
+      // Client-Stand einen Weg zurueck ins Dokument. Uebertragen werden sie
+      // ausschliesslich ueber /profiles/:id/hinweise.
+      hinweiseHerausloesen(doc);
     }
     const ts = aktualisiert ?? Date.now();
     const entry = toEntry(id, doc, ts);
@@ -498,13 +583,35 @@ export function openDb(path) {
       return { id, entry };
     },
 
-    /** Kopie mit neuer id und Namenszusatz " (Kopie)". Gibt { id, entry } oder null. */
+    /**
+     * Kopie mit neuer id und Namenszusatz " (Kopie)"; die Hinweise wandern mit
+     * (die Kopie schreibt die offene Klaerungslage fort), bekommen aber eigene
+     * ids — Original und Kopie sind danach unabhaengig.
+     * Gibt { id, entry } oder null.
+     */
     duplicate(id) {
       const doc = this.load(id);
       if (!doc) return null;
-      const copy = structuredClone(doc);
-      copy.meta = { ...(copy.meta ?? {}), name: (copy.meta?.name || '(ohne Namen)') + ' (Kopie)' };
-      return this.create(copy);
+      return db.transaction(() => {
+        const copy = structuredClone(doc);
+        copy.meta = {
+          ...(copy.meta ?? {}),
+          name: (copy.meta?.name || '(ohne Namen)') + ' (Kopie)',
+        };
+        const out = this.create(copy);
+        for (const h of stmt.hwList.all(id))
+          stmt.hwInsert.run({
+            id: randomUUID(),
+            profilId: out.id,
+            pfad: h.pfad,
+            text: h.text,
+            autor: h.autor,
+            rolle: h.rolle,
+            zeit: h.zeit,
+            erledigt: h.erledigt,
+          });
+        return out;
+      })();
     },
 
     /** Nur den Namen aendern. Gibt den aktualisierten entry oder null. */
@@ -515,11 +622,93 @@ export function openDb(path) {
       return upsert(id, doc);
     },
 
-    /** Loeschen inkl. aller Versionen (Kaskade). Gibt true, wenn eine Zeile entfernt wurde. */
+    /**
+     * Loeschen inkl. aller Versionen und Hinweise (Kaskade). Gibt true, wenn
+     * eine Zeile entfernt wurde.
+     */
     delete(id) {
       return db.transaction(() => {
         stmt.verDelAll.run(id);
+        stmt.hwDelAll.run(id);
         return stmt.del.run(id).changes > 0;
+      })();
+    },
+
+    // ── Hinweise (eigene Ressource) ─────────────────────────────────────
+
+    /** Alle Hinweise eines Profils; offene vor erledigten. null, wenn Profil fehlt. */
+    hinweiseList(profilId) {
+      if (!stmt.exists.get(profilId)) return null;
+      return stmt.hwList.all(profilId).map(hinweisZeile);
+    },
+
+    /**
+     * Hinweis anlegen. `zeit` stempelt der Server selbst, `autor`/`rolle`
+     * bleiben leer (die Autorschaft kommt mit einer eigenen Story) — vom Client
+     * mitgeschickte Werte werden ignoriert. null, wenn das Profil fehlt.
+     */
+    hinweisAnlegen(profilId, { pfad, text }, ts) {
+      if (!stmt.exists.get(profilId)) return null;
+      const id = randomUUID();
+      stmt.hwInsert.run({
+        id,
+        profilId,
+        pfad: String(pfad ?? ''),
+        text: String(text ?? '').trim(),
+        autor: null,
+        rolle: null,
+        zeit: ts ?? Date.now(),
+        erledigt: null,
+      });
+      return hinweisZeile(stmt.hwGet.get(id, profilId));
+    },
+
+    /** Text und/oder Erledigt-Zustand aendern (undefined = unberuehrt). null, wenn unbekannt. */
+    hinweisAendern(profilId, id, { text, erledigt }) {
+      const row = stmt.hwGet.get(id, profilId);
+      if (!row) return null;
+      const naechsterText = text !== undefined ? String(text).trim() : row.text;
+      if (!naechsterText) return 'leer';
+      stmt.hwUpdate.run({
+        id,
+        profilId,
+        text: naechsterText,
+        erledigt: erledigt !== undefined ? (erledigt ? 1 : null) : row.erledigt,
+      });
+      return hinweisZeile(stmt.hwGet.get(id, profilId));
+    },
+
+    /** Einen Hinweis loeschen. Gibt true, wenn eine Zeile entfernt wurde. */
+    hinweisLoeschen(profilId, id) {
+      return stmt.hwDel.run(id, profilId).changes > 0;
+    },
+
+    /**
+     * Alle Hinweise eines Profils ersetzen (JSON-Import einer Datei). Bewusst
+     * ein Volltausch statt Zusammenfuehren — Konfliktlogik gehoert nicht in den
+     * Dateiaustausch. Anders als beim Anlegen bleiben `zeit`, `autor` und
+     * `rolle` der Datei erhalten: der Import dokumentiert, wer wann was gesagt
+     * hat. null, wenn das Profil fehlt.
+     */
+    hinweiseErsetzen(profilId, liste, ts) {
+      if (!stmt.exists.get(profilId)) return null;
+      return db.transaction(() => {
+        stmt.hwDelAll.run(profilId);
+        for (const h of Array.isArray(liste) ? liste : []) {
+          const text = String(h?.text ?? '').trim();
+          if (!text) continue;
+          stmt.hwInsert.run({
+            id: randomUUID(),
+            profilId,
+            pfad: String(h.pfad ?? ''),
+            text,
+            autor: h.autor ? String(h.autor) : null,
+            rolle: h.rolle === 'ag' || h.rolle === 'extern' ? h.rolle : null,
+            zeit: Number.isFinite(h.zeit) ? h.zeit : (ts ?? Date.now()),
+            erledigt: h.erledigt ? 1 : null,
+          });
+        }
+        return stmt.hwList.all(profilId).map(hinweisZeile);
       })();
     },
 
@@ -856,6 +1045,70 @@ export function openDb(path) {
     },
 
     /**
+     * Einmalige Umstellung des Altbestands: jedes `hinweis`-Feld eines
+     * Elementprofils wird ein Listeneintrag (Autor und Rolle leer, Zeitpunkt =
+     * letzte Aenderung des Profils, Erledigt-Zustand uebernommen); danach sind
+     * die Felder aus dem Dokument verschwunden.
+     *
+     * Mit umgestellt werden die eingefrorenen Dokumente (Versionen und die an
+     * Testnachrichten gebundenen Kopien) samt ihrer Hashes — sonst meldete jede
+     * abgenommene Profilierung nach der Umstellung "geaendert seit Abnahme"
+     * und jede gebundene Testnachricht "Profil weiterentwickelt", ohne dass
+     * sich fachlich etwas geaendert haette. Die Versionen selbst tragen keine
+     * Hinweise (die haengen am Profil).
+     *
+     * Idempotent — ein zweiter Lauf findet nichts mehr. Kein Rueckwaertspfad.
+     * Gibt die Anzahl angelegter Hinweise zurueck.
+     */
+    migriereHinweise() {
+      let n = 0;
+      db.transaction(() => {
+        const setDoc = db.prepare(
+          'UPDATE profiles SET doc = ?, doc_hash = ?, fach_hash = ? WHERE id = ?',
+        );
+        for (const r of db.prepare('SELECT id, doc, aktualisiert FROM profiles').all()) {
+          const doc = JSON.parse(r.doc);
+          const gefunden = hinweiseHerausloesen(doc);
+          const neu = JSON.stringify(doc);
+          if (neu === r.doc) continue;
+          setDoc.run(neu, docHash(neu), fachHash(doc), r.id);
+          for (const h of gefunden) {
+            stmt.hwInsert.run({
+              id: randomUUID(),
+              profilId: r.id,
+              pfad: h.pfad,
+              text: h.text,
+              autor: null,
+              rolle: null,
+              zeit: r.aktualisiert ?? Date.now(),
+              erledigt: h.erledigt ? 1 : null,
+            });
+            n++;
+          }
+        }
+        const setVer = db.prepare('UPDATE profile_versions SET doc = ?, doc_hash = ? WHERE id = ?');
+        for (const r of db.prepare('SELECT id, doc FROM profile_versions').all()) {
+          const doc = JSON.parse(r.doc);
+          hinweiseHerausloesen(doc);
+          const neu = JSON.stringify(doc);
+          if (neu !== r.doc) setVer.run(neu, docHash(neu), r.id);
+        }
+        const setVorgabe = db.prepare(
+          'UPDATE testmessages SET vorgabe = ?, vorgabe_hash = ? WHERE id = ?',
+        );
+        for (const r of db
+          .prepare('SELECT id, vorgabe FROM testmessages WHERE vorgabe IS NOT NULL')
+          .all()) {
+          const doc = JSON.parse(r.vorgabe);
+          hinweiseHerausloesen(doc);
+          const neu = JSON.stringify(doc);
+          if (neu !== r.vorgabe) setVorgabe.run(neu, fachHash(doc), r.id);
+        }
+      })();
+      return n;
+    },
+
+    /**
      * Trägt fehlende XJustiz-Versionen nach: leitet sie best-effort aus dem
      * gespeicherten XML ab (Attribut `xjustizVersion` an Wurzel oder
      * Nachrichtenkopf). Idempotent — wirkt nur auf Einträge ohne Version; läuft
@@ -888,5 +1141,11 @@ export function openDb(path) {
 
   // Alt-Bestand ohne erkannte XJustiz-Version einmalig aus dem XML nachziehen.
   api.tmBackfillVersionen();
+  // Hinweise aus den Dokumenten in die eigene Ablage heben. Der Lauf ist fuer
+  // sich idempotent; die Schema-Version spart nur den Voll-Scan bei jedem Start.
+  if (db.pragma('user_version', { simple: true }) < SCHEMA_HINWEISE) {
+    api.migriereHinweise();
+    db.pragma(`user_version = ${SCHEMA_HINWEISE}`);
+  }
   return api;
 }

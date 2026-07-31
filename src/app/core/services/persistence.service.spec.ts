@@ -7,6 +7,8 @@ import { BundledSchemaService } from './bundled-schema.service';
 import { DownloadService } from './download.service';
 import { ProfileDoc } from '../../models/profile.model';
 import { RolleService } from './rolle.service';
+import { HinweisStoreService } from './hinweis-store.service';
+import { HinweisEingabe } from '../util/hinweis.util';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
@@ -88,6 +90,8 @@ describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
           },
         },
         { provide: ToastService, useValue: { show: (m: string) => toasts.push(m) } },
+        // Hinweise liegen in eigener Ablage; hier nicht der Pruefgegenstand.
+        { provide: HinweisStoreService, useValue: { hinweise: () => [], lade: async () => {} } },
         {
           provide: BundledSchemaService,
           useValue: {
@@ -183,14 +187,16 @@ describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
   });
 });
 
-describe('PersistenceService Profildatei (formatVersion 3, Schema-Erweiterungen)', () => {
+describe('PersistenceService Profildatei (Schema-Erweiterungen, Hinweise)', () => {
   let downloaded: { name: string; content: string }[];
   let createdDocs: ProfileDoc[];
+  let ersetzt: { id: string; liste: HinweisEingabe[] }[];
   let svc: PersistenceService;
 
   beforeEach(() => {
     downloaded = [];
     createdDocs = [];
+    ersetzt = [];
     TestBed.configureTestingModule({
       providers: [
         {
@@ -208,6 +214,15 @@ describe('PersistenceService Profildatei (formatVersion 3, Schema-Erweiterungen)
             },
           },
         },
+        {
+          provide: HinweisStoreService,
+          useValue: {
+            hinweise: () => [],
+            lade: async () => {},
+            ersetzeAlle: async (id: string, liste: HinweisEingabe[]) =>
+              void ersetzt.push({ id, liste }),
+          },
+        },
         { provide: ToastService, useValue: { show: () => {} } },
       ],
     });
@@ -215,19 +230,87 @@ describe('PersistenceService Profildatei (formatVersion 3, Schema-Erweiterungen)
     spyOn(svc, 'openFromLibrary').and.resolveTo();
   });
 
-  it('exportDoc schreibt formatVersion 3 inkl. erweiterungen', () => {
+  const leer = (): ProfileDoc => ({
+    meta: { name: 'P' },
+    statuses: [],
+    elemente: {},
+    auspraegungen: {},
+    erweiterungen: {},
+  });
+
+  it('exportDoc schreibt formatVersion 4 inkl. erweiterungen', () => {
     svc.exportDoc({
-      meta: { name: 'P' },
-      statuses: [],
-      elemente: {},
-      auspraegungen: {},
+      ...leer(),
       erweiterungen: {
         'm/a': [{ id: 'x1', name: 'zusatz', min: '1', max: '1', datentyp: 'string' }],
       },
     });
     const json = JSON.parse(downloaded[0]!.content);
-    expect(json.formatVersion).toBe(3);
+    expect(json.formatVersion).toBe(4);
     expect(json.erweiterungen['m/a'][0].name).toBe('zusatz');
+  });
+
+  it('exportDoc legt die Hinweise unter einen eigenen Top-Level-Schluessel', () => {
+    svc.exportDoc(leer(), [
+      { id: 'h1', pfad: 'm/a', text: 'klaeren', autor: 'Anna', rolle: 'extern', zeit: 4242 },
+    ]);
+    const json = JSON.parse(downloaded[0]!.content);
+    expect(json.elemente).toEqual({});
+    expect(json.hinweise).toEqual([
+      { pfad: 'm/a', text: 'klaeren', autor: 'Anna', rolle: 'extern', zeit: 4242 },
+    ]);
+  });
+
+  it('Roundtrip: exportierte Hinweise werden beim Import wieder angelegt', async () => {
+    svc.exportDoc(leer(), [
+      { id: 'h1', pfad: 'm/a', text: 'klaeren', autor: 'Anna', rolle: 'extern', zeit: 4242 },
+      { id: 'h2', pfad: 'm/b', text: 'erledigt', zeit: 4243, erledigt: true },
+    ]);
+    await svc.loadProfileFile(new File([downloaded[0]!.content], 'p.profil.json'));
+    expect(ersetzt.length).toBe(1);
+    expect(ersetzt[0]!.id).toBe('id1');
+    const [a, b] = ersetzt[0]!.liste;
+    expect(a).toEqual(
+      jasmine.objectContaining({
+        pfad: 'm/a',
+        text: 'klaeren',
+        autor: 'Anna',
+        rolle: 'extern',
+        zeit: 4242,
+      }),
+    );
+    expect(a!.erledigt).toBeFalsy();
+    expect(b).toEqual(
+      jasmine.objectContaining({ pfad: 'm/b', text: 'erledigt', zeit: 4243, erledigt: true }),
+    );
+  });
+
+  it('Altformat: hinweis-Felder im Dokument werden zu Listeneintraegen', async () => {
+    const file = new File(
+      [
+        JSON.stringify({
+          app: 'xjustiz-profilierer',
+          formatVersion: 3,
+          meta: { name: 'Alt' },
+          statuses: [],
+          elemente: {
+            'm/a': { status: 's1', hinweis: 'Mit Registergericht klären' },
+            'm/b': { hinweis: 'schon abgearbeitet', hinweisErledigt: true },
+          },
+          auspraegungen: {},
+        }),
+      ],
+      'alt.profil.json',
+    );
+    await svc.loadProfileFile(file);
+    // Das Dokument geht ohne die Altfelder an den Server; leere Eintraege fallen weg.
+    expect(createdDocs[0]!.elemente).toEqual({ 'm/a': { status: 's1' } });
+    expect(ersetzt[0]!.liste.map((h) => [h.pfad, h.text, !!h.erledigt])).toEqual([
+      ['m/a', 'Mit Registergericht klären', false],
+      ['m/b', 'schon abgearbeitet', true],
+    ]);
+    // Ohne mitgelieferten Zeitpunkt stempelt der Import selbst.
+    expect(ersetzt[0]!.liste[0]!.zeit).toBeGreaterThan(0);
   });
 
   it('importiert v2-Dateien ohne erweiterungen-Feld als leere Map', async () => {
@@ -369,6 +452,8 @@ describe('PersistenceService.openFromLibrary (Abnahme-Schreibschutz)', () => {
         },
         { provide: ToastService, useValue: { show: (m: string) => toasts.push(m) } },
         { provide: RolleService, useValue: { agAktiv: () => agAktiv } },
+        // Hinweise liegen in eigener Ablage; hier nicht der Pruefgegenstand.
+        { provide: HinweisStoreService, useValue: { hinweise: () => [], lade: async () => {} } },
       ],
     });
     return { svc: TestBed.inject(PersistenceService), state: TestBed.inject(StateService) };

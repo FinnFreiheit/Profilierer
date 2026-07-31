@@ -40,6 +40,26 @@ Profil-Löschen kaskadiert auf die Versionen; `doc_hash` (sha1 über den
 doc-String) auf beiden Tabellen speist Entprellung und das
 „geändert seit vX"-Kennzeichen im Entry.
 
+**Hinweise** (Tabelle `hinweise`, [ADR 0014](../docs/adr/0014-hinweise-eigene-ressource.md)):
+`GET /api/profiles/:id/hinweise` (Liste, offene vor erledigten) ·
+`POST /api/profiles/:id/hinweise` (Body `{pfad, text}`; `zeit` stempelt der
+Server, `autor`/`rolle` bleiben vorerst leer — Client-Angaben werden ignoriert) ·
+`PATCH /api/profiles/:id/hinweise/:hid` (Body `{text?, erledigt?}`) ·
+`DELETE /api/profiles/:id/hinweise/:hid` ·
+`PUT /api/profiles/:id/hinweise` (Volltausch für den Datei-Import; erhält
+`zeit`/`autor`/`rolle` der Datei — ersetzt, führt nicht zusammen).
+Hinweise liegen bewusst **außerhalb** des Profil-Dokuments: sonst löschte der
+nächste Autosave eines anderen Bearbeiters (`PUT /profiles/:id` aus einem
+älteren Browser-Stand) fremde Hinweise, und „geändert seit Abnahme" reagierte
+auf jede Notiz. Hinweisfelder in eingelieferten Dokumenten werden verworfen (wie
+Abnahme-Felder). Der Abnahme-Schutz gilt auf den Schreib-Endpunkten wie überall.
+Profil-Löschen kaskadiert, Duplizieren übernimmt die Hinweise (neue ids),
+Versionen frieren sie nicht ein. Beim Serverstart hebt `migriereHinweise()` den
+Altbestand einmalig aus den Dokumenten in die Tabelle (gesteuert über
+`PRAGMA user_version`, der Lauf ist auch für sich idempotent; die
+eingefrorenen Dokumente und ihre Hashes werden mit umgestellt, damit die
+Umstellung selbst kein „geändert seit Abnahme" auslöst).
+
 **Testnachrichten** (Tabelle `testmessages`): `GET /api/testmessages` (schlanker
 Index ohne XML; `?profil=<id>` grenzt auf eine Profilierung ein) ·
 `GET /api/testmessages/:id/xml` ·

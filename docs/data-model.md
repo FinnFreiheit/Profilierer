@@ -16,6 +16,7 @@ Die Interfaces (`src/app/models/`), die Zustands-Signale des `StateService` und 
 - **`ProfileMeta`** = `name?, autor?, datum?, beschreibung?, nachricht?, xjustizVersion?, gespeichert?`.
 - **`Status`** = `{ id, name, farbe, wirkung }`, `Wirkung = 'pflicht' | 'optional' | 'ausgeschlossen' | 'markierung'` (steuert Schematron/Beispiel-XML).
 - **`ElementProfile`** = `status?, min?, max?, anmerkung?, beispiel?, werte?, refZiel?` — alle optional; ein leerer Eintrag wird von `pruneP` entfernt.
+- **`Hinweis`** = `{ id, pfad, text, autor?, rolle?, zeit, erledigt? }` — Rückmeldung an einem Element. **Kein Teil des `ProfileDoc`**: Hinweise sind eine eigene Ressource mit eigener Ablage und eigenen Endpunkten ([ADR 0014](adr/0014-hinweise-eigene-ressource.md)); im Client hält sie der `HinweisStoreService`. `autor`/`rolle` bleiben vorerst leer (migrierter Altbestand hat sie nie).
 - **`Auspraegung`** = `{ id, name }`.
 - **`Erweiterung`** = `{ id, name, beschreibung?, min, max, datentyp? }` — ein nachzubeauftragendes Element, das (noch) nicht im XJustiz-Schema existiert ([ADR 0010](adr/0010-schema-erweiterungen-profil-overlay.md)). `datentyp` ist ein xs:-Lokalname oder Freitext; `undefined` = Container (kann Kind-Erweiterungen tragen).
 
@@ -97,6 +98,7 @@ Profilierungen werden in einer SQLite-Datenbank des Backends (`server/`) gehalte
 
 - **`LibraryEntry`** = `{ id, name, nachricht?, xjustizVersion?, nStatus, nAusp, nErw?, gespeichert?, aktualisiert }` — serverseitig aus dem Dokument abgeleitet (`server/fortschritt.js`, spiegelt `StateService.fortschritt`). `nErw` speist das Dashboard-Badge „N Schema-Erweiterungen" (optional — Zeilen von vor der Migration liefern es erst nach dem nächsten Speichern).
 - **Client:** `ProfileStoreService` spricht `/api` per nativem fetch an (async); das reaktive `entries`-Signal bleibt die Fassache fürs Dashboard und wird nach jedem Schreib-Call mit dem vom Server gelieferten `LibraryEntry` gepflegt. Der Autosave (`PersistenceService`, 800-ms-Debounce, In-Flight-Reschedule) schreibt in `PUT /api/profiles/:id`.
+- **Hinweise:** eigene Tabelle `hinweise(id, profil_id, pfad, text, autor, rolle, zeit, erledigt)` neben `profiles`, bedient über `/api/profiles/:id/hinweise` ([ADR 0014](adr/0014-hinweise-eigene-ressource.md)). Sie laufen bewusst **nicht** über `PUT /api/profiles/:id` — sonst löschte der Autosave eines anderen Bearbeiters fremde Hinweise. Beim Serverstart hebt `migriereHinweise()` den Altbestand einmalig aus den Dokumenten in die Tabelle (idempotent).
 - **Migration:** frühere localStorage-Bibliotheken (`xjp.library.index`/`xjp.library.doc.<id>`, Legacy `xjp.autosave`) werden einmalig via `MigrationService` → `POST /api/import` übernommen (id + `aktualisiert` bleiben erhalten).
 
 ### Versionen (`profile_versions`)

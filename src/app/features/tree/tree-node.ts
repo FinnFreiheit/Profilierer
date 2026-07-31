@@ -8,6 +8,7 @@ import { GuidedService } from '../../core/services/guided.service';
 import { ValueService } from '../../core/services/value.service';
 import { XsdParserService } from '../../core/services/xsd-parser.service';
 import { ToastService } from '../../core/services/toast.service';
+import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { pretty, kardText } from '../../core/util/pretty.util';
 import { REF_LABELS, refKindOf } from '../../core/refs';
 import { TreeContextMenu } from './tree-context-menu';
@@ -54,6 +55,7 @@ export class TreeNode {
   private readonly values = inject(ValueService);
   private readonly parser = inject(XsdParserService);
   private readonly toast = inject(ToastService);
+  private readonly hinweise = inject(HinweisStoreService);
 
   /** Der fuer Anzeige/Werte massgebliche Knoten (Element bzw. Elternknoten der Auspraegung). */
   private readonly node = computed<TNode>(() => {
@@ -271,10 +273,15 @@ export class TreeNode {
       );
     }
     if (this.state.hasNotes(path)) tags.push({ cls: 't-note', text: 'Notiz' });
-    // Interne Hinweise: offener Hinweis am Element, Aggregat fuer den Teilbaum.
-    if (pe.hinweis && !pe.hinweisErledigt)
-      tags.push({ cls: 't-hint', text: 'Hinweis', title: pe.hinweis });
-    const hSub = this.state.hinweisAnc().get(path);
+    // Hinweise: offene am Element, Aggregat fuer den Teilbaum.
+    const offen = this.hinweise.offeneJePfad().get(path);
+    if (offen?.length)
+      tags.push({
+        cls: 't-hint',
+        text: offen.length === 1 ? 'Hinweis' : offen.length + ' Hinweise',
+        title: offen.map((h) => h.text).join('\n'),
+      });
+    const hSub = this.hinweise.anc().get(path);
     if (hSub)
       tags.push({
         cls: 't-hsub',

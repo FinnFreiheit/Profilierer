@@ -19,6 +19,7 @@ Architecture Decision Records halten wesentliche Richtungsentscheidungen mit Beg
 | [0011](0011-lint-format-ci.md)                      | Node-Pinning, ESLint/Prettier und CI als Qualitäts-Tor            | Angenommen                    |
 | [0012](0012-abnahme-rollenkonzept.md)               | Abnahme durch die BLK-AG — Zwei-Rollen-Konzept (ergänzt 0007)     | Angenommen                    |
 | [0013](0013-vergleich-seit-abnahme.md)              | „Seit Abnahme geändert" sichtbar — struktureller Vergleich        | Angenommen                    |
+| [0014](0014-hinweise-eigene-ressource.md)           | Hinweise als eigene Ressource neben der Profilierung              | Angenommen                    |
 
 ## Vorlage
 
