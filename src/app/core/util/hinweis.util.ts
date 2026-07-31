@@ -4,6 +4,33 @@ import { Hinweis, ProfileDoc } from '../../models/profile.model';
 export type HinweisEingabe = Omit<Hinweis, 'id'>;
 
 /**
+ * Liegt `pfad` auf oder unter `praefix`? Grenzen sind '/' und '@' wie in der
+ * Vorfahren-Logik des Stores — ohne sie faenge `…/anlage` auch `…/anlageArt`.
+ * Grundlage der Kaskade "Element weg, Hinweise weg"; dieselbe Regel steht
+ * serverseitig in `db.hinweiseLoeschenUnter`.
+ */
+export function unterPfad(pfad: string, praefix: string): boolean {
+  return pfad === praefix || pfad.startsWith(praefix + '/') || pfad.startsWith(praefix + '@');
+}
+
+/**
+ * Nutzertext zu einem gescheiterten Hinweis-Schreibvorgang. Der Status wird
+ * bewusst per Duck-Typing gelesen (`HinweisFehler` traegt ihn), damit dieses
+ * Util nicht auf den Store zurueckzeigt.
+ *
+ * 403 ist kein Ausfall, sondern der Abnahme-Schutz: an einer abgenommenen
+ * Profilierung schreibt nur die BLK-AG. "Backend nicht erreichbar" waere dort
+ * eine falsche Ursache und schickte den Nutzer auf die Suche nach einem
+ * Serverproblem, das es nicht gibt.
+ */
+export function hinweisFehlerText(e: unknown): string {
+  const status = (e as { status?: number } | null | undefined)?.status;
+  if (status === 403) return 'Von der BLK-AG abgenommen — Hinweise ändern nur mit AG-Schlüssel.';
+  if (status === 404) return 'Der Hinweis ist nicht mehr vorhanden — Ansicht neu laden.';
+  return 'Hinweis konnte nicht gespeichert werden — Backend nicht erreichbar.';
+}
+
+/**
  * Die alten Hinweisfelder (`hinweis`/`hinweisErledigt` am Elementprofil) aus
  * einem eingelesenen Profil-Dokument herausloesen — in-place. Gegenstueck zur
  * einmaligen Server-Migration (`db.migriereHinweise`): damit es nur *eine*

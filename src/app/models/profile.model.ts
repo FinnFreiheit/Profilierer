@@ -69,9 +69,12 @@ export interface Hinweis {
   text: string;
   /** Selbstauskunft des Verfassers; leer bei migriertem Altbestand. */
   autor?: string;
-  /** Serverseitig gestempelt; leer bei migriertem Altbestand. */
+  /**
+   * Rolle des Verfassers. Bleibt vorerst leer — gefuellt wird sie erst mit der
+   * Autorschafts-Story; bei migriertem Altbestand gibt es sie nicht.
+   */
   rolle?: 'ag' | 'extern';
-  /** ms-Timestamp, serverseitig gesetzt. */
+  /** ms-Timestamp, serverseitig gestempelt (beim Import: der Wert der Datei). */
   zeit: number;
   erledigt?: boolean;
 }

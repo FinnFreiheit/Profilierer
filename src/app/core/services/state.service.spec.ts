@@ -421,6 +421,28 @@ describe('StateService', () => {
       expect(s.boxHidden('m/gds/kopf/az')).toBe(false);
       expect(s.boxHidden('m/gds')).toBe(false);
     });
+
+    it('removeAusp raeumt die Hinweise des Vorkommens mit ab', () => {
+      // Ohne die Kaskade blieben sie in der eigenen Ablage zurueck: sie zaehlten
+      // weiter, standen in der Uebersicht und erzeugten einen Sammel-Marker,
+      // dessen Sprung ins Leere geht.
+      const weg = spyOn(hinweise, 'loescheUnter').and.resolveTo();
+      const id = s.addAusp('m/bet', 'Notar');
+      s.removeAusp('m/bet', id);
+      expect(weg).toHaveBeenCalledOnceWith('m/bet@' + id);
+    });
+
+    it('removeErweiterung raeumt die Hinweise der Erweiterung mit ab', () => {
+      const weg = spyOn(hinweise, 'loescheUnter').and.resolveTo();
+      const id = s.addErweiterung('m/gds', {
+        name: 'zusatz',
+        min: '0',
+        max: '1',
+        datentyp: 'string',
+      });
+      s.removeErweiterung('m/gds', id);
+      expect(weg).toHaveBeenCalledOnceWith('m/gds/~' + id);
+    });
   });
 
   describe('expandValueBranches', () => {

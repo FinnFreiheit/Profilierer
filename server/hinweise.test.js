@@ -310,6 +310,119 @@ test('Profil loeschen raeumt seine Hinweise mit weg', async (t) => {
   assert.equal(db._db.prepare('SELECT COUNT(*) AS n FROM hinweise').get().n, 0);
 });
 
+// ── Kaskade: Element weg, Hinweise weg ────────────────────────────────
+
+test('Teilbaum loeschen entfernt Hinweise am Traeger und darunter, sonst nichts', async (t) => {
+  const { api } = await start(t);
+  const id = await neuesProfil(api);
+  const pfade = [
+    'n/beteiligung@a1', // Traeger selbst
+    'n/beteiligung@a1/rolle', // darunter ueber '/'
+    'n/beteiligung@a1/anschrift@b2/ort', // darunter ueber '@' und '/'
+    'n/beteiligung@a2', // Nachbar-Auspraegung — bleibt
+    'n/beteiligungsart', // gleicher Praefix, andere Grenze — bleibt
+    'n/beteiligung', // Elternknoten — bleibt
+  ];
+  for (const pfad of pfade)
+    await api('POST', `/profiles/${id}/hinweise`, { body: { pfad, text: pfad } });
+
+  const weg = await api('DELETE', `/profiles/${id}/hinweise?praefix=n%2Fbeteiligung%40a1`);
+  assert.equal(weg.status, 200);
+  assert.equal(weg.body.entfernt, 3);
+
+  const rest = (await api('GET', `/profiles/${id}/hinweise`)).body.map((h) => h.pfad).sort();
+  assert.deepEqual(rest, ['n/beteiligung', 'n/beteiligung@a2', 'n/beteiligungsart']);
+});
+
+test('Teilbaum loeschen: ohne Treffer 200 mit 0, ohne praefix 400, unbekanntes Profil 404', async (t) => {
+  const { api } = await start(t);
+  const id = await neuesProfil(api);
+  const leer = await api('DELETE', `/profiles/${id}/hinweise?praefix=n%2Firgendwas`);
+  assert.equal(leer.status, 200);
+  assert.equal(leer.body.entfernt, 0);
+  assert.equal((await api('DELETE', `/profiles/${id}/hinweise`)).status, 400);
+  assert.equal((await api('DELETE', '/profiles/gibtsnicht/hinweise?praefix=n')).status, 404);
+});
+
+test('Teilbaum loeschen: Unterstrich im Namen ist kein Platzhalter', async (t) => {
+  const { api } = await start(t);
+  const id = await neuesProfil(api);
+  // NCNames duerfen '_' tragen; ein LIKE-Filter wuerde hier 'nXweis' mittreffen.
+  for (const pfad of ['n/a_weis', 'n/aXweis'])
+    await api('POST', `/profiles/${id}/hinweise`, { body: { pfad, text: pfad } });
+  const weg = await api('DELETE', `/profiles/${id}/hinweise?praefix=n%2Fa_weis`);
+  assert.equal(weg.body.entfernt, 1);
+  assert.deepEqual(
+    (await api('GET', `/profiles/${id}/hinweise`)).body.map((h) => h.pfad),
+    ['n/aXweis'],
+  );
+});
+
+test('Schutz: Teilbaum loeschen ist an abgenommenen Profilen fuer Externe gesperrt', async (t) => {
+  const { api } = await start(t, { agKey: AG_KEY });
+  const id = await neuesProfil(api);
+  await api('POST', `/profiles/${id}/hinweise`, { body: { pfad: 'a', text: 't' } });
+  await api('POST', `/profiles/${id}/abnahme`, { body: {}, key: AG_KEY });
+  assert.equal((await api('DELETE', `/profiles/${id}/hinweise?praefix=a`)).status, 403);
+  assert.equal((await api('GET', `/profiles/${id}/hinweise`)).body.length, 1);
+});
+
+// ── Einlieferung von Alt-Staenden (localStorage, Notfallkopien) ────────
+
+test('Einlieferung hebt die Hinweisfelder in die Ablage, statt sie zu verwerfen', async (t) => {
+  const { api, db } = await start(t);
+  // Genau der Pfad des ersten Starts nach dem Upgrade: die Staende stammen aus
+  // dem localStorage bzw. aus Notfallkopien und tragen noch die Altfelder.
+  const n = db.importAll([
+    {
+      id: 'alt-imp',
+      aktualisiert: 777,
+      doc: doc({
+        elemente: {
+          a: { status: 's1', hinweis: 'noch klaeren' },
+          b: { hinweis: 'erledigt', hinweisErledigt: true },
+        },
+      }),
+    },
+  ]);
+  assert.equal(n, 1);
+
+  const liste = (await api('GET', '/profiles/alt-imp/hinweise')).body;
+  assert.deepEqual(
+    liste.map((h) => [h.pfad, h.text, h.erledigt, h.zeit]),
+    [
+      ['a', 'noch klaeren', undefined, 777],
+      ['b', 'erledigt', true, 777],
+    ],
+  );
+  // Im Dokument sind die Altfelder weg — eine Regel, zwei Wege.
+  const geladen = (await api('GET', '/profiles/alt-imp')).body;
+  assert.equal(geladen.elemente.a.hinweis, undefined);
+  assert.equal(geladen.elemente.b, undefined, 'leerer Eintrag wird weggeraeumt');
+});
+
+test('Einlieferung verdoppelt nichts und ueberschreibt keine neueren Hinweise', async (t) => {
+  const { api, db } = await start(t);
+  const alt = () => ({
+    id: 'alt-imp2',
+    aktualisiert: 777,
+    doc: doc({ elemente: { a: { status: 's1', hinweis: 'aus der Kopie' } } }),
+  });
+  db.importAll([alt()]);
+  // Dieselbe Notfallkopie ein zweites Mal (Flush laeuft best effort mehrfach).
+  db.importAll([alt()]);
+  assert.equal((await api('GET', '/profiles/alt-imp2/hinweise')).body.length, 1);
+
+  // Inzwischen regulaer angelegter Hinweis: die Ablage ist die fuehrende Quelle,
+  // ein spaet eingelieferter Alt-Stand darf sie nicht ersetzen.
+  await api('POST', '/profiles/alt-imp2/hinweise', { body: { pfad: 'b', text: 'neu' } });
+  db.importAll([alt()]);
+  assert.deepEqual(
+    (await api('GET', '/profiles/alt-imp2/hinweise')).body.map((h) => h.text).sort(),
+    ['aus der Kopie', 'neu'],
+  );
+});
+
 // ── Migration des Altbestands ─────────────────────────────────────────
 
 test('Migration beim Serverstart: Hinweisfeld wird Listeneintrag, Feld verschwindet', async (t) => {

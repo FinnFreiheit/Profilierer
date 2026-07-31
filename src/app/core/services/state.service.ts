@@ -552,6 +552,13 @@ export class StateService {
       return next;
     });
 
+    // Hinweise liegen in eigener Ablage, fallen aber mit dem Element: sonst
+    // zaehlen sie weiter, stehen in der Uebersicht und erzeugen einen
+    // Sammel-Marker, dessen Sprung ins Leere geht. Der Aufruf gehoert hierher
+    // und nicht an die Bedienstellen — die Invariante haengt an der Kaskade,
+    // nicht am Knopf.
+    void this.hinweisStore.loescheUnter(prefix);
+
     const sel = this.selItem();
     if (sel && itemPath(sel).startsWith(prefix)) this.selItem.set(null);
 
@@ -639,6 +646,9 @@ export class StateService {
       for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
       return next;
     });
+
+    // Wie in removeAusp: die Hinweise des Teilbaums fallen mit.
+    void this.hinweisStore.loescheUnter(prefix);
 
     const sel = this.selItem();
     if (sel && itemPath(sel).startsWith(prefix)) this.selItem.set(null);

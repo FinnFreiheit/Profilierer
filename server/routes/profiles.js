@@ -169,6 +169,16 @@ export function profilesRouter(db, auth) {
     res.status(204).end();
   });
 
+  // Teilbaum loeschen (`?praefix=<pfad>`): der Client raeumt damit die Hinweise
+  // einer entfernten Auspraegung oder Schema-Erweiterung mit ab. Kein Treffer
+  // ist kein Fehler — der Aufrufer weiss nicht, ob im Ast Hinweise hingen.
+  r.delete('/profiles/:id/hinweise', schutz, (req, res) => {
+    const praefix = typeof req.query.praefix === 'string' ? req.query.praefix : '';
+    if (!praefix) return res.status(400).json({ error: 'praefix fehlt' });
+    if (!db.hinweiseList(req.params.id)) return res.status(404).json({ error: 'nicht gefunden' });
+    res.json({ entfernt: db.hinweiseLoeschenUnter(req.params.id, praefix) });
+  });
+
   // ── Abnahme (BLK-AG) ─────────────────────────────────────────────────
 
   // Die eingefrorene Abnahme-Fassung inkl. Dokument (Direkteinstieg fuer den

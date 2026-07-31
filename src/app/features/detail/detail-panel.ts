@@ -19,6 +19,7 @@ import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { LoggerService } from '../../core/services/logger.service';
 import { itemPath } from '../../models/node.model';
 import { fmtKard, kardText, pretty } from '../../core/util/pretty.util';
+import { hinweisFehlerText } from '../../core/util/hinweis.util';
 import { ERW_DATENTYPEN, ERW_NAME_MUSTER } from '../../core/profile-defaults';
 import { REF_LABELS, refKindOf } from '../../core/refs';
 
@@ -45,11 +46,6 @@ export class DetailPanel {
   private readonly log = inject(LoggerService);
 
   /**
-   * Filtertext der Codelisten-Werte. Wird beim Wechsel des selektierten Elements
-   * geleert — sonst filtert ein alter Suchtext unsichtbar weiter, wenn die neue
-   * Liste kein Filterfeld zeigt (≤ 15 Werte), und die Werte-Liste bleibt leer.
-   */
-  /**
    * Eingabefeld „Hinweis hinzufuegen". Wie der Codelisten-Filter beim Wechsel
    * des selektierten Elements geleert — sonst wanderte ein angefangener Text
    * mit und landete beim naechsten Blur am falschen Element.
@@ -62,6 +58,11 @@ export class DetailPanel {
     computation: () => '',
   });
 
+  /**
+   * Filtertext der Codelisten-Werte. Wird beim Wechsel des selektierten Elements
+   * geleert — sonst filtert ein alter Suchtext unsichtbar weiter, wenn die neue
+   * Liste kein Filterfeld zeigt (≤ 15 Werte), und die Werte-Liste bleibt leer.
+   */
   protected readonly clFilter = linkedSignal({
     source: () => {
       const it = this.state.selItem();
@@ -492,33 +493,43 @@ export class DetailPanel {
   }
 
   /**
-   * Neuen Hinweis am Element anlegen. Das Eingabefeld wird geleert — der
-   * Hinweis steht danach als eigener Eintrag in der Liste darueber (mehrere je
-   * Element, kein Ueberschreiben).
+   * Neuen Hinweis am Element anlegen. Das Eingabefeld wird erst **nach** der
+   * Server-Antwort geleert — scheitert das Schreiben, ist die Formulierung sonst
+   * verloren und nur der Toast bleibt. Der Hinweis steht danach als eigener
+   * Eintrag in der Liste darueber (mehrere je Element, kein Ueberschreiben).
    */
-  protected addHinweis(): void {
+  protected async addHinweis(): Promise<void> {
     const text = this.neuerHinweis().trim();
     if (!text) return;
-    this.neuerHinweis.set('');
-    void this.hinweisSchreiben(this.hinweise.anlegen(this.path(), text));
+    if (await this.hinweisSchreiben(this.hinweise.anlegen(this.path(), text)))
+      this.neuerHinweis.set('');
   }
 
-  protected toggleHinweisErledigt(id: string, e: Event): void {
-    const checked = (e.target as HTMLInputElement).checked;
-    void this.hinweisSchreiben(this.hinweise.aendern(id, { erledigt: checked }));
+  protected async toggleHinweisErledigt(id: string, e: Event): Promise<void> {
+    const el = e.target as HTMLInputElement;
+    const checked = el.checked;
+    // Scheitert das Schreiben, bleibt der Store unveraendert — die Checkbox
+    // haette ihren neuen Zustand dann behalten, obwohl nichts passiert ist.
+    if (!(await this.hinweisSchreiben(this.hinweise.aendern(id, { erledigt: checked }))))
+      el.checked = !checked;
   }
 
   protected loescheHinweis(id: string): void {
     void this.hinweisSchreiben(this.hinweise.loeschen(id));
   }
 
-  /** Schreibfehler sichtbar machen — die Liste bliebe sonst stumm veraltet. */
-  private async hinweisSchreiben(p: Promise<unknown>): Promise<void> {
+  /**
+   * Schreibfehler sichtbar machen — die Liste bliebe sonst stumm veraltet. Gibt
+   * zurueck, ob der Schreibvorgang durchging.
+   */
+  private async hinweisSchreiben(p: Promise<unknown>): Promise<boolean> {
     try {
       await p;
+      return true;
     } catch (e) {
       this.log.error('Hinweise', 'Schreiben fehlgeschlagen', e);
-      this.toast.show('Hinweis konnte nicht gespeichert werden — Backend nicht erreichbar.');
+      this.toast.show(hinweisFehlerText(e));
+      return false;
     }
   }
 
