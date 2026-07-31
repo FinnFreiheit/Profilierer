@@ -3,6 +3,7 @@ import { ValueService } from './value.service';
 import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
 import { CodelistInfo, EnumWert } from '../../models/codelist.model';
+import { ElementProfile } from '../../models/profile.model';
 
 describe('ValueService.labelFor', () => {
   let svc: ValueService;
@@ -167,6 +168,158 @@ describe('ValueService.placeholderFor', () => {
       expect(svc.wertProblem(leaf('geburtsdatum', 'Type.GDS.Datumsangabe'), '')).toBeNull();
       expect(svc.wertProblem(leaf('freitext', 'Type.Unbekannt'), 'irgendwas')).toBeNull();
     });
+  });
+});
+
+describe('ValueService.vorschlagFor', () => {
+  let svc: ValueService;
+  let state: StateService;
+
+  /** Vorgabe-Dokument mit eigener Stufenliste (Stufen sind je Profilierung frei). */
+  const bindeVorgabe = (elemente: Record<string, ElementProfile>): void => {
+    state.setVorgabe({
+      meta: {},
+      statuses: [{ id: 'w1', name: 'zwingend', farbe: '#a00', wirkung: 'pflicht' }],
+      elemente,
+      auspraegungen: {},
+      erweiterungen: {},
+    });
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    svc = TestBed.inject(ValueService);
+    state = TestBed.inject(StateService);
+  });
+
+  it('schlaegt den Beispielwert der gebundenen Fassung vor', () => {
+    bindeVorgabe({ 'm/az': { beispiel: '1 C 234/25' } });
+    expect(svc.vorschlagFor('m/az')).toBe('1 C 234/25');
+    expect(svc.vorschlagFor('m/ohne')).toBeNull();
+  });
+
+  it('ohne gebundene Fassung gibt es keinen Vorschlag', () => {
+    state.setElementProfile('m/az', { beispiel: 'im Durchlauf eingetragen' });
+    expect(svc.vorschlagFor('m/az')).toBeNull();
+  });
+
+  it('schlaegt eine auf genau einen Wert eingeschraenkte Codeliste vor', () => {
+    bindeVorgabe({ 'm/rolle': { werte: ['01'] } });
+    expect(svc.vorschlagFor('m/rolle')).toBe('01');
+  });
+
+  it('nimmt aus einem manuell gepflegten Eintrag nur den Code', () => {
+    bindeVorgabe({ 'm/rolle': { werte: ['2001 — Genehmigung Grundstücksgeschäft'] } });
+    expect(svc.vorschlagFor('m/rolle')).toBe('2001');
+  });
+
+  it('schlaegt nichts vor, wo mehrere Werte zur Wahl stehen oder keiner zugelassen ist', () => {
+    bindeVorgabe({ 'm/rolle': { werte: ['01', '02'] }, 'm/art': { werte: [] } });
+    expect(svc.vorschlagFor('m/rolle')).toBeNull();
+    expect(svc.vorschlagFor('m/art')).toBeNull();
+  });
+
+  it('gilt auch im Vorkommen — dort kennt die Profilierung nur den generischen Pfad', () => {
+    bindeVorgabe({ 'm/bet/rolle': { beispiel: '01' } });
+    expect(svc.vorschlagFor('m/bet@a1/rolle')).toBe('01');
+  });
+
+  // ── Wuerfel und Sammelbefuellung im gebundenen Durchlauf ──────────────
+
+  const rolle: CodelistInfo = {
+    typeName: 'Code.Rolle',
+    nameLang: 'Rollenbezeichnung',
+    kennung: 'urn:test:rolle',
+    beschreibung: '',
+    werte: [
+      { value: '01', label: 'Notar/in' },
+      { value: '02', label: 'Betroffene Person' },
+      { value: '03', label: 'Beteiligte/r' },
+    ],
+  };
+
+  it('der Beispielwert der Profilierung hat Vorrang vor einem Zufallswert', () => {
+    bindeVorgabe({ 'm/datum': { beispiel: '2024-03-01' } });
+    expect(svc.dummyFor({ name: 'datum', path: 'm/datum', typeName: 'date', codelist: null })).toBe(
+      '2024-03-01',
+    );
+  });
+
+  it('wuerfelt nur freigegebene Codelisten-Werte', () => {
+    bindeVorgabe({ 'm/rolle': { werte: ['02', '03'] } });
+    const wert = svc.dummyFor({
+      name: 'rolle',
+      path: 'm/rolle',
+      typeName: 'Code.Rolle',
+      codelist: rolle,
+    });
+    expect(['02', '03']).toContain(wert);
+  });
+
+  it('die Verweisnummer geht dem Vorschlag vor — sie muss an beiden Enden stimmen', () => {
+    const id = state.addAusp('m/bet', 'Notar/in');
+    state.setElementProfile('m/verweis', { refZiel: 'm/bet@' + id });
+    bindeVorgabe({ 'm/verweis/ref.rollennummer': { beispiel: '99' } });
+
+    expect(
+      svc.dummyFor({
+        name: 'ref.rollennummer',
+        path: 'm/verweis/ref.rollennummer',
+        typeName: 'string',
+        codelist: null,
+      }),
+    ).toBe('1');
+  });
+
+  it('ohne Bindung wuerfelt der Wuerfel weiter typgerecht, nicht den eigenen Wert', () => {
+    state.setElementProfile('m/datum', { beispiel: '1999-12-31' });
+    expect(svc.dummyFor({ name: 'datum', path: 'm/datum', typeName: 'date', codelist: null })).toBe(
+      '2026-01-01',
+    );
+  });
+});
+
+describe('ValueService.werteVerstoss', () => {
+  let svc: ValueService;
+  let state: StateService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    svc = TestBed.inject(ValueService);
+    state = TestBed.inject(StateService);
+  });
+
+  it('meldet einen Wert ausserhalb der freigegebenen Codes', () => {
+    state.setElementProfile('m/rolle', { werte: ['01', '02'] });
+    expect(svc.werteVerstoss('m/rolle', '03')).toContain('03');
+  });
+
+  it('laesst freigegebene Werte durch — auch aus manuell gepflegten Eintraegen', () => {
+    state.setElementProfile('m/rolle', { werte: ['01', '2001 — Genehmigung'] });
+    expect(svc.werteVerstoss('m/rolle', '01')).toBeNull();
+    expect(svc.werteVerstoss('m/rolle', '2001')).toBeNull();
+  });
+
+  it('ohne Einschraenkung und ohne Wert gibt es keinen Verstoss', () => {
+    expect(svc.werteVerstoss('m/rolle', '03')).toBeNull();
+    state.setElementProfile('m/rolle', { werte: ['01'] });
+    expect(svc.werteVerstoss('m/rolle', '  ')).toBeNull();
+  });
+});
+
+describe('ValueService.werteZeilen', () => {
+  let svc: ValueService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    svc = TestBed.inject(ValueService);
+  });
+
+  it('zerlegt freigegebene Eintraege in Code und Beschreibung', () => {
+    expect(svc.werteZeilen(['2001 — Genehmigung Grundstücksgeschäft', '01'])).toEqual([
+      { value: '2001', label: 'Genehmigung Grundstücksgeschäft' },
+      { value: '01', label: '' },
+    ]);
   });
 });
 

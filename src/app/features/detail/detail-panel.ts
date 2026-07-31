@@ -79,7 +79,7 @@ export class DetailPanel {
   private readonly clErzwungen = computed(() => {
     const it = this.state.selItem();
     if (!it) return false;
-    const werte = this.state.elemente()[itemPath(it)]?.werte;
+    const werte = this.state.werteOf(itemPath(it));
     return !!werte && !werte.length;
   });
   /**
@@ -171,9 +171,20 @@ export class DetailPanel {
     } = null;
     if (n.codelist && (!isAusp || this.tree.isLeaf(n))) {
       const cl = n.codelist;
-      const eff = this.values.clWerte(cl);
-      const geladen = !(cl.werte && cl.werte.length) && !!eff;
-      const allowed = new Set(p.werte ?? []);
+      const geladeneWerte = this.values.clWerte(cl);
+      const geladen = !(cl.werte && cl.werte.length) && !!geladeneWerte;
+      // Effektive Einschraenkung: im gebundenen Durchlauf steht sie in der
+      // Vorgabe (und gilt dort auch im Vorkommen), beim Profilieren im eigenen
+      // Eintrag. Zum Abgleich zaehlt der reine Code — die Eintraege duerfen aus
+      // dem Freitextfeld stammen („2001 — Genehmigung …").
+      const werte = this.state.werteOf(path);
+      const codes = werte ? this.values.werteZeilen(werte).map((w) => w.value) : null;
+      // Ohne geladene Liste bleiben die freigegebenen Eintraege die einzige
+      // Auswahl — sonst stuende im Nachrichten-Modus eine harte Einschraenkung
+      // ohne auswaehlbare Werte da.
+      const eff =
+        geladeneWerte ?? (this.msgMode() && codes?.length ? this.values.werteZeilen(werte!) : null);
+      const allowed = new Set(codes ?? []);
       const belegterCode = p.beispiel ?? '';
       codelist = {
         nameLang: cl.nameLang,
@@ -184,15 +195,17 @@ export class DetailPanel {
           ? eff.map((w) => ({
               value: w.value,
               label: w.label,
-              checked: !p.werte || allowed.has(w.value),
+              checked: !codes || allowed.has(w.value),
               belegt: !!belegterCode && w.value === belegterCode,
               search: (w.value + ' ' + w.label).toLowerCase(),
             }))
           : null,
-        restricted: !!p.werte,
-        werte: p.werte ?? null,
+        restricted: !!werte,
+        werte: codes,
         allowedCount: allowed.size,
-        total: eff ? eff.length : 0,
+        // Bezugsgroesse „x von y" ist die geladene Liste; sind die Zeilen aus den
+        // freigegebenen Eintraegen synthetisiert, gibt es kein y (0 = nicht zeigen).
+        total: geladeneWerte ? geladeneWerte.length : 0,
         showFilter: !!eff && eff.length > 15,
         manualText: (p.werte ?? []).join('\n'),
       };
@@ -247,6 +260,12 @@ export class DetailPanel {
     // (US "Testnachricht aus einer Profilierung").
     const gesperrt = this.state.vorgabeGesperrt(path);
 
+    // Vorschlag der gebundenen Fassung (Beispielwert bzw. einziger freigegebener
+    // Codelisten-Wert): angeboten, nicht gesetzt. Deckt sich der aktuelle Wert
+    // schon mit ihm, gibt es nichts mehr zu uebernehmen.
+    const vorschlagRoh = this.msgMode() && leaf ? this.values.vorschlagFor(path) : null;
+    const vorschlag = vorschlagRoh && vorschlagRoh !== (p.beispiel ?? '') ? vorschlagRoh : '';
+
     return {
       isAusp,
       erw,
@@ -279,6 +298,10 @@ export class DetailPanel {
       kardEntfernenSperre: showAusps ? this.guided.kardSperreEntfernen(path) : null,
       leaf,
       codelist,
+      vorschlag,
+      // Harte Codelisten-Einschraenkung: im Nachrichten-Modus sind ausschliesslich
+      // die freigegebenen Werte auswaehlbar, die freie Eingabe ist gesperrt.
+      wertGesperrt: this.msgMode() && !!codelist?.restricted,
       ref,
       anmerkung: p.anmerkung ?? '',
       // Hinweise sind eine eigene Ressource (ADR 0014) und kommen nicht aus `p`.
@@ -436,6 +459,9 @@ export class DetailPanel {
       // der Profilierung, Issue #50) — null, solange es abwaehlbar ist.
       weglassSperre: this.guided.kardSperreWeglassen(path),
       marker: this.guided.markerOf(path),
+      // Anmerkung der Profilierung als Hilfetext am Entscheidungspunkt: sie ist
+      // oft die Begruendung, warum das Feld so aussehen muss.
+      hilfetext: this.state.hatVorgabe() ? (this.state.anmerkungOf(path) ?? '') : '',
     };
   });
 
@@ -736,6 +762,15 @@ export class DetailPanel {
   /** Nachrichten-Modus: Codelisten-Wert per Klick als Blattwert uebernehmen. */
   protected setWertAusListe(value: string): void {
     this.state.setElementProfile(this.path(), { beispiel: value });
+  }
+
+  /**
+   * Vorschlag der gebundenen Profilierung uebernehmen — erst damit (oder mit
+   * einer eigenen Eingabe) gilt der Entscheidungspunkt als erledigt.
+   */
+  protected uebernehmeVorschlag(): void {
+    const wert = this.vm()?.vorschlag;
+    if (wert) this.state.setElementProfile(this.path(), { beispiel: wert });
   }
 
   /**

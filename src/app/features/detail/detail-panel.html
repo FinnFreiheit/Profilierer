@@ -240,6 +240,9 @@
             }
           </div>
         }
+        @if (g.hilfetext) {
+          <div class="gHint gAnm">{{ g.hilfetext }}</div>
+        }
         @if (g.marker === 'zuklaeren') {
           <div class="gHint gKlaeren">
             zu klären — die Profilierung markiert dieses Element nur; die fachliche Frage ist offen.
@@ -432,7 +435,7 @@
                 }}
               </span>
             </div>
-          } @else if (cl.restricted) {
+          } @else if (cl.restricted && cl.total) {
             <!-- Umfang der Einschraenkung bleibt auch ohne Bedienelemente sichtbar. -->
             <div class="clTools">
               <span style="color: var(--muted)">
@@ -442,7 +445,11 @@
           }
           @if (!roEff() && msgMode()) {
             <div style="font-size: 12px; color: var(--muted); margin-bottom: 5px">
-              Klick auf einen Wert übernimmt ihn in das Feld.
+              @if (cl.restricted) {
+                Die Profilierung lässt nur diese Werte zu — Klick übernimmt den Wert in das Feld.
+              } @else {
+                Klick auf einen Wert übernimmt ihn in das Feld.
+              }
             </div>
           }
           @if (clSicht().umschalter) {
@@ -598,15 +605,31 @@
       @if (!msgMode() || v.leaf) {
         <div class="dsec">
           <label>{{ msgMode() ? 'Wert' : 'Beispielwert' }}</label>
+          @if (v.vorschlag) {
+            <div class="wertVorschlag">
+              <span
+                >Vorschlag der Profilierung: <em>{{ v.vorschlag }}</em></span
+              >
+              <button (click)="uebernehmeVorschlag()">übernehmen</button>
+            </div>
+          }
           <div class="wertRow">
             <textarea
               style="min-height: 40px"
               [placeholder]="
-                msgMode()
-                  ? 'Wert dieses Feldes in der Testnachricht'
-                  : 'konkretes Beispiel — wird für die Beispiel-XML verwendet'
+                v.wertGesperrt
+                  ? 'Wert aus der Liste der zugelassenen Codes wählen'
+                  : msgMode()
+                    ? 'Wert dieses Feldes in der Testnachricht'
+                    : 'konkretes Beispiel — wird für die Beispiel-XML verwendet'
               "
               [class.invalid]="v.beispielProblem"
+              [readOnly]="v.wertGesperrt"
+              [title]="
+                v.wertGesperrt
+                  ? 'Die Profilierung schränkt die Codeliste ein — freie Eingabe ist gesperrt.'
+                  : ''
+              "
               [value]="v.beispiel"
               (change)="setField('beispiel', $event)"
             ></textarea>
@@ -620,6 +643,16 @@
               </button>
             }
           </div>
+          @if (v.wertGesperrt) {
+            <div style="font-size: 12px; color: var(--muted); margin-top: 4px">
+              @if (v.codelist?.allowedCount) {
+                Die Profilierung lässt hier nur bestimmte Codes zu — Wert oben aus der Liste wählen.
+              } @else {
+                Die Profilierung lässt an diesem Element keinen Wert zu — der Widerspruch gehört in
+                der Profilierung geklärt.
+              }
+            </div>
+          }
           @if (v.beispielProblem) {
             <div class="feldProblem">{{ v.beispielProblem }}</div>
           }

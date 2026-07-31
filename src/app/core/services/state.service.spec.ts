@@ -690,6 +690,42 @@ describe('StateService', () => {
       expect(s.beispielOf('m/leer')).toBeNull();
     });
 
+    it('Werte, Anmerkung und Beispielwert der Vorgabe gelten auch im Vorkommen', () => {
+      // Die Profilierung kennt nur den generischen Pfad — Vorkommen-ids
+      // (…@a1) entstehen erst im Durchlauf und sind dort nicht adressierbar.
+      s.setVorgabe(
+        vorgabeDoc({
+          elemente: {
+            'm/bet/rolle': {
+              werte: ['01'],
+              anmerkung: 'nur Notarinnen und Notare',
+              beispiel: '01',
+            },
+          },
+        }),
+      );
+
+      expect(s.werteOf('m/bet@a1/rolle')).toEqual(['01']);
+      expect(s.anmerkungOf('m/bet@a1/rolle')).toBe('nur Notarinnen und Notare');
+      expect(s.beispielOf('m/bet@a1/rolle')).toBe('01');
+      expect(s.vorgabeBeispiel('m/bet@a1/rolle')).toBe('01');
+    });
+
+    it('am Vorkommen selbst gefuehrte Aussagen der Vorgabe gewinnen', () => {
+      s.setVorgabe(
+        vorgabeDoc({
+          elemente: {
+            'm/bet/rolle': { werte: ['01'], beispiel: '01' },
+            'm/bet@v1/rolle': { werte: ['02'], beispiel: '02' },
+          },
+          auspraegungen: { 'm/bet': [{ id: 'v1', name: 'Betroffene Person' }] },
+        }),
+      );
+
+      expect(s.werteOf('m/bet@v1/rolle')).toEqual(['02']);
+      expect(s.beispielOf('m/bet@v1/rolle')).toBe('02');
+    });
+
     it('Verweisziel: Entscheidung vor Vorgabe', () => {
       s.setVorgabe(
         vorgabeDoc({

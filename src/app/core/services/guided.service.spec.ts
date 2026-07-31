@@ -667,6 +667,42 @@ describe('GuidedService', () => {
       });
     });
 
+    // ── Werte: vorschlagen statt vorbelegen (Issue #29) ────────────────
+
+    describe('Werte', () => {
+      it('schreibt den Beispielwert der Profilierung nicht in das Feld', () => {
+        bindeVorgabe({ [`${M}/kopf`]: { beispiel: 'Amtsgericht Musterstadt' } });
+
+        expect(state.elemente()[`${M}/kopf`]).toBeUndefined();
+        expect(svc.offeneSet().has(`${M}/kopf`)).toBeTrue();
+        expect(svc.offenePflicht()).toBe(2); // kopf + Auswahl
+      });
+
+      it('gilt erst mit uebernommenem oder eigenem Wert als erledigt', () => {
+        bindeVorgabe({ [`${M}/kopf`]: { beispiel: 'Amtsgericht Musterstadt' } });
+
+        expect(svc.offeneSet().has(`${M}/kopf`)).toBeTrue();
+
+        // Etwas anderes einzutragen erledigt den Punkt genauso wie das Uebernehmen.
+        state.setElementProfile(`${M}/kopf`, { beispiel: 'Landgericht Beispielstadt' });
+        expect(svc.offeneSet().has(`${M}/kopf`)).toBeFalse();
+      });
+
+      it('eine auf genau einen Wert eingeschraenkte Codeliste bleibt ebenfalls offen', () => {
+        bindeVorgabe({ [`${M}/kopf`]: { werte: ['01'] } });
+
+        expect(state.elemente()[`${M}/kopf`]).toBeUndefined();
+        expect(svc.offeneSet().has(`${M}/kopf`)).toBeTrue();
+      });
+
+      it('fuellePflichtfelder uebernimmt den Beispielwert statt eines Zufallswerts', () => {
+        bindeVorgabe({ [`${M}/kopf`]: { beispiel: 'Amtsgericht Musterstadt' } });
+
+        expect(svc.fuellePflichtfelder()).toBe(1);
+        expect(state.elemente()[`${M}/kopf`]?.beispiel).toBe('Amtsgericht Musterstadt');
+      });
+    });
+
     // ── Kardinalitaet hart durchsetzen (Issue #27) ─────────────────────
 
     describe('Kardinalitaet', () => {
