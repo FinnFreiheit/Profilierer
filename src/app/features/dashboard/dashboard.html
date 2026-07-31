@@ -30,6 +30,14 @@
         />
         nur abgenommene
       </label>
+      <label class="abnFilter" title="Nur Profilierungen mit offenen Rückmeldungen zeigen">
+        <input
+          type="checkbox"
+          [checked]="nurMitHinweisen()"
+          (change)="nurMitHinweisen.set($any($event.target).checked)"
+        />
+        nur mit offenen Hinweisen
+      </label>
     </div>
   </div>
 
@@ -73,6 +81,15 @@
                     >✔ BLK-AG abgenommen</span
                   >
                 }
+              }
+              @if (e.nHinweiseOffen) {
+                <button
+                  class="pill pillBtn"
+                  title="Offene Rückmeldungen ansehen — öffnet die Profilierung und die Hinweis-Übersicht"
+                  (click)="zeigeHinweise(e.id, $event)"
+                >
+                  {{ hinweisBadge(e) }}
+                </button>
               }
               @if (e.xjustizVersion) {
                 <span class="pill">XJustiz {{ e.xjustizVersion }}</span>

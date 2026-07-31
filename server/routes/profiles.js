@@ -156,7 +156,9 @@ export function profilesRouter(db, auth) {
       auth.istAg(req) ? 'ag' : 'extern',
     );
     if (!hinweis) return res.status(404).json({ error: 'nicht gefunden' });
-    res.status(201).json({ hinweis });
+    // Der aktualisierte Index-Eintrag reist mit: das Dashboard zaehlt offene
+    // Rueckmeldungen ohne Neuladen (Issue #43).
+    res.status(201).json({ hinweis, entry: db.entry(req.params.id) });
   });
 
   // Volltausch (JSON-Import einer Profildatei) — ersetzt, fuehrt nicht zusammen.
@@ -189,14 +191,15 @@ export function profilesRouter(db, auth) {
     const hinweis = db.hinweisAendern(req.params.id, req.params.hid, { text, erledigt });
     if (hinweis === 'leer') return res.status(400).json({ error: 'kein Text' });
     if (!hinweis) return res.status(404).json({ error: 'nicht gefunden' });
-    res.json({ hinweis });
+    res.json({ hinweis, entry: db.entry(req.params.id) });
   });
 
   // Loeschen.
   r.delete('/profiles/:id/hinweise/:hid', hinweisSchutz, (req, res) => {
     if (!db.hinweisLoeschen(req.params.id, req.params.hid))
       return res.status(404).json({ error: 'nicht gefunden' });
-    res.status(204).end();
+    // Mit Eintrag statt 204: der Zaehler der Karte aendert sich (#43).
+    res.json({ entry: db.entry(req.params.id) });
   });
 
   // Teilbaum loeschen (`?praefix=<pfad>`): der Client raeumt damit die Hinweise

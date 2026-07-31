@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   computed,
+  effect,
   inject,
   viewChild,
 } from '@angular/core';
@@ -51,6 +52,17 @@ export class HinweiseDialog {
   private readonly log = inject(LoggerService);
 
   private readonly dlg = viewChild.required<ElementRef<HTMLDialogElement>>('dlg');
+
+  constructor() {
+    // Bitte des Dashboard-Badges entgegennehmen (Issue #43) — sie kann vor der
+    // Entstehung dieses Dialogs gestellt worden sein, darum ein Signal statt
+    // eines Aufrufs. Zuruecksetzen, damit sie nur einmal wirkt.
+    effect(() => {
+      if (!this.hinweise.uebersichtAnfrage()) return;
+      this.hinweise.uebersichtAnfrage.set(false);
+      this.open();
+    });
+  }
 
   /** Zahl der geparkten Punkte („zu klären", #41) — 0 ausserhalb des Profil-Modus. */
   protected readonly zuKlaeren = computed(() => this.guided.geparkteSet().size);

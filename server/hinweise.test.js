@@ -107,7 +107,8 @@ test('Hinweise: anlegen, listen, aendern, abhaken, loeschen', async (t) => {
   );
 
   // Einzeln loeschen.
-  assert.equal((await api('DELETE', `/profiles/${id}/hinweise/${a.body.hinweis.id}`)).status, 204);
+  // Loeschen antwortet mit dem frischen Index-Eintrag statt 204 (#43).
+  assert.equal((await api('DELETE', `/profiles/${id}/hinweise/${a.body.hinweis.id}`)).status, 200);
   const rest = (await api('GET', `/profiles/${id}/hinweise`)).body;
   assert.deepEqual(
     rest.map((h) => h.id),
@@ -273,7 +274,7 @@ test('Abgenommen: Externe duerfen anlegen, aber nichts wegraeumen', async (t) =>
       .status,
     200,
   );
-  assert.equal((await api('DELETE', `/profiles/${id}/hinweise/${eid}`, { token })).status, 204);
+  assert.equal((await api('DELETE', `/profiles/${id}/hinweise/${eid}`, { token })).status, 200);
 
   // Ohne Token faellt auch der eigene Eintrag unter den Schutz.
   const ohne = await api('POST', `/profiles/${id}/hinweise`, { body: { pfad: 'a', text: 'x' } });
@@ -294,7 +295,7 @@ test('Abgenommen: Externe duerfen anlegen, aber nichts wegraeumen', async (t) =>
   );
   assert.equal(
     (await api('DELETE', `/profiles/${id}/hinweise/${fid}`, { key: AG_KEY })).status,
-    204,
+    200,
   );
   // Lesen bleibt fuer alle frei.
   assert.equal((await api('GET', `/profiles/${id}/hinweise`)).status, 200);
@@ -327,7 +328,43 @@ test('Nicht abgenommen: jede Hinweis-Operation bleibt fuer alle frei', async (t)
     (await api('PATCH', `/profiles/${id}/hinweise/${hid}`, { body: { erledigt: true } })).status,
     200,
   );
-  assert.equal((await api('DELETE', `/profiles/${id}/hinweise/${hid}`)).status, 204);
+  assert.equal((await api('DELETE', `/profiles/${id}/hinweise/${hid}`)).status, 200);
+});
+
+// ── Dashboard-Zaehler (Issue #43) ─────────────────────────────────────
+
+test('Index: offene Hinweise gesamt und davon extern; erledigte zaehlen nicht', async (t) => {
+  const { api } = await start(t, { agKey: AG_KEY });
+  const id = await neuesProfil(api);
+  const eintrag = async () => (await api('GET', '/profiles')).body.find((p) => p.id === id);
+
+  // Ohne Hinweise bleiben beide Felder weg — die Karte zeigt kein Badge.
+  assert.equal((await eintrag()).nHinweiseOffen, undefined);
+  assert.equal((await eintrag()).nHinweiseExtern, undefined);
+
+  const extern = await api('POST', `/profiles/${id}/hinweise`, { body: { pfad: 'a', text: '1' } });
+  await api('POST', `/profiles/${id}/hinweise`, { body: { pfad: 'a', text: '2' } });
+  const ag = await api('POST', `/profiles/${id}/hinweise`, {
+    body: { pfad: 'b', text: '3' },
+    key: AG_KEY,
+  });
+  // Die Schreib-Antwort traegt den frischen Eintrag mit (kein Neuladen noetig).
+  assert.equal(ag.body.entry.nHinweiseOffen, 3);
+  assert.equal(ag.body.entry.nHinweiseExtern, 2);
+  assert.equal((await eintrag()).nHinweiseOffen, 3);
+  assert.equal((await eintrag()).nHinweiseExtern, 2);
+
+  // Abhaken nimmt den Eintrag aus der Zaehlung.
+  const p = await api('PATCH', `/profiles/${id}/hinweise/${extern.body.hinweis.id}`, {
+    body: { erledigt: true },
+  });
+  assert.equal(p.body.entry.nHinweiseOffen, 2);
+  assert.equal(p.body.entry.nHinweiseExtern, 1);
+
+  // Loeschen ebenso — und die Antwort traegt den Eintrag statt eines 204.
+  const d = await api('DELETE', `/profiles/${id}/hinweise/${ag.body.hinweis.id}`);
+  assert.equal(d.body.entry.nHinweiseOffen, 1);
+  assert.equal(d.body.entry.nHinweiseExtern, 1);
 });
 
 // ── Import (Volltausch) ───────────────────────────────────────────────
