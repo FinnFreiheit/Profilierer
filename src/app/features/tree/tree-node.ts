@@ -282,6 +282,23 @@ export class TreeNode {
             : 'Übergeordnetes Element ist ausgeschlossen — der Teilbaum entfällt.') +
           (this.state.anmerkungOf(path) ? '\n' + this.state.anmerkungOf(path) : ''),
       });
+    // Gebundener Durchlauf: was die Profilierung offen laesst bzw. gar nicht
+    // anspricht, sichtbar kennzeichnen (US "Profil-Wirkungen und Marker").
+    const marker = this.guided.markerOf(path);
+    if (marker === 'zuklaeren')
+      tags.push({
+        cls: 't-klaeren',
+        text: 'zu klären',
+        title:
+          'Die gebundene Profilierung markiert dieses Element nur — die fachliche Frage ist offen. Es verhält sich wie ein optionales Element.',
+      });
+    else if (marker === 'nichtprofiliert')
+      tags.push({
+        cls: 't-nprof',
+        text: 'nicht profiliert',
+        title:
+          'Die gebundene Profilierung sagt zu diesem Element nichts — es folgt der Schema-Semantik. Die Testnachricht geht insoweit über das Szenario hinaus.',
+      });
     // Gefuehrter Modus: offene Entscheidungspunkte markieren.
     if (this.state.guided() && !readOnly && this.guided.offeneSet().has(path))
       tags.push({ cls: 't-open', text: 'offen', title: 'Entscheidung steht noch aus' });

@@ -45,7 +45,7 @@ Ersetzt das globale `S`/`S.profile` (Z.327-335). Jedes Feld ein Signal, Ableitun
 
 - **Signale:** Schema/Nachricht (`docs, idx, version, standardKennung, msgName, root`), Profil (`meta, statuses, elemente, auspraegungen, erweiterungen`), UI (`selItem, open, codelists, showTech, onlyProfile, showRefs, focusMode, scrollTarget, autosaveInfo, pendingMsg`), Diff (`showDiff, diffMap, diffAnc, idxB`), Validierung (`valFehler, valAnc`).
 - **Ableitungen:** `profileDoc`, `fortschritt` (Festlegungen/Ausprägungen/Erweiterungen, Z.1453).
-- **Profil-Zugriff:** `statusOf/wirkungOf/exclStatus`, `inheritedExcluded/ancestorPaths`, `effKard`, `werteOf/anmerkungOf/beispielOf/refZielOf`, `auspsOf`, `hasNotes`, `boxHidden` (nur-Profil-Filter), `vorgabeSchliesstAus/vorgabeGesperrt` (Sperre der gebundenen Fassung), `auspNumber/auspLabel`, `refZielKandidaten`, `erweiterungenOf`.
+- **Profil-Zugriff:** `statusOf/wirkungOf/exclStatus`, `inheritedExcluded/ancestorPaths`, `effKard`, `werteOf/anmerkungOf/beispielOf/refZielOf`, `auspsOf`, `hasNotes`, `boxHidden` (nur-Profil-Filter), `vorgabeSchliesstAus/vorgabeGesperrt` (Sperre der gebundenen Fassung), `profilWirkung` (Festlegung der gebundenen Fassung), `auspNumber/auspLabel`, `refZielKandidaten`, `erweiterungenOf/erweiterungsNamen`.
 - **Mutationen (erzeugen neue Referenzen):** `setElementProfile` (merge + `pruneP`, Z.987-996), `addAusp/removeAusp` (kaskadierend, Z.1017-1035), `addErweiterung/updateErweiterung/removeErweiterung` (kaskadierend über den Präfix `parentPath/~id`, [ADR 0010](adr/0010-schema-erweiterungen-profil-overlay.md)), `renameAusp`, `duplicateElement/copyAusp` (+ private `moveSubProfile/copySubProfile`, Z.1393-1434 — nehmen Erweiterungen mit), `toggleOpen/setOpen`, Status-CRUD (`addStatus/updateStatus/removeStatus/statusUsed`), `patchMeta`, `loadProfile/resetProfile`.
 
 `removeAusp`, `removeErweiterung` und `pruneP` sind der heikelste Teil und **unit-getestet** (`state.service.spec.ts`).
@@ -54,7 +54,9 @@ Ersetzt das globale `S`/`S.profile` (Z.327-335). Jedes Feld ein Signal, Ableitun
 
 Unter dem Entscheidungsstand kann ein **zweites** `ProfileDoc` liegen: die `vorgabe` (Signal, `hatVorgabe`, gesetzt/geleert über `setVorgabe/clearVorgabe`; `setVorgabe` kopiert das Dokument — eine gebundene Fassung ist eingefroren). Grundlage der Spec „Testnachricht geführt aus einer Profilierung": die eingefrorene Profilkopie ist Vorgabe, die Entscheidungen des Durchlaufs liegen als bestehende Schicht (`elemente`/`auspraegungen`) darüber.
 
-Die Lesezugriffe fragen zuerst die Entscheidung und fallen auf die Vorgabe zurück, sonst nichts — feldweise für `statusOf/wirkungOf` (der Status der Vorgabe wird über **deren** Stufenliste aufgelöst, Stufen sind je Profilierung frei konfigurierbar), `effKard` (je Grenze), `werteOf`, `anmerkungOf`, `beispielOf`, `refZielOf`; bei `auspsOf` gilt der Rückfall je Pfad für die ganze Liste. Ein leeres `werte`-Array ist eine bewusste Einschränkung und fällt **nicht** zurück.
+Die Lesezugriffe fragen zuerst die Entscheidung und fallen auf die Vorgabe zurück, sonst nichts — feldweise für `statusOf/wirkungOf` (der Status der Vorgabe wird über **deren** Stufenliste aufgelöst, Stufen sind je Profilierung frei konfigurierbar), `effKard` (je Grenze), `werteOf`, `anmerkungOf`, `beispielOf`, `refZielOf`; bei `auspsOf` und `erweiterungenOf` gilt der Rückfall je Pfad für die ganze Liste. Ein leeres `werte`-Array ist eine bewusste Einschränkung und fällt **nicht** zurück.
+
+Daneben steht `profilWirkung(path)`: die Wirkung, die die gebundene Fassung für den Pfad **festlegt** — ohne Rücksicht darauf, ob der Durchlauf inzwischen selbst entschieden hat. Das ist die Profil-Aussage, aus der der `GuidedService` seine Wirkungen und Marker ableitet; `null` heißt „die Profilierung sagt hier nichts". „Festlegung" meint dabei die gesetzte Statusstufe: ein Eintrag mit bloßer Anmerkung oder Beispielwert ist keine Aussage über die Verwendung.
 
 Beide Schichten bleiben getrennt: `profileDoc`/`fortschritt` sehen nur den Entscheidungsstand, keine Mutation fasst die Vorgabe an, und `loadProfile` räumt sie (die Bindung gehört zum Durchlauf, nicht zum Dokument). Ohne gesetzte Vorgabe verhält sich der Store unverändert.
 
@@ -136,9 +138,25 @@ Lädt eine bestehende XJustiz-Nachricht (XML-Instanz) und bildet sie gegen das g
 
 ## GuidedService
 
-Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten): offene Entscheidungspunkte (`offeneSet`), `fortschritt` (x von y), `gotoNextOpen`, `offenePflicht`, `fuellePflichtfelder` (Dummy-Werte typkonform). Getestet in `guided.service.spec.ts`.
+Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten): offene Entscheidungspunkte (`offeneSet`), `fortschritt` (x von y), `gotoNextOpen`, `offenePflicht`, `markerOf`/`markerZaehlung` (gebundener Durchlauf), `fuellePflichtfelder` (Dummy-Werte typkonform). Getestet in `guided.service.spec.ts`.
 
 **Gebundener Durchlauf:** Was die Vorgabe ausschließt (`StateService.vorgabeSchliesstAus`), wird im Struktur-Walk **vor** dem Punkt abgeschnitten — kein Entscheidungspunkt, kein Abstieg, auch nicht in Vorkommen. Das ist der Unterschied zum Ausschluss durch eine eigene Entscheidung des Durchlaufs (Wirkung `ausgeschlossen` auf `elemente`): der bleibt Punkt und zählt als getroffene Entscheidung.
+
+**Wirkungen der Vorgabe im Durchlauf** (maßgeblich ist die Wirkung, nicht der Name der Stufe — `StateService.profilWirkung` liest sie ohne die Entscheidungsschicht):
+
+| Wirkung der Vorgabe | Verhalten im Durchlauf                                                                                                                                                   | Marker             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ |
+| `ausgeschlossen`    | abgeschnitten: kein Punkt, kein Eingabefeld, nicht in der Instanz                                                                                                        | `nicht verwendet`  |
+| `pflicht`           | zwingend: Blatt wird Wert-Punkt (auch bei Schema-`minOccurs=0`), Container wird ohne Aufnahme-Frage betreten, nicht abwählbar (`setzeAufnahme` verweigert das Weglassen) | –                  |
+| `optional`          | Entscheidungspunkt „aufnehmen / weglassen"; unbeantwortet zählt als offen                                                                                                | –                  |
+| `markierung`        | wie `optional`                                                                                                                                                           | `zu klären`        |
+| keine Festlegung    | Schema-Semantik                                                                                                                                                          | `nicht profiliert` |
+
+`markerOf(path)` liefert den Marker (`PunktMarker`), `DecisionPoint.marker` führt ihn am Punkt mit. Er beschreibt die **Aussage der Profilierung**, nicht die Antwort des Anwenders — er bleibt also stehen, nachdem entschieden wurde. **Vorkommen erben die Aussage ihres Trägerelements** (`ohneVorkommen`): ihre IDs entstehen zur Laufzeit, die Profilierung kann sie gar nicht adressieren; nur wo sie es doch tut (eigene Ausprägungen der gebundenen Fassung), gewinnt der exakte Pfad.
+
+`markerZaehlung` zählt die **berührten** markierten Elemente — was in der Nachricht landet, also Optionales erst mit der Aufnahme und Weggelassenes nie; synthetische Gruppen (choice/sequence) bleiben außen vor. Der `TestmessageCreateService` hängt die Zahlen beim Speichern als Sammelmeldung an den Toast.
+
+**Schema-Erweiterungen der Profilierung** sind reguläre Entscheidungspunkte: `StateService.erweiterungenOf` fällt (wie `auspsOf`) auf die Vorgabe zurück, der Walk steigt über `TreeService.kinder` ab und nimmt sie damit mit. Die vorhandene Sonderbehandlung beim Speichern gilt unverändert — Schemafehler ausschließlich aus Erweiterungen erzeugen einen Hinweis statt des Entwurfs-Kennzeichens (`ValidationMarkerService`, dessen Namens-Fallback über `StateService.erweiterungsNamen` beide Schichten kennt).
 
 ## InstanceExportService
 

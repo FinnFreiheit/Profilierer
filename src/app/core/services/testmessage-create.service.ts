@@ -256,22 +256,36 @@ export class TestmessageCreateService {
       });
       this.state.messageCreate.set({ ...session, entryId: id, name });
     }
+    const marker = this.markerHinweis();
     if (fehlerEintraege) {
-      this.toast.show('Als Entwurf gespeichert — die Nachricht ist nicht schema-valide.');
+      this.toast.show('Als Entwurf gespeichert — die Nachricht ist nicht schema-valide.' + marker);
       this.report.zeigeMitPfaden(
         'Als Entwurf gespeichert — Nachricht nicht schema-valide',
         fehlerEintraege,
       );
     } else {
       this.toast.show(
-        entwurf
+        (entwurf
           ? `Als Entwurf gespeichert — noch ${kritisch} Pflichtpunkt${kritisch === 1 ? '' : 'e'} offen.`
           : nurErweiterungen
             ? 'Testnachricht gespeichert — enthält Schema-Erweiterungen (bewusste XSD-Abweichung).'
-            : 'Testnachricht gespeichert.',
+            : 'Testnachricht gespeichert.') + marker,
       );
     }
     return true;
+  }
+
+  /**
+   * Sammelmeldung des gebundenen Durchlaufs: wie viele beruehrte Elemente die
+   * Profilierung offen laesst ("zu klaeren") und zu wie vielen sie gar nichts
+   * sagt ("nicht profiliert"). Beides ist kein Fehler, sondern eine Aussage
+   * darueber, wie belastbar die Testnachricht ist und wo die Profilierung noch
+   * eine Festlegung braucht. Leer ohne Bindung und ohne markierte Elemente.
+   */
+  private markerHinweis(): string {
+    const { ungeklaert, nichtProfiliert } = this.guided.markerZaehlung();
+    if (!ungeklaert && !nichtProfiliert) return '';
+    return ` Berührte Elemente: ${ungeklaert} ungeklärt, ${nichtProfiliert} nicht profiliert.`;
   }
 
   /**

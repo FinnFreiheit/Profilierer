@@ -371,6 +371,9 @@ export class DetailPanel {
       entfaellt: !w && this.state.inheritedExcluded(path),
       zweige,
       wertOffen,
+      // Gebundener Durchlauf: was die Profilierung festlegt bzw. offen laesst.
+      zwingend: this.state.profilWirkung(path) === 'pflicht',
+      marker: this.guided.markerOf(path),
     };
   });
 

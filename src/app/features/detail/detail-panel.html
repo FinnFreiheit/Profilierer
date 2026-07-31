@@ -224,7 +224,24 @@
 
         @if (g.art === 'wert') {
           <div class="gHint">
-            Pflichtfeld — ein typkonformer Wert ist erforderlich (unten eingeben oder würfeln).
+            @if (g.zwingend) {
+              Die gebundene Profilierung setzt dieses Element zwingend — ein typkonformer Wert ist
+              erforderlich, weglassen ist nicht möglich.
+            } @else {
+              Pflichtfeld — ein typkonformer Wert ist erforderlich (unten eingeben oder würfeln).
+            }
+          </div>
+        }
+        @if (g.marker === 'zuklaeren') {
+          <div class="gHint gKlaeren">
+            zu klären — die Profilierung markiert dieses Element nur; die fachliche Frage ist offen.
+            Es verhält sich wie ein optionales Element.
+          </div>
+        }
+        @if (g.marker === 'nichtprofiliert') {
+          <div class="gHint gNprof">
+            nicht profiliert — die Profilierung sagt zu diesem Element nichts; es folgt der
+            Schema-Semantik.
           </div>
         }
         @if (g.wertOffen && g.art !== 'wert') {

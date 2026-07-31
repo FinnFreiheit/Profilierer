@@ -1,10 +1,22 @@
 import { Injectable, Signal, computed, inject } from '@angular/core';
-import { TreeNode, itemPath } from '../../models/node.model';
+import { TreeNode, itemPath, ohneVorkommen } from '../../models/node.model';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
 import { DispositionService } from './disposition.service';
 import { PlaceholderNode, ValueService } from './value.service';
+
+/**
+ * Kennzeichnung eines Punkts im **gebundenen** Durchlauf, abgeleitet aus der
+ * Aussage der Profilierung (nicht aus der Entscheidung des Anwenders):
+ *
+ * - `zuklaeren` — die Profilierung traegt hier eine reine Markierung: der Punkt
+ *   verhaelt sich wie ein optionaler, die fachliche Frage ist aber noch offen.
+ * - `nichtprofiliert` — die Profilierung sagt zu diesem Element nichts. Es folgt
+ *   der Schema-Semantik; die Testnachricht geht insoweit ueber das Szenario
+ *   hinaus (offene Welt, siehe Spec "Testnachricht aus einer Profilierung").
+ */
+export type PunktMarker = 'zuklaeren' | 'nichtprofiliert';
 
 /**
  * Ein Entscheidungspunkt des gefuehrten Durchlaufs. Im Profil-Modus: ein
@@ -23,6 +35,10 @@ export interface DecisionPoint {
   pflicht?: boolean;
   /** Auswahl-Schritt: Pfade der Zweige (fuer die Genau-ein-Zweig-Regel). */
   kinder?: string[];
+  /** Gebundener Durchlauf: Kennzeichnung aus der Aussage der Profilierung. */
+  marker?: PunktMarker;
+  /** Synthetischer Knoten (choice-/sequence-Gruppe) — kein Element der Nachricht. */
+  synthetisch?: boolean;
 }
 
 /** Ergebnis des Struktur-Walks (Punkte + Positionsindex + Blatt-Infos). */
@@ -90,6 +106,12 @@ export class GuidedService {
     // eine eigene Weglassen-Entscheidung, die als getroffene Entscheidung
     // sichtbar bleibt).
     const gesperrt = (path: string): boolean => this.state.vorgabeSchliesstAus(path);
+    // Zwingend gesetzt: die gebundene Fassung verlangt das Element, auch wo das
+    // Schema es freistellt. Es ist damit kein Aufnehmen/Weglassen-Punkt mehr,
+    // sondern Pflicht-Rueckgrat — Blaetter brauchen einen typkonformen Wert,
+    // Container werden ohne Rueckfrage betreten.
+    const zwingend = (path: string): boolean =>
+      instanz && this.state.profilWirkung(path) === 'pflicht';
     const punkte: DecisionPoint[] = [];
     const seqOf = new Map<string, number>();
     const wertNodes = new Map<string, PlaceholderNode>();
@@ -141,14 +163,19 @@ export class GuidedService {
             seq: seqOf.get(n.path)!,
             pflicht: n.min !== '0' && !n.inChoice,
             kinder: instanz ? kinderPfade(n) : undefined,
+            synthetisch: true,
           });
-        } else if (n.min === '0') {
+        } else if (n.min === '0' && !zwingend(n.path)) {
           // Optionale Gruppe: eigener Punkt, sonst blieben ihre Pflicht-Kinder unentschieden.
-          punkte.push({ path: n.path, art: 'element', seq: seqOf.get(n.path)! });
+          punkte.push({
+            path: n.path,
+            art: 'element',
+            seq: seqOf.get(n.path)!,
+            synthetisch: true,
+          });
         }
         if (excl.has(n.path)) return; // abgeschnitten
-        this.tree.expandNode(n);
-        for (const c of n.children ?? []) {
+        for (const c of this.tree.kinder(n)) {
           // Instanz: nur in gewaehlte Zweige bzw. aufgenommene optionale Gruppen.
           if (instanz && n.model === 'choice' && !steigAb(c.path)) continue;
           if (instanz && n.model !== 'choice' && n.min === '0' && !steigAb(n.path)) continue;
@@ -158,7 +185,7 @@ export class GuidedService {
       }
 
       seqOf.set(n.path, seq++);
-      const optional = n.min === '0' || n.inChoice;
+      const optional = (n.min === '0' && !zwingend(n.path)) || n.inChoice;
       const leaf = this.tree.isLeaf(n);
       const istChoiceEl = !leaf && !n.recursive && (this.tree.expandNode(n), n.model === 'choice');
 
@@ -239,9 +266,7 @@ export class GuidedService {
             if (instanz && cnLeaf) merkeWertNode(cn, cn.path);
           }
           if (excl.has(cn.path)) continue;
-          if (cnLeaf) continue;
-          this.tree.expandNode(cn);
-          for (const c of cn.children ?? []) {
+          for (const c of this.tree.kinder(cn)) {
             if (instanz && cnChoice && !steigAb(c.path)) continue;
             visit(c, depth + 2);
           }
@@ -249,20 +274,45 @@ export class GuidedService {
         return;
       }
 
-      if (leaf) return;
-      this.tree.expandNode(n);
-      for (const c of n.children ?? []) {
+      // Schema-Erweiterungen haengen auch an Blaettern (`kinder` fuehrt sie mit);
+      // in den Schema-Unterbau steigt nur ab, wer keines ist.
+      for (const c of this.tree.kinder(n)) {
+        if (leaf && !c.erweiterung) continue;
         if (instanz && istChoiceEl && !steigAb(c.path)) continue;
         visit(c, depth + 1);
       }
     };
 
     // Wurzel implizit: Start bei den Kindern der Nachricht.
-    this.tree.expandNode(root);
     seqOf.set(root.path, seq++);
-    for (const c of root.children ?? []) visit(c, 1);
+    for (const c of this.tree.kinder(root)) visit(c, 1);
+    // Gebundener Durchlauf: jeden Punkt mit der Aussage der Profilierung
+    // kennzeichnen ("zu klaeren" / "nicht profiliert").
+    for (const p of punkte) {
+      const m = this.markerOf(p.path);
+      if (m) p.marker = m;
+    }
     return { punkte, seqOf, wertNodes };
   });
+
+  /**
+   * Kennzeichnung eines Pfades aus Sicht der gebundenen Profilfassung — die
+   * Aussage des Profils, nicht die Antwort des Anwenders: sie bleibt stehen,
+   * auch nachdem der Durchlauf entschieden hat. Ohne Bindung (und ausserhalb des
+   * Instanz-Modus) gibt es keine Marker. "Festlegung" heisst gesetzte
+   * Statusstufe: ein Eintrag, der nur Anmerkung oder Beispielwert traegt, ist
+   * keine Aussage ueber die Verwendung und zaehlt als "nicht profiliert".
+   */
+  markerOf(path: string): PunktMarker | null {
+    if (!this.instanzModus() || !this.state.hatVorgabe()) return null;
+    if (this.state.vorgabeGesperrt(path)) return null; // gesperrt traegt seinen eigenen Marker
+    // Vorkommen erben die Aussage ihres Traegerelements: ihre ids entstehen zur
+    // Laufzeit, die Profilierung kann sie gar nicht adressieren. Nur wo sie es
+    // doch tut (eigene Auspraegungen der gebundenen Fassung), gewinnt der Pfad.
+    const w = this.state.profilWirkung(path) ?? this.state.profilWirkung(ohneVorkommen(path));
+    if (w === 'markierung') return 'zuklaeren';
+    return w ? null : 'nichtprofiliert';
+  }
 
   /** Alle Entscheidungspunkte in Dokumentreihenfolge. */
   readonly punkte: Signal<DecisionPoint[]> = computed(() => this.walk().punkte);
@@ -297,6 +347,36 @@ export class GuidedService {
     }
     return n;
   });
+
+  /**
+   * Gebundener Durchlauf: wie viele **beruehrte** Elemente ungeklaert bzw. nicht
+   * profiliert sind — die Sammelmeldung beim Speichern (Spec "Testnachricht aus
+   * einer Profilierung"). Beruehrt heisst: das Element landet in der Nachricht.
+   * Ein optionaler Punkt zaehlt also erst mit der Aufnahme, Weggelassenes nie.
+   * Synthetische Gruppen (choice/sequence) bleiben aussen vor — sie sind keine
+   * Elemente der Nachricht, sondern Schema-Partikel.
+   */
+  readonly markerZaehlung: Signal<{ ungeklaert: number; nichtProfiliert: number }> = computed(
+    () => {
+      let ungeklaert = 0;
+      let nichtProfiliert = 0;
+      for (const p of this.walk().punkte) {
+        if (p.synthetisch || !p.marker || !this.istEnthalten(p)) continue;
+        if (p.marker === 'zuklaeren') ungeklaert++;
+        else nichtProfiliert++;
+      }
+      return { ungeklaert, nichtProfiliert };
+    },
+  );
+
+  /** Landet dieser Punkt in der erzeugten Nachricht? */
+  private istEnthalten(p: DecisionPoint): boolean {
+    const w = this.state.wirkungOf(p.path);
+    if (w === 'ausgeschlossen') return false;
+    // Optionales ist erst mit der Aufnahme Teil der Nachricht; alles andere hat
+    // der Walk nur besucht, weil es auf dem Pflicht-/gewaehlten Weg liegt.
+    return p.art === 'element' ? w === 'pflicht' : true;
+  }
 
   /** Deduplizierte Freitexte (anmerkung) des Profils — als Vorschlaege wiederverwendbar. */
   readonly anmerkungVorschlaege: Signal<string[]> = computed(() => {
@@ -493,8 +573,11 @@ export class GuidedService {
    * Optionales Element aufnehmen (`pflicht`), weglassen (`ausgeschlossen`)
    * oder die Entscheidung zuruecknehmen (null). Nicht-destruktiv: darunter
    * erfasste Werte bleiben erhalten und wirken erst wieder mit der Aufnahme.
+   * Was die gebundene Fassung zwingend setzt, ist nicht abwaehlbar — der
+   * Durchlauf kann das Szenario nicht unterlaufen.
    */
   setzeAufnahme(path: string, aufnehmen: boolean | null): void {
+    if (!aufnehmen && this.state.profilWirkung(path) === 'pflicht') return;
     if (aufnehmen === null) {
       this.state.setElementProfile(path, { status: undefined });
       return;

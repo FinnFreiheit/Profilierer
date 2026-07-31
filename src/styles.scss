@@ -849,6 +849,18 @@ label.menuItem:has(input:disabled) {
   color: #9a6a00;
   border: 1px dashed #d9a927;
 }
+/* Gebundener Durchlauf: die Profilierung laesst die Frage offen ("zu klaeren"). */
+.tag.t-klaeren {
+  background: #fdf3d8;
+  color: #8a6400;
+  border: 1px solid #e2c469;
+}
+/* Gebundener Durchlauf: die Profilierung sagt zu diesem Element nichts. */
+.tag.t-nprof {
+  background: #f4f4f2;
+  color: #7a766c;
+  border: 1px dotted #cfcbc2;
+}
 /* Gebundener Durchlauf: von der Profilierung ausgeschlossen (gesperrt). */
 .tag.t-lock {
   background: #f0efec;
@@ -982,6 +994,16 @@ app-detail-panel {
   font-size: 12.5px;
   color: var(--muted);
   margin-bottom: 6px;
+}
+/* Marker der gebundenen Profilierung am Entscheidungspunkt. */
+.guidedSec .gKlaeren,
+.guidedSec .gNprof {
+  border-left: 3px solid #d6d3cb;
+  padding-left: 6px;
+}
+.guidedSec .gKlaeren {
+  border-left-color: #e2c469;
+  color: #8a6400;
 }
 // Auch ausserhalb des gefuehrten Blocks verwendet (Fassungswahl im
 // Erstellen-Dialog des Testdatenspeichers) — daher ohne Vorfahren-Bindung.

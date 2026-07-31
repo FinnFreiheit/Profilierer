@@ -46,9 +46,12 @@ describe('TestmessageCreateService', () => {
   let version: VersionMitDoc | null;
   /** Stub-Ergebnis der Schemavalidierung; Tests schalten um. */
   let pruefung: XmlValidierung;
+  /** Gemeldete Toast-Texte (Sammelmeldung beim Speichern). */
+  let toasts: string[];
 
   beforeEach(() => {
     created = [];
+    toasts = [];
     patched = [];
     entscheidungen = null;
     gespeicherteVorgabe = null;
@@ -80,7 +83,7 @@ describe('TestmessageCreateService', () => {
         },
         { provide: TestmessageGenerationService, useValue: { ensureSchema: async () => {} } },
         { provide: PersistenceService, useValue: { flushAutosave: async () => {} } },
-        { provide: ToastService, useValue: { show: () => {} } },
+        { provide: ToastService, useValue: { show: (t: string) => toasts.push(t) } },
         { provide: XmlValidationService, useValue: { validiere: async () => pruefung } },
       ],
     });
@@ -353,6 +356,63 @@ describe('TestmessageCreateService', () => {
       expect(input.vorgabe!.elemente[`${M}/az`]).toEqual({ status: 'v9' });
       // Entscheidungsstand und Vorgabe bleiben getrennt.
       expect(input.entscheidungen!.profil.elemente[`${M}/az`]).toBeUndefined();
+    });
+
+    it('nennt beim Speichern die beruehrten ungeklaerten und nicht profilierten Elemente', async () => {
+      arbeitsstand = doc({
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+          { id: 'v1', name: 'zwingend', farbe: '#a00', wirkung: 'pflicht' },
+          { id: 'v4', name: 'zu klären', farbe: '#fa0', wirkung: 'markierung' },
+        ],
+        elemente: {
+          [`${M}/az`]: { status: 'v9' },
+          [`${M}/anlage`]: { status: 'v1' },
+          [`${M}/anlage/name`]: { status: 'v4' },
+        },
+      });
+      await svc.neuAusProfil(profil(), null);
+      spyOn(window, 'prompt').and.returnValue('X.xml');
+      spyOn(window, 'confirm').and.returnValue(true);
+      guided.fuellePflichtfelder();
+
+      await svc.speichern();
+
+      // kopf: keine Festlegung. Die beiden Mindest-Vorkommen erben "zwingend",
+      // ihre name-Blaetter die Markierung.
+      expect(toasts.at(-1)).toContain('2 ungeklärt');
+      expect(toasts.at(-1)).toContain('1 nicht profiliert');
+    });
+
+    it('Schema-Erweiterungen der Profilierung sind Punkte und machen keinen Entwurf', async () => {
+      arbeitsstand = doc({
+        elemente: {},
+        erweiterungen: {
+          [M]: [{ id: 'e1', name: 'zusatzAngabe', min: '1', max: '1', datentyp: 'string' }],
+        },
+      });
+      await svc.neuAusProfil(profil(), null);
+
+      // Die Erweiterung ist regulaerer Entscheidungspunkt des Durchlaufs.
+      expect(guided.punktAt(`${M}/~e1`)?.art).toBe('wert');
+
+      // Der einzige Schemaverstoss geht auf die Erweiterung zurueck (der Fehler
+      // wird an einer anderen Zeile gemeldet — Namens-Fallback).
+      pruefung = {
+        status: 'invalide',
+        fehler: ['nicht erwartet'],
+        fehlerDetails: [
+          { text: "Element 'zusatzAngabe': This element is not expected.", zeile: 3 },
+        ],
+      };
+      spyOn(window, 'prompt').and.returnValue('X.xml');
+      guided.fuellePflichtfelder();
+      spyOn(window, 'confirm').and.returnValue(true);
+
+      await svc.speichern();
+
+      expect(created[0]!.entwurf).toBeFalse();
+      expect(created[0]!.xml).toContain('zusatzAngabe'); // mitbefuellt, nicht weggelassen
     });
 
     it('fortsetzen laedt die gebundene Kopie, nicht die aktuelle Profilfassung', async () => {
