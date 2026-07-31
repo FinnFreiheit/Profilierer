@@ -45,10 +45,18 @@ Ersetzt das globale `S`/`S.profile` (Z.327-335). Jedes Feld ein Signal, Ableitun
 
 - **Signale:** Schema/Nachricht (`docs, idx, version, standardKennung, msgName, root`), Profil (`meta, statuses, elemente, auspraegungen, erweiterungen`), UI (`selItem, open, codelists, showTech, onlyProfile, showRefs, focusMode, scrollTarget, autosaveInfo, pendingMsg`), Diff (`showDiff, diffMap, diffAnc, idxB`), Validierung (`valFehler, valAnc`).
 - **Ableitungen:** `profileDoc`, `fortschritt` (Festlegungen/Ausprägungen/Erweiterungen, Z.1453).
-- **Profil-Zugriff:** `statusOf/wirkungOf/exclStatus`, `inheritedExcluded/ancestorPaths`, `effKard`, `hasNotes`, `boxHidden` (nur-Profil-Filter), `auspNumber/auspLabel`, `refZielKandidaten`, `erweiterungenOf`.
+- **Profil-Zugriff:** `statusOf/wirkungOf/exclStatus`, `inheritedExcluded/ancestorPaths`, `effKard`, `werteOf/anmerkungOf/beispielOf/refZielOf`, `auspsOf`, `hasNotes`, `boxHidden` (nur-Profil-Filter), `auspNumber/auspLabel`, `refZielKandidaten`, `erweiterungenOf`.
 - **Mutationen (erzeugen neue Referenzen):** `setElementProfile` (merge + `pruneP`, Z.987-996), `addAusp/removeAusp` (kaskadierend, Z.1017-1035), `addErweiterung/updateErweiterung/removeErweiterung` (kaskadierend über den Präfix `parentPath/~id`, [ADR 0010](adr/0010-schema-erweiterungen-profil-overlay.md)), `renameAusp`, `duplicateElement/copyAusp` (+ private `moveSubProfile/copySubProfile`, Z.1393-1434 — nehmen Erweiterungen mit), `toggleOpen/setOpen`, Status-CRUD (`addStatus/updateStatus/removeStatus/statusUsed`), `patchMeta`, `loadProfile/resetProfile`.
 
 `removeAusp`, `removeErweiterung` und `pruneP` sind der heikelste Teil und **unit-getestet** (`state.service.spec.ts`).
+
+### Vorgabe-Schicht
+
+Unter dem Entscheidungsstand kann ein **zweites** `ProfileDoc` liegen: die `vorgabe` (Signal, `hatVorgabe`, gesetzt/geleert über `setVorgabe/clearVorgabe`; `setVorgabe` kopiert das Dokument — eine gebundene Fassung ist eingefroren). Grundlage der Spec „Testnachricht geführt aus einer Profilierung": die eingefrorene Profilkopie ist Vorgabe, die Entscheidungen des Durchlaufs liegen als bestehende Schicht (`elemente`/`auspraegungen`) darüber.
+
+Die Lesezugriffe fragen zuerst die Entscheidung und fallen auf die Vorgabe zurück, sonst nichts — feldweise für `statusOf/wirkungOf` (der Status der Vorgabe wird über **deren** Stufenliste aufgelöst, Stufen sind je Profilierung frei konfigurierbar), `effKard` (je Grenze), `werteOf`, `anmerkungOf`, `beispielOf`, `refZielOf`; bei `auspsOf` gilt der Rückfall je Pfad für die ganze Liste. Ein leeres `werte`-Array ist eine bewusste Einschränkung und fällt **nicht** zurück.
+
+Beide Schichten bleiben getrennt: `profileDoc`/`fortschritt` sehen nur den Entscheidungsstand, keine Mutation fasst die Vorgabe an, und `loadProfile` räumt sie (die Bindung gehört zum Durchlauf, nicht zum Dokument). Ohne gesetzte Vorgabe verhält sich der Store unverändert.
 
 ## XsdParserService
 
