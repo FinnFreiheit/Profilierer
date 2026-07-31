@@ -82,9 +82,21 @@ describe('StateService', () => {
 
     it('effKard beruecksichtigt Overrides', () => {
       const n = node('m/a', { min: '0', max: 'unbounded' });
-      expect(s.effKard(n)).toEqual({ min: '0', max: 'unbounded', changed: false });
+      expect(s.effKard(n)).toEqual({
+        min: '0',
+        max: 'unbounded',
+        changed: false,
+        minProfil: false,
+        maxProfil: false,
+      });
       s.setElementProfile('m/a', { max: '1' });
-      expect(s.effKard(n)).toEqual({ min: '0', max: '1', changed: true });
+      expect(s.effKard(n)).toEqual({
+        min: '0',
+        max: '1',
+        changed: true,
+        minProfil: false,
+        maxProfil: true,
+      });
     });
   });
 
@@ -524,11 +536,30 @@ describe('StateService', () => {
       const ohne = node('m/b', { min: '0', max: '1' });
       s.setVorgabe(vorgabeDoc({ elemente: { 'm/a': { min: '1', max: '3' } } }));
 
-      expect(s.effKard(n)).toEqual({ min: '1', max: '3', changed: true });
-      expect(s.effKard(ohne)).toEqual({ min: '0', max: '1', changed: false });
+      // Die Quelle je Grenze wird mitgefuehrt (Begruendung der Sperren im Durchlauf).
+      expect(s.effKard(n)).toEqual({
+        min: '1',
+        max: '3',
+        changed: true,
+        minProfil: true,
+        maxProfil: true,
+      });
+      expect(s.effKard(ohne)).toEqual({
+        min: '0',
+        max: '1',
+        changed: false,
+        minProfil: false,
+        maxProfil: false,
+      });
 
       s.setElementProfile('m/a', { max: '2' });
-      expect(s.effKard(n)).toEqual({ min: '1', max: '2', changed: true });
+      expect(s.effKard(n)).toEqual({
+        min: '1',
+        max: '2',
+        changed: true,
+        minProfil: true,
+        maxProfil: true,
+      });
     });
 
     it('Auspraegungen: Entscheidung vor Vorgabe, je Pfad als ganze Liste', () => {

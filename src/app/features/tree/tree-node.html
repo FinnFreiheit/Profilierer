@@ -115,10 +115,12 @@
   @if (v.showDelAusp) {
     <button
       class="hideBtn delBtn"
+      [disabled]="!!v.delAuspSperre"
       [title]="
-        v.hideMsgMode
+        v.delAuspSperre ||
+        (v.hideMsgMode
           ? 'Vorkommen löschen (samt Werten)'
-          : 'Ausprägung löschen (samt Unter-Profilierung)'
+          : 'Ausprägung löschen (samt Unter-Profilierung)')
       "
       (click)="onDelAusp($event)"
     >
@@ -135,7 +137,14 @@
     </button>
   }
   @if (v.showDup) {
-    <button class="dupBtn" [title]="v.dupTitle" (click)="onDup($event)">⧉</button>
+    <button
+      class="dupBtn"
+      [disabled]="!!v.dupSperre"
+      [title]="v.dupSperre || v.dupTitle"
+      (click)="onDup($event)"
+    >
+      ⧉
+    </button>
   }
 </div>
 
@@ -145,7 +154,12 @@
       <app-tree-node [item]="child"></app-tree-node>
     }
     @if (showAddAusp()) {
-      <div class="box addBox" (click)="onAddAusp()">
+      <div
+        class="box addBox"
+        [title]="addAuspSperre() || ''"
+        [style.opacity]="addAuspSperre() ? 0.5 : null"
+        (click)="onAddAusp()"
+      >
         {{ msgMode() ? '+ Vorkommen' : '+ Ausprägung' }}
       </div>
     }

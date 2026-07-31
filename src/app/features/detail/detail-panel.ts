@@ -223,6 +223,9 @@ export class DetailPanel {
       kardHint: isAusp ? 'genau 1' : 'Standard',
       showAusps,
       auspList,
+      // Kardinalitaet des Durchlaufs: Grund der Sperre bzw. null (Issue #27).
+      kardHinzuSperre: showAusps ? this.guided.kardSperreHinzu(path) : null,
+      kardEntfernenSperre: showAusps ? this.guided.kardSperreEntfernen(path) : null,
       leaf,
       codelist,
       ref,
@@ -454,6 +457,11 @@ export class DetailPanel {
   }
 
   protected delAuspRow(id: string): void {
+    const sperre = this.guided.kardSperreEntfernen(this.path());
+    if (sperre) {
+      this.toast.show(sperre);
+      return;
+    }
     if (confirm('Ausprägung samt Unter-Profilierung löschen?'))
       this.state.removeAusp(this.path(), id);
   }
@@ -624,15 +632,30 @@ export class DetailPanel {
    * Weiteres Vorkommen eines wiederholbaren Elements (Nachrichten-Modus):
    * erster Klick fuehrt den generischen Unterbaum als "Fall 1" weiter und legt
    * ein leeres zweites Vorkommen an (duplicateElement); danach je Klick eines.
+   * Bei erreichter Hoechstanzahl gesperrt (Grund im Toast und am Knopf).
    */
   protected addVorkommen(): void {
+    const sperre = this.guided.kardSperreHinzu(this.path());
+    if (sperre) {
+      this.toast.show(sperre);
+      return;
+    }
     const list = this.state.auspsOf(this.path());
     if (!list?.length) this.state.duplicateElement(this.path());
     else this.state.addAusp(this.path(), 'Vorkommen ' + (list.length + 1));
   }
 
-  /** Vorkommen samt erfasster Werte kopieren (Kopie danach anpassen). */
+  /**
+   * Vorkommen samt erfasster Werte kopieren (Kopie danach anpassen). Legt ein
+   * weiteres Vorkommen an und sperrt darum bei erreichter Hoechstanzahl —
+   * genau wie `addVorkommen` und der gleiche Weg im Baum (`onDup`).
+   */
   protected copyVorkommen(id: string): void {
+    const sperre = this.guided.kardSperreHinzu(this.path());
+    if (sperre) {
+      this.toast.show(sperre);
+      return;
+    }
     this.state.copyAusp(this.path(), id);
   }
 

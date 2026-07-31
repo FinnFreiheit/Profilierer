@@ -1,12 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { TreeNode } from '../../models/node.model';
-import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
+import { LibraryEntry, ProfileDoc, Status } from '../../models/profile.model';
 import { GuidedMessageState, TestmessageEntry } from '../../models/testmessage.model';
 import {
   frageTestnachrichtName,
   parseTestmessage,
   testmessageInput,
 } from '../util/testmessage.util';
+import { pretty } from '../util/pretty.util';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
@@ -110,6 +111,75 @@ export class TestmessageCreateService {
     this.state.guided.set(true);
     this.state.view.set('editor');
     this.guided.gotoNextOpen();
+    this.meldeWidersprueche(doc);
+  }
+
+  /**
+   * Widersprueche der gebundenen Fassung als Profil-Mangel melden: ein Element,
+   * das zugleich ausgeschlossen ist und eine Mindestanzahl >= 1 verlangt, kann
+   * der Durchlauf nicht beides erfuellen. Der Ausschluss gewinnt (das Element
+   * bleibt leer); die Meldung fuehrt per Klick zum betroffenen Element, damit
+   * der Widerspruch in der Profilierung geklaert werden kann — statt einer
+   * stillschweigend halbierten Vorgabe.
+   *
+   * Gemeint ist die Mindestanzahl **der Profilierung**: die Schema-Mindestanzahl
+   * ausgeschlossener Elemente ist kein Widerspruch der Profilierung, sondern ein
+   * Schemaverstoss — den meldet die XSD-Pruefung beim Speichern.
+   *
+   * Der Ausschluss zaehlt dabei **vererbt**: `legeMindestVorkommenAn` laesst den
+   * ganzen Teilbaum eines ausgeschlossenen Knotens aus, also wird auch die
+   * Mindestanzahl eines Nachfahren still halbiert. Massgeblich ist durchweg das
+   * Dokument der gebundenen Fassung, nicht `vorgabeGesperrt`: die Meldung
+   * beschreibt die Aussage der Profilierung und darf nicht verschwinden, weil
+   * der Durchlauf am Pfad inzwischen selbst entschieden hat (Fortsetzen).
+   */
+  private meldeWidersprueche(doc: ProfileDoc): void {
+    /** Praefixe an '/' UND '@' — wie StateService.vorfahrenPfade. */
+    const vorfahren = (pfad: string): string[] => {
+      const r: string[] = [];
+      for (let i = 0; i < pfad.length; i++)
+        if (pfad[i] === '/' || pfad[i] === '@') r.push(pfad.slice(0, i));
+      return r;
+    };
+    /** Die ausschliessende Stufe an diesem Pfad — null, wenn er nichts ausschliesst. */
+    const schliesstAus = (pfad: string): Status | null => {
+      const id = doc.elemente[pfad]?.status;
+      if (!id) return null;
+      const stufe = doc.statuses.find((s) => s.id === id);
+      return stufe?.wirkung === 'ausgeschlossen' ? stufe : null;
+    };
+    const kurz = (pfad: string): string => pretty(pfad.split('/').at(-1)!.split('@')[0]!);
+
+    const eintraege: ReportEintrag[] = [];
+    for (const [pfad, p] of Object.entries(doc.elemente)) {
+      if (!p.min) continue;
+      const min = parseInt(p.min, 10) || 0;
+      if (min < 1) continue;
+      const name = kurz(pfad);
+      const selbst = schliesstAus(pfad);
+      if (selbst) {
+        eintraege.push({
+          pfad,
+          text: `${name} (${pfad}): „${selbst.name}" und zugleich Mindestanzahl ${min} — der Ausschluss gilt, das Element bleibt leer.`,
+        });
+        continue;
+      }
+      // Vererbt: der naechstgelegene ausgeschlossene Vorfahr nimmt den Ast mit.
+      const anc = vorfahren(pfad)
+        .reverse()
+        .find((a) => schliesstAus(a));
+      if (!anc) continue;
+      eintraege.push({
+        pfad,
+        text: `${name} (${pfad}): Mindestanzahl ${min}, aber „${schliesstAus(anc)!.name}" an ${kurz(anc)} (${anc}) — der Ausschluss gilt für den ganzen Teilbaum, das Element bleibt leer.`,
+      });
+    }
+    if (!eintraege.length) return;
+    this.report.zeigeMitPfaden(
+      'Widersprüche in der Profilierung',
+      eintraege,
+      'Die gebundene Fassung schließt Elemente aus, die sie zugleich verlangt. Der Ausschluss gilt; ein Klick springt zum betroffenen Element.',
+    );
   }
 
   /**
@@ -141,7 +211,10 @@ export class TestmessageCreateService {
    * Entwurf fortsetzen: Entscheidungsstand laden, Schema/Nachricht
    * wiederherstellen und am naechsten offenen Punkt weitermachen. Bei einer
    * profilgebundenen Nachricht wird die **eingefrorene Kopie** mitgeladen —
-   * nicht die inzwischen weiterentwickelte Profilfassung.
+   * nicht die inzwischen weiterentwickelte Profilfassung. Ihre Widersprueche
+   * meldet auch dieser Start: es ist dieselbe Fassung mit derselben still
+   * halbierten Vorgabe, und wer einen Entwurf fortsetzt, saehe den Mangel sonst
+   * nie.
    */
   async fortsetzen(entry: TestmessageEntry): Promise<void> {
     const stand = await this.store.loadEntscheidungen(entry.id);
@@ -169,6 +242,7 @@ export class TestmessageCreateService {
     this.state.guided.set(true);
     this.state.view.set('editor');
     this.guided.gotoNextOpen();
+    if (vorgabe) this.meldeWidersprueche(vorgabe);
   }
 
   /**
@@ -289,10 +363,14 @@ export class TestmessageCreateService {
   }
 
   /**
-   * Mindest-Vorkommen (minOccurs >= 2) entlang des Pflicht-Rueckgrats als
-   * Auspraegungen anlegen — Teil der "Pflicht wird erzwungen"-Regel. Was die
-   * gebundene Profilfassung ausschliesst, bleibt aussen vor (der Ausschluss
-   * gewinnt gegen die Schema-Mindestanzahl).
+   * Mindest-Vorkommen (Mindestanzahl >= 2) entlang des Pflicht-Rueckgrats als
+   * Auspraegungen anlegen — Teil der "Pflicht wird erzwungen"-Regel. Massgeblich
+   * ist die **effektive** Kardinalitaet: was die gebundene Profilfassung
+   * eingrenzt, wird hart durchgesetzt und beim Start materialisiert; ohne
+   * Eingrenzung gilt unveraendert die des Schemas (Spec "Testnachricht aus einer
+   * Profilierung"). Was die Profilfassung ausschliesst, bleibt aussen vor (der
+   * Ausschluss gewinnt gegen die Mindestanzahl — der Widerspruch wird beim Start
+   * gemeldet, siehe meldeWidersprueche).
    */
   private legeMindestVorkommenAn(root: TreeNode): void {
     const rec = (n: TreeNode, depth: number): void => {
@@ -306,8 +384,11 @@ export class TestmessageCreateService {
           rec(c, depth + 1);
           continue;
         }
-        if (c.min === '0' || c.inChoice) continue;
-        const min = parseInt(c.min, 10);
+        if (c.inChoice) continue;
+        const min = parseInt(this.state.effKard(c).min, 10) || 0;
+        // Das Rueckgrat traegt, was die Kardinalitaet verlangt oder die
+        // gebundene Fassung zwingend setzt.
+        if (min === 0 && this.state.profilWirkung(c.path) !== 'pflicht') continue;
         if (min >= 2 && this.tree.isRepeatable(c) && !this.state.auspsOf(c.path)?.length) {
           for (let i = 1; i <= min; i++) this.state.addAusp(c.path, 'Vorkommen ' + i);
         }

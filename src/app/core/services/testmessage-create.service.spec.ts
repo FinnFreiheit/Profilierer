@@ -15,8 +15,10 @@ import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
 import { GuidedMessageState, TestmessageInput } from '../../models/testmessage.model';
 
 /**
- * Fixture: Pflicht-Blatt (kopf), optionales Blatt (az) und ein wiederholbares
- * Pflicht-Element mit minOccurs=2 (anlage) fuer die Mindest-Vorkommen-Regel.
+ * Fixture: Pflicht-Blatt (kopf), optionales Blatt (az), ein wiederholbares
+ * Pflicht-Element mit minOccurs=2 (anlage) fuer die Mindest-Vorkommen-Regel und
+ * ein schema-optionales wiederholbares Element (beteiligung), das die
+ * Profilierung auf eine Mindestanzahl eingrenzen kann.
  */
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
@@ -25,6 +27,7 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
     <xs:element name="kopf" type="xs:string"/>
     <xs:element name="az" type="xs:string" minOccurs="0"/>
     <xs:element name="anlage" type="Type.Test.Anlage" minOccurs="2" maxOccurs="unbounded"/>
+    <xs:element name="beteiligung" type="Type.Test.Anlage" minOccurs="0" maxOccurs="unbounded"/>
   </xs:sequence></xs:complexType>
   <xs:complexType name="Type.Test.Anlage"><xs:sequence>
     <xs:element name="name" type="xs:string"/>
@@ -334,12 +337,85 @@ describe('TestmessageCreateService', () => {
       await expectAsync(svc.neuAusProfil(profil(), null)).toBeRejected();
     });
 
+    it('materialisiert die im Profil eingegrenzte Mindestanzahl', async () => {
+      arbeitsstand = doc({
+        elemente: {
+          // Schema 2..*, Profil verlangt drei.
+          [`${M}/anlage`]: { min: '3' },
+          // Schema 0..*, Profil verlangt zwei.
+          [`${M}/beteiligung`]: { min: '2' },
+        },
+      });
+
+      await svc.neuAusProfil(profil(), null);
+
+      expect(state.auspsOf(`${M}/anlage`)?.length).toBe(3);
+      expect(state.auspsOf(`${M}/beteiligung`)?.length).toBe(2);
+      // Die entstandenen Vorkommen sind nicht entfernbar.
+      expect(guided.kardSperreEntfernen(`${M}/beteiligung`)).toContain('2');
+    });
+
+    it('laesst die Schema-Kardinalitaet unberuehrt, wo das Profil nichts eingrenzt', async () => {
+      arbeitsstand = doc();
+
+      await svc.neuAusProfil(profil(), null);
+
+      expect(state.auspsOf(`${M}/anlage`)?.length).toBe(2); // Schema-Mindestanzahl
+      expect(state.auspsOf(`${M}/beteiligung`)).toBeNull(); // schema-optional
+    });
+
     it('legt keine Mindest-Vorkommen unter ausgeschlossenen Elementen an', async () => {
       arbeitsstand = doc({ elemente: { [`${M}/anlage`]: { status: 'v9' } } });
 
       await svc.neuAusProfil(profil(), null);
 
       expect(state.auspraegungen()[`${M}/anlage`]).toBeUndefined();
+    });
+
+    it('meldet beim Start den Widerspruch aus Ausschluss und Mindestanzahl', async () => {
+      arbeitsstand = doc({ elemente: { [`${M}/anlage`]: { status: 'v9', min: '2' } } });
+
+      await svc.neuAusProfil(profil(), null);
+
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.offen()).toBeTrue();
+      expect(report.titel()).toContain('Widersprüche');
+      expect(report.eintraege().length).toBe(1);
+      const eintrag = report.eintraege()[0]!;
+      expect(eintrag.pfad).toBe(`${M}/anlage`); // Sprung zum betroffenen Element
+      expect(eintrag.text).toContain('nicht verwendet');
+      expect(eintrag.text).toContain('2');
+      // Der Ausschluss gewinnt: keine Vorkommen, kein Entscheidungspunkt.
+      expect(state.auspraegungen()[`${M}/anlage`]).toBeUndefined();
+      expect(guided.punktAt(`${M}/anlage`)).toBeNull();
+    });
+
+    it('meldet auch den vererbten Ausschluss — der Teilbaum wird sonst still halbiert', async () => {
+      arbeitsstand = doc({
+        elemente: {
+          [`${M}/anlage`]: { status: 'v9' },
+          // Die Profilierung verlangt das Blatt, sein Traeger ist ausgeschlossen.
+          [`${M}/anlage/name`]: { min: '1' },
+        },
+      });
+
+      await svc.neuAusProfil(profil(), null);
+
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.offen()).toBeTrue();
+      expect(report.eintraege().length).toBe(1);
+      const eintrag = report.eintraege()[0]!;
+      expect(eintrag.pfad).toBe(`${M}/anlage/name`); // Sprung zum verlangten Element
+      expect(eintrag.text).toContain('nicht verwendet');
+      expect(eintrag.text).toContain(`${M}/anlage`); // der ausschliessende Vorfahr
+    });
+
+    it('meldet nichts, solange die Profilierung widerspruchsfrei ist', async () => {
+      arbeitsstand = doc({ elemente: { [`${M}/anlage`]: { min: '3' } } });
+
+      await svc.neuAusProfil(profil(), null);
+
+      expect(TestBed.inject(ValidationReportService).offen()).toBeFalse();
     });
 
     it('speichern legt Herkunft und eingefrorene Kopie am Eintrag ab', async () => {
@@ -447,6 +523,37 @@ describe('TestmessageCreateService', () => {
       expect(state.messageCreate()).toEqual(
         jasmine.objectContaining({ profilId: 'p1', fassung: 'v3' }),
       );
+    });
+
+    it('fortsetzen meldet die Widersprueche der gebundenen Kopie ebenfalls', async () => {
+      entscheidungen = {
+        msgName: M,
+        xjustizVersion: '3.6.2',
+        profil: {
+          meta: {},
+          statuses: state.statuses(),
+          elemente: { [`${M}/kopf`]: { beispiel: 'Az 1' } },
+          auspraegungen: {},
+          erweiterungen: {},
+        },
+      };
+      gespeicherteVorgabe = doc({ elemente: { [`${M}/anlage`]: { status: 'v9', min: '2' } } });
+
+      await svc.fortsetzen({
+        id: 'id-alt',
+        name: 'Entwurf.xml',
+        groesse: 1,
+        hochgeladen: 0,
+        aktualisiert: 0,
+        profilId: 'p1',
+        profilName: 'Nachlass-Szenario',
+        fassung: 'v3',
+      });
+
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.offen()).toBeTrue();
+      expect(report.titel()).toContain('Widersprüche');
+      expect(report.eintraege()[0]!.pfad).toBe(`${M}/anlage`);
     });
 
     it('ungebundene Alt-Eintraege setzen wie bisher fort (keine Vorgabe)', async () => {

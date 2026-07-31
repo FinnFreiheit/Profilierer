@@ -451,6 +451,59 @@ export class GuidedService {
     return this.values.wertProblem(n, wert) === null;
   }
 
+  // ── Kardinalitaet im Durchlauf (Issue #27) ──────────────────────────
+
+  /**
+   * Effektive Kardinalitaet und die Zahl der Vorkommen eines wiederholbaren
+   * Elements — Grundlage der Sperren. Nur im Instanz-Modus: beim Profilieren
+   * sind Auspraegungen ein Entwurfsmittel und bleiben frei. Ein Element ohne
+   * eigene Auspraegungen steht fuer **ein** Vorkommen (der generische
+   * Unterbaum), nicht fuer null.
+   */
+  private kardLage(
+    path: string,
+  ): { min: number; max: number; minProfil: boolean; maxProfil: boolean; n: number } | null {
+    if (!this.instanzModus()) return null;
+    const it = this.nav.findItemByPath(path);
+    if (!it || it.kind !== 'el') return null;
+    const k = this.state.effKard(it.node);
+    return {
+      min: parseInt(k.min, 10) || 0,
+      max: k.max === 'unbounded' ? Infinity : parseInt(k.max, 10) || 0,
+      minProfil: k.minProfil,
+      maxProfil: k.maxProfil,
+      n: this.state.auspsOf(path)?.length || 1,
+    };
+  }
+
+  private quelle(ausProfil: boolean): string {
+    return ausProfil ? 'Die Profilierung' : 'Das Schema';
+  }
+
+  /**
+   * Grund, warum an diesem Element **kein weiteres Vorkommen** angelegt werden
+   * darf — null, solange die Hoechstanzahl nicht erreicht ist. Die im Profil
+   * eingegrenzte Kardinalitaet wird hart durchgesetzt; ohne Eingrenzung gilt
+   * unveraendert die des Schemas (Spec "Testnachricht aus einer Profilierung").
+   */
+  kardSperreHinzu(path: string): string | null {
+    const k = this.kardLage(path);
+    if (!k || k.n < k.max) return null;
+    return `${this.quelle(k.maxProfil)} lässt höchstens ${k.max} Vorkommen zu.`;
+  }
+
+  /**
+   * Grund, warum ein Vorkommen dieses Elements **nicht entfernt** werden darf —
+   * null, solange die Mindestanzahl auch danach eingehalten ist. Damit sind die
+   * beim Start materialisierten Mindest-Vorkommen nicht entfernbar.
+   */
+  kardSperreEntfernen(path: string): string | null {
+    const k = this.kardLage(path);
+    // Nach dem Entfernen bleibt mindestens der generische Unterbaum stehen.
+    if (!k || (k.n - 1 || 1) >= k.min) return null;
+    return `${this.quelle(k.minProfil)} verlangt mindestens ${k.min} Vorkommen.`;
+  }
+
   // ── Spur-Navigation ─────────────────────────────────────────────────
 
   /**

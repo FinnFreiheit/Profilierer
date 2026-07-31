@@ -449,14 +449,27 @@ export class StateService {
   /**
    * effKard (Z.1007-1010): effektive Kardinalitaet inkl. Override —
    * Entscheidung, sonst Vorgabe, sonst Schema (je Grenze getrennt).
+   * `minProfil`/`maxProfil` sagen je Grenze, ob sie aus der Profilierung
+   * stammt (statt aus dem Schema) — die Begruendung der Kardinalitaets-Sperren
+   * im gefuehrten Durchlauf nennt die Quelle.
    */
-  effKard(node: TreeNode): { min: string; max: string; changed: boolean } {
+  effKard(node: TreeNode): {
+    min: string;
+    max: string;
+    changed: boolean;
+    minProfil: boolean;
+    maxProfil: boolean;
+  } {
     const p = this.elemente()[node.path] ?? {};
     const v = this.vorgabeProfile(node.path);
+    const minProfil = !!(p.min || v?.min);
+    const maxProfil = !!(p.max || v?.max);
     return {
       min: p.min || v?.min || node.min,
       max: p.max || v?.max || node.max,
-      changed: !!(p.min || p.max || v?.min || v?.max),
+      changed: minProfil || maxProfil,
+      minProfil,
+      maxProfil,
     };
   }
 
