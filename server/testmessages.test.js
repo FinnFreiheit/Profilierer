@@ -147,6 +147,69 @@ test('tmLoadEntscheidungen: null ohne Stand (hochgeladene Nachricht)', () => {
   db.close();
 });
 
+test('Profil-Bindung: Herkunft im Index, eingefrorene Kopie separat lesbar', () => {
+  const db = openDb(':memory:');
+  const vorgabe = {
+    meta: { name: 'Nachlass-Szenario', nachricht: 'nachricht.dabag.antrag.2900001' },
+    statuses: [{ id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' }],
+    elemente: { 'a/b': { status: 'v9' } },
+    auspraegungen: {},
+    erweiterungen: {},
+  };
+  const { id, entry } = db.tmCreate(
+    input({ profilId: 'p1', profilName: 'Nachlass-Szenario', fassung: 'v3', vorgabe }),
+  );
+  // Die schlanke Index-Antwort traegt die Herkunft mit (Kachel ohne Zusatz-Request).
+  assert.equal(entry.profilId, 'p1');
+  assert.equal(entry.profilName, 'Nachlass-Szenario');
+  assert.equal(entry.fassung, 'v3');
+  const row = db.tmList()[0];
+  assert.equal(row.profilId, 'p1');
+  assert.equal(row.fassung, 'v3');
+  assert.equal(row.vorgabe, undefined); // Kopie nicht im Index
+  assert.deepEqual(db.tmLoadVorgabe(id), vorgabe);
+  db.close();
+});
+
+test('eingefrorene Kopie bleibt lesbar, nachdem die Profilierung geloescht wurde', () => {
+  const db = openDb(':memory:');
+  const doc = { meta: { name: 'P' }, statuses: [], elemente: { 'a/b': {} }, auspraegungen: {} };
+  const pid = db.create(doc).id;
+  const { id } = db.tmCreate(
+    input({ profilId: pid, profilName: 'P', fassung: 'v1', vorgabe: doc }),
+  );
+  db.delete(pid);
+  assert.equal(db.list().length, 0);
+  const entry = db.tmList()[0];
+  assert.equal(entry.profilId, pid); // Herkunft bleibt als Historie
+  assert.deepEqual(db.tmLoadVorgabe(id), doc);
+  db.close();
+});
+
+test('tmUpdate laesst die eingefrorene Kopie und die Herkunft unberuehrt', () => {
+  const db = openDb(':memory:');
+  const vorgabe = { meta: {}, statuses: [], elemente: { 'a/b': {} }, auspraegungen: {} };
+  const { id } = db.tmCreate(input({ profilId: 'p1', profilName: 'P', fassung: 'v2', vorgabe }));
+  const e = db.tmUpdate(id, { xml: '<neu/>', entwurf: false, profilId: 'p2', vorgabe: null });
+  assert.equal(e.profilId, 'p1');
+  assert.equal(e.fassung, 'v2');
+  assert.deepEqual(db.tmLoadVorgabe(id), vorgabe);
+  db.close();
+});
+
+test('Alt-Eintraege ohne Bindung bleiben lesbar und aenderbar', () => {
+  const db = openDb(':memory:');
+  const { id, entry } = db.tmCreate(input());
+  assert.equal(entry.profilId, undefined);
+  assert.equal(entry.profilName, undefined);
+  assert.equal(entry.fassung, undefined);
+  assert.equal(db.tmLoadVorgabe(id), null);
+  const e = db.tmUpdate(id, { notiz: 'weiterhin änderbar' });
+  assert.equal(e.notiz, 'weiterhin änderbar');
+  assert.equal(e.profilId, undefined);
+  db.close();
+});
+
 test('testmessages und profiles teilen sich die DB ohne Kollision', () => {
   const db = openDb(':memory:');
   db.create({ meta: { name: 'P' }, statuses: [], elemente: {}, auspraegungen: {} });

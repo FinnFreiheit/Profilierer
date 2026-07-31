@@ -47,6 +47,13 @@ export function testmessagesRouter(db, auth) {
     res.json(stand);
   });
 
+  // Eingefrorene Kopie der gebundenen Profilfassung (Vorgabe des Durchlaufs).
+  r.get('/testmessages/:id/vorgabe', (req, res) => {
+    const vorgabe = db.tmLoadVorgabe(req.params.id);
+    if (vorgabe == null) return res.status(404).json({ error: 'keine Profil-Bindung' });
+    res.json(vorgabe);
+  });
+
   // Anlegen: id serverseitig.
   r.post('/testmessages', (req, res) => {
     const b = req.body;
@@ -56,7 +63,8 @@ export function testmessagesRouter(db, auth) {
   });
 
   // Felder ändern (Notiz/Name; gefuehrte Erstellung zusätzlich XML,
-  // Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand).
+  // Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand). Profil-Bindung und
+  // eingefrorene Kopie bleiben unberuehrt — sie entstehen nur beim Anlegen.
   r.patch('/testmessages/:id', schutz, (req, res) => {
     const { notiz, name, xml, entwurf, fortschritt, entscheidungen } = req.body ?? {};
     if (xml !== undefined && (typeof xml !== 'string' || !xml.trim()))

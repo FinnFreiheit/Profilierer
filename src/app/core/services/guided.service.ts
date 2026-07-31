@@ -80,10 +80,16 @@ export class GuidedService {
   private readonly walk = computed<WalkErgebnis>(() => {
     const root = this.state.root();
     this.state.auspraegungen(); // getrackte Abhaengigkeit (Auspraegungs-Struktur)
+    this.state.vorgabe(); // dito: die gebundene Fassung schneidet Aeste ab
     const instanz = this.instanzModus();
     // Instanz-Modus: Aufnahme-Wirkungen und Inhalte steuern den Abstieg.
     if (instanz) this.state.elemente();
     const excl = new Set(this.exclKey() ? this.exclKey().split('\n') : []);
+    // Gebundener Durchlauf: was die Vorgabe ausschliesst, ist gar kein
+    // Entscheidungspunkt — der Ast wird vor dem Punkt abgeschnitten (anders als
+    // eine eigene Weglassen-Entscheidung, die als getroffene Entscheidung
+    // sichtbar bleibt).
+    const gesperrt = (path: string): boolean => this.state.vorgabeSchliesstAus(path);
     const punkte: DecisionPoint[] = [];
     const seqOf = new Map<string, number>();
     const wertNodes = new Map<string, PlaceholderNode>();
@@ -123,6 +129,7 @@ export class GuidedService {
 
     const visit = (n: TreeNode, depth: number): void => {
       if (depth > 30) return;
+      if (gesperrt(n.path)) return; // Vorgabe schliesst aus: kein Punkt, kein Abstieg
       if (n.synthetic) {
         seqOf.set(n.path, seq++);
         if (n.model === 'choice') {
@@ -208,6 +215,7 @@ export class GuidedService {
         // Auspraegungen ersetzen den generischen Unterbaum (wie walkFull/childItems).
         for (const a of ausps) {
           const cn = this.tree.ctxNode(n, a.id);
+          if (gesperrt(cn.path)) continue; // ausgeschlossenes Vorkommen der Vorgabe
           seqOf.set(cn.path, seq++);
           const cnLeaf = this.tree.isLeaf(cn);
           const cnChoice =

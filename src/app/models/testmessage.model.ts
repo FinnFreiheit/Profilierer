@@ -46,6 +46,18 @@ export interface TestmessageEntry {
   abnahmeKommentar?: string;
   /** Aktuelle XML weicht von der eingefrorenen Abnahme-Fassung ab (Warn-Badge). */
   geaendertSeitAbnahme?: boolean;
+
+  // ── Profil-Bindung (US "Testnachricht aus einer Profilierung") ──────
+  /**
+   * id der Profilierung, gegen die die Nachricht erstellt wurde. Bleibt als
+   * Herkunftsangabe erhalten, auch wenn die Profilierung spaeter geloescht wird
+   * (die Bindung selbst liegt als eingefrorene Kopie am Eintrag).
+   */
+  profilId?: string;
+  /** Name der Profilierung zum Zeitpunkt der Bindung. */
+  profilName?: string;
+  /** Bezeichnung der gebundenen Fassung ("v3" bzw. "Arbeitsstand vom …"). */
+  fassung?: string;
 }
 
 /**
@@ -72,6 +84,16 @@ export interface TestmessageInput {
   entwurf?: boolean;
   fortschritt?: TestmessageFortschritt;
   entscheidungen?: GuidedMessageState;
+  /** Herkunft der Profil-Bindung (siehe TestmessageEntry). */
+  profilId?: string;
+  profilName?: string;
+  fassung?: string;
+  /**
+   * Die eingefrorene Kopie der gebundenen Profilfassung. Wird nur beim Anlegen
+   * mitgegeben und danach nicht mehr veraendert — sie ist die unveraenderliche
+   * Vorgabe des Durchlaufs (Spec "Testnachricht aus einer Profilierung").
+   */
+  vorgabe?: ProfileDoc;
 }
 
 /**
@@ -86,6 +108,14 @@ export interface MessageCreateSession {
   entryId: string | null;
   /** Anzeigename des Eintrags (ab dem ersten Speichern). */
   name: string | null;
+  /**
+   * Profil-Bindung des Durchlaufs (fehlt beim Einstieg "aus Schema"). Die
+   * gebundene Fassung selbst liegt als Vorgabe im Store (StateService.vorgabe);
+   * hier stehen nur die Herkunftsangaben fuer Eintrag und Kachel.
+   */
+  profilId?: string;
+  profilName?: string;
+  fassung?: string;
 }
 
 /**

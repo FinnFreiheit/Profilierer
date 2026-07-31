@@ -171,7 +171,14 @@
       Blätter ausrichten
     </label>
     @if (!isSchemaView()) {
-      <label class="menuItem">
+      <label
+        class="menuItem"
+        [title]="
+          state.hatVorgabe()
+            ? 'Von der gebundenen Profilierung Ausgeschlossenes einblenden (gesperrt, mit Begründung)'
+            : 'Ausgeschlossene Elemente ausblenden'
+        "
+      >
         <input
           type="checkbox"
           [checked]="state.onlyProfile()"

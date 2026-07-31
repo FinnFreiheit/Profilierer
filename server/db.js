@@ -90,6 +90,13 @@ export function openDb(path) {
     if (!cols.has('abnahme_ts')) db.exec('ALTER TABLE testmessages ADD COLUMN abnahme_ts INTEGER');
     if (!cols.has('abnahme_kommentar'))
       db.exec('ALTER TABLE testmessages ADD COLUMN abnahme_kommentar TEXT');
+    // Profil-Bindung: Herkunft (id/Name/Fassung) und die eingefrorene Kopie der
+    // gebundenen Profilfassung. Bewusst ohne Fremdschluessel auf profiles —
+    // die Kopie muss das Loeschen der Profilierung ueberleben.
+    if (!cols.has('profil_id')) db.exec('ALTER TABLE testmessages ADD COLUMN profil_id TEXT');
+    if (!cols.has('profil_name')) db.exec('ALTER TABLE testmessages ADD COLUMN profil_name TEXT');
+    if (!cols.has('fassung')) db.exec('ALTER TABLE testmessages ADD COLUMN fassung TEXT');
+    if (!cols.has('vorgabe')) db.exec('ALTER TABLE testmessages ADD COLUMN vorgabe TEXT');
   }
 
   // Migration: Index-Spalte fuer Schema-Erweiterungen (Dashboard-Badge) nachziehen.
@@ -202,26 +209,29 @@ export function openDb(path) {
       `SELECT id, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
               entwurf, fortschritt, (entscheidungen IS NOT NULL) AS gefuehrt,
               abnahme_ts, abnahme_kommentar, (abnahme_xml IS NOT NULL) AS abgenommen,
-              (abnahme_xml IS NOT NULL AND xml != abnahme_xml) AS geaendert_seit_abnahme
+              (abnahme_xml IS NOT NULL AND xml != abnahme_xml) AS geaendert_seit_abnahme,
+              profil_id, profil_name, fassung
        FROM testmessages ORDER BY aktualisiert DESC`,
     ),
     tmGetXml: db.prepare('SELECT xml FROM testmessages WHERE id = ?'),
     tmGetEntscheidungen: db.prepare('SELECT entscheidungen FROM testmessages WHERE id = ?'),
+    tmGetVorgabe: db.prepare('SELECT vorgabe FROM testmessages WHERE id = ?'),
     tmGet: db.prepare(
       `SELECT id, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
               entwurf, fortschritt, (entscheidungen IS NOT NULL) AS gefuehrt,
               abnahme_ts, abnahme_kommentar, (abnahme_xml IS NOT NULL) AS abgenommen,
-              (abnahme_xml IS NOT NULL AND xml != abnahme_xml) AS geaendert_seit_abnahme
+              (abnahme_xml IS NOT NULL AND xml != abnahme_xml) AS geaendert_seit_abnahme,
+              profil_id, profil_name, fassung
        FROM testmessages WHERE id = ?`,
     ),
     tmGetRow: db.prepare('SELECT * FROM testmessages WHERE id = ?'),
     tmInsert: db.prepare(
       `INSERT INTO testmessages
          (id, xml, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
-          entwurf, fortschritt, entscheidungen)
+          entwurf, fortschritt, entscheidungen, profil_id, profil_name, fassung, vorgabe)
        VALUES
          (@id, @xml, @name, @nachricht, @fachmodul, @xjustizVersion, @groesse, @notiz, @ts, @ts,
-          @entwurf, @fortschritt, @entscheidungen)`,
+          @entwurf, @fortschritt, @entscheidungen, @profilId, @profilName, @fassung, @vorgabe)`,
     ),
     tmUpdate: db.prepare(
       `UPDATE testmessages SET
@@ -269,6 +279,11 @@ export function openDb(path) {
       abnahmeZeit: r.abgenommen ? (r.abnahme_ts ?? undefined) : undefined,
       abnahmeKommentar: r.abgenommen ? (r.abnahme_kommentar ?? undefined) : undefined,
       geaendertSeitAbnahme: !!r.geaendert_seit_abnahme || undefined,
+      // Herkunft der Profil-Bindung — im schlanken Index mit, damit Kachel und
+      // Sprung ins Profil ohne Zusatz-Request rendern.
+      profilId: r.profil_id ?? undefined,
+      profilName: r.profil_name ?? undefined,
+      fassung: r.fassung ?? undefined,
     };
   }
 
@@ -625,6 +640,21 @@ export function openDb(path) {
       }
     },
 
+    /**
+     * Eingefrorene Kopie der gebundenen Profilfassung (JSON) oder null. Sie ist
+     * vom Profil-Bestand unabhaengig und bleibt lesbar, wenn die Profilierung
+     * geaendert oder geloescht wurde.
+     */
+    tmLoadVorgabe(id) {
+      const row = stmt.tmGetVorgabe.get(id);
+      if (!row || !row.vorgabe) return null;
+      try {
+        return JSON.parse(row.vorgabe);
+      } catch {
+        return null;
+      }
+    },
+
     /** Neue Testnachricht; id serverseitig vergeben. Gibt { id, entry }. */
     tmCreate(
       {
@@ -637,6 +667,10 @@ export function openDb(path) {
         entwurf,
         fortschritt,
         entscheidungen,
+        profilId,
+        profilName,
+        fassung,
+        vorgabe,
       },
       ts,
     ) {
@@ -654,6 +688,10 @@ export function openDb(path) {
         entwurf: entwurf ? 1 : null,
         fortschritt: fortschritt ? JSON.stringify(fortschritt) : null,
         entscheidungen: entscheidungen ? JSON.stringify(entscheidungen) : null,
+        profilId: profilId ?? null,
+        profilName: profilName ?? null,
+        fassung: fassung ?? null,
+        vorgabe: vorgabe ? JSON.stringify(vorgabe) : null,
         ts: stamp,
       });
       return { id, entry: tmEntry(stmt.tmGet.get(id)) };
@@ -662,6 +700,8 @@ export function openDb(path) {
     /**
      * Felder ändern; nur die im Patch gesetzten werden übernommen (undefined =
      * unberührt). Aktualisiert-Zeitstempel setzen. Gibt entry oder null.
+     * Herkunft und eingefrorene Kopie der Profil-Bindung sind bewusst nicht
+     * änderbar — die gebundene Fassung ist unveränderliche Vorgabe.
      */
     tmUpdate(id, { notiz, name, xml, entwurf, fortschritt, entscheidungen }, ts) {
       const row = stmt.tmGetRow.get(id);

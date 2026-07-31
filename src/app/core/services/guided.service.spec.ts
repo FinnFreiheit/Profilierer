@@ -350,4 +350,74 @@ describe('GuidedService', () => {
       expect(svc.offenePflicht()).toBe(0);
     });
   });
+
+  describe('Gebundener Durchlauf: Ausgeschlossenes der Vorgabe', () => {
+    /** Vorgabe mit eigener Stufenliste (v9 = ausgeschlossen). */
+    const bindeVorgabe = (
+      elemente: Record<string, { status?: string }>,
+      auspraegungen: Record<string, { id: string; name: string }[]> = {},
+    ): void => {
+      state.setVorgabe({
+        meta: {},
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+        ],
+        elemente,
+        auspraegungen,
+        erweiterungen: {},
+      });
+    };
+
+    beforeEach(() => {
+      state.messageCreate.set({ msgName: M, entryId: null, name: null });
+    });
+
+    it('ist kein Entscheidungspunkt — weder optionales Element noch Pflicht-Blatt', () => {
+      bindeVorgabe({ [`${M}/az`]: { status: 'v9' }, [`${M}/kopf`]: { status: 'v9' } });
+
+      expect(pfade()).toEqual([`${M}/_auswahl`, `${M}/beteiligung`, `${M}/_gruppe`]);
+      expect(svc.punktAt(`${M}/az`)).toBeNull();
+      expect(svc.offeneSet().has(`${M}/kopf`)).toBeFalse();
+      expect(svc.offenePflicht()).toBe(1); // nur die Auswahl
+    });
+
+    it('vererbt den Ausschluss auf den Teilbaum (auch auf Vorkommen der Vorgabe)', () => {
+      bindeVorgabe(
+        { [`${M}/beteiligung`]: { status: 'v9' } },
+        {
+          [`${M}/beteiligung`]: [{ id: 'v1', name: 'Notar/in' }],
+        },
+      );
+
+      const p = pfade();
+      expect(p).not.toContain(`${M}/beteiligung`);
+      expect(p).not.toContain(`${M}/beteiligung@v1`);
+      expect(p).not.toContain(`${M}/beteiligung@v1/name`);
+    });
+
+    it('schneidet einen ausgeschlossenen Auswahl-Zweig aus der Auswahl heraus', () => {
+      bindeVorgabe({ [`${M}/_auswahl/telefon`]: { status: 'v9' } });
+      svc.waehleZweig(`${M}/_auswahl`, `${M}/_auswahl/email`);
+
+      expect(pfade()).toContain(`${M}/_auswahl/email`);
+      expect(pfade()).not.toContain(`${M}/_auswahl/telefon`);
+    });
+
+    it('laesst eigene Weglassen-Entscheidungen des Durchlaufs unangetastet', () => {
+      bindeVorgabe({});
+      svc.setzeAufnahme(`${M}/az`, false);
+
+      // Weggelassen bleibt Punkt (entschieden, korrigierbar) — anders als
+      // Ausgeschlossenes der Vorgabe, das gar nicht erst gefragt wird.
+      expect(pfade()).toContain(`${M}/az`);
+      expect(svc.offeneSet().has(`${M}/az`)).toBeFalse();
+    });
+
+    it('fuellePflichtfelder ruehrt Ausgeschlossenes nicht an', () => {
+      bindeVorgabe({ [`${M}/kopf`]: { status: 'v9' } });
+
+      expect(svc.fuellePflichtfelder()).toBe(0);
+      expect(state.elemente()[`${M}/kopf`]).toBeUndefined();
+    });
+  });
 });

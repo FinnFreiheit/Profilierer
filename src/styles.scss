@@ -849,6 +849,12 @@ label.menuItem:has(input:disabled) {
   color: #9a6a00;
   border: 1px dashed #d9a927;
 }
+/* Gebundener Durchlauf: von der Profilierung ausgeschlossen (gesperrt). */
+.tag.t-lock {
+  background: #f0efec;
+  color: #6b675e;
+  border: 1px solid #d6d3cb;
+}
 .box.excluded {
   opacity: 0.55;
   background: #fafafa;

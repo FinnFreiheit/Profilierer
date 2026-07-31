@@ -40,6 +40,19 @@ Profil-Löschen kaskadiert auf die Versionen; `doc_hash` (sha1 über den
 doc-String) auf beiden Tabellen speist Entprellung und das
 „geändert seit vX"-Kennzeichen im Entry.
 
+**Testnachrichten** (Tabelle `testmessages`): `GET /api/testmessages` (schlanker
+Index ohne XML) · `GET /api/testmessages/:id/xml` ·
+`GET /api/testmessages/:id/entscheidungen` (Stand der geführten Erstellung) ·
+`GET /api/testmessages/:id/vorgabe` (eingefrorene Kopie der gebundenen
+Profilfassung, 404 ohne Bindung) · `POST /api/testmessages` ·
+`PATCH /api/testmessages/:id` · `DELETE /api/testmessages/:id`.
+Die Profil-Bindung (`profil_id`, `profil_name`, `fassung`, `vorgabe`) entsteht
+**nur beim Anlegen**; `PATCH` lässt sie unberührt — die gebundene Fassung ist
+unveränderliche Vorgabe. Herkunft (id/Name/Fassung) trägt der Index mit, damit
+Kachel und Sprung ins Profil ohne Zusatz-Request rendern; die Kopie steht
+bewusst ohne Fremdschlüssel auf `profiles` und bleibt lesbar, wenn die
+Profilierung geändert oder gelöscht wird.
+
 **Abnahme (BLK-AG, [ADR 0012](../docs/adr/0012-abnahme-rollenkonzept.md)):**
 `POST /api/login` (Body `{key}` → `{konfiguriert, ok}`) ·
 `POST /api/profiles/:id/abnahme` (friert den Stand als Abnahme-Version ein; Body

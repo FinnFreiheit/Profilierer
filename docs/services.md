@@ -45,7 +45,7 @@ Ersetzt das globale `S`/`S.profile` (Z.327-335). Jedes Feld ein Signal, Ableitun
 
 - **Signale:** Schema/Nachricht (`docs, idx, version, standardKennung, msgName, root`), Profil (`meta, statuses, elemente, auspraegungen, erweiterungen`), UI (`selItem, open, codelists, showTech, onlyProfile, showRefs, focusMode, scrollTarget, autosaveInfo, pendingMsg`), Diff (`showDiff, diffMap, diffAnc, idxB`), Validierung (`valFehler, valAnc`).
 - **Ableitungen:** `profileDoc`, `fortschritt` (Festlegungen/Ausprägungen/Erweiterungen, Z.1453).
-- **Profil-Zugriff:** `statusOf/wirkungOf/exclStatus`, `inheritedExcluded/ancestorPaths`, `effKard`, `werteOf/anmerkungOf/beispielOf/refZielOf`, `auspsOf`, `hasNotes`, `boxHidden` (nur-Profil-Filter), `auspNumber/auspLabel`, `refZielKandidaten`, `erweiterungenOf`.
+- **Profil-Zugriff:** `statusOf/wirkungOf/exclStatus`, `inheritedExcluded/ancestorPaths`, `effKard`, `werteOf/anmerkungOf/beispielOf/refZielOf`, `auspsOf`, `hasNotes`, `boxHidden` (nur-Profil-Filter), `vorgabeSchliesstAus/vorgabeGesperrt` (Sperre der gebundenen Fassung), `auspNumber/auspLabel`, `refZielKandidaten`, `erweiterungenOf`.
 - **Mutationen (erzeugen neue Referenzen):** `setElementProfile` (merge + `pruneP`, Z.987-996), `addAusp/removeAusp` (kaskadierend, Z.1017-1035), `addErweiterung/updateErweiterung/removeErweiterung` (kaskadierend über den Präfix `parentPath/~id`, [ADR 0010](adr/0010-schema-erweiterungen-profil-overlay.md)), `renameAusp`, `duplicateElement/copyAusp` (+ private `moveSubProfile/copySubProfile`, Z.1393-1434 — nehmen Erweiterungen mit), `toggleOpen/setOpen`, Status-CRUD (`addStatus/updateStatus/removeStatus/statusUsed`), `patchMeta`, `loadProfile/resetProfile`.
 
 `removeAusp`, `removeErweiterung` und `pruneP` sind der heikelste Teil und **unit-getestet** (`state.service.spec.ts`).
@@ -57,6 +57,8 @@ Unter dem Entscheidungsstand kann ein **zweites** `ProfileDoc` liegen: die `vorg
 Die Lesezugriffe fragen zuerst die Entscheidung und fallen auf die Vorgabe zurück, sonst nichts — feldweise für `statusOf/wirkungOf` (der Status der Vorgabe wird über **deren** Stufenliste aufgelöst, Stufen sind je Profilierung frei konfigurierbar), `effKard` (je Grenze), `werteOf`, `anmerkungOf`, `beispielOf`, `refZielOf`; bei `auspsOf` gilt der Rückfall je Pfad für die ganze Liste. Ein leeres `werte`-Array ist eine bewusste Einschränkung und fällt **nicht** zurück.
 
 Beide Schichten bleiben getrennt: `profileDoc`/`fortschritt` sehen nur den Entscheidungsstand, keine Mutation fasst die Vorgabe an, und `loadProfile` räumt sie (die Bindung gehört zum Durchlauf, nicht zum Dokument). Ohne gesetzte Vorgabe verhält sich der Store unverändert.
+
+**Ausschluss der Vorgabe (gesperrt).** `vorgabeSchliesstAus(path)` sagt, ob die gebundene Fassung den Pfad **selbst** ausschließt (knotenlokal, für den Struktur-Walk), `vorgabeGesperrt(path)` zusätzlich mit Vererbung auf den Teilbaum (Präfixe an `/` **und** `@`, damit der Ausschluss eines Trägerknotens auch dessen Vorkommen erfasst). Beide liefern `false`, sobald der Durchlauf am Pfad eine **eigene** Entscheidung führt: ein selbst weggelassenes Element bleibt sichtbar und korrigierbar, Ausgeschlossenes der Vorgabe dagegen ist gesperrt. `boxHidden` blendet Gesperrtes im gebundenen Durchlauf standardmäßig aus und zeigt es nur bei eingeschaltetem „nur Profil" (dort ausgegraut, ohne Bedienelemente, mit Begründung im Detailbereich); der Schalter bedeutet mit Bindung also „Ausgeschlossenes der Profilierung zeigen", und eigene Weglassen-Entscheidungen bleiben in beiden Stellungen sichtbar. Ohne Bindung bleibt es beim alten Verhalten („nur Profil" blendet Ausgeschlossenes aus).
 
 ## XsdParserService
 
@@ -136,6 +138,8 @@ Lädt eine bestehende XJustiz-Nachricht (XML-Instanz) und bildet sie gegen das g
 
 Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten): offene Entscheidungspunkte (`offeneSet`), `fortschritt` (x von y), `gotoNextOpen`, `offenePflicht`, `fuellePflichtfelder` (Dummy-Werte typkonform). Getestet in `guided.service.spec.ts`.
 
+**Gebundener Durchlauf:** Was die Vorgabe ausschließt (`StateService.vorgabeSchliesstAus`), wird im Struktur-Walk **vor** dem Punkt abgeschnitten — kein Entscheidungspunkt, kein Abstieg, auch nicht in Vorkommen. Das ist der Unterschied zum Ausschluss durch eine eigene Entscheidung des Durchlaufs (Wirkung `ausgeschlossen` auf `elemente`): der bleibt Punkt und zählt als getroffene Entscheidung.
+
 ## InstanceExportService
 
 `buildInstanceXml(session, neueKopfdaten = true)` — treuer Re-Export einer bearbeiteten Nachricht: Original-DOM der Quelle plus Modell-Änderungen, Pretty-Serialisierung mit bewusst konservativem Text-Escaping (`escText` ohne `"`-Escape). `neueKopfdaten = false` lässt `eigeneNachrichtenID`/`erstellungszeitpunkt` stehen — beim Zurückschreiben ist es dieselbe Nachricht, keine neue. Getestet in `instance-export.service.spec.ts`.
@@ -158,9 +162,10 @@ Zwei Fallen der **Neu-Erzeugung**, die vorher unter dem Klonen verborgen lagen:
 
 ## Testnachricht-Services
 
-- `TestmessageStoreService`: HTTP-CRUD des Testdaten-Speichers (`/api`), `entries`-Signal — Gegenstück zum `ProfileStoreService`.
+- `TestmessageStoreService`: HTTP-CRUD des Testdaten-Speichers (`/api`), `entries`-Signal — Gegenstück zum `ProfileStoreService`. `loadVorgabe(id)` liefert die eingefrorene Profilkopie einer gebundenen Nachricht (`GET /testmessages/:id/vorgabe`, 404 → `null`).
 - `TestmessageGenerationService`: erzeugt eine Testnachricht aus einem Bibliotheksprofil (`ensureSchema`, temporärer State-Swap, `buildBeispielXml`).
 - `TestmessageCreateService`: US „Testnachricht geführt erstellen" — `neuErstellen`/`fortsetzen` (Session `messageCreate`), `speichern` (Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand; invalide fertige Nachrichten bleiben Entwurf).
+  **Mit Profil-Bindung** (US „Testnachricht aus einer Profilierung"): `neuAusProfil(profil, versionId)` lädt die zu bindende Fassung — `null` = Arbeitsstand, sonst die nummerierte Version — legt sie über `setVorgabe` als eingefrorene Kopie in den Durchlauf und merkt sich Herkunft (`profilId`/`profilName`/`fassung`) in der Session. Version und Nachrichtentyp werden nicht abgefragt, sie stammen aus dem Profil-Dokument. Beim ersten `speichern` wandern Herkunft und Kopie an den Eintrag (danach unveränderlich); `fortsetzen` lädt bei gebundenen Einträgen die **Kopie**, nicht die inzwischen weiterentwickelte Profilfassung.
 - `TestmessageEditService`: US „Testnachricht bearbeiten" — `oeffnen(entry, 'betrachten' | 'bearbeiten')` (Schema sicherstellen, `InstanceImportService.importXml`, `entryId` in die Session nachtragen, Abnahme-Schreibschutz setzen **oder lösen**), `speichern()` (zurück in denselben Eintrag, Kopfdaten unangetastet) und `alsNeueSpeichern()` (neuer Eintrag mit frischen Kopfdaten). Getestet in `testmessage-edit.service.spec.ts`.
 
 Die beiden Speicherwege behandeln invalides XML bewusst **unterschiedlich**: das Zurückschreiben bietet nach Rückfrage den Entwurf an (für Nachrichten gibt es kein Autosave — ein Speicher-Verbot würde Arbeit vernichten), während ein _neuer_ Eintrag dasselbe harte Tor wie der Upload durchläuft. Eine reparierte Nachricht verliert ihr Entwurfs-Kennzeichen wieder, weil `entwurf` bei jedem Zurückschreiben mitgesendet wird.

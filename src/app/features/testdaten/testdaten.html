@@ -85,6 +85,15 @@
                 } @else {
                   <span class="pill pillMuted">Version unbekannt</span>
                 }
+                @if (e.profilId) {
+                  <button
+                    class="pill pillBtn"
+                    title="Zur gebundenen Profilierung springen — Festlegung nachlesen"
+                    (click)="oeffneProfil(e, $event)"
+                  >
+                    {{ herkunft(e) }}
+                  </button>
+                }
                 @if (e.fortschritt) {
                   <span class="dcProg"
                     >{{ e.fortschritt.x }} von {{ e.fortschritt.y }} entschieden</span
@@ -204,7 +213,94 @@
 
 <dialog #createDlg id="createDlg">
   <h3 style="margin-top: 0">Neue Testnachricht erstellen</h3>
-  @if (!createVersion()) {
+  @if (!createQuelle()) {
+    <p class="dashSub" style="margin-top: 0">
+      Woraus soll die Testnachricht entstehen? Beide Wege führen in denselben
+      <b>geführten Durchlauf</b> im Baum-Editor.
+    </p>
+    <button
+      style="display: block; width: 100%; text-align: left; margin-bottom: 6px"
+      (click)="waehleQuelle('schema')"
+    >
+      <b>aus Schema</b>
+      <span style="color: var(--muted)">
+        — XJustiz-Version und Nachricht wählen, frei nach Standard befüllen</span
+      >
+    </button>
+    <button
+      style="display: block; width: 100%; text-align: left; margin-bottom: 6px"
+      (click)="waehleQuelle('profil')"
+    >
+      <b>aus Profilierung</b>
+      <span style="color: var(--muted)">
+        — an eine Fassung gebunden: Ausgeschlossenes ist gesperrt, Version und Nachrichtentyp
+        stammen aus dem Profil</span
+      >
+    </button>
+  } @else if (createQuelle() === 'profil') {
+    @if (!createProfil()) {
+      <p class="dashSub" style="margin-top: 0">
+        Schritt 1 von 2: Profilierung wählen. Version und Nachrichtentyp werden nicht abgefragt —
+        sie stammen aus der Profilierung.
+      </p>
+      @if (profilKandidaten().length) {
+        <div style="max-height: 50vh; overflow: auto">
+          @for (e of profilKandidaten(); track e.id) {
+            <button
+              style="display: block; width: 100%; text-align: left; margin-bottom: 6px"
+              [disabled]="createLoading()"
+              (click)="chooseProfil(e)"
+            >
+              <b>{{ e.name || '(ohne Namen)' }}</b> — {{ e.nachricht }}
+              @if (e.xjustizVersion) {
+                <span class="pill">XJustiz {{ e.xjustizVersion }}</span>
+              }
+              @if (e.abgenommen) {
+                <span class="pill pillAbn">✔ BLK-AG abgenommen</span>
+              }
+            </button>
+          }
+        </div>
+      } @else {
+        <p>Keine Profilierung mit Nachrichtentyp vorhanden — zuerst im Profil-Dashboard anlegen.</p>
+      }
+      <button style="margin-top: 8px" (click)="createQuelle.set(null)">‹ andere Herkunft</button>
+    } @else {
+      <p class="dashSub" style="margin-top: 0">
+        Schritt 2 von 2: zu bindende Fassung von „{{ createProfil()!.name }}" wählen. Sie wird als
+        <b>eingefrorene Kopie</b> an der Testnachricht gespeichert und ändert sich nicht mehr, wenn
+        die Profilierung weiterentwickelt wird.
+      </p>
+      <label class="gZweig">
+        <input
+          type="radio"
+          name="fassung"
+          [checked]="fassungWahl() === ''"
+          (change)="fassungWahl.set('')"
+        />
+        Arbeitsstand (aktueller Stand der Profilierung)
+      </label>
+      @for (f of fassungen(); track f.id) {
+        <label class="gZweig">
+          <input
+            type="radio"
+            name="fassung"
+            [checked]="fassungWahl() === f.id"
+            (change)="fassungWahl.set(f.id)"
+          />
+          {{ fassungLabel(f) }}
+        </label>
+      }
+      <div style="margin-top: 12px">
+        <button [disabled]="createLoading()" (click)="createProfil.set(null)">
+          ‹ andere Profilierung
+        </button>
+        <button class="primary" [disabled]="createLoading()" (click)="startAusProfil()">
+          Durchlauf starten
+        </button>
+      </div>
+    }
+  } @else if (!createVersion()) {
     <p class="dashSub" style="margin-top: 0">
       Schritt 1 von 2: XJustiz-Version wählen. Anschließend wird die Nachricht im Baum-Editor
       <b>geführt</b> befüllt — Pflichtfelder, Auswahlen und optionale Elemente Schritt für Schritt.
@@ -225,6 +321,7 @@
     } @else {
       <p>Keine Schemaversion verfügbar.</p>
     }
+    <button style="margin-top: 8px" (click)="createQuelle.set(null)">‹ andere Herkunft</button>
   } @else {
     <p class="dashSub" style="margin-top: 0">
       Schritt 2 von 2: Nachricht wählen (XJustiz {{ createVersion() }}).
