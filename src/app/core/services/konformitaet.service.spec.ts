@@ -123,6 +123,87 @@ describe('KonformitaetService', () => {
     expect(v[0]!.pfad).toBe(`${M}/beteiligung@n1/kontakt`);
   });
 
+  it('Selbst-Ausschluss am generischen Zwilling meldet die Selbst-Variante (Deep-Review)', () => {
+    // Der Ausschluss steht am generischen Pfad, der Wert im Vorkommen — das
+    // ist derselbe Sachverhalt am selben Element, kein Vorfahren-Ausschluss.
+    // Die "samt Teilbaum"-Variante nannte einen Pfad, den der Baum nicht
+    // rendert (#28).
+    const doc = vorgabe({ elemente: { [`${M}/bet/name`]: { status: V.excl } } });
+    const inst = instanz({ elemente: { [`${M}/bet@a1/name`]: { beispiel: 'x' } } });
+
+    const v = svc.pruefe(doc, inst);
+    expect(v.length).toBe(1);
+    expect(v[0]!.text).toContain('schließt das Element aus');
+    expect(v[0]!.text).not.toContain('samt Teilbaum');
+  });
+
+  it('pfadgenaue Grenze gewinnt ueber die generische — keine Doppelmeldung (Deep-Review)', () => {
+    // Generisch min 2, am Vorkommen n1 pfadgenau min 1: die Lesart weist den
+    // pfadgenauen Eintrag als massgeblich aus — je Eintrag einzeln geprueft
+    // wurde die generische Grenze trotzdem auf n1 projiziert und doppelt
+    // gemeldet.
+    const doc = vorgabe({
+      elemente: {
+        [`${M}/bet/kontakt`]: { min: '2' },
+        [`${M}/bet@n1/kontakt`]: { min: '1' },
+      },
+      auspraegungen: { [`${M}/bet`]: [{ id: 'n1', name: 'Notar/in' }] },
+    });
+    const inst = instanz({
+      auspraegungen: { [`${M}/bet@n1/kontakt`]: [{ id: 'v1', name: 'Vorkommen 1' }] },
+    });
+
+    expect(svc.pruefe(doc, inst)).toEqual([]); // min 1 erfuellt, min 2 gilt hier nicht
+  });
+
+  it('in ausgeschlossenen Vorkommen wird nicht gezaehlt (Deep-Review)', () => {
+    // Vorkommen n2 ist ausgeschlossen: der Durchlauf materialisiert dort
+    // nichts — die generische Mindestanzahl darf dort keinen Verstoss melden.
+    const doc = vorgabe({
+      elemente: {
+        [`${M}/bet/kontakt`]: { min: '2' },
+        [`${M}/bet@n2`]: { status: V.excl },
+      },
+      auspraegungen: {
+        [`${M}/bet`]: [
+          { id: 'n1', name: 'Notar/in' },
+          { id: 'n2', name: 'Zeuge/Zeugin' },
+        ],
+      },
+    });
+    const inst = instanz({
+      auspraegungen: {
+        [`${M}/bet@n1/kontakt`]: [
+          { id: 'v1', name: '1' },
+          { id: 'v2', name: '2' },
+        ],
+      },
+    });
+
+    expect(svc.pruefe(doc, inst)).toEqual([]);
+  });
+
+  it('Vorkommen-Pflicht wird nicht vom Traeger geerbt — wie die Sperre (Deep-Review)', () => {
+    // m/bet ist generisch zwingend; die Vorkommen selbst tragen keine eigene
+    // Festlegung. Der Durchlauf erlaubt ihr Entfernen ausdruecklich
+    // (auspSperreEntfernen, pfadgenau) — der Abgleich darf es nicht als
+    // Verstoss melden.
+    const doc = vorgabe({
+      elemente: { [`${M}/bet`]: { status: V.pflicht } },
+      auspraegungen: {
+        [`${M}/bet`]: [
+          { id: 'n1', name: 'Notar/in' },
+          { id: 'n2', name: 'Zeuge/Zeugin' },
+        ],
+      },
+    });
+    const inst = instanz({
+      auspraegungen: { [`${M}/bet`]: [{ id: 'n1', name: 'Notar/in' }] }, // n2 entfernt
+    });
+
+    expect(svc.pruefe(doc, inst).filter((v) => v.art === 'vorkommen')).toEqual([]);
+  });
+
   it('meldet ein fehlendes zwingendes Vorkommen — die Kopie erfuellt es', () => {
     const doc = vorgabe({
       elemente: { [`${M}/beteiligung@n1`]: { status: V.pflicht } },

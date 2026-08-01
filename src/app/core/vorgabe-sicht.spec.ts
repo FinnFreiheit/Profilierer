@@ -189,5 +189,27 @@ describe('VorgabeSicht', () => {
       // Ohne Vorkommen bleibt der Pfad, wie er ist.
       expect(s.instanzPfade(`${M}/kopf`)).toEqual([`${M}/kopf`]);
     });
+
+    it('faechert jede Vorfahren-Liste auf — keine Phantompfade bei Schachtelung', () => {
+      // Deep-Review-Befund: frueher wurde nur die letzte Listen-Ebene
+      // expandiert; fuer m/bet/adr/ort entstand m/bet/adr@x/ort — ein Pfad,
+      // den niemand rendert. Die Vorkommen liegen real unter m/bet@a1/adr@x.
+      const s = new VorgabeSicht(
+        doc(),
+        instanz({
+          auspraegungen: {
+            [`${M}/bet`]: [{ id: 'a1', name: 'Notar/in' }],
+            [`${M}/bet@a1/adr`]: [
+              { id: 'x1', name: 'Meldeadresse' },
+              { id: 'x2', name: 'Kanzlei' },
+            ],
+          },
+        }),
+      );
+      expect(s.instanzPfade(`${M}/bet/adr/ort`)).toEqual([
+        `${M}/bet@a1/adr@x1/ort`,
+        `${M}/bet@a1/adr@x2/ort`,
+      ]);
+    });
   });
 });

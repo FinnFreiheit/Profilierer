@@ -267,6 +267,53 @@ describe('TreeService', () => {
     });
   });
 
+  describe('walkProfil: Waechter (Deep-Review)', () => {
+    it('rekursive Elemente werden nicht abgestiegen, auch nicht ueber Vorkommen', () => {
+      // Alle Alt-Walker stoppten an `recursive`, bevor sie die Ersetzungsregel
+      // pruefen — ctxNode traegt nie `recursive`, der Abstieg liefe sonst bis
+      // zur Tiefenkappe und legte persistente Zustaende an.
+      const root = tree.buildRoot('nachricht.test.0001', idx);
+      state.root.set(root);
+      const bet = (
+        tree.childItems({ kind: 'el', node: root })[0] as Extract<TreeItem, { kind: 'el' }>
+      ).node;
+      state.addAusp(bet.path, 'Notar/in');
+      bet.recursive = true; // rekursiver Typ, nachtraeglich markiert
+
+      expect(tree.abstiegsKinder(bet)).toEqual([]);
+      const besucht: string[] = [];
+      tree.walkProfil(root, ({ node }) => {
+        besucht.push(node.path);
+        return true;
+      });
+      expect(besucht.some((p) => p.includes('@'))).toBeFalse();
+      // Die Darstellung zeigt die Vorkommen weiterhin (bewusste alte Asymmetrie).
+      expect(tree.childItems({ kind: 'el', node: bet }).length).toBe(1);
+    });
+
+    it('ein Vorkommen-Schritt verbraucht keine Tiefe', () => {
+      // Alt-Walker sprangen mit derselben Tiefe in den Kontext: Kinder eines
+      // Vorkommens liegen so tief wie generische Kinder.
+      const root = tree.buildRoot('nachricht.test.0001', idx);
+      state.root.set(root);
+      const bet = (
+        tree.childItems({ kind: 'el', node: root })[0] as Extract<TreeItem, { kind: 'el' }>
+      ).node;
+      state.addAusp(bet.path, 'Notar/in');
+
+      const tiefen = new Map<string, number>();
+      tree.walkProfil(root, (schritt, tiefe) => {
+        tiefen.set(schritt.node.path, tiefe);
+        return true;
+      });
+      const auspPfad = [...tiefen.keys()].find((p) => p.endsWith('name') && p.includes('@'))!;
+      // beteiligung liegt auf Tiefe 0, ihr Vorkommen-Kind name auf Tiefe 1 —
+      // wie das generische Geschwister datum.
+      expect(tiefen.get(auspPfad)).toBe(1);
+      expect(tiefen.get('nachricht.test.0001/datum')).toBe(0);
+    });
+  });
+
   describe('Schema-Erweiterungen', () => {
     it('kinder haengt Erweiterungs-Knoten hinter die Schema-Kinder', () => {
       const root = tree.buildRoot('nachricht.test.0001', idx);

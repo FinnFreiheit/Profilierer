@@ -68,9 +68,10 @@ interface WalkErgebnis {
  * - eine Auswahl (`choice`) verlangt **genau einen** Zweig je Vorkommen,
  * - Auspraegungen sind die Vorkommen wiederholbarer Elemente.
  *
- * Reaktivitaet: Im Profil-Modus haengt der teure Struktur-Walk nur an
- * root/auspraegungen und einem Ausschluss-Fingerprint; im Instanz-Modus
- * zusaetzlich an `elemente` (Aufnahme/Inhalt steuern den Abstieg).
+ * Reaktivitaet: Der teure Struktur-Walk haengt an root/auspraegungen, einem
+ * Ausschluss-Fingerprint und — seit #59 auch im Profil-Modus, weil
+ * `vorgabeWirkung` die eigene Entscheidung prueft — an `elemente`; im
+ * Instanz-Modus steuern Aufnahme/Inhalt zusaetzlich den Abstieg.
  */
 @Injectable({ providedIn: 'root' })
 export class GuidedService {
@@ -878,6 +879,7 @@ export class GuidedService {
     let n = 0;
     this.tree.walkProfil(root, ({ node: c, ausp }) => {
       if (ausp) return true; // Vorkommen-Kontext: Kinder dort weiter
+      if (c.erweiterung) return false; // wie bisher: nur Schema-Kinder
       if (this.state.vorgabeSchliesstAus(c.path)) return false;
       if (refTraeger(c) === c) {
         if (!this.state.refZielOf(c.path)) {

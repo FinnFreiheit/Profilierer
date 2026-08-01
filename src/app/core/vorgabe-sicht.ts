@@ -172,6 +172,11 @@ export class VorgabeSicht {
    * eigener Entscheidung weg (aufgeloest ueber die Stufenliste der Vorgabe —
    * die Stufenliste der Nachricht ist die des Profils, aus dem sie entstand;
    * unbekannte ids zaehlen wie "keine Aussage").
+   *
+   * Bewusst NICHT dasselbe wie `GuidedService.vorkommenAnzahl`: der Durchlauf
+   * zaehlt auf der Entscheidungsschicht (inkl. `wirkungOf` und
+   * `vorgabeGesperrt` der laufenden Sitzung), diese Lesart auf den beiden
+   * Dokumenten — zwei Ebenen derselben Konvention, keine Kopien.
    */
   vorkommenAnzahl(pfad: string): number {
     const liste = this.auspsEffektiv(pfad);
@@ -184,19 +189,28 @@ export class VorgabeSicht {
 
   /**
    * Die Pfade, unter denen ein Festlegungs-Pfad in der Nachricht tatsaechlich
-   * auftritt: er selbst, wenn sein Elternelement keine Vorkommen fuehrt —
-   * sonst je Vorkommen einer. Ohne diese Aufloesung liefe jede Pruefung am
-   * generischen Pfad ins Leere, den der Baum gar nicht rendert (#28).
-   * Bewusst nur eine Listen-Ebene tief — dieselbe Grenze wie die
-   * Materialisierung beim Start.
+   * auftritt: **jede** Vorfahren-Liste faechert je Vorkommen auf. Ohne diese
+   * Aufloesung liefe jede Pruefung am generischen Pfad ins Leere, den der Baum
+   * gar nicht rendert (#28). Frueher wurde nur die letzte Listen-Ebene
+   * expandiert — bei zweistufiger Schachtelung (`m/bet/adr/ort`) entstanden
+   * Phantompfade (`m/bet/adr@x/ort` statt `m/bet@a1/adr@x/ort`), auf die der
+   * Bericht zeigte, obwohl sie niemand rendert (Deep-Review-Befund).
    */
   instanzPfade(pfad: string): string[] {
-    const i = pfad.lastIndexOf('/');
-    if (i < 0) return [pfad];
-    const eltern = pfad.slice(0, i);
-    const rest = pfad.slice(i);
-    const liste = this.auspsEffektiv(eltern);
-    if (!liste?.length) return [pfad];
-    return liste.map((a) => `${eltern}@${a.id}${rest}`);
+    const segs = pfad.split('/');
+    let front: string[] = [segs[0]!];
+    for (let i = 1; i < segs.length; i++) {
+      const naechste: string[] = [];
+      for (const f of front) {
+        const el = f + '/' + segs[i]!;
+        // Das Zielelement selbst wird nicht aufgefaechert — seine eigenen
+        // Vorkommen sind die Zaehlgroesse (`vorkommenAnzahl`), kein Pfadraum.
+        const liste = i < segs.length - 1 ? this.auspsEffektiv(el) : null;
+        if (liste?.length) for (const a of liste) naechste.push(`${el}@${a.id}`);
+        else naechste.push(el);
+      }
+      front = naechste;
+    }
+    return front;
   }
 }
