@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Auspraegung, ElementProfile, ProfileDoc, Wirkung } from '../../models/profile.model';
-import { ohneVorkommen } from '../../models/node.model';
+import { blattName, ohneVorkommen, vorfahren } from '../util/pfad.util';
 import { pretty } from '../util/pretty.util';
 import { StateService } from './state.service';
 import { NavService } from './nav.service';
@@ -213,7 +213,7 @@ export class SitzungsAbgleichService {
 
 /** Letztes Pfadsegment als Anzeigename. */
 function kurz(pfad: string): string {
-  return pretty(pfad.split('/').at(-1)!.split('@')[0]!.split('#')[0]!);
+  return pretty(blattName(pfad));
 }
 
 /**
@@ -249,9 +249,8 @@ class VorgabeSicht {
    */
   ausschlussQuelle(pfad: string): string | null {
     if (this.wirkung(pfad) === 'ausgeschlossen') return pfad;
-    for (let i = pfad.length - 1; i > 0; i--) {
-      if (pfad[i] !== '/' && pfad[i] !== '@') continue;
-      const anc = pfad.slice(0, i);
+    // Naechstgelegener Vorfahr zuerst — die Meldung nennt die Quelle.
+    for (const anc of vorfahren(pfad).reverse()) {
       if (this.wirkung(anc) === 'ausgeschlossen') return anc;
     }
     return null;

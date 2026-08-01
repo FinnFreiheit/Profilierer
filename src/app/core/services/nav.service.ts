@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { TreeItem, itemPath } from '../../models/node.model';
+import { segmentKette, unterPfad } from '../util/pfad.util';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { DiffService } from './diff.service';
@@ -129,10 +130,7 @@ export class NavService {
     let guard = 0;
     while (guard++ < 80) {
       const kids = this.tree.childItems(it);
-      const next = kids.find((k) => {
-        const kp = itemPath(k);
-        return path === kp || path.startsWith(kp + '/') || path.startsWith(kp + '@');
-      });
+      const next = kids.find((k) => unterPfad(path, itemPath(k)));
       if (!next) return null;
       if (itemPath(next) === path) return next;
       it = next;
@@ -150,10 +148,7 @@ export class NavService {
     let guard = 0;
     while (guard++ < 100) {
       const kids = this.tree.childItems(it);
-      const next = kids.find((k) => {
-        const kp = itemPath(k);
-        return path === kp || path.startsWith(kp + '/') || path.startsWith(kp + '@');
-      });
+      const next = kids.find((k) => unterPfad(path, itemPath(k)));
       if (!next) return chain;
       chain.push(next);
       if (itemPath(next) === path) return chain;
@@ -211,15 +206,8 @@ export class NavService {
 
   /** openPathTo (Z.641-649): alle Vorfahren entlang eines Pfades oeffnen. */
   openPathTo(path: string): void {
-    const segs = path.split('/');
     const next = new Set(this.state.open());
-    let cur = '';
-    for (const sg of segs) {
-      cur = cur ? cur + '/' + sg : sg;
-      const at = sg.indexOf('@');
-      if (at >= 0) next.add(cur.slice(0, cur.length - (sg.length - at)));
-      next.add(cur);
-    }
+    for (const p of segmentKette(path)) next.add(p);
     this.state.open.set(next);
   }
 

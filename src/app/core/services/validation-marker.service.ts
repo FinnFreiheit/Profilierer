@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { ReportEintrag, ValidierungsFehler } from '../../models/validation.model';
-import { istErweiterungsPfad } from '../../models/node.model';
+import { istErweiterungsPfad, vorfahren } from '../util/pfad.util';
 import { StateService } from './state.service';
 
 /**
@@ -80,12 +80,7 @@ export class ValidationMarkerService {
     // der Auspraegung, das ebenfalls mitzaehlt (Praefix-Logik wie openPathTo).
     const anc = new Map<string, number>();
     for (const [pfad, texte] of proPfad) {
-      for (let i = 0; i < pfad.length; i++) {
-        if (pfad[i] === '/' || pfad[i] === '@') {
-          const p = pfad.slice(0, i);
-          anc.set(p, (anc.get(p) ?? 0) + texte.length);
-        }
-      }
+      for (const p of vorfahren(pfad)) anc.set(p, (anc.get(p) ?? 0) + texte.length);
     }
     this.state.valFehler.set(proPfad.size ? proPfad : null);
     this.state.valAnc.set(anc.size ? anc : null);

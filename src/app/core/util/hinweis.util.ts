@@ -3,16 +3,6 @@ import { Hinweis, ProfileDoc } from '../../models/profile.model';
 /** Ein Hinweis, wie er in einer exportierten Profildatei steht (ohne Server-id). */
 export type HinweisEingabe = Omit<Hinweis, 'id'>;
 
-/**
- * Liegt `pfad` auf oder unter `praefix`? Grenzen sind '/' und '@' wie in der
- * Vorfahren-Logik des Stores — ohne sie faenge `…/anlage` auch `…/anlageArt`.
- * Grundlage der Kaskade "Element weg, Hinweise weg"; dieselbe Regel steht
- * serverseitig in `db.hinweiseLoeschenUnter`.
- */
-export function unterPfad(pfad: string, praefix: string): boolean {
-  return pfad === praefix || pfad.startsWith(praefix + '/') || pfad.startsWith(praefix + '@');
-}
-
 /** Datum eines Hinweises im Projektformat YY.MM.DD. */
 export function hinweisDatum(zeit: number): string {
   const d = new Date(zeit);

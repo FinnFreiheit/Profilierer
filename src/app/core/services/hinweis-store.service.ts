@@ -4,7 +4,8 @@ import { LoggerService } from './logger.service';
 import { RolleService } from './rolle.service';
 import { Injector } from '@angular/core';
 import { ProfileStoreService } from './profile-store.service';
-import { HinweisEingabe, unterPfad } from '../util/hinweis.util';
+import { HinweisEingabe } from '../util/hinweis.util';
+import { unterPfad, vorfahren } from '../util/pfad.util';
 
 /** Basis-URL der Profil-API (wie im ProfileStoreService: relativ, gegen <base href>). */
 const API_BASE = 'api';
@@ -133,12 +134,7 @@ export class HinweisStoreService {
     const anc = new Map<string, number>();
     for (const h of this.hinweise()) {
       if (h.erledigt) continue;
-      for (let i = 0; i < h.pfad.length; i++) {
-        if (h.pfad[i] === '/' || h.pfad[i] === '@') {
-          const p = h.pfad.slice(0, i);
-          anc.set(p, (anc.get(p) ?? 0) + 1);
-        }
-      }
+      for (const p of vorfahren(h.pfad)) anc.set(p, (anc.get(p) ?? 0) + 1);
     }
     return anc;
   });
