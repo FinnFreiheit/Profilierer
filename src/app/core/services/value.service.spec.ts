@@ -194,6 +194,86 @@ describe('ValueService.placeholderFor', () => {
   });
 });
 
+describe('ValueService.codelistenSicht', () => {
+  let svc: ValueService;
+  let state: StateService;
+
+  const CL: CodelistInfo = {
+    typeName: 'Code.Test',
+    nameLang: 'Teststaaten',
+    kennung: 'urn:test:staaten',
+    beschreibung: '',
+    werte: [
+      { value: 'DE', label: 'Deutschland' },
+      { value: 'FR', label: 'Frankreich' },
+      { value: 'IT', label: 'Italien' },
+    ],
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    svc = TestBed.inject(ValueService);
+    state = TestBed.inject(StateService);
+  });
+
+  it('ohne Einschraenkung: alle Zeilen angehakt, belegter Code markiert', () => {
+    state.setElementProfile('m/staat', { beispiel: 'FR' });
+    const sicht = svc.codelistenSicht(CL, 'm/staat', false);
+
+    expect(sicht.restricted).toBeFalse();
+    expect(sicht.eff!.every((z) => z.checked)).toBeTrue();
+    expect(sicht.eff!.find((z) => z.value === 'FR')!.belegt).toBeTrue();
+    expect(sicht.total).toBe(3);
+    expect(sicht.allowedCount).toBe(0);
+  });
+
+  it('mit Einschraenkung: nur freigegebene Codes angehakt, Zaehler stimmen', () => {
+    state.setElementProfile('m/staat', { werte: ['DE', 'FR'] });
+    const sicht = svc.codelistenSicht(CL, 'm/staat', false);
+
+    expect(sicht.restricted).toBeTrue();
+    expect(sicht.eff!.filter((z) => z.checked).map((z) => z.value)).toEqual(['DE', 'FR']);
+    expect(sicht.allowedCount).toBe(2);
+    expect(sicht.allowedSichtbar).toBe(2);
+    expect(sicht.manualText).toBe('DE\nFR');
+  });
+
+  it('Drift: freigegebene Codes ohne Deckung in der Liste — allowedSichtbar 0', () => {
+    // Versionsdrift oder Tippfehler: der Hinweis am Feld darf dann nicht auf
+    // eine Liste verweisen, die nichts anbietet (Sackgassen-Meldung beim Start).
+    state.setElementProfile('m/staat', { werte: ['XX', 'YY'] });
+    const sicht = svc.codelistenSicht(CL, 'm/staat', true);
+
+    expect(sicht.allowedCount).toBe(2);
+    expect(sicht.allowedSichtbar).toBe(0);
+    expect(sicht.eff!.every((z) => !z.checked)).toBeTrue();
+  });
+
+  it('synthetischer Ausweg: ohne geladene Liste werden die freigegebenen Eintraege zur Auswahl', () => {
+    const extern: CodelistInfo = { ...CL, werte: [] }; // extern gepflegt, nicht geladen
+    state.setElementProfile('m/staat', { werte: ['2001 — Genehmigung', '2002'] });
+
+    // Nur im Nachrichten-Modus — beim Profilieren bleibt die Liste leer.
+    const nachricht = svc.codelistenSicht(extern, 'm/staat', true);
+    expect(nachricht.geladen).toBeFalse();
+    expect(nachricht.eff!.map((z) => z.value)).toEqual(['2001', '2002']);
+    expect(nachricht.eff![0]!.label).toBe('Genehmigung');
+    expect(nachricht.total).toBe(0); // kein "x von y" gegen eine synthetische Liste
+
+    const profil = svc.codelistenSicht(extern, 'm/staat', false);
+    expect(profil.eff).toBeNull();
+  });
+
+  it('showFilter erst ab mehr als 15 Zeilen', () => {
+    const gross: CodelistInfo = {
+      ...CL,
+      werte: Array.from({ length: 16 }, (_, i) => ({ value: String(i), label: 'W' + i })),
+    };
+    expect(svc.codelistenSicht(gross, 'm/staat', false).showFilter).toBeTrue();
+    expect(svc.codelistenSicht(CL, 'm/staat', false).showFilter).toBeFalse();
+  });
+});
+
 describe('ValueService.vorschlagFor', () => {
   let svc: ValueService;
   let state: StateService;
