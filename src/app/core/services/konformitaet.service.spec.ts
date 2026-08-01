@@ -95,6 +95,34 @@ describe('KonformitaetService', () => {
     expect(v.find((x) => x.pfad.endsWith('beteiligung'))!.text).toContain('höchstens 1');
   });
 
+  it('zaehlt eine generische Grenze je Vorkommen — am @-Pfad, wo materialisiert wird', () => {
+    // Die Divergenz vor der gemeinsamen VorgabeSicht: der Abgleich zaehlte am
+    // generischen Pfad, die Materialisierung legt die Vorkommen aber an den
+    // @-Pfaden an (#28) — eine konforme Nachricht wurde als Entwurf gemeldet.
+    const doc = vorgabe({
+      elemente: { [`${M}/beteiligung/kontakt`]: { min: '2' } },
+      auspraegungen: { [`${M}/beteiligung`]: [{ id: 'n1', name: 'Notar/in' }] },
+    });
+    const konform = instanz({
+      auspraegungen: {
+        [`${M}/beteiligung@n1/kontakt`]: [
+          { id: 'v1', name: 'Vorkommen 1' },
+          { id: 'v2', name: 'Vorkommen 2' },
+        ],
+      },
+    });
+    expect(svc.pruefe(doc, konform)).toEqual([]);
+
+    // Nur ein Vorkommen: der Verstoss zeigt auf den @-Pfad, den der Baum rendert.
+    const zuWenig = instanz({
+      auspraegungen: { [`${M}/beteiligung@n1/kontakt`]: [{ id: 'v1', name: 'Vorkommen 1' }] },
+    });
+    const v = svc.pruefe(doc, zuWenig);
+    expect(v.length).toBe(1);
+    expect(v[0]!.art).toBe('kardinalitaet');
+    expect(v[0]!.pfad).toBe(`${M}/beteiligung@n1/kontakt`);
+  });
+
   it('meldet ein fehlendes zwingendes Vorkommen — die Kopie erfuellt es', () => {
     const doc = vorgabe({
       elemente: { [`${M}/beteiligung@n1`]: { status: V.pflicht } },
