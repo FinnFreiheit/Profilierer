@@ -184,8 +184,13 @@ describe('DispositionService — kaskadierende Pflicht-Vorbelegung', () => {
 
       const n = disposition.pflichtVorbelegen();
 
-      expect(n).toBe(3);
+      // beteiligter (Wurzel-Rueckgrat) + name im Vorkommen. Seit dem
+      // walkProfil-Umbau liegt das Rueckgrat am **gerenderten** Baum: der
+      // generische Pfad beteiligter/name wird bei benannten Vorkommen nicht
+      // gerendert und darum nicht mehr unsichtbar mit vorbelegt (vorher 3).
+      expect(n).toBe(2);
       expect(state.statusOf(auspPath + '/name')?.id).toBe('s1');
+      expect(state.statusOf(ROOT + '/beteiligter/name')).toBeNull();
       expect(state.statusOf(auspPath + '/optionalFeld')).toBeNull();
     });
 

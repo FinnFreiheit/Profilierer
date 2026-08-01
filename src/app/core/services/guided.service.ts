@@ -236,11 +236,11 @@ export class GuidedService {
       // ihre Punkte entstehen erst mit der Aufnahme.
       if (instanz && optional && !istChoiceEl && !steigAb(n.path)) return;
 
-      const ausps = this.state.auspsOf(n.path);
-      if (ausps && ausps.length) {
-        // Auspraegungen ersetzen den generischen Unterbaum (wie walkFull/childItems).
-        for (const a of ausps) {
-          const cn = this.tree.ctxNode(n, a.id);
+      const vorkommen = this.tree.vorkommenKinder(n);
+      if (vorkommen) {
+        // Auspraegungen ersetzen den generischen Unterbaum — die Regel liegt
+        // im TreeService (vorkommenKinder), der Walk behaelt seine Punktlogik.
+        for (const { node: cn, ausp: a } of vorkommen) {
           if (gesperrt(cn.path)) continue; // ausgeschlossenes Vorkommen der Vorgabe
           // Optionale Auspraegung der gebundenen Fassung: ein Entscheidungspunkt
           // "aufnehmen / weglassen" statt eines Vorkommens, das mit seinem
@@ -876,28 +876,21 @@ export class GuidedService {
     const root = this.state.root();
     if (!root) return 0;
     let n = 0;
-    const rec = (node: TreeNode, depth: number): void => {
-      if (depth > 25 || node.recursive) return;
-      this.tree.expandNode(node);
-      for (const c of node.children ?? []) {
-        if (this.state.vorgabeSchliesstAus(c.path)) continue;
-        if (refTraeger(c) === c) {
-          if (!this.state.refZielOf(c.path)) {
-            const ziele = this.verweisZiele(c.path);
-            if (ziele.length === 1) {
-              this.waehleVerweisZiel(c.path, ziele[0]!.path);
-              n++;
-            }
+    this.tree.walkProfil(root, ({ node: c, ausp }) => {
+      if (ausp) return true; // Vorkommen-Kontext: Kinder dort weiter
+      if (this.state.vorgabeSchliesstAus(c.path)) return false;
+      if (refTraeger(c) === c) {
+        if (!this.state.refZielOf(c.path)) {
+          const ziele = this.verweisZiele(c.path);
+          if (ziele.length === 1) {
+            this.waehleVerweisZiel(c.path, ziele[0]!.path);
+            n++;
           }
-          continue; // unterhalb des Traegers liegt nur das Nummern-Blatt
         }
-        const vorkommen = this.state.auspsOf(c.path);
-        if (vorkommen?.length)
-          for (const a of vorkommen) rec(this.tree.ctxNode(c, a.id), depth + 1);
-        else rec(c, depth + 1);
+        return false; // unterhalb des Traegers liegt nur das Nummern-Blatt
       }
-    };
-    rec(root, 0);
+      return true;
+    });
     return n;
   }
 

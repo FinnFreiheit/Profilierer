@@ -172,6 +172,101 @@ describe('TreeService', () => {
     });
   });
 
+  describe('walkProfil / abstiegsKinder (die Ersetzungsregel, einmal)', () => {
+    const M = 'nachricht.test.0001';
+
+    it('vorkommenKinder: benannte Vorkommen ersetzen die generischen Kinder', () => {
+      const root = tree.buildRoot(M, idx);
+      state.root.set(root);
+      const bet = (
+        tree.childItems({ kind: 'el', node: root })[0] as Extract<TreeItem, { kind: 'el' }>
+      ).node;
+
+      expect(tree.vorkommenKinder(bet)).toBeNull(); // ohne Vorkommen: generischer Abstieg
+      const id = state.addAusp(bet.path, 'Notar/in');
+      const vorkommen = tree.vorkommenKinder(bet)!;
+      expect(vorkommen.length).toBe(1);
+      expect(vorkommen[0]!.node.path).toBe(`${M}/beteiligung@${id}`);
+      expect(vorkommen[0]!.ausp.name).toBe('Notar/in');
+      // abstiegsKinder traegt dieselbe Regel plus den generischen Fall.
+      expect(tree.abstiegsKinder(bet).map((k) => k.ausp?.name)).toEqual(['Notar/in']);
+    });
+
+    it('walkProfil betritt Vorkommen-Kontexte statt der generischen Kinder', () => {
+      const root = tree.buildRoot(M, idx);
+      state.root.set(root);
+      const bet = (
+        tree.childItems({ kind: 'el', node: root })[0] as Extract<TreeItem, { kind: 'el' }>
+      ).node;
+      const id = state.addAusp(bet.path, 'Notar/in');
+
+      const besucht: string[] = [];
+      tree.walkProfil(root, ({ node }) => {
+        besucht.push(node.path);
+        return true;
+      });
+
+      // Der gerenderte Pfadraum (@id) wird betreten, der generische nicht —
+      // genau die Regel, deren Nachbau in Bug #28 Teil 1 fehlte.
+      expect(besucht).toContain(`${M}/beteiligung@${id}`);
+      expect(besucht).toContain(`${M}/beteiligung@${id}/name`);
+      expect(besucht).not.toContain(`${M}/beteiligung/name`);
+    });
+
+    it('walkProfil: eine Mutation im Besuch wirkt auf den anschliessenden Abstieg', () => {
+      // Das Muster der Materialisierung: addAusp im Besuch, danach muss der
+      // Walk die frisch entstandenen Vorkommen betreten.
+      const root = tree.buildRoot(M, idx);
+      state.root.set(root);
+
+      const besucht: string[] = [];
+      tree.walkProfil(root, ({ node, ausp }) => {
+        besucht.push(node.path);
+        if (node.name === 'beteiligung' && !ausp && !state.auspsOf(node.path)?.length) {
+          state.addAusp(node.path, 'Vorkommen 1');
+          state.addAusp(node.path, 'Vorkommen 2');
+        }
+        return true;
+      });
+
+      expect(besucht.filter((p) => p.includes('@')).length).toBe(4); // 2 Kontexte + je 1 name
+    });
+
+    it('collectMandatoryPaths sammelt das Rueckgrat je Vorkommen an den @-Pfaden', () => {
+      // Die Asymmetrie vor dem Umbau: der Walk lief nur ueber generische
+      // Kinder, die Vorbelegung landete an Pfaden, die bei benannten Vorkommen
+      // niemand rendert. Massgeblich ist ein PFLICHT-Element mit Vorkommen —
+      // Optionales ueberspringt das Rueckgrat weiterhin (siehe unten).
+      const parser = TestBed.inject(XsdParserService);
+      const dom = new DOMParser().parseFromString(XSD_MAND, 'application/xml');
+      const mandIdx = parser.buildIndexFrom([{ file: 'xjustiz_0000_mand.xsd', dom }]).idx;
+      const root = tree.buildRoot(M, mandIdx);
+      state.root.set(root);
+      const id = state.addAusp(`${M}/beteiligter`, 'Notar/in');
+
+      const pfade = tree.collectMandatoryPaths(root);
+      expect(pfade).toContain(`${M}/beteiligter`);
+      expect(pfade).toContain(`${M}/beteiligter@${id}/name`);
+      expect(pfade).not.toContain(`${M}/beteiligter/name`);
+    });
+
+    it('collectMandatoryPaths ueberspringt Optionales auch mit Vorkommen', () => {
+      // Semantik unveraendert: das Rueckgrat ist unbedingt — ein optionales
+      // Element betritt es nicht, Vorkommen hin oder her (deren Vorbelegung
+      // uebernimmt die Kompensations-Schleife in pflichtVorbelegen).
+      const root = tree.buildRoot(M, idx);
+      state.root.set(root);
+      const bet = (
+        tree.childItems({ kind: 'el', node: root })[0] as Extract<TreeItem, { kind: 'el' }>
+      ).node;
+      const id = state.addAusp(bet.path, 'Notar/in');
+
+      const pfade = tree.collectMandatoryPaths(root);
+      expect(pfade).not.toContain(`${M}/beteiligung@${id}/name`);
+      expect(pfade).toContain(`${M}/datum`);
+    });
+  });
+
   describe('Schema-Erweiterungen', () => {
     it('kinder haengt Erweiterungs-Knoten hinter die Schema-Kinder', () => {
       const root = tree.buildRoot('nachricht.test.0001', idx);

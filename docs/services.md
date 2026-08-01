@@ -8,7 +8,7 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | `StateService`                 | Signals-Store: gesamter Zustand + Profil-Mutationen (Kern)                                                            |
 | `XsdParserService`             | XSD parsen/indexieren, Codelisten-/Typ-Auflösung                                                                      |
-| `TreeService`                  | Element-Baum lazy aufbauen, Ausprägungs-Kontexte, Flatten für Diff                                                    |
+| `TreeService`                  | Element-Baum lazy aufbauen, Ausprägungs-Kontexte, profilbewusster Abstieg (walkProfil)                                |
 | `NavService`                   | Nachricht laden, Auf-/Zuklappen, Auswahl, Pfeiltasten, Sprünge                                                        |
 | `DispositionService`           | Zentrale Statusänderung mit kaskadierender Pflicht-Vorbelegung                                                        |
 | `ValueService`                 | Codelisten-Werte + typgerechte Beispiel-/Platzhalterwerte                                                             |
@@ -152,6 +152,12 @@ Für die **hinterlegten Kopien** gibt es den Gegenpart auf der Kommandozeile: `n
 ## InstanceImportService
 
 Lädt eine bestehende XJustiz-Nachricht (XML-Instanz) und bildet sie gegen das geladene Schema **zurück ins Profil-Modell** ab — die Umkehrung von `ExportService.genBeispielXml`. `importXml(text)` bestimmt aus dem Wurzelelement die `nachricht.*`, ruft `NavService.loadMessage` und bindet dann rekursiv: Blatt-Werte → Testwert (`beispiel`), Codelisten-`<code>` → Wert, mehrfach vorkommende Elemente → Ausprägungen „Vorkommen N" (ab 2 Vorkommen; genau 1 → direkt). Kein Status wird gesetzt. `rootMessageName(text)` (statisch) erkennt XJustiz-Nachrichten fürs Drop-Routing. Ergebnis: der Baum sieht aus wie eine von Hand gebaute Testnachricht.
+
+## TreeService: der profilbewusste Abstieg
+
+Die **Ersetzungsregel des gerenderten Baums** liegt seit dem walkProfil-Umbau an genau einer Stelle: `vorkommenKinder(n)` — trägt ein Element benannte Vorkommen, ersetzen deren Kontext-Knoten (`ctxNode`) die generischen Kinder. Darauf bauen `abstiegsKinder(n)` (Regel ∪ generische Kinder, leer bei Rekursion) und `walkProfil(start, besuch)` — der volle Abstieg für Walker ohne eigene Flusskontrolle: Vorkommen-Ersetzung, Rekursionswächter und Tiefenkappe liegen im Modul, `besuch` entscheidet je Schritt über den Abstieg. Mutationen im Besuch (etwa `addAusp` der Materialisierung) wirken auf den anschließenden Abstieg.
+
+Konsumenten: `childItems` (die Referenz-Darstellung selbst), `collectMandatoryPaths` (das Pflicht-Rückgrat liegt damit an den **gerenderten** @-Pfaden — vorher lief es an benannten Vorkommen vorbei, und `pflichtVorbelegen` kompensierte; die Schleife dort bleibt nur noch für Vorkommen unter optionalen Ästen), `legeMindestVorkommenAn`, `loeseEindeutigeVerweise` (beide walkProfil), `walkFull`/`emit` der Exporte und die Excel-Zeilen (vorkommenKinder), der geführte Struktur-Walk (vorkommenKinder im Ausprägungs-Block). **Bewusst nicht** umgestellt: instance-import/-export — die betreiben Rekonziliation (erzeugen bzw. gleichen Vorkommen gegen das XML ab), die Umkehrung der Regel. Bug-Referenz: #28 Teil 1 war ein Walk, der die Regel nicht kannte. Getestet in `tree.service.spec.ts` (walkProfil-describe).
 
 ## GuidedService
 
