@@ -184,71 +184,13 @@ export class DetailPanel {
       ? this.tree.isLeaf(this.tree.ctxNode(it.parentNode, it.ausp.id))
       : this.tree.isLeaf(n);
 
-    // Codeliste.
-    let codelist: null | {
-      nameLang: string;
-      kennung: string;
-      geladen: boolean;
-      version: string | null;
-      eff:
-        | { value: string; label: string; checked: boolean; belegt: boolean; search: string }[]
-        | null;
-      restricted: boolean;
-      werte: string[] | null;
-      allowedCount: number;
-      /**
-       * Zahl der freigegebenen Codes, die in den anzeigbaren Zeilen tatsaechlich
-       * vorkommen. 0 bei gesetzter Einschraenkung heisst: die geladene Liste
-       * fuehrt keinen der freigegebenen Codes (Versionsdrift, Tippfehler) — der
-       * Hinweis darf dann nicht auf eine Liste verweisen, die nichts anbietet.
-       */
-      allowedSichtbar: number;
-      total: number;
-      showFilter: boolean;
-      manualText: string;
-    } = null;
-    if (n.codelist && (!isAusp || this.tree.isLeaf(n))) {
-      const cl = n.codelist;
-      const geladeneWerte = this.values.clWerte(cl);
-      const geladen = !(cl.werte && cl.werte.length) && !!geladeneWerte;
-      // Effektive Einschraenkung: im gebundenen Durchlauf steht sie in der
-      // Vorgabe (und gilt dort auch im Vorkommen), beim Profilieren im eigenen
-      // Eintrag. Zum Abgleich zaehlt der reine Code — die Eintraege duerfen aus
-      // dem Freitextfeld stammen („2001 — Genehmigung …").
-      const werte = this.state.werteOf(path);
-      const codes = werte ? this.values.werteZeilen(werte).map((w) => w.value) : null;
-      // Ohne geladene Liste bleiben die freigegebenen Eintraege die einzige
-      // Auswahl — sonst stuende im Nachrichten-Modus eine harte Einschraenkung
-      // ohne auswaehlbare Werte da.
-      const eff =
-        geladeneWerte ?? (this.msgMode() && codes?.length ? this.values.werteZeilen(werte!) : null);
-      const allowed = new Set(codes ?? []);
-      const belegterCode = p.beispiel ?? '';
-      codelist = {
-        nameLang: cl.nameLang,
-        kennung: cl.kennung,
-        geladen,
-        version: this.values.clVersion(cl),
-        eff: eff
-          ? eff.map((w) => ({
-              value: w.value,
-              label: w.label,
-              checked: !codes || allowed.has(w.value),
-              belegt: !!belegterCode && w.value === belegterCode,
-              search: (w.value + ' ' + w.label).toLowerCase(),
-            }))
-          : null,
-        restricted: !!werte,
-        werte: codes,
-        allowedCount: allowed.size,
-        allowedSichtbar: eff ? eff.filter((w) => allowed.has(w.value)).length : 0,
-        // Bezugsgroesse „x von y" ist die geladene Liste; sind die Zeilen aus den
-        // freigegebenen Eintraegen synthetisiert, gibt es kein y (0 = nicht zeigen).
-        total: geladeneWerte ? geladeneWerte.length : 0,
-        showFilter: !!eff && eff.length > 15,
-        manualText: (p.werte ?? []).join('\n'),
-      };
-    }
+    // Codeliste — der Regel-Anteil (effektive Einschraenkung, synthetischer
+    // Ausweg, Drift-Erkennung) liegt im ValueService und ist dort direkt
+    // getestet; das Panel komponiert nur noch.
+    const codelist =
+      n.codelist && (!isAusp || this.tree.isLeaf(n))
+        ? this.values.codelistenSicht(n.codelist, path, this.msgMode())
+        : null;
 
     // Verweisziel.
     let ref: null | {

@@ -115,6 +115,37 @@ export interface PlaceholderNode {
   codelist: CodelistInfo | null;
 }
 
+/** Eine Zeile der Codelisten-Sicht (Detail-Panel). */
+export interface CodelistenZeile {
+  value: string;
+  label: string;
+  checked: boolean;
+  belegt: boolean;
+  search: string;
+}
+
+/** Die Codelisten-Sicht eines Blatts — siehe `codelistenSicht`. */
+export interface CodelistenSicht {
+  nameLang: string;
+  kennung: string;
+  geladen: boolean;
+  version: string | null;
+  eff: CodelistenZeile[] | null;
+  restricted: boolean;
+  werte: string[] | null;
+  allowedCount: number;
+  /**
+   * Zahl der freigegebenen Codes, die in den anzeigbaren Zeilen tatsaechlich
+   * vorkommen. 0 bei gesetzter Einschraenkung heisst: die geladene Liste
+   * fuehrt keinen der freigegebenen Codes (Versionsdrift, Tippfehler) — der
+   * Hinweis darf dann nicht auf eine Liste verweisen, die nichts anbietet.
+   */
+  allowedSichtbar: number;
+  total: number;
+  showFilter: boolean;
+  manualText: string;
+}
+
 /**
  * Werte-Helfer: effektive Codelisten-Werte und Beispiel-/Platzhalterwerte.
  * Portiert aus Profilierer.html (clWerte/clVersion Z.797-807, placeholderFor
@@ -173,6 +204,61 @@ export class ValueService {
     return alleZeigen
       ? { sichtbar: alle, umschalter: true, gefiltert: false, erzwungen: false }
       : { sichtbar: zugelassen, umschalter: true, gefiltert: true, erzwungen: false };
+  }
+
+  /**
+   * Die komplette Codelisten-Sicht eines Blatts — der Regel-Anteil, der bis
+   * zum Architecture-Review (26.08.01, Kandidat 5) im vm-computed des
+   * Detail-Panels lag und dort vor dem testbaren Seam stand (das Projekt
+   * fuehrt bewusst keine Komponenten-Specs). Enthaelt die drei Regeln:
+   *
+   * - **Effektive Einschraenkung**: im gebundenen Durchlauf steht sie in der
+   *   Vorgabe (und gilt dort auch im Vorkommen), beim Profilieren im eigenen
+   *   Eintrag (`werteOf`). Zum Abgleich zaehlt der reine Code — Eintraege
+   *   duerfen aus dem Freitextfeld stammen ("2001 — Genehmigung …").
+   * - **Synthetischer Ausweg**: ohne geladene Liste werden im Nachrichten-Modus
+   *   die freigegebenen Eintraege selbst zur Auswahl — sonst stuende eine
+   *   harte Einschraenkung ohne auswaehlbare Werte da.
+   * - **Drift-Erkennung**: `allowedSichtbar` zaehlt die freigegebenen Codes,
+   *   die die geladene Liste tatsaechlich fuehrt. 0 bei gesetzter
+   *   Einschraenkung heisst Versionsdrift oder Tippfehler — der Hinweis darf
+   *   dann nicht auf eine Liste verweisen, die nichts anbietet.
+   *
+   * Das Panel haelt nur noch Umschalter- und Filterzustand.
+   */
+  codelistenSicht(cl: CodelistInfo, path: string, msgMode: boolean): CodelistenSicht {
+    const p = this.state.elemente()[path] ?? {};
+    const geladeneWerte = this.clWerte(cl);
+    const geladen = !(cl.werte && cl.werte.length) && !!geladeneWerte;
+    const werte = this.state.werteOf(path);
+    const codes = werte ? this.werteZeilen(werte).map((w) => w.value) : null;
+    const eff = geladeneWerte ?? (msgMode && codes?.length ? this.werteZeilen(werte!) : null);
+    const allowed = new Set(codes ?? []);
+    const belegterCode = p.beispiel ?? '';
+    return {
+      nameLang: cl.nameLang,
+      kennung: cl.kennung,
+      geladen,
+      version: this.clVersion(cl),
+      eff: eff
+        ? eff.map((w) => ({
+            value: w.value,
+            label: w.label,
+            checked: !codes || allowed.has(w.value),
+            belegt: !!belegterCode && w.value === belegterCode,
+            search: (w.value + ' ' + w.label).toLowerCase(),
+          }))
+        : null,
+      restricted: !!werte,
+      werte: codes,
+      allowedCount: allowed.size,
+      allowedSichtbar: eff ? eff.filter((w) => allowed.has(w.value)).length : 0,
+      // Bezugsgroesse "x von y" ist die geladene Liste; sind die Zeilen aus den
+      // freigegebenen Eintraegen synthetisiert, gibt es kein y (0 = nicht zeigen).
+      total: geladeneWerte ? geladeneWerte.length : 0,
+      showFilter: !!eff && eff.length > 15,
+      manualText: (p.werte ?? []).join('\n'),
+    };
   }
 
   /**
