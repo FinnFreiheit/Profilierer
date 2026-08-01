@@ -16,6 +16,8 @@ import { ToastService } from './toast.service';
 import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
 import { SitzungsAbgleichService } from './konformitaet.service';
+import { speicherUrteil } from '../util/speicher-urteil';
+import { ReportEintrag } from '../../models/validation.model';
 
 /**
  * Eine gespeicherte Testnachricht oeffnen und bearbeiten (US "Testnachricht
@@ -113,12 +115,14 @@ export class TestmessageEditService {
     const meta = parseTestmessage(xml);
     if (!meta) throw new Error('Die erzeugte Nachricht ist nicht lesbar — bitte prüfen.');
 
-    // Derselbe Konformitaets-Abgleich wie im Durchlauf (#31/#32) — er ist der
-    // Grund, warum die Bindung das Bearbeiten ueberlebt.
+    // Befunde erheben — derselbe Konformitaets-Abgleich wie im Durchlauf
+    // (#31/#32, er ist der Grund, warum die Bindung das Bearbeiten ueberlebt);
+    // bei Invaliditaet fragt dieser Weg zurueck, bevor er speichert. Das
+    // **Urteil** darueber faellt einmal, im Speicher-Urteil.
     const verstoesse = this.abgleich.pruefe();
 
     const pruefung = await this.validator.validiere(xml);
-    let entwurf = verstoesse.length > 0;
+    let schemaEintraege: ReportEintrag[] | null = null;
     if (pruefung.status !== 'valide') {
       if (
         !confirm(
@@ -131,25 +135,21 @@ export class TestmessageEditService {
         );
         return false;
       }
-      entwurf = true;
+      schemaEintraege = pruefung.fehler.map((text) => ({ text }));
     }
+
+    const urteil = speicherUrteil({ verstoesse, schemaEintraege });
     // entwurf immer mitsenden: eine reparierte Nachricht verliert so ihr
     // Entwurfs-Kennzeichen wieder.
-    await this.store.updateMeta(session.entryId, { xml, entwurf });
-    if (verstoesse.length) {
-      // Der Konformitaets-Befund geht dem Schemafehler vor (wie beim gefuehrten
-      // Speichern): er sagt, dass die Nachricht das Szenario verlaesst.
-      this.toast.show(
-        `Als Entwurf gespeichert — ${verstoesse.length} Abweichung${verstoesse.length === 1 ? '' : 'en'} von der Profilierung.`,
-      );
+    await this.store.updateMeta(session.entryId, { xml, entwurf: urteil.entwurf });
+    const m = urteil.meldung;
+    if (m) {
+      this.toast.show(m.toast);
       this.report.zeigeMitPfaden(
-        'Als Entwurf gespeichert — nicht profilkonform',
-        verstoesse.map((v) => ({ pfad: v.pfad, text: v.text })),
-        'Die Nachricht weicht von der gebundenen Profilfassung ab. Ein Klick springt zum betroffenen Element.',
+        m.titel,
+        m.eintraege,
+        m.art === 'verstoesse' ? m.untertitel : undefined,
       );
-    } else if (entwurf) {
-      this.toast.show('Als Entwurf gespeichert — die Nachricht ist nicht schema-valide.');
-      this.report.zeige('Als Entwurf gespeichert — Nachricht nicht schema-valide', pruefung.fehler);
     } else {
       this.toast.show('Änderungen gespeichert.');
     }

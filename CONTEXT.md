@@ -34,6 +34,9 @@ gebraucht hat. Architektur-Entscheidungen dazu in `docs/adr/`.
   `~`-Erweiterungen; Vorfahren- und Präfixgrenzen.
 - **Konformitäts-Abgleich** — zustandslose Prüfung einer Nachricht gegen die
   Vorgabe (fünf Verstoßarten); „profilkonform" ist eine geprüfte Aussage.
+- **Speicher-Urteil** (`core/util/speicher-urteil.ts`) — Entwurfs-Kennzeichen
+  und vorrangige Meldung aus den Befunden eines Speicherwegs (Verstöße vor
+  Schemafehlern); die Wege erheben, das Urteil fällt einmal.
 - **Zählkonvention** — wie Vorkommen gezählt werden (ADR 0015): benannte
   zählen, sonst steht der generische Unterbaum für eines, Weggelassenes für
   keines.

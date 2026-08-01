@@ -24,6 +24,7 @@ import { ValidationReportService } from './validation-report.service';
 import { ValidationMarkerService } from './validation-marker.service';
 import { ValueService } from './value.service';
 import { SitzungsAbgleichService } from './konformitaet.service';
+import { speicherUrteil } from '../util/speicher-urteil';
 import { ReportEintrag } from '../../models/validation.model';
 
 /**
@@ -339,12 +340,10 @@ export class TestmessageCreateService {
     const meta = parseTestmessage(xml);
     if (!meta) throw new Error('Erzeugte Nachricht ist keine XJustiz-Nachricht.');
 
-    // Anforderung: Testnachrichten muessen schema-valide sein. Eine fertige,
-    // aber invalide Nachricht wird als Entwurf gekennzeichnet (Arbeit bleibt
-    // erhalten, Download bleibt gesperrt) und der Befund gemeldet.
-    // Ausnahme: Fehler nur durch bekannte Schema-Erweiterungen (bewusste
-    // XSD-Abweichung) — kein Entwurf, nur Hinweis.
-    let entwurf = kritisch > 0;
+    // Befunde erheben — die Erhebung ist Sache dieses Wegs (die XSD-Pruefung
+    // entfaellt, wenn der Entwurf schon feststeht; Fehler, die nur auf bekannte
+    // Schema-Erweiterungen zurueckgehen, sind eine bewusste XSD-Abweichung und
+    // kein Entwurf). Das **Urteil** darueber faellt einmal, im Speicher-Urteil.
     let fehlerEintraege: ReportEintrag[] | null = null;
     let nurErweiterungen = false;
 
@@ -353,22 +352,27 @@ export class TestmessageCreateService {
     // Nachricht kann spaeter bearbeitet oder gegen eine geaenderte Fassung
     // fortgesetzt werden, das Erzwingen im Durchlauf traegt dann nicht mehr.
     const verstoesse = this.abgleich.pruefe();
-    if (verstoesse.length) entwurf = true;
 
-    if (!entwurf) {
+    if (!verstoesse.length && kritisch === 0) {
       const pruefung = await this.validator.validiere(xml);
       if (pruefung.status !== 'valide') {
         const eintraege = this.marker.markiere(pruefung.fehlerDetails, res.zeilenPfade);
         if (pruefung.status === 'invalide' && this.marker.nurErweiterungsFehler(eintraege)) {
           nurErweiterungen = true;
         } else {
-          entwurf = true;
           fehlerEintraege = eintraege;
         }
       } else {
         this.marker.loesche();
       }
     }
+
+    const urteil = speicherUrteil({
+      verstoesse,
+      schemaEintraege: fehlerEintraege,
+      kritischOffen: kritisch,
+    });
+    const entwurf = urteil.entwurf;
     const entscheidungen: GuidedMessageState = {
       msgName: session.msgName,
       xjustizVersion: session.xjustizVersion,
@@ -403,24 +407,15 @@ export class TestmessageCreateService {
       this.state.messageCreate.set({ ...session, entryId: id, name });
     }
     const marker = this.markerHinweis();
-    if (verstoesse.length) {
-      // Der Konformitaets-Befund geht dem Schemafehler vor: er sagt, dass die
-      // Nachricht das Szenario verlaesst — die Schemapruefung lief in diesem
-      // Fall gar nicht erst (entwurf war schon gesetzt).
-      this.toast.show(
-        `Als Entwurf gespeichert — ${verstoesse.length} Abweichung${verstoesse.length === 1 ? '' : 'en'} von der Profilierung.` +
-          marker,
-      );
+    const m = urteil.meldung;
+    if (m) {
+      // Prioritaet und Wortlaut kommen aus dem Speicher-Urteil — dieselben wie
+      // beim Zurueckschreiben aus der Bearbeitung.
+      this.toast.show(m.toast + marker);
       this.report.zeigeMitPfaden(
-        'Als Entwurf gespeichert — nicht profilkonform',
-        verstoesse.map((v) => ({ pfad: v.pfad, text: v.text })),
-        'Die Nachricht weicht von der gebundenen Profilfassung ab. Ein Klick springt zum betroffenen Element.',
-      );
-    } else if (fehlerEintraege) {
-      this.toast.show('Als Entwurf gespeichert — die Nachricht ist nicht schema-valide.' + marker);
-      this.report.zeigeMitPfaden(
-        'Als Entwurf gespeichert — Nachricht nicht schema-valide',
-        fehlerEintraege,
+        m.titel,
+        m.eintraege,
+        m.art === 'verstoesse' ? m.untertitel : undefined,
       );
     } else {
       this.toast.show(
