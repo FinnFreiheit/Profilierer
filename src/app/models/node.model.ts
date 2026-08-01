@@ -49,19 +49,5 @@ export function itemPath(it: TreeItem): string {
   return it.kind === 'el' ? it.node.path : it.path;
 }
 
-/**
- * Liegt der Pfad in (oder unter) einer Schema-Erweiterung? `~` ist kein
- * NCName-Zeichen und kann daher nicht mit Schema-Elementnamen kollidieren.
- */
-export function istErweiterungsPfad(pfad: string): boolean {
-  return pfad.includes('/~');
-}
-
-/**
- * Der Pfad ohne Vorkommen-Segmente (`…/beteiligung@a7/name` → `…/beteiligung/name`)
- * — der generische Schema-Pfad, unter dem eine Profilierung ohne eigene
- * Auspraegungen ihre Aussagen fuehrt.
- */
-export function ohneVorkommen(pfad: string): string {
-  return pfad.replace(/@[^/]+/g, '');
-}
+// Die Pfad-Grammatik (ohneVorkommen, istErweiterungsPfad, Vorfahren, Praefixe)
+// lebt in `core/util/pfad.util.ts` — einem Modul, einer Wahrheit.

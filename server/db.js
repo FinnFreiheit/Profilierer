@@ -772,7 +772,7 @@ export function openDb(path) {
      *
      * Gefiltert wird in JS und nicht per LIKE: Pfadsegmente sind NCNames und
      * duerfen '_' enthalten, das LIKE als Platzhalter liest. Die Grenzen '/' und
-     * '@' entsprechen `unterPfad` im Client — ohne sie traefe `…/anlage` auch
+     * '@' entsprechen `unterPfad` im Client (core/util/pfad.util.ts) — ohne sie traefe `…/anlage` auch
      * `…/anlageArt`. Gibt die Anzahl entfernter Zeilen zurueck.
      */
     hinweiseLoeschenUnter(profilId, praefix) {

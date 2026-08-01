@@ -8,7 +8,8 @@ import {
   Status,
   Wirkung,
 } from '../../models/profile.model';
-import { TreeItem, TreeNode, itemPath, ohneVorkommen } from '../../models/node.model';
+import { TreeItem, TreeNode, itemPath } from '../../models/node.model';
+import { auspTeile, blattName, ohneVorkommen, unterPfad, vorfahren } from '../util/pfad.util';
 import { Codelist } from '../../models/codelist.model';
 import { DiffAnc, DiffEntry } from '../../models/diff.model';
 import { XsdDoc, XsdIndex } from '../../models/xsd-index.model';
@@ -250,7 +251,7 @@ export class StateService {
   vorgabeGesperrt(path: string): boolean {
     if (!this.vorgabe()) return false;
     if (this.vorgabeSchliesstAus(path)) return true;
-    return this.vorfahrenPfade(path).some((a) => this.vorgabeSchliesstAus(a));
+    return vorfahren(path).some((a) => this.vorgabeSchliesstAus(a));
   }
 
   // ── Ansicht / Bibliothek ────────────────────────────────────────────
@@ -427,7 +428,7 @@ export class StateService {
    * (`vorgabeGesperrt` zaehlt bereits ueber '@'), die Ausgrauung im Baum nicht.
    */
   inheritedExcluded(path: string): boolean {
-    return this.vorfahrenPfade(path).some((a) => this.wirkungOf(a) === 'ausgeschlossen');
+    return vorfahren(path).some((a) => this.wirkungOf(a) === 'ausgeschlossen');
   }
 
   /**
@@ -475,12 +476,6 @@ export class StateService {
    * Knoten haengt der Ast im Baum in der Luft, denn die Auspraegungs-Kaesten
    * werden als seine Kinder gerendert (Praefix-Logik wie `HinweisStoreService.anc`).
    */
-  private vorfahrenPfade(path: string): string[] {
-    const r: string[] = [];
-    for (let i = 0; i < path.length; i++)
-      if (path[i] === '/' || path[i] === '@') r.push(path.slice(0, i));
-    return r;
-  }
 
   /**
    * Pfade, die im "nur Werte"-Modus sichtbar bleiben: jedes Element mit Inhalt
@@ -491,7 +486,7 @@ export class StateService {
     const set = new Set<string>();
     const merke = (path: string): void => {
       set.add(path);
-      for (const a of this.vorfahrenPfade(path)) set.add(a);
+      for (const a of vorfahren(path)) set.add(a);
     };
     for (const [path, p] of Object.entries(this.elemente())) {
       if (!p || !(p.beispiel || p.anmerkung || (p.werte && p.werte.length))) continue;
@@ -699,7 +694,7 @@ export class StateService {
       this.setzeListe(next, path, rest, vorgabeListe);
       // Unter-Ausprägungen der entfernten Auspraegung wegraeumen.
       for (const k of Object.keys(next)) {
-        if (k.startsWith(prefix + '/')) delete next[k];
+        if (unterPfad(k, prefix)) delete next[k];
       }
       return next;
     });
@@ -707,7 +702,7 @@ export class StateService {
     this.elemente.update((m) => {
       const next = { ...m };
       for (const k of Object.keys(next)) {
-        if (k === prefix || k.startsWith(prefix + '/')) delete next[k];
+        if (unterPfad(k, prefix)) delete next[k];
       }
       return next;
     });
@@ -715,7 +710,7 @@ export class StateService {
     this.erweiterungen.update((m) => {
       const next = { ...m };
       for (const k of Object.keys(next)) {
-        if (k === prefix || k.startsWith(prefix + '/')) delete next[k];
+        if (unterPfad(k, prefix)) delete next[k];
       }
       return next;
     });
@@ -728,11 +723,11 @@ export class StateService {
     void this.hinweisStore.loescheUnter(prefix);
 
     const sel = this.selItem();
-    if (sel && itemPath(sel).startsWith(prefix)) this.selItem.set(null);
+    if (sel && unterPfad(itemPath(sel), prefix)) this.selItem.set(null);
 
     this.open.update((s) => {
       const next = new Set(s);
-      for (const p of s) if (p.startsWith(prefix)) next.delete(p);
+      for (const p of s) if (unterPfad(p, prefix)) next.delete(p);
       return next;
     });
   }
@@ -794,8 +789,7 @@ export class StateService {
     // bleibt unberuehrt.
     if (!this.erweiterungen()[parentPath]?.some((e) => e.id === id)) return;
     const prefix = parentPath + '/~' + id;
-    const betroffen = (k: string): boolean =>
-      k === prefix || k.startsWith(prefix + '/') || k.startsWith(prefix + '@');
+    const betroffen = (k: string): boolean => unterPfad(k, prefix);
     const vorgabeListe = this.vorgabe()?.erweiterungen[parentPath];
 
     this.erweiterungen.update((m) => {
@@ -865,7 +859,7 @@ export class StateService {
     this.open.update((s) => {
       let next: Set<string> | null = null;
       for (const p of s)
-        if (p === path || p.startsWith(path + '/') || p.startsWith(path + '@')) {
+        if (unterPfad(p, path)) {
           next ??= new Set(s);
           next.delete(p);
         }
@@ -943,23 +937,20 @@ export class StateService {
 
   /** auspNumber (Z.626-633): 1-basierte Nummer einer Auspraegung. */
   auspNumber(auspPath: string): number | null {
-    const i = auspPath.lastIndexOf('@');
-    if (i < 0) return null;
-    const list = this.auspsOf(auspPath.slice(0, i));
+    const teile = auspTeile(auspPath);
+    if (!teile) return null;
+    const list = this.auspsOf(teile.listPfad);
     if (!list) return null;
-    const idx = list.findIndex((a) => a.id === auspPath.slice(i + 1));
+    const idx = list.findIndex((a) => a.id === teile.auspId);
     return idx >= 0 ? idx + 1 : null;
   }
 
   /** auspLabel (Z.634-640): "Element „Name"" fuer ein Verweisziel. */
   auspLabel(auspPath: string): string {
-    const i = auspPath.lastIndexOf('@');
-    if (i < 0) return auspPath;
-    const a = (this.auspsOf(auspPath.slice(0, i)) ?? []).find(
-      (x) => x.id === auspPath.slice(i + 1),
-    );
-    const elName = auspPath.slice(0, i).split('/').pop()!.split('#')[0]!;
-    return a ? pretty(elName) + ' „' + a.name + '"' : '(gelöschtes Ziel)';
+    const teile = auspTeile(auspPath);
+    if (!teile) return auspPath;
+    const a = (this.auspsOf(teile.listPfad) ?? []).find((x) => x.id === teile.auspId);
+    return a ? pretty(blattName(teile.listPfad)) + ' „' + a.name + '"' : '(gelöschtes Ziel)';
   }
 
   // ── Duplizieren (Z.1393-1434) ───────────────────────────────────────
@@ -1087,13 +1078,14 @@ export class StateService {
   ): { path: string; label: string }[] {
     const names = REF_TARGETS[kind] ?? null;
     const out: { path: string; label: string }[] = [];
-    const grenzeListe = beschraenkung ? beschraenkung.slice(0, beschraenkung.lastIndexOf('@')) : '';
-    const grenzeId = beschraenkung ? beschraenkung.slice(beschraenkung.lastIndexOf('@') + 1) : '';
+    const grenze = beschraenkung ? auspTeile(beschraenkung) : null;
+    const grenzeListe = grenze?.listPfad ?? '';
+    const grenzeId = grenze?.auspId ?? '';
     // Ueber die effektive Lesart: im gebundenen Durchlauf stehen die Vorkommen
     // in der Vorgabe, solange der Durchlauf sie nicht angefasst hat — sonst
     // kennte `auspLabel` ein Ziel, das die Kandidatenliste nicht anbietet (#28).
     for (const [path, list] of this.alleAuspListen()) {
-      const elName = path.split('/').pop()!.split('#')[0]!.split('@')[0]!;
+      const elName = blattName(path);
       if (names && !names.includes(elName)) continue;
       if (beschraenkung && path !== grenzeListe) continue;
       list.forEach((a, i) => {

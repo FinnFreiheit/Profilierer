@@ -14,6 +14,7 @@ import { TreeService } from '../../core/services/tree.service';
 import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
 import { itemPath } from '../../models/node.model';
+import { unterPfad } from '../../core/util/pfad.util';
 import { REF_TARGETS } from '../../core/refs';
 
 interface PathSpec {
@@ -236,8 +237,7 @@ export class TreeCanvas {
   private onSelPath(p: string): boolean {
     const sel = this.state.selItem();
     if (!sel) return false;
-    const sp = itemPath(sel);
-    return sp === p || sp.startsWith(p + '/') || sp.startsWith(p + '@');
+    return unterPfad(itemPath(sel), p);
   }
 
   /** redrawLines (Z.1125-1206). */

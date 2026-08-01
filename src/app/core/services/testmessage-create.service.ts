@@ -8,6 +8,7 @@ import {
   testmessageInput,
 } from '../util/testmessage.util';
 import { pretty } from '../util/pretty.util';
+import { blattName, vorfahren } from '../util/pfad.util';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
@@ -143,13 +144,6 @@ export class TestmessageCreateService {
    * der Durchlauf am Pfad inzwischen selbst entschieden hat (Fortsetzen).
    */
   private meldeWidersprueche(doc: ProfileDoc): void {
-    /** Praefixe an '/' UND '@' — wie StateService.vorfahrenPfade. */
-    const vorfahren = (pfad: string): string[] => {
-      const r: string[] = [];
-      for (let i = 0; i < pfad.length; i++)
-        if (pfad[i] === '/' || pfad[i] === '@') r.push(pfad.slice(0, i));
-      return r;
-    };
     /** Die ausschliessende Stufe an diesem Pfad — null, wenn er nichts ausschliesst. */
     const schliesstAus = (pfad: string): Status | null => {
       const id = doc.elemente[pfad]?.status;
@@ -157,7 +151,7 @@ export class TestmessageCreateService {
       const stufe = doc.statuses.find((s) => s.id === id);
       return stufe?.wirkung === 'ausgeschlossen' ? stufe : null;
     };
-    const kurz = (pfad: string): string => pretty(pfad.split('/').at(-1)!.split('@')[0]!);
+    const kurz = (pfad: string): string => pretty(blattName(pfad));
 
     const eintraege: ReportEintrag[] = [];
     for (const [pfad, p] of Object.entries(doc.elemente)) {

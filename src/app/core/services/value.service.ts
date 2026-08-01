@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { CodelistInfo, EnumWert } from '../../models/codelist.model';
 import { kid, kids, local } from '../util/xml.util';
 import { compileXsdPattern, konformerBeispielwert } from '../util/pattern-sample.util';
+import { letztesVorkommenPfad } from '../util/pfad.util';
 import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
 
@@ -306,10 +307,8 @@ export class ValueService {
     }
     // Gegenstueck: Nummer der eigenen Auspraegung.
     if (n.name === 'rollennummer' || n.name === 'beteiligtennummer') {
-      const lastAt = n.path.lastIndexOf('@');
-      if (lastAt >= 0) {
-        const end = n.path.indexOf('/', lastAt);
-        const auspPath = end < 0 ? n.path : n.path.slice(0, end);
+      const auspPath = letztesVorkommenPfad(n.path);
+      if (auspPath) {
         const num = this.state.auspNumber(auspPath);
         if (num != null) return String(num);
       }

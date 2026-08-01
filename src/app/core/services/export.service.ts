@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { TreeNode, istErweiterungsPfad } from '../../models/node.model';
+import { TreeNode } from '../../models/node.model';
+import { istErweiterungsPfad } from '../util/pfad.util';
 import { Auspraegung } from '../../models/profile.model';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';

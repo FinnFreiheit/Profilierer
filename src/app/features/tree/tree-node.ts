@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { TreeItem, TreeNode as TNode, itemPath } from '../../models/node.model';
+import { unterPfad } from '../../core/util/pfad.util';
 import { StateService } from '../../core/services/state.service';
 import { TreeService } from '../../core/services/tree.service';
 import { ErweiterungDialogService } from '../../core/services/erweiterung-dialog.service';
@@ -158,7 +159,7 @@ export class TreeNode {
     const sel = this.state.selItem();
     if (this.state.focusMode() && sel) {
       const sp = itemPath(sel);
-      const onPath = sp === path || sp.startsWith(path + '/') || sp.startsWith(path + '@');
+      const onPath = unterPfad(sp, path);
       let isChild = false;
       if (path.startsWith(sp)) {
         const rest = path.slice(sp.length);

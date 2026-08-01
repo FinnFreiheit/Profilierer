@@ -2,6 +2,7 @@ import { Injectable, Signal, computed, inject } from '@angular/core';
 import { Auspraegung } from '../../models/profile.model';
 import { TreeNode, itemPath } from '../../models/node.model';
 import { refKindEff, refTraeger } from '../refs';
+import { segmentKette } from '../util/pfad.util';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
@@ -129,14 +130,7 @@ export class GuidedService {
     const inhalt = new Set<string>();
     if (instanz) {
       const merke = (path: string): void => {
-        const segs = path.split('/');
-        let cur = '';
-        for (const sg of segs) {
-          cur = cur ? cur + '/' + sg : sg;
-          inhalt.add(cur);
-          const at = sg.lastIndexOf('@');
-          if (at >= 0) inhalt.add(cur.slice(0, cur.length - (sg.length - at)));
-        }
+        for (const p of segmentKette(path)) inhalt.add(p);
       };
       for (const [path, p] of Object.entries(this.state.elemente())) {
         if (p.beispiel) merke(path);
