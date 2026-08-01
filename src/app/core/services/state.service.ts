@@ -9,7 +9,8 @@ import {
   Wirkung,
 } from '../../models/profile.model';
 import { TreeItem, TreeNode, itemPath } from '../../models/node.model';
-import { auspTeile, blattName, ohneVorkommen, unterPfad, vorfahren } from '../util/pfad.util';
+import { auspTeile, blattName, unterPfad, vorfahren } from '../util/pfad.util';
+import { VorgabeSicht } from '../vorgabe-sicht';
 import { Codelist } from '../../models/codelist.model';
 import { DiffAnc, DiffEntry } from '../../models/diff.model';
 import { XsdDoc, XsdIndex } from '../../models/xsd-index.model';
@@ -89,6 +90,19 @@ export class StateService {
   }
 
   /**
+   * Die Lesart der gebundenen Fassung (Quellpfad, Erben, kein Mischen) — das
+   * eine Modul dafuer ist `VorgabeSicht`; der Store ist nur der Signals-Adapter
+   * darueber. Neu aufgebaut, sobald sich Vorgabe oder Entscheidungsschicht
+   * aendern (die Konstruktion ist trivial, die Reaktivitaet dieselbe wie
+   * vorher, als die Methoden die Signals direkt lasen).
+   */
+  private readonly vorgabeSicht = computed<VorgabeSicht | null>(() => {
+    const v = this.vorgabe();
+    if (!v) return null;
+    return new VorgabeSicht(v, { elemente: this.elemente(), auspraegungen: this.auspraegungen() });
+  });
+
+  /**
    * Derselbe Pfad, wie ihn die **Vorgabe** kennt: Vorkommen, die als Kopie einer
    * profilierten Auspraegung entstanden sind (`vonId`, #28), tragen eine zur
    * Laufzeit erzeugte id, die in der eingefrorenen Fassung nicht vorkommt. Fuer
@@ -100,33 +114,9 @@ export class StateService {
    * Vorfahren werden im **eigenen** Pfadraum nachgeschlagen und im **Vorgabe**-
    * Pfadraum aufgebaut.
    */
-  private vorgabePfad(path: string): string {
-    if (!path.includes('@')) return path;
-    let eigen = '';
-    let ziel = '';
-    for (const seg of path.split('/')) {
-      const at = seg.lastIndexOf('@');
-      const name = at < 0 ? seg : seg.slice(0, at);
-      const id = at < 0 ? null : seg.slice(at + 1);
-      const listeEigen = eigen ? eigen + '/' + name : name;
-      const listeZiel = ziel ? ziel + '/' + name : name;
-      if (id === null) {
-        eigen = listeEigen;
-        ziel = listeZiel;
-        continue;
-      }
-      const von = this.auspraegungen()[listeEigen]?.find((a) => a.id === id)?.vonId;
-      eigen = listeEigen + '@' + id;
-      ziel = listeZiel + '@' + (von ?? id);
-    }
-    return ziel;
-  }
-
   /** Der Element-Eintrag der Vorgabe zu einem Pfad (null ohne Vorgabe/Eintrag). */
   private vorgabeProfile(path: string): ElementProfile | null {
-    const v = this.vorgabe();
-    if (!v) return null;
-    return v.elemente[path] ?? v.elemente[this.vorgabePfad(path)] ?? null;
+    return this.vorgabeSicht()?.eintrag(path) ?? null;
   }
 
   /**
@@ -135,9 +125,7 @@ export class StateService {
    * benannten Unter-Vorkommen ihrer Quelle erbt.
    */
   vorgabeAusps(path: string): Auspraegung[] | null {
-    const v = this.vorgabe();
-    if (!v) return null;
-    return v.auspraegungen[path] ?? v.auspraegungen[this.vorgabePfad(path)] ?? null;
+    return this.vorgabeSicht()?.ausps(path) ?? null;
   }
 
   /**
@@ -150,7 +138,7 @@ export class StateService {
    * Anmerkung und Beispielwert.
    */
   private vorgabeProfileGeerbt(path: string): ElementProfile | null {
-    return this.vorgabeProfile(path) ?? this.vorgabeProfile(ohneVorkommen(path));
+    return this.vorgabeSicht()?.eintragGeerbt(path) ?? null;
   }
 
   /**
@@ -194,11 +182,7 @@ export class StateService {
    * konfigurierbar, dieselbe id kann in beiden Schichten etwas anderes bedeuten.
    */
   profilWirkung(path: string): Wirkung | null {
-    const v = this.vorgabe();
-    if (!v) return null;
-    // Ueber `vorgabeProfile`, also mit Aufloesung kopierter Vorkommen (#28).
-    const id = this.vorgabeProfile(path)?.status;
-    return (id && v.statuses.find((s) => s.id === id)?.wirkung) || null;
+    return this.vorgabeSicht()?.wirkung(path) ?? null;
   }
 
   /**
@@ -211,7 +195,7 @@ export class StateService {
    * `profilWirkung` bleibt fuer alles, was pfadgenau bleiben muss.
    */
   profilWirkungGeerbt(path: string): Wirkung | null {
-    return this.profilWirkung(path) ?? this.profilWirkung(ohneVorkommen(path));
+    return this.vorgabeSicht()?.wirkungGeerbt(path) ?? null;
   }
 
   /**
@@ -624,12 +608,7 @@ export class StateService {
    * unsichtbar, solange der Durchlauf sie nicht angefasst hat (#28).
    */
   alleAuspListen(): [string, Auspraegung[]][] {
-    const eigen = this.auspraegungen();
-    const out: [string, Auspraegung[]][] = Object.entries(eigen);
-    for (const [path, list] of Object.entries(this.vorgabe()?.auspraegungen ?? {})) {
-      if (!eigen[path]) out.push([path, list]);
-    }
-    return out;
+    return this.vorgabeSicht()?.alleListen() ?? Object.entries(this.auspraegungen());
   }
 
   /**

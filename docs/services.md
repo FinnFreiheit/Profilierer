@@ -17,6 +17,7 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `ExcelExportService`           | Excel-Export im NGem-Abstimmungslayout (ExcelJS, dynamisch geladen)                                                   |
 | `GuidedService`                | Geführter Modus: offene Entscheidungspunkte, Fortschritt, Sprung zum nächsten Punkt                                   |
 | `KonformitaetService`          | Zustandsloser Abgleich Testnachricht ↔ eingefrorene Profilkopie (Verstoßliste)                                        |
+| `VorgabeSicht` (pur)           | Die eine Lesart der eingefrorenen Profilkopie (Quellpfad, Erben, kein Mischen)                                        |
 | `DiffService`                  | Versionsvergleich (flach), Diff-Karte, Vergleichsordner laden                                                         |
 | `ProfilDiffService`            | Feldgenauer Vergleich zweier Profil-Dokumente (Arbeitsstand ↔ Version/Abnahme)                                        |
 | `XmlDiffService`               | Struktureller Vergleich zweier XJustiz-Instanzen (Testnachricht ↔ Abnahme-Fassung)                                    |
@@ -228,6 +229,12 @@ Zwei Fallen der **Neu-Erzeugung**, die vorher unter dem Klonen verborgen lagen:
 Die beiden Speicherwege behandeln invalides XML bewusst **unterschiedlich**: das Zurückschreiben bietet nach Rückfrage den Entwurf an (für Nachrichten gibt es kein Autosave — ein Speicher-Verbot würde Arbeit vernichten), während ein _neuer_ Eintrag dasselbe harte Tor wie der Upload durchläuft. Eine reparierte Nachricht verliert ihr Entwurfs-Kennzeichen wieder, weil `entwurf` bei jedem Zurückschreiben mitgesendet wird.
 
 Beide Erzeugungswege behandeln Validierungsfehler, die **nur** auf bekannte Schema-Erweiterungen zurückgehen, als bewusste Abweichung: kein Entwurfs-Kennzeichen, Download bleibt frei (Klassifikation via `ValidationMarkerService`).
+
+## VorgabeSicht (core/vorgabe-sicht.ts)
+
+Die **eine Lesart der eingefrorenen Profilkopie** — pure Klasse, kein Angular. Drei Auflösungsregeln, hier und nur hier: **Quellpfad** (`vonId`-Rückschreibung kopierter Vorkommen, segmentweise — Vorfahren im eigenen, Ziel im Vorgabe-Pfadraum), **Vorkommen-Erbe** (eintragsweise für Einträge via `eintragGeerbt`, **feldweise** für die Wirkung via `wirkungGeerbt` — ein pfadgenauer Eintrag ohne Status verdeckt die generische Festlegung nicht), **kein Mischen** der Vorkommenslisten (`auspsEffektiv`, `alleListen`). Dazu `ausschlussQuelle` (nächstgelegener Ausschluss, benennt das Element, das die Festlegung _trägt_), `vorkommenAnzahl` (Zählkonvention aus ADR 0015) und `instanzPfade` (generischer Festlegungs-Pfad → je Vorkommen des Elternelements einer).
+
+Zwei Adapter teilen sich den Seam: der `StateService` (baut die Sicht als `computed` über seinen Signals und delegiert `vorgabeProfile`/`vorgabeAusps`/`profilWirkung(Geerbt)`/`alleAuspListen`) und der `KonformitaetService` (rohe Maps eines gespeicherten Eintrags). Vor der Extraktion hielt der Abgleich eine eigene Kopie der Regeln, die bereits divergierte: die Kardinalität wurde roh und am generischen Pfad gelesen — eine generische Mindestanzahl innerhalb eines Vorkommens meldete eine konforme Nachricht als Entwurf. Getestet pur in `vorgabe-sicht.spec.ts`; die Adapter-Semantik hüten weiterhin die Store- und Konformitäts-Specs.
 
 ## KonformitaetService
 

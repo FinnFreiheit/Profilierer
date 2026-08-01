@@ -1,16 +1,15 @@
 import { Injectable, inject } from '@angular/core';
-import { Auspraegung, ElementProfile, ProfileDoc, Wirkung } from '../../models/profile.model';
-import { blattName, ohneVorkommen, vorfahren } from '../util/pfad.util';
+import { ProfileDoc } from '../../models/profile.model';
+import { blattName } from '../util/pfad.util';
 import { pretty } from '../util/pretty.util';
+import { InstanzModell, VorgabeSicht } from '../vorgabe-sicht';
 import { StateService } from './state.service';
 import { NavService } from './nav.service';
 import { TreeService } from './tree.service';
 
-/** Das Instanz-Modell, gegen das geprueft wird — die Entscheidungsschicht. */
-export interface InstanzModell {
-  elemente: Record<string, ElementProfile>;
-  auspraegungen: Record<string, Auspraegung[]>;
-}
+// Das Instanz-Modell lebt beim Modul der Lesart (vorgabe-sicht.ts);
+// bestehende Importer behalten diesen Pfad.
+export type { InstanzModell } from '../vorgabe-sicht';
 
 /** Art eines Verstosses — je Art eine eigene Meldung und ein eigener Test. */
 export type VerstossArt = 'ausgeschlossen' | 'kardinalitaet' | 'wert' | 'vorkommen' | 'pflichtwert';
@@ -46,9 +45,12 @@ export interface KonformitaetsUmgebung {
  * eine geaenderte Fassung fortgesetzt werden, das blosse Erzwingen im
  * Durchlauf traegt dann nicht mehr.
  *
- * Gelesen wird die Vorgabe mit derselben Aufloesung wie im Store: pfadgenau,
- * sonst generisch (`ohneVorkommen`) — was generisch festgelegt ist, gilt in
- * jedem Vorkommen (#59) — und ueber die Herkunft einer Kopie (`vonId`, #28).
+ * Gelesen wird die Vorgabe ueber die **eine** Lesart (`VorgabeSicht`) — genau
+ * dieselbe, mit der der Store Sperren und effektive Kardinalitaet ableitet.
+ * Vor der Extraktion hielt dieser Service eine eigene Kopie der Regeln, die
+ * bereits divergierte (Kardinalitaet roh statt geerbt, Wirkung eintragsweise
+ * statt feldweise): eine generisch eingegrenzte Mindestanzahl innerhalb eines
+ * Vorkommens machte eine konforme Nachricht zum Entwurf.
  */
 @Injectable({ providedIn: 'root' })
 export class KonformitaetService {
@@ -89,7 +91,7 @@ export class KonformitaetService {
     for (const [pfad, p] of Object.entries(instanz.elemente)) {
       const wert = p.beispiel?.trim();
       if (!wert) continue;
-      const werte = v.profil(pfad)?.werte;
+      const werte = v.eintragGeerbt(pfad)?.werte;
       if (!werte?.length) continue; // keine Einschraenkung bzw. „keine" — anderer Befund
       if (werte.includes(wert)) continue;
       out.push({
@@ -106,7 +108,7 @@ export class KonformitaetService {
       const eigene = instanz.auspraegungen[listPfad];
       if (!eigene) continue; // keine eigene Liste = die der Vorgabe gilt unveraendert
       for (const a of liste) {
-        if (v.wirkung(`${listPfad}@${a.id}`) !== 'pflicht') continue;
+        if (v.wirkungGeerbt(`${listPfad}@${a.id}`) !== 'pflicht') continue;
         // Eine Kopie traegt die Herkunft und erfuellt die Festlegung mit.
         if (eigene.some((e) => e.id === a.id || e.vonId === a.id)) continue;
         out.push({
@@ -128,20 +130,27 @@ export class KonformitaetService {
       if (v.ausschlussQuelle(pfad)) continue;
       const min = parseInt(p.min ?? '', 10) || 0;
       const max = p.max === 'unbounded' ? Infinity : parseInt(p.max ?? '', 10) || Infinity;
-      const n = v.vorkommenAnzahl(pfad, instanz);
-      if (min && n < min) {
-        out.push({
-          pfad,
-          art: 'kardinalitaet',
-          text: `${kurz(pfad)} (${pfad}): Die Profilierung verlangt mindestens ${min} Vorkommen, die Nachricht trägt ${n}.`,
-        });
-      }
-      if (n > max) {
-        out.push({
-          pfad,
-          art: 'kardinalitaet',
-          text: `${kurz(pfad)} (${pfad}): Die Profilierung lässt höchstens ${max} Vorkommen zu, die Nachricht trägt ${n}.`,
-        });
+      // Je **Instanz-Pfad** zaehlen: eine generische Grenze gilt in jedem
+      // Vorkommen des Elternelements — dort liegen die materialisierten
+      // Vorkommen (#28), nicht am generischen Pfad. Am generischen gezaehlt
+      // meldete der Abgleich eine konforme Nachricht als Verstoss (Divergenz
+      // zur Sperre, siehe Klassen-Kommentar).
+      for (const ziel of v.instanzPfade(pfad)) {
+        const n = v.vorkommenAnzahl(ziel);
+        if (min && n < min) {
+          out.push({
+            pfad: ziel,
+            art: 'kardinalitaet',
+            text: `${kurz(ziel)} (${ziel}): Die Profilierung verlangt mindestens ${min} Vorkommen, die Nachricht trägt ${n}.`,
+          });
+        }
+        if (n > max) {
+          out.push({
+            pfad: ziel,
+            art: 'kardinalitaet',
+            text: `${kurz(ziel)} (${ziel}): Die Profilierung lässt höchstens ${max} Vorkommen zu, die Nachricht trägt ${n}.`,
+          });
+        }
       }
     }
   }
@@ -161,11 +170,11 @@ export class KonformitaetService {
     const istBlatt = umgebung.istBlatt;
     if (!istBlatt) return;
     for (const [pfad, p] of Object.entries(v.doc.elemente)) {
-      if (!p.status || v.wirkung(pfad) !== 'pflicht') continue;
+      if (!p.status || v.wirkungGeerbt(pfad) !== 'pflicht') continue;
       if (v.ausschlussQuelle(pfad)) continue;
       // Ein zwingendes Element in einem Vorkommen-Pfadraum wird ueber die
       // Vorkommen der Nachricht geprueft, nicht am generischen Pfad.
-      for (const ziel of v.instanzPfade(pfad, instanz)) {
+      for (const ziel of v.instanzPfade(pfad)) {
         if (!istBlatt(ziel)) continue;
         if (instanz.elemente[ziel]?.beispiel?.trim()) continue;
         out.push({
@@ -214,103 +223,4 @@ export class SitzungsAbgleichService {
 /** Letztes Pfadsegment als Anzeigename. */
 function kurz(pfad: string): string {
   return pretty(blattName(pfad));
-}
-
-/**
- * Lesesicht auf die gebundene Fassung — dieselben Regeln wie im Store, aber
- * ohne Store: pfadgenau vor generisch, Kopien ueber ihre Herkunft.
- */
-class VorgabeSicht {
-  constructor(
-    readonly doc: ProfileDoc,
-    private readonly instanz: InstanzModell,
-  ) {}
-
-  /** Der Eintrag der Vorgabe zu einem Instanz-Pfad. */
-  profil(pfad: string): ElementProfile | null {
-    return (
-      this.doc.elemente[pfad] ??
-      this.doc.elemente[this.quellPfad(pfad)] ??
-      this.doc.elemente[ohneVorkommen(pfad)] ??
-      null
-    );
-  }
-
-  /** Die Wirkung der Vorgabe an einem Pfad (ueber ihre eigene Stufenliste). */
-  wirkung(pfad: string): Wirkung | null {
-    const id = this.profil(pfad)?.status;
-    return (id && this.doc.statuses.find((s) => s.id === id)?.wirkung) || null;
-  }
-
-  /**
-   * Der Pfad des Ausschlusses, der diesen Pfad trifft — er selbst oder der
-   * naechstgelegene Vorfahr; null, wenn nichts ausschliesst. Vorfahren zaehlen
-   * an '/' **und** '@', der Ausschluss vererbt sich also ueber Vorkommen-Grenzen.
-   */
-  ausschlussQuelle(pfad: string): string | null {
-    if (this.wirkung(pfad) === 'ausgeschlossen') return pfad;
-    // Naechstgelegener Vorfahr zuerst — die Meldung nennt die Quelle.
-    for (const anc of vorfahren(pfad).reverse()) {
-      if (this.wirkung(anc) === 'ausgeschlossen') return anc;
-    }
-    return null;
-  }
-
-  /**
-   * Zahl der Vorkommen eines Elements in der Nachricht — dieselbe Konvention
-   * wie im Durchlauf (`GuidedService.vorkommenAnzahl`): benannte Vorkommen
-   * zaehlen, sonst steht der generische Unterbaum fuer eines, es sei denn die
-   * Nachricht laesst das Element weg.
-   */
-  vorkommenAnzahl(pfad: string, instanz: InstanzModell): number {
-    const liste = instanz.auspraegungen[pfad] ?? this.doc.auspraegungen[pfad];
-    if (liste?.length) return liste.length;
-    const eigen = instanz.elemente[pfad]?.status;
-    if (eigen) {
-      const w = this.doc.statuses.find((s) => s.id === eigen)?.wirkung;
-      // Die Stufenliste der Nachricht ist die des Profils, aus dem sie
-      // entstanden ist; unbekannte ids zaehlen wie „keine Aussage".
-      if (w === 'ausgeschlossen') return 0;
-    }
-    return 1;
-  }
-
-  /**
-   * Die Pfade, unter denen ein Festlegungs-Pfad in der Nachricht tatsaechlich
-   * auftritt: er selbst, wenn das Element keine Vorkommen fuehrt — sonst je
-   * Vorkommen einer. Ohne diese Aufloesung ginge jede Pflichtwert-Pruefung am
-   * generischen Pfad ins Leere, den der Baum gar nicht rendert (#28).
-   */
-  instanzPfade(pfad: string, instanz: InstanzModell): string[] {
-    const i = pfad.lastIndexOf('/');
-    if (i < 0) return [pfad];
-    const eltern = pfad.slice(0, i);
-    const rest = pfad.slice(i);
-    const liste = instanz.auspraegungen[eltern] ?? this.doc.auspraegungen[eltern];
-    if (!liste?.length) return [pfad];
-    return liste.map((a) => `${eltern}@${a.id}${rest}`);
-  }
-
-  /** Der Pfad, wie ihn die Vorgabe kennt: Kopien zeigen auf ihre Quelle (`vonId`). */
-  private quellPfad(pfad: string): string {
-    if (!pfad.includes('@')) return pfad;
-    let eigen = '';
-    let ziel = '';
-    for (const seg of pfad.split('/')) {
-      const at = seg.lastIndexOf('@');
-      const name = at < 0 ? seg : seg.slice(0, at);
-      const id = at < 0 ? null : seg.slice(at + 1);
-      const listeEigen = eigen ? eigen + '/' + name : name;
-      const listeZiel = ziel ? ziel + '/' + name : name;
-      if (id === null) {
-        eigen = listeEigen;
-        ziel = listeZiel;
-        continue;
-      }
-      const von = this.instanz.auspraegungen[listeEigen]?.find((a) => a.id === id)?.vonId;
-      eigen = listeEigen + '@' + id;
-      ziel = listeZiel + '@' + (von ?? id);
-    }
-    return ziel;
-  }
 }
