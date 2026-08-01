@@ -92,14 +92,26 @@ export class StateService {
   /**
    * Die Lesart der gebundenen Fassung (Quellpfad, Erben, kein Mischen) — das
    * eine Modul dafuer ist `VorgabeSicht`; der Store ist nur der Signals-Adapter
-   * darueber. Neu aufgebaut, sobald sich Vorgabe oder Entscheidungsschicht
-   * aendern (die Konstruktion ist trivial, die Reaktivitaet dieselbe wie
-   * vorher, als die Methoden die Signals direkt lasen).
+   * darueber. Die Instanz-Maps gehen als **Live-Getter** hinein: die Sicht
+   * liest sie erst beim Zugriff, also im reaktiven Kontext des jeweiligen
+   * Aufrufers — ein Lesart-Konsument trackt nur die Signale, die sein Zugriff
+   * tatsaechlich beruehrt. Ein materialisiertes Objekt liess hier jeden
+   * Konsumenten `elemente()` und `auspraegungen()` tracken, auch wo die alte
+   * Direkt-Implementierung das nie tat (Deep-Review-Befund).
    */
   private readonly vorgabeSicht = computed<VorgabeSicht | null>(() => {
     const v = this.vorgabe();
     if (!v) return null;
-    return new VorgabeSicht(v, { elemente: this.elemente(), auspraegungen: this.auspraegungen() });
+    const elemente = this.elemente;
+    const auspraegungen = this.auspraegungen;
+    return new VorgabeSicht(v, {
+      get elemente() {
+        return elemente();
+      },
+      get auspraegungen() {
+        return auspraegungen();
+      },
+    });
   });
 
   /**
@@ -596,7 +608,9 @@ export class StateService {
    * Vorkommen fuehrt, sind sie massgeblich (kein Mischen beider Schichten).
    */
   auspsOf(path: string): Auspraegung[] | null {
-    return this.auspraegungen()[path] ?? this.vorgabeAusps(path) ?? null;
+    const sicht = this.vorgabeSicht();
+    if (sicht) return sicht.auspsEffektiv(path);
+    return this.auspraegungen()[path] ?? null;
   }
 
   /**
@@ -927,7 +941,9 @@ export class StateService {
   /** auspLabel (Z.634-640): "Element „Name"" fuer ein Verweisziel. */
   auspLabel(auspPath: string): string {
     const teile = auspTeile(auspPath);
-    if (!teile) return auspPath;
+    // '@' im Pfadinneren, aber nicht im letzten Segment: kein Vorkommens-Pfad —
+    // wie frueher als geloeschtes Ziel ausweisen, nicht als roher Pfad.
+    if (!teile) return auspPath.includes('@') ? '(gelöschtes Ziel)' : auspPath;
     const a = (this.auspsOf(teile.listPfad) ?? []).find((x) => x.id === teile.auspId);
     return a ? pretty(blattName(teile.listPfad)) + ' „' + a.name + '"' : '(gelöschtes Ziel)';
   }

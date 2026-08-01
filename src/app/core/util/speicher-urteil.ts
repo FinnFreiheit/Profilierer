@@ -1,5 +1,4 @@
 import { ReportEintrag } from '../../models/validation.model';
-import { Verstoss } from '../services/konformitaet.service';
 
 /**
  * Die gesammelten Befunde eines Speicherwegs — was auch immer der Weg selbst
@@ -9,8 +8,13 @@ import { Verstoss } from '../services/konformitaet.service';
  * **Urteil** darueber ist dasselbe und faellt hier.
  */
 export interface SpeicherBefunde {
-  /** Abweichungen von der gebundenen Profilfassung (Konformitaets-Abgleich). */
-  verstoesse: Verstoss[];
+  /**
+   * Abweichungen von der gebundenen Profilfassung (Konformitaets-Abgleich).
+   * Strukturell getypt statt ueber den Service-Typ `Verstoss` — das Urteil
+   * braucht nur Pfad und Text, und ein Util zeigt nicht auf die
+   * Service-Schicht (Deep-Review-Befund: Import-Richtung).
+   */
+  verstoesse: { pfad: string; text: string }[];
   /**
    * Blockierende Schemafehler — null/undefined, wenn valide oder nicht
    * geprueft. Ein **leeres Array zaehlt als Befund** (unpruefbare Nachricht:

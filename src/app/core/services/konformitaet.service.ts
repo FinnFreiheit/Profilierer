@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { ProfileDoc } from '../../models/profile.model';
-import { blattName } from '../util/pfad.util';
+import { blattName, ohneVorkommen } from '../util/pfad.util';
 import { pretty } from '../util/pretty.util';
 import { InstanzModell, VorgabeSicht } from '../vorgabe-sicht';
 import { StateService } from './state.service';
@@ -37,6 +37,13 @@ export interface KonformitaetsUmgebung {
 /**
  * Abgleich einer Testnachricht gegen die eingefrorene Profilkopie —
  * „profilkonform" wird geprueft, nicht behauptet (Spec #31).
+ *
+ * Die Ausschluss-Skips (`ausschlussQuelle`) lesen die Wirkung **feldweise
+ * geerbt** — wie die Sperre des Stores. Das ist seit der gemeinsamen
+ * VorgabeSicht eine bewusste Verhaltensaenderung gegenueber der alten,
+ * eintragsweisen Lesart: ein pfadgenauer Eintrag ohne Status verdeckt den
+ * generischen Ausschluss nicht mehr, entsprechend mehr Pfade werden von den
+ * Kardinalitaets-/Pflichtwert-Pruefungen uebersprungen.
  *
  * **Zustandslos:** der Dienst liest weder Store noch Sitzung; er bekommt die
  * gebundene Fassung und das Instanz-Modell uebergeben. Damit laeuft er auch
@@ -75,13 +82,19 @@ export class KonformitaetService {
       if (!p.beispiel?.trim()) continue;
       const quelle = v.ausschlussQuelle(pfad);
       if (!quelle) continue;
+      // Selbst-Ausschluss auch dann, wenn die Festlegung am generischen
+      // Zwilling oder an der vonId-Quelle steht: das ist derselbe Sachverhalt
+      // am selben Element, kein Vorfahren-Ausschluss — die "samt
+      // Teilbaum"-Variante nannte sonst einen Pfad, den der Baum wegen #28
+      // nicht rendert (Deep-Review-Befund).
+      const selbst =
+        quelle === pfad || quelle === ohneVorkommen(pfad) || quelle === v.quellPfad(pfad);
       out.push({
         pfad,
         art: 'ausgeschlossen',
-        text:
-          quelle === pfad
-            ? `${kurz(pfad)} (${pfad}): Die Profilierung schließt das Element aus, die Nachricht trägt hier einen Wert.`
-            : `${kurz(pfad)} (${pfad}): Die Profilierung schließt ${kurz(quelle)} (${quelle}) samt Teilbaum aus, die Nachricht trägt hier einen Wert.`,
+        text: selbst
+          ? `${kurz(pfad)} (${pfad}): Die Profilierung schließt das Element aus, die Nachricht trägt hier einen Wert.`
+          : `${kurz(pfad)} (${pfad}): Die Profilierung schließt ${kurz(quelle)} (${quelle}) samt Teilbaum aus, die Nachricht trägt hier einen Wert.`,
       });
     }
   }
@@ -108,7 +121,13 @@ export class KonformitaetService {
       const eigene = instanz.auspraegungen[listPfad];
       if (!eigene) continue; // keine eigene Liste = die der Vorgabe gilt unveraendert
       for (const a of liste) {
-        if (v.wirkungGeerbt(`${listPfad}@${a.id}`) !== 'pflicht') continue;
+        // **Pfadgenau**, nicht geerbt — dieselbe Entscheidung wie
+        // `GuidedService.auspSperreEntfernen` (#28): dass das Traegerelement
+        // zwingend ist, sagt nur, dass es vorkommen muss, nicht dass jedes
+        // benannte Vorkommen bleiben muss. Geerbt gelesen meldete der Abgleich
+        // ein Entfernen als Verstoss, das der Durchlauf ausdruecklich erlaubt
+        // (Deep-Review-Befund: Widerspruch Sperre vs. Verstossliste).
+        if (v.wirkung(`${listPfad}@${a.id}`) !== 'pflicht') continue;
         // Eine Kopie traegt die Herkunft und erfuellt die Festlegung mit.
         if (eigene.some((e) => e.id === a.id || e.vonId === a.id)) continue;
         out.push({
@@ -122,35 +141,46 @@ export class KonformitaetService {
 
   /** Verletzte Kardinalitaeten der Profilierung (Mindest- und Hoechstanzahl). */
   private pruefeKardinalitaet(v: VorgabeSicht, instanz: InstanzModell, out: Verstoss[]): void {
+    // Erst die Ziele einsammeln, dedupliziert: mehrere Vorgabe-Eintraege
+    // (generisch und pfadgenau) koennen auf dasselbe Instanz-Ziel zeigen.
+    // Massgeblich ist dort die **effektive** Grenze der Lesart (pfadgenau vor
+    // generisch, `eintragGeerbt`) — je Eintrag einzeln geprueft projizierte
+    // die generische Grenze auch auf Vorkommen mit eigener pfadgenauer Grenze
+    // und meldete doppelt (Deep-Review-Befund). Je **Instanz-Pfad** gezaehlt
+    // wird weiterhin: die materialisierten Vorkommen liegen an den @-Pfaden
+    // (#28), nicht am generischen.
+    const ziele = new Set<string>();
     for (const [pfad, p] of Object.entries(v.doc.elemente)) {
       if (!p.min && !p.max) continue;
       // Ausgeschlossenes zaehlt nicht: der Widerspruch „ausgeschlossen und
-      // zugleich verlangt" ist ein Mangel der Profilierung, nicht der Nachricht
-      // (er wird beim Start des Durchlaufs gemeldet).
+      // zugleich verlangt" ist ein Mangel der Profilierung, nicht der
+      // Nachricht (er wird beim Start des Durchlaufs gemeldet).
       if (v.ausschlussQuelle(pfad)) continue;
-      const min = parseInt(p.min ?? '', 10) || 0;
-      const max = p.max === 'unbounded' ? Infinity : parseInt(p.max ?? '', 10) || Infinity;
-      // Je **Instanz-Pfad** zaehlen: eine generische Grenze gilt in jedem
-      // Vorkommen des Elternelements — dort liegen die materialisierten
-      // Vorkommen (#28), nicht am generischen Pfad. Am generischen gezaehlt
-      // meldete der Abgleich eine konforme Nachricht als Verstoss (Divergenz
-      // zur Sperre, siehe Klassen-Kommentar).
-      for (const ziel of v.instanzPfade(pfad)) {
-        const n = v.vorkommenAnzahl(ziel);
-        if (min && n < min) {
-          out.push({
-            pfad: ziel,
-            art: 'kardinalitaet',
-            text: `${kurz(ziel)} (${ziel}): Die Profilierung verlangt mindestens ${min} Vorkommen, die Nachricht trägt ${n}.`,
-          });
-        }
-        if (n > max) {
-          out.push({
-            pfad: ziel,
-            art: 'kardinalitaet',
-            text: `${kurz(ziel)} (${ziel}): Die Profilierung lässt höchstens ${max} Vorkommen zu, die Nachricht trägt ${n}.`,
-          });
-        }
+      for (const ziel of v.instanzPfade(pfad)) ziele.add(ziel);
+    }
+    for (const ziel of ziele) {
+      // Auch am Ziel: in einem ausgeschlossenen Vorkommen materialisiert der
+      // Durchlauf nichts — dort zu zaehlen meldete Verstoesse in gesperrten
+      // Teilbaeumen (Deep-Review-Befund).
+      if (v.ausschlussQuelle(ziel)) continue;
+      const g = v.eintragGeerbt(ziel);
+      const min = parseInt(g?.min ?? '', 10) || 0;
+      const max = g?.max === 'unbounded' ? Infinity : parseInt(g?.max ?? '', 10) || Infinity;
+      if (!min && max === Infinity) continue;
+      const n = v.vorkommenAnzahl(ziel);
+      if (min && n < min) {
+        out.push({
+          pfad: ziel,
+          art: 'kardinalitaet',
+          text: `${kurz(ziel)} (${ziel}): Die Profilierung verlangt mindestens ${min} Vorkommen, die Nachricht trägt ${n}.`,
+        });
+      }
+      if (n > max) {
+        out.push({
+          pfad: ziel,
+          art: 'kardinalitaet',
+          text: `${kurz(ziel)} (${ziel}): Die Profilierung lässt höchstens ${max} Vorkommen zu, die Nachricht trägt ${n}.`,
+        });
       }
     }
   }
@@ -175,6 +205,7 @@ export class KonformitaetService {
       // Ein zwingendes Element in einem Vorkommen-Pfadraum wird ueber die
       // Vorkommen der Nachricht geprueft, nicht am generischen Pfad.
       for (const ziel of v.instanzPfade(pfad)) {
+        if (v.ausschlussQuelle(ziel)) continue; // gesperrtes Vorkommen: nichts verlangt
         if (!istBlatt(ziel)) continue;
         if (instanz.elemente[ziel]?.beispiel?.trim()) continue;
         out.push({

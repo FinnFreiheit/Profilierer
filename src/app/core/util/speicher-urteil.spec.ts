@@ -1,11 +1,9 @@
 import { speicherUrteil } from './speicher-urteil';
-import { Verstoss } from '../services/konformitaet.service';
 
 /** Die Prioritaetsmatrix des Speicher-Urteils — pur, ohne TestBed. */
 describe('speicherUrteil', () => {
-  const verstoss = (pfad = 'm/az'): Verstoss => ({
+  const verstoss = (pfad = 'm/az'): { pfad: string; text: string } => ({
     pfad,
-    art: 'wert',
     text: 'nicht freigegeben',
   });
 

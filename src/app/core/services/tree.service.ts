@@ -264,9 +264,16 @@ export class TreeService {
    * leer bei Rekursion. `ausp` ist genau an den Vorkommen-Schritten gesetzt.
    */
   abstiegsKinder(n: TreeNode): { node: TreeNode; ausp?: Auspraegung }[] {
+    // Rekursion **vor** der Ersetzungsregel (Deep-Review-Befund): alle Walker
+    // stoppten schon immer an rekursiven Elementen, auch wenn diese Vorkommen
+    // tragen — sonst liefe der Abstieg ueber ctxNode (das nie `recursive`
+    // traegt) bis zur Tiefenkappe und legte dabei persistente Zustaende an
+    // (Materialisierung, Vorbelegung). Die *Darstellung* (childItems) zeigt
+    // die Vorkommen eines rekursiven Elements weiterhin — diese Asymmetrie
+    // ist alt und bleibt bewusst bestehen.
+    if (n.recursive) return [];
     const vorkommen = this.vorkommenKinder(n);
     if (vorkommen) return vorkommen;
-    if (n.recursive) return [];
     return this.kinder(n).map((node) => ({ node }));
   }
 
@@ -286,7 +293,10 @@ export class TreeService {
     const rec = (n: TreeNode, tiefe: number): void => {
       if (tiefe > maxTiefe) return;
       for (const schritt of this.abstiegsKinder(n)) {
-        if (besuch(schritt, tiefe)) rec(schritt.node, tiefe + 1);
+        // Ein Vorkommen-Schritt verbraucht keine Tiefe: die Alt-Walker sprangen
+        // mit derselben Tiefe in den Kontext-Knoten — Kinder eines Vorkommens
+        // liegen so tief wie generische Kinder (Deep-Review-Befund).
+        if (besuch(schritt, tiefe)) rec(schritt.node, schritt.ausp ? tiefe : tiefe + 1);
       }
     };
     rec(start, 0);
