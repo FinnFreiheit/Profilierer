@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { TreeItem, TreeNode } from '../../models/node.model';
+import { Auspraegung } from '../../models/profile.model';
 import { XsdIndex } from '../../models/xsd-index.model';
 import { docOf, kid, local } from '../util/xml.util';
 import { XS } from '../util/xml.util';
@@ -237,17 +238,71 @@ export class TreeService {
     return root ? { kind: 'el', node: root } : null;
   }
 
+  /**
+   * **Die Ersetzungsregel des gerenderten Baums** — an genau einer Stelle:
+   * traegt ein Element benannte Vorkommen (`auspsOf`), ersetzen deren
+   * Kontext-Knoten (`ctxNode`) die generischen Kinder. null, wo die Regel
+   * nicht greift (keine Vorkommen) — dann gilt der generische Abstieg.
+   *
+   * Vor diesem Modul war die Regel neunfach nachgebaut; ein Walk, der sie
+   * nicht kannte, materialisierte am generischen Pfad vorbei am gerenderten
+   * Baum (Bug #28 Teil 1). Alle Absteiger — childItems, walkFull, emit,
+   * Excel-Zeilen, der gefuehrte Struktur-Walk, walkProfil — sind Konsumenten.
+   * Bewusst NICHT darauf umgestellt: instance-import/-export — die betreiben
+   * Rekonziliation (sie erzeugen bzw. gleichen Vorkommen gegen das XML ab),
+   * die Umkehrung dieser Regel, keine Kopie.
+   */
+  vorkommenKinder(n: TreeNode): { node: TreeNode; ausp: Auspraegung }[] | null {
+    const ausps = this.state.auspsOf(n.path);
+    if (!ausps || !ausps.length) return null;
+    return ausps.map((a) => ({ node: this.ctxNode(n, a.id), ausp: a }));
+  }
+
+  /**
+   * Abstiegsziele eines Knotens im gerenderten Baum: je benanntem Vorkommen
+   * sein Kontext-Knoten, sonst die Kinder (Schema plus Erweiterungen);
+   * leer bei Rekursion. `ausp` ist genau an den Vorkommen-Schritten gesetzt.
+   */
+  abstiegsKinder(n: TreeNode): { node: TreeNode; ausp?: Auspraegung }[] {
+    const vorkommen = this.vorkommenKinder(n);
+    if (vorkommen) return vorkommen;
+    if (n.recursive) return [];
+    return this.kinder(n).map((node) => ({ node }));
+  }
+
+  /**
+   * Profilbewusster Baum-Abstieg fuer Walker ohne eigene Flusskontrolle:
+   * besucht ab `start` (exklusiv) jeden Schritt des gerenderten Baums —
+   * Vorkommen-Ersetzung, Rekursionswaechter und Tiefenkappe liegen hier,
+   * nicht beim Aufrufer. `besuch` entscheidet je Schritt ueber den Abstieg;
+   * Mutationen im Besuch (etwa `addAusp`) wirken auf den anschliessenden
+   * Abstieg, weil die Abstiegsziele erst dann bestimmt werden.
+   */
+  walkProfil(
+    start: TreeNode,
+    besuch: (schritt: { node: TreeNode; ausp?: Auspraegung }, tiefe: number) => boolean,
+    maxTiefe = 25,
+  ): void {
+    const rec = (n: TreeNode, tiefe: number): void => {
+      if (tiefe > maxTiefe) return;
+      for (const schritt of this.abstiegsKinder(n)) {
+        if (besuch(schritt, tiefe)) rec(schritt.node, tiefe + 1);
+      }
+    };
+    rec(start, 0);
+  }
+
   /** childItems (Z.1041-1055): sichtbare Kind-Items (Ausprägungen oder Element-Kinder). */
   childItems(it: TreeItem): TreeItem[] {
     if (it.kind === 'el') {
       const n = it.node;
-      const ausps = this.state.auspsOf(n.path);
-      if (ausps && ausps.length)
-        return ausps.map((a) => ({
+      const vorkommen = this.vorkommenKinder(n);
+      if (vorkommen)
+        return vorkommen.map(({ ausp }) => ({
           kind: 'ausp',
           parentNode: n,
-          ausp: a,
-          path: n.path + '@' + a.id,
+          ausp,
+          path: n.path + '@' + ausp.id,
         }));
       if (n.recursive) return [];
       return this.kinder(n).map((c) => ({ kind: 'el', node: c }));
@@ -320,25 +375,25 @@ export class TreeService {
    */
   collectMandatoryPaths(anker: TreeNode): string[] {
     const out: string[] = [];
-    const rec = (n: TreeNode, depth: number): void => {
-      if (depth > 25) return;
-      this.expandNode(n);
-      for (const c of n.children ?? []) {
-        if (c.synthetic) {
-          // Gruppen selbst nicht markieren. Eine choice bricht das Rueckgrat
-          // (Alternativen sind frei — auch Gruppen-Alternativen einer Auswahl),
-          // eine optionale Gruppe (min=0) ebenso.
-          if (c.model === 'choice' || c.min === '0' || c.inChoice) continue;
-          rec(c, depth + 1);
-          continue;
-        }
-        // Nur unbedingte Pflichtelemente: min>=1 und nicht in einer Auswahl.
-        if (c.min === '0' || c.inChoice) continue;
-        out.push(c.path);
-        if (!c.recursive) rec(c, depth + 1);
+    this.walkProfil(anker, ({ node: c, ausp }) => {
+      // Vorkommen-Schritt: das Rueckgrat liegt je Kontext an den @-Pfaden —
+      // dort, wo der Baum rendert. Vorher lief der Walk nur ueber die
+      // generischen Kinder, und die Vorbelegung landete an Pfaden, die bei
+      // benannten Vorkommen niemand rendert.
+      if (ausp) return true;
+      // Wie bisher: nur Schema-Kinder, keine Erweiterungen.
+      if (c.erweiterung) return false;
+      if (c.synthetic) {
+        // Gruppen selbst nicht markieren. Eine choice bricht das Rueckgrat
+        // (Alternativen sind frei — auch Gruppen-Alternativen einer Auswahl),
+        // eine optionale Gruppe (min=0) ebenso.
+        return !(c.model === 'choice' || c.min === '0' || c.inChoice);
       }
-    };
-    rec(anker, 0);
+      // Nur unbedingte Pflichtelemente: min>=1 und nicht in einer Auswahl.
+      if (c.min === '0' || c.inChoice) return false;
+      out.push(c.path);
+      return true;
+    });
     return out;
   }
 

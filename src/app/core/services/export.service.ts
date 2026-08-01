@@ -96,10 +96,10 @@ export class ExportService {
       const mySegs = n.synthetic ? segs : [...segs, n.name];
       cb({ kind: 'el', path: n.path, node: n, depth, segs: mySegs });
       if (depth >= maxDepth || n.recursive) return;
-      const ausps = this.state.auspsOf(n.path);
-      if (ausps && ausps.length) {
-        for (const a of ausps) {
-          const cn = this.tree.ctxNode(n, a.id);
+      // Ersetzungsregel aus dem TreeService; der Walk behaelt seine segs-Logik.
+      const vorkommen = this.tree.vorkommenKinder(n);
+      if (vorkommen) {
+        for (const { node: cn, ausp: a } of vorkommen) {
           cb({ kind: 'ausp', path: cn.path, node: n, ausp: a, depth: depth + 1, segs: mySegs });
           for (const c of this.tree.kinder(cn)) rec(c, depth + 2, mySegs);
         }
@@ -452,10 +452,9 @@ export class ExportService {
         return;
       }
       const name = asName || n.name;
-      const ausps = this.state.auspsOf(n.path);
-      if (ausps && ausps.length) {
-        for (const a of ausps) {
-          const cn = this.tree.ctxNode(n, a.id);
+      const vorkommen = this.tree.vorkommenKinder(n);
+      if (vorkommen) {
+        for (const { node: cn, ausp: a } of vorkommen) {
           if (this.state.wirkungOf(cn.path) === 'ausgeschlossen') continue;
           if (!instanz) lines.push(IND.repeat(depth) + `<!-- Ausprägung: ${a.name} -->`);
           emitInstance(cn, depth, name);

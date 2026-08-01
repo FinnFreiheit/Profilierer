@@ -171,10 +171,9 @@ export class ExcelExportService {
       });
       if (n.doc) zeilen.push({ art: 'desc', tiefe, text: n.doc, status: status ? '.' : '' });
       if (kollabiert?.(n) || tiefe >= maxTiefe || n.recursive) continue;
-      const ausps = this.state.auspsOf(n.path);
-      if (ausps && ausps.length) {
-        for (const a of ausps) {
-          const cn = this.tree.ctxNode(n, a.id);
+      const vorkommen = this.tree.vorkommenKinder(n);
+      if (vorkommen) {
+        for (const { node: cn, ausp: a } of vorkommen) {
           const ap = this.state.elemente()[cn.path] ?? {};
           const auspInh = this.state.inheritedExcluded(cn.path);
           zeilen.push({

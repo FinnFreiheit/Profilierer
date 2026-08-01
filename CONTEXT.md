@@ -25,6 +25,10 @@ gebraucht hat. Architektur-Entscheidungen dazu in `docs/adr/`.
   feldweise für die Wirkung), „kein Mischen" der Vorkommenslisten. Zwei
   Adapter teilen sich den Seam: der Signals-Store und der
   Konformitäts-Abgleich.
+- **Profilbewusster Abstieg** (`TreeService.walkProfil` / `vorkommenKinder`) —
+  die Ersetzungsregel des gerenderten Baums: benannte Vorkommen ersetzen die
+  generischen Kinder. Jeder Walker ist Konsument; Rekonziliation
+  (Instanz-Import/-Export) ist die Umkehrung, keine Kopie.
 - **Pfad-Grammatik** (`core/util/pfad.util.ts`) — die Zeichenregeln der
   Baumpfade: `/`-Segmente, `@`-Vorkommen, `#`-Disambiguierung,
   `~`-Erweiterungen; Vorfahren- und Präfixgrenzen.

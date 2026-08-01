@@ -50,7 +50,9 @@ export class DispositionService {
       for (const mp of this.sammleRueckgrat(path)) paths.add(mp);
     }
     // Eine Auspraegung ist durch ihr Anlegen aufgenommen — jeder Kontextknoten
-    // ist ein Anker.
+    // ist ein Anker. `collectMandatoryPaths` steigt seit dem walkProfil-Umbau
+    // selbst in Vorkommen ab; diese Schleife bleibt fuer Vorkommen unter
+    // Aesten, die der Rueckgrat-Walk nicht erreicht (optionale Teilbaeume).
     // Effektive Lesart (#28): auch die Vorkommen der gebundenen Fassung sind
     // Anker, solange der Durchlauf sie nicht angefasst hat.
     for (const [listPath, list] of this.state.alleAuspListen()) {

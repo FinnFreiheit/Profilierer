@@ -458,38 +458,29 @@ export class TestmessageCreateService {
    * gemeldet, siehe meldeWidersprueche).
    */
   private legeMindestVorkommenAn(root: TreeNode): void {
-    const rec = (n: TreeNode, depth: number): void => {
-      if (depth > 25) return;
-      this.tree.expandNode(n);
-      for (const c of n.children ?? []) {
-        if (this.state.vorgabeSchliesstAus(c.path)) continue;
-        if (c.synthetic) {
-          // choice bricht das Rueckgrat, optionale Gruppen ebenso.
-          if (c.model === 'choice' || c.min === '0') continue;
-          rec(c, depth + 1);
-          continue;
-        }
-        if (c.inChoice) continue;
-        const min = parseInt(this.state.effKard(c).min, 10) || 0;
-        // Das Rueckgrat traegt, was die Kardinalitaet verlangt oder die
-        // gebundene Fassung zwingend setzt.
-        if (min === 0 && this.state.profilWirkung(c.path) !== 'pflicht') continue;
-        if (min >= 2 && this.tree.isRepeatable(c) && !this.state.auspsOf(c.path)?.length) {
-          for (let i = 1; i <= min; i++) this.state.addAusp(c.path, 'Vorkommen ' + i);
-        }
-        if (c.recursive) continue;
-        // Traegt das Element benannte Vorkommen — eigene oder aus der gebundenen
-        // Fassung —, dann rendert der Baum dort nicht die generischen Kinder,
-        // sondern je Vorkommen einen eigenen Pfadraum (`ctxNode`). Der Abstieg
-        // muss diesen Weg nehmen, sonst materialisiert der Walk unter dem
-        // generischen Pfad, den niemand rendert: der Durchlauf meldete dann
-        // "verlangt mindestens 2 Vorkommen" und zeigte null (Issue #28).
-        const vorkommen = this.state.auspsOf(c.path);
-        if (vorkommen?.length)
-          for (const a of vorkommen) rec(this.tree.ctxNode(c, a.id), depth + 1);
-        else rec(c, depth + 1);
+    // Der Abstieg selbst — Vorkommen-Ersetzung, Rekursion, Tiefe — gehoert dem
+    // TreeService (`walkProfil`): genau der Nachbau dieser Regel ging hier
+    // einmal schief und materialisierte am generischen Pfad vorbei am
+    // gerenderten Baum (Issue #28 Teil 1). Ein per `addAusp` frisch
+    // materialisiertes Element wird anschliessend als Vorkommen abgestiegen,
+    // weil walkProfil die Abstiegsziele erst nach dem Besuch bestimmt.
+    this.tree.walkProfil(root, ({ node: c, ausp }) => {
+      if (ausp) return true; // Vorkommen-Kontext: Kinder dort weiter
+      if (c.erweiterung) return false; // wie bisher: nur Schema-Kinder
+      if (this.state.vorgabeSchliesstAus(c.path)) return false;
+      if (c.synthetic) {
+        // choice bricht das Rueckgrat, optionale Gruppen ebenso.
+        return !(c.model === 'choice' || c.min === '0');
       }
-    };
-    rec(root, 0);
+      if (c.inChoice) return false;
+      const min = parseInt(this.state.effKard(c).min, 10) || 0;
+      // Das Rueckgrat traegt, was die Kardinalitaet verlangt oder die
+      // gebundene Fassung zwingend setzt.
+      if (min === 0 && this.state.profilWirkung(c.path) !== 'pflicht') return false;
+      if (min >= 2 && this.tree.isRepeatable(c) && !this.state.auspsOf(c.path)?.length) {
+        for (let i = 1; i <= min; i++) this.state.addAusp(c.path, 'Vorkommen ' + i);
+      }
+      return true;
+    });
   }
 }
