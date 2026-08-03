@@ -1,6 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { DetailPanel } from './detail-panel';
 import { StateService } from '../../core/services/state.service';
+import { GuidedService } from '../../core/services/guided.service';
+import { NavService } from '../../core/services/nav.service';
+import { signal } from '@angular/core';
 
 /**
  * Kern von #81: die Spalte belegt Platz, sobald eine Nachricht geladen ist —
@@ -65,5 +68,77 @@ describe('DetailPanel — feste Spalte', () => {
     expect(p?.querySelector('.detailAuf')).not.toBeNull();
     expect(p?.querySelector('.detailInhalt')).toBeNull();
     expect(p?.style.width).toBe('');
+  });
+});
+
+/**
+ * Ruhezustand (#82): ohne Auswahl zeigt die Spalte die naechsten offenen
+ * Punkte statt leer zu stehen. Die Liste bricht bei zehn ab und weist die
+ * uebrigen aus — eine stille Truncation las sich sonst wie Vollstaendigkeit.
+ */
+describe('DetailPanel — Ruhezustand', () => {
+  let state: StateService;
+  let guided: GuidedService;
+
+  beforeEach(async () => {
+    localStorage.removeItem('xjp.ui.detailBreite');
+    localStorage.removeItem('xjp.ui.detailZu');
+    await TestBed.configureTestingModule({ imports: [DetailPanel] }).compileComponents();
+    state = TestBed.inject(StateService);
+    guided = TestBed.inject(GuidedService);
+    state.root.set({ path: 'r', name: 'r' } as never);
+    state.selItem.set(null);
+  });
+
+  const bauen = () => {
+    const fixture = TestBed.createComponent(DetailPanel);
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  };
+
+  const punkte = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ path: `r/e${i}`, kritisch: true }));
+
+  /**
+   * `offeneListe` ist eine gewoehnliche Property (kein Getter) — spyOnProperty
+   * greift dort nicht. Das Signal wird deshalb vor dem Bauen der Komponente
+   * ersetzt; danach gelesene computeds haetten die alte Referenz.
+   */
+  const setzeOffen = (liste: { path: string; kritisch: boolean }[]): void => {
+    Object.defineProperty(guided, 'offeneListe', { value: signal(liste), configurable: true });
+  };
+
+  it('zeigt ohne offene Punkte den Kurzhinweis', () => {
+    setzeOffen([]);
+    expect(bauen().querySelector('.ruheListe')).toBeNull();
+    expect(bauen().querySelector('.detailRuhe')).not.toBeNull();
+  });
+
+  it('listet offene Punkte zum Anspringen', () => {
+    setzeOffen(punkte(3));
+    const el = bauen();
+    expect(el.querySelectorAll('.ruheItem').length).toBe(3);
+    expect(el.querySelector('h3')?.textContent).toContain('Offene');
+  });
+
+  it('bricht bei zehn ab und weist die uebrigen aus', () => {
+    setzeOffen(punkte(14));
+    const el = bauen();
+    expect(el.querySelectorAll('.ruheItem').length).toBe(10);
+    expect(el.querySelector('.detailRuhe')?.textContent).toContain('4 weitere');
+  });
+
+  it('springt beim Klick zum Element', () => {
+    setzeOffen(punkte(2));
+    const nav = TestBed.inject(NavService);
+    const jump = spyOn(nav, 'jumpTo');
+    bauen().querySelector<HTMLButtonElement>('.ruheItem')!.click();
+    expect(jump).toHaveBeenCalledWith('r/e0', true);
+  });
+
+  it('zeigt in der Schema-Ansicht keine Liste — dort wird nichts entschieden', () => {
+    setzeOffen(punkte(5));
+    state.schemaView.set(true);
+    expect(bauen().querySelector('.ruheListe')).toBeNull();
   });
 });

@@ -850,8 +850,35 @@
             </div>
           }
         } @else {
-          <!-- Ruhezustand: Inhalt folgt mit #82; die Spalte haelt schon jetzt den Platz. -->
-          <div class="detailRuhe">Ein Element im Baum auswählen, um hier zu entscheiden.</div>
+          <!-- Ruhezustand (#82): die naechsten offenen Punkte zum Anspringen. -->
+          @if (ruheListe().length) {
+            <div class="detailKopf">
+              <div class="detailKopfText">
+                <h3>{{ ruheTitel() }}</h3>
+                <div class="sub">{{ ruheOffen().length }} offen — Klick springt zum Element</div>
+              </div>
+              <button class="detailZu" title="Detailbereich einklappen" (click)="einklappen()">
+                ×
+              </button>
+            </div>
+            <ul class="ruheListe">
+              @for (p of ruheListe(); track p.path) {
+                <li>
+                  <button class="ruheItem" [title]="p.crumb" (click)="springeZu(p.path)">
+                    <span class="ruheLabel">{{ p.label }}</span>
+                    @if (p.crumb) {
+                      <span class="ruheCrumb">{{ p.crumb }}</span>
+                    }
+                  </button>
+                </li>
+              }
+            </ul>
+            @if (ruheWeitere()) {
+              <div class="detailRuhe">… und {{ ruheWeitere() }} weitere</div>
+            }
+          } @else {
+            <div class="detailRuhe">Ein Element im Baum auswählen, um hier zu entscheiden.</div>
+          }
         }
       </div>
     }
