@@ -36,12 +36,28 @@ export class Legend {
   private readonly store = inject(ProfileStoreService);
 
   /**
+   * Gilt die Telemetrie dem geoeffneten Profil? Im Nachrichten- und
+   * Erzeugen-Modus nicht: dort haengt der Text des zuletzt geoeffneten Profils
+   * sonst weiter in der Fusszeile — eine neue Testnachricht meldete so
+   * "von der BLK-AG abgenommen — schreibgeschützt", waehrend frei gearbeitet
+   * wird.
+   */
+  private readonly profilStand = computed(
+    () => !this.state.isMessageEdit() && !this.state.isMessageCreate(),
+  );
+
+  /** Autosave-/Schreibschutz-Meldung des offenen Profils. */
+  protected readonly zustand = computed(() =>
+    this.profilStand() ? this.state.autosaveInfo() : '',
+  );
+
+  /**
    * Entwurfs-Kennzeichen "geändert seit vX": der Arbeitsstand ist in keiner
    * Version eingefroren. Seit #80 Systemtelemetrie in der Fusszeile statt
    * einer Pille zwischen den Knoepfen der Kopfzone.
    */
   protected readonly versionsStand = computed(() => {
-    if (this.state.isMessageEdit() || this.state.isMessageCreate()) return '';
+    if (!this.profilStand()) return '';
     const id = this.state.activeProfileId();
     const e = id ? this.store.entries().find((x) => x.id === id) : undefined;
     return e?.geaendert && e.letzteVersionNr ? `geändert seit v${e.letzteVersionNr}` : '';

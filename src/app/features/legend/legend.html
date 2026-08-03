@@ -37,7 +37,7 @@
 
 <div id="legend">
   <span id="zustandText">
-    <span [class.warn]="state.autosaveInfo().startsWith('⚠')">{{ state.autosaveInfo() }}</span>
+    <span [class.warn]="zustand().startsWith('⚠')">{{ zustand() }}</span>
     @if (versionsStand()) {
       <span
         class="zustandTeil"
