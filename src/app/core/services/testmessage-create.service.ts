@@ -8,7 +8,7 @@ import {
   testmessageInput,
 } from '../util/testmessage.util';
 import { pretty } from '../util/pretty.util';
-import { blattName, vorfahren } from '../util/pfad.util';
+import { blattName, unterPfad, vorfahren } from '../util/pfad.util';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
@@ -199,11 +199,39 @@ export class TestmessageCreateService {
       });
     }
 
+    // Dritter Widerspruch (#71, entschieden 26.08.03): ein zwingend gesetzter
+    // Container, unter dem nichts zwingend ist — alle Kinder schema-optional
+    // und keines von der Profilierung selbst zwingend gesetzt. "Diese
+    // Konstellation sollte in einer Profilierung nicht vorkommen": die
+    // Festlegung erzwingt keinen Inhalt, der Durchlauf kann jeden Ast
+    // weglassen und gilt trotzdem als vollstaendig. Statt einer neuen
+    // Walk-Semantik (Vollstaendigkeits-Punkt am Container) wird der Fall wie
+    // die anderen Profil-Maengel beim Start gemeldet und gehoert in der
+    // Profilierung geklaert.
+    const wirkungVon = (id: string | undefined): string | undefined =>
+      id ? doc.statuses.find((s) => s.id === id)?.wirkung : undefined;
+    for (const [pfad, p] of Object.entries(doc.elemente)) {
+      if (wirkungVon(p.status) !== 'pflicht') continue;
+      const it = this.nav.findItemByPath(pfad);
+      if (!it || it.kind !== 'el' || this.tree.isLeaf(it.node)) continue;
+      // Erzwingt der Container etwas? Schema-Rueckgrat darunter …
+      if (this.tree.collectMandatoryPaths(it.node).length) continue;
+      // … oder eine eigene zwingende Festlegung der Profilierung darunter.
+      const zwingendesKind = Object.entries(doc.elemente).some(
+        ([k, kp]) => k !== pfad && unterPfad(k, pfad) && wirkungVon(kp.status) === 'pflicht',
+      );
+      if (zwingendesKind) continue;
+      eintraege.push({
+        pfad,
+        text: `${kurz(pfad)} (${pfad}): „zwingend" erzwingt hier nichts — alle Kinder sind schema-optional und keines ist selbst zwingend gesetzt. Der Durchlauf kann den Teilbaum leer lassen; in der Profilierung klären, welches Kind das Szenario verlangt.`,
+      });
+    }
+
     if (!eintraege.length) return;
     this.report.zeigeMitPfaden(
       'Widersprüche in der Profilierung',
       eintraege,
-      'Die gebundene Fassung schließt Elemente aus, die sie zugleich verlangt. Der Ausschluss gilt; ein Klick springt zum betroffenen Element.',
+      'Die gebundene Fassung enthält Festlegungen, die der Durchlauf nicht einlösen kann. Ein Klick springt zum betroffenen Element.',
     );
   }
 
