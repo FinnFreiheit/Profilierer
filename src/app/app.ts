@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
-import { Topbar } from './features/topbar/topbar';
-import { Toolbar } from './features/toolbar/toolbar';
-import { Crumbs } from './features/crumbs/crumbs';
+import { Objektleiste } from './features/objektleiste/objektleiste';
+import { Werkzeugleiste } from './features/werkzeugleiste/werkzeugleiste';
 import { TreeCanvas } from './features/tree/tree-canvas';
 import { DetailPanel } from './features/detail/detail-panel';
 import { StatusDialog } from './features/dialogs/status-dialog';
@@ -53,9 +52,8 @@ function istZweigWahl(el: HTMLElement): boolean {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown)': 'onKeydown($event)' },
   imports: [
-    Topbar,
-    Toolbar,
-    Crumbs,
+    Objektleiste,
+    Werkzeugleiste,
     TreeCanvas,
     DetailPanel,
     StatusDialog,

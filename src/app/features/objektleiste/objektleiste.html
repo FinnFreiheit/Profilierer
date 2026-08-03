@@ -1,0 +1,247 @@
+<!--
+  Zeile 1 der Kopfzone (#80): das Dokument. Feste Zonen, wechselnder Inhalt —
+  die Primaeraktion sitzt in jedem Modus an derselben Stelle.
+-->
+<div id="objektleiste" class="kopfleiste">
+  <input #profilInput type="file" accept=".json" class="hidden" (change)="onProfile($event)" />
+  <input #nachrichtInput type="file" accept=".xml" class="hidden" (change)="onInstance($event)" />
+
+  <!-- Zone: zurueck -->
+  <button
+    class="homeBtn zone"
+    title="Zurück zur Übersicht der Profilierungen"
+    (click)="homeClick.emit()"
+  >
+    <span aria-hidden="true">←</span> <span class="lbl-lang">Übersicht</span>
+  </button>
+
+  <!-- Zone: Objekt-Identitaet -->
+  <div class="zone zoneIdent">
+    @if (isProfil()) {
+      @if (!state.readOnly()) {
+        <label class="lbl-lang" for="profilName">Szenario:</label>
+        <input
+          type="text"
+          id="profilName"
+          placeholder="Name des Kommunikationsszenarios"
+          [value]="state.meta().name || ''"
+          (change)="onName($event)"
+        />
+      } @else {
+        <span class="objName" [title]="state.meta().name || ''">{{
+          state.meta().name || 'Profilierung'
+        }}</span>
+      }
+    } @else if (isSchemaView()) {
+      <span
+        class="pill"
+        title="Reine Schema-Ansicht — Nachricht wählen, Aufbau betrachten, Elemente suchen. Es wird nichts gespeichert."
+        >Schema-Ansicht</span
+      >
+    } @else {
+      <span class="objName" [title]="objektName()">{{ objektName() }}</span>
+    }
+  </div>
+
+  <!-- Zone: Objekt-Werkzeuge -->
+  <div class="zone zoneWerkzeuge">
+    @if (isProfil() && !state.readOnly()) {
+      <button class="inline-only" title="Autor, Beschreibung, Datum" (click)="metaClick.emit()">
+        Details…
+      </button>
+      <button class="inline-only" title="Statusstufen konfigurieren" (click)="statusClick.emit()">
+        Status…
+      </button>
+      <button
+        class="inline-only"
+        title="Stände sichern und wiederherstellen"
+        (click)="versionenClick.emit()"
+      >
+        Versionen…
+      </button>
+      <button
+        class="inline-only"
+        [disabled]="!hasRoot()"
+        title="Alle Pflichtelemente als „zwingend“ vorbelegen"
+        (click)="prefillMandatory()"
+      >
+        Pflicht vorbelegen
+      </button>
+    }
+    @if (isProfil() && hinweise.eintraege().length) {
+      <button
+        class="inline-only"
+        title="Übersicht aller Hinweise — Klick springt zum Element"
+        (click)="hinweiseClick.emit()"
+      >
+        Hinweise ({{ hinweise.nOffen() }})
+      </button>
+    }
+    @if ((isCreate() || isMessage()) && !state.readOnly()) {
+      <button
+        class="inline-only"
+        [disabled]="!hasRoot()"
+        title="Alle offenen Pflichtfelder typkonform mit Dummy-Werten befüllen (UUID, Datum, Pattern, Codeliste)"
+        (click)="fillPflicht()"
+      >
+        Offene Pflichtfelder füllen
+      </button>
+    }
+    @if (bindungLoesbar()) {
+      <button
+        class="inline-only"
+        title="Sperren und Führung der gebundenen Profilierung beenden — für Negativtests. Die Herkunftsangabe bleibt erhalten."
+        (click)="bindungLoesenClick.emit()"
+      >
+        Profilbindung lösen
+      </button>
+    }
+  </div>
+
+  <span class="zoneTrenner"></span>
+
+  <!-- Zone: Zustand (nur Handlungsrelevantes — Abnahme sperrt das Bearbeiten) -->
+  <div class="zone zoneZustand">
+    @if (abnahme(); as a) {
+      <button
+        class="pill pillBtn"
+        [class.pillAbn]="!a.warn"
+        [class.pillAbnWarn]="a.warn"
+        [title]="
+          a.warn
+            ? 'Anzeigen, was sich seit der Abnahme geändert hat'
+            : 'Von der BLK-AG abgenommen — dieser Stand ist die valide Fassung' +
+              (a.kommentar ? ' · ' + a.kommentar : '') +
+              ' · mit dem Arbeitsstand vergleichen'
+        "
+        (click)="abnahmeDiffClick.emit()"
+      >
+        <span aria-hidden="true">{{ a.warn ? '⚠' : '✔' }}</span>
+        <span class="lbl-lang">{{ a.warn ? ' seit Abnahme geändert' : ' BLK-AG abgenommen' }}</span>
+      </button>
+    }
+  </div>
+
+  <!-- Zone: Primaeraktion — in jedem Modus dieselbe Position -->
+  <div class="zone zonePrimaer">
+    <button
+      class="primary"
+      [disabled]="primaerGesperrt()"
+      [title]="primaerTitel()"
+      (click)="primaer()"
+    >
+      {{ primaerLabel() }}
+    </button>
+  </div>
+
+  <!-- Zone: Weiteres. Fasst das Objekt-Laden/-Exportieren und bei schmalem
+       Fenster die ausgewichenen Werkzeuge (.overflow-only) zusammen. -->
+  <app-menu [label]="weiteresLabel()" kurz="⋯" btnClass="mWeiteres" #weiteres>
+    @if (isProfil()) {
+      <button class="menuItem" (click)="weiteres.close(); pick(profilInput)">Profil laden…</button>
+      <button
+        class="menuItem"
+        [disabled]="!hasRoot()"
+        title="Bestehende XJustiz-Nachricht (XML) laden und als Testnachricht anzeigen"
+        (click)="weiteres.close(); pick(nachrichtInput)"
+      >
+        Nachricht laden…
+      </button>
+      @if (!state.readOnly()) {
+        <div class="menuSep"></div>
+        <button
+          class="menuItem"
+          [disabled]="!hasRoot()"
+          (click)="weiteres.close(); excelClick.emit()"
+        >
+          Excel
+        </button>
+        <button
+          class="menuItem"
+          [disabled]="!hasRoot()"
+          (click)="weiteres.close(); schClick.emit()"
+        >
+          Schematron
+        </button>
+        <button
+          class="menuItem"
+          [disabled]="!hasRoot()"
+          (click)="weiteres.close(); xmlClick.emit()"
+        >
+          Beispiel-XML
+        </button>
+      }
+    }
+    @if (isMessage() && hatEintrag()) {
+      <button
+        class="menuItem"
+        [disabled]="!hasRoot()"
+        title="Die (bearbeitete) Nachricht als neue Testnachricht im Testdaten-Speicher ablegen"
+        (click)="weiteres.close(); saveMessageClick.emit()"
+      >
+        Als neue Nachricht speichern
+      </button>
+    }
+    @if (isCreate() && serieMoeglich()) {
+      <button
+        class="menuItem"
+        title="Neue Sitzung mit derselben gebundenen Profilfassung — ohne Werte"
+        (click)="weiteres.close(); weitereTestnachrichtClick.emit(false)"
+      >
+        Weitere Testnachricht: leer beginnen
+      </button>
+      <button
+        class="menuItem"
+        title="Werte und Entscheidungsstand der eben gespeicherten Nachricht übernehmen und anpassen"
+        (click)="weiteres.close(); weitereTestnachrichtClick.emit(true)"
+      >
+        Weitere Testnachricht: als Kopie
+      </button>
+    }
+    <div class="menuSep"></div>
+    <button class="menuItem" (click)="weiteres.close(); printClick.emit()">Drucken</button>
+
+    <!-- Ab ~1050px weichen die Objekt-Werkzeuge aus der Leiste hierher aus. -->
+    @if (isProfil() && !state.readOnly()) {
+      <div class="menuSep overflow-only"></div>
+      <button class="menuItem overflow-only" (click)="weiteres.close(); metaClick.emit()">
+        Details…
+      </button>
+      <button class="menuItem overflow-only" (click)="weiteres.close(); statusClick.emit()">
+        Status…
+      </button>
+      <button class="menuItem overflow-only" (click)="weiteres.close(); versionenClick.emit()">
+        Versionen…
+      </button>
+      <button
+        class="menuItem overflow-only"
+        [disabled]="!hasRoot()"
+        (click)="weiteres.close(); prefillMandatory()"
+      >
+        Pflicht vorbelegen
+      </button>
+    }
+    @if (isProfil() && hinweise.eintraege().length) {
+      <button class="menuItem overflow-only" (click)="weiteres.close(); hinweiseClick.emit()">
+        Hinweise ({{ hinweise.nOffen() }})
+      </button>
+    }
+    @if ((isCreate() || isMessage()) && !state.readOnly()) {
+      <div class="menuSep overflow-only"></div>
+      <button
+        class="menuItem overflow-only"
+        [disabled]="!hasRoot()"
+        (click)="weiteres.close(); fillPflicht()"
+      >
+        Offene Pflichtfelder füllen
+      </button>
+    }
+    @if (bindungLoesbar()) {
+      <button class="menuItem overflow-only" (click)="weiteres.close(); bindungLoesenClick.emit()">
+        Profilbindung lösen
+      </button>
+    }
+  </app-menu>
+
+  <app-rolle-badge></app-rolle-badge>
+</div>

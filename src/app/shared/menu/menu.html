@@ -1,5 +1,15 @@
-<button [disabled]="disabled()" (click)="toggle(btn); $event.stopPropagation()" #btn>
-  {{ label() }} ▾
+<button
+  [disabled]="disabled()"
+  [title]="titel()"
+  [class]="btnClass()"
+  (click)="toggle(btn); $event.stopPropagation()"
+  #btn
+>
+  <span class="lbl-lang">{{ label() }}</span>
+  @if (kurz()) {
+    <span class="lbl-kurz">{{ kurz() }}</span>
+  }
+  ▾
 </button>
 
 @if (open()) {

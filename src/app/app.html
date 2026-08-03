@@ -9,20 +9,10 @@
     (change)="onXsdB($event, diffDlg)"
   />
 
-  <app-topbar
+  <app-objektleiste
     (homeClick)="goDashboard()"
-    (xsdFiles)="onXsdFiles($event)"
-    (codelistFiles)="onCodelistFiles($event)"
     (profileFile)="persistence.loadProfileFile($event)"
     (instanceFile)="onInstanceFile($event)"
-    (xrepClick)="onXrep()"
-    (diffClick)="onDiff(diffDlg, xsdBInput)"
-    (bundledPick)="loadBundled($event)"
-    (remoteSchemaClick)="loadRemoteVersions()"
-    (logExportClick)="exportLog()"
-  ></app-topbar>
-
-  <app-toolbar
     (metaClick)="metaDlg.open()"
     (statusClick)="statusDlg.open()"
     (versionenClick)="versionenDlg.open()"
@@ -38,9 +28,17 @@
     (saveCreateClick)="onSaveCreate()"
     (weitereTestnachrichtClick)="onWeitereTestnachricht($event)"
     (printClick)="printDoc.print()"
-  ></app-toolbar>
+  ></app-objektleiste>
 
-  <app-crumbs></app-crumbs>
+  <app-werkzeugleiste
+    (xsdFiles)="onXsdFiles($event)"
+    (codelistFiles)="onCodelistFiles($event)"
+    (xrepClick)="onXrep()"
+    (diffClick)="onDiff(diffDlg, xsdBInput)"
+    (bundledPick)="loadBundled($event)"
+    (remoteSchemaClick)="loadRemoteVersions()"
+    (logExportClick)="exportLog()"
+  ></app-werkzeugleiste>
 
   <div id="main" appFileDrop (filesDropped)="onDropped($event)">
     <div id="colWrap">

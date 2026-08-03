@@ -24,16 +24,16 @@ src/app/
 ```mermaid
 graph TD
   App["App (Shell)"]
-  App --> Topbar
-  App --> Toolbar
-  App --> Crumbs
+  App --> Objektleiste
+  App --> Werkzeugleiste
   App --> Main["#main (colWrap + Detail)"]
   App --> Legend
   App --> PrintDoc["PrintDoc (@media print)"]
   App --> Toast
   App --> Dlgs["Status- / Meta- / Diff-Dialog"]
-  Toolbar --> MessagePicker
-  Toolbar --> Search
+  Werkzeugleiste --> MessagePicker
+  Werkzeugleiste --> Search
+  Werkzeugleiste --> Crumbs
   Main --> TreeCanvas
   Main --> DetailPanel
   TreeCanvas --> LinkSVG["#linkSvg (Verbindungslinien)"]
@@ -63,7 +63,7 @@ Kein Two-Way-Binding: Aktionen laufen über Service-Methoden, die den Store muti
 ```mermaid
 sequenceDiagram
   actor U as Nutzer
-  participant TB as Topbar
+  participant TB as Werkzeugleiste
   participant PS as PersistenceService
   participant NV as NavService
   participant ST as StateService

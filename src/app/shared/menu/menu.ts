@@ -13,6 +13,15 @@ import { ChangeDetectionStrategy, Component, input, signal } from '@angular/core
 export class Menu {
   readonly label = input.required<string>();
   readonly disabled = input(false);
+  /** Tooltip des Menue-Knopfes (z.B. die Schema-Diagnose am Datenbasis-Menue). */
+  readonly titel = input('');
+  /**
+   * Ersatzbeschriftung fuer schmale Fenster (Breakpoint ~1280px, s. styles.scss):
+   * unterhalb weicht `label` diesem Kurztext. Leer = Beschriftung faellt ganz weg.
+   */
+  readonly kurz = input('');
+  /** Zusatzklassen des Menue-Knopfes (Breakpoint-Steuerung der Kopfzone). */
+  readonly btnClass = input('');
 
   protected readonly open = signal(false);
   protected readonly pos = signal<{ left: number; top: number }>({ left: 0, top: 0 });
