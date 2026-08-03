@@ -210,10 +210,12 @@ export class App implements OnInit {
    * offener) und z/o/n = Disposition mit Auto-Sprung.
    *
    * Im gefuehrten **Instanz**-Durchlauf blaettert man statt zu entscheiden
-   * (ADR 0016): ← → gehen eine Station zurueck bzw. weiter — Weitergehen ist
-   * zugleich das Uebergehen einer optionalen Station —, ↓ gibt den
-   * ausgewaehlten Container an und springt hinein, ↑ verlaesst ihn wieder. Wo
-   * keine Station passt, greift die gewohnte Baum-Navigation.
+   * (ADR 0016): **senkrecht die Spur** (↓ zur naechsten Station — zugleich das
+   * Uebergehen einer freien Station —, ↑ zurueck), **waagerecht die Tiefe** (←
+   * gibt den ausgewaehlten Container an und geht hinein, → verlaesst ihn).
+   * Pflichtangaben halten das Uebergehen fest (`ueberspringSperre`); zurueck,
+   * hinein/heraus und jeder Klick im Baum bleiben frei. Wo keine Station passt,
+   * greift die gewohnte Baum-Navigation.
    */
   onKeydown(e: KeyboardEvent): void {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -227,24 +229,32 @@ export class App implements OnInit {
       this.guided.instanzModus() &&
       this.state.selItem()
     ) {
-      // Links/Rechts gehoeren der Spur — auch am Ende der Nachricht, wo es
-      // keine naechste Station gibt: der Ruecksprung der Baum-Navigation
-      // (erstes Kind) warf den Durchlauf sonst an den Anfang zurueck.
-      if (e.key === 'ArrowRight') {
-        this.guided.gotoNext();
+      // Hoch/Runter gehoeren der Spur — auch am Ende der Nachricht, wo es keine
+      // naechste Station gibt: der Ruecksprung der Baum-Navigation warf den
+      // Durchlauf sonst an den Anfang zurueck.
+      if (e.key === 'ArrowDown') {
+        const grund = this.guided.ueberspringSperre();
+        if (grund) this.toast.show(grund);
+        else this.guided.gotoNext();
         e.preventDefault();
         return;
       }
-      if (e.key === 'ArrowLeft') {
+      if (e.key === 'ArrowUp') {
         this.guided.gotoPrev();
         e.preventDefault();
         return;
       }
-      if (e.key === 'ArrowDown' && this.guided.betreteStation()) {
+      // Waagerecht die Tiefe: hinein (links) und heraus (rechts). Bewusst ohne
+      // Rueckfall auf die Baum-Navigation — die laeuft genau andersherum
+      // (← Eltern, → Kind) und schickte den Durchlauf sonst dorthin, wo die
+      // Taste ihn gerade nicht hinbringen soll.
+      if (e.key === 'ArrowLeft') {
+        this.guided.betreteStation();
         e.preventDefault();
         return;
       }
-      if (e.key === 'ArrowUp' && this.guided.gotoUebergeordnet()) {
+      if (e.key === 'ArrowRight') {
+        this.guided.gotoUebergeordnet();
         e.preventDefault();
         return;
       }

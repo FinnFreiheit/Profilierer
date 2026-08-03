@@ -71,8 +71,8 @@ Bereits vorhanden und wiederverwendbar:
   leer heißt nicht vorhanden; die Station ist nie offen. Nur ein eingetragener,
   **typwidriger** Wert zählt als offen.
 - **Optionaler Container (`min=0`):** trägt keinen Wert und bleibt darum eine
-  Station mit zwei Wegen: **angeben** (Taste ↓ — der Teilbaum wird betreten und
-  weiter durchlaufen) oder **übergehen** (Taste →, der Teilbaum entfällt samt
+  Station mit zwei Wegen: **angeben** (Taste ← — der Teilbaum wird betreten und
+  weiter durchlaufen) oder **übergehen** (Taste ↓, der Teilbaum entfällt samt
   Inhalt). Übergehen hält nichts fest und ist jederzeit nachholbar; eine Angabe
   lässt sich zurücknehmen, solange darunter keine Werte stehen.
 - **Auswahl (`choice`):** genau **ein** Zweig je Vorkommen (Entweder-oder) —
@@ -103,9 +103,11 @@ Bereits vorhanden und wiederverwendbar:
   **Keine echte XSD-Validierung** der erzeugten Datei (späterer Ausbau, eigene
   Story — dann auch für hochgeladene Nachrichten). Die Kennzeichnung
   formuliert ehrlich „Entwurf — unvollständig", nicht „invalide laut Schema".
-- Offene **optionale** Entscheidungen blockieren nichts — sie lösen beim
-  Speichern nur eine **Warnung mit Rückfrage** aus („N Entscheidungen offen —
-  trotzdem speichern?").
+- ~~Offene **optionale** Entscheidungen lösen beim Speichern eine Warnung mit
+  Rückfrage aus.~~ _Entfallen ([ADR 0016](../adr/0016-wert-entscheidet-im-instanz-durchlauf.md)):_
+  Übergangenes Optionales ist keine offene Entscheidung — es gibt nichts, worüber
+  zu warnen wäre. Offene **Pflichtangaben** halten stattdessen schon im
+  Durchlauf die Spur fest.
 - **Explizites Speichern** (kein Autosave): Der Speicherpunkt ist zugleich der
   Moment, in dem das Entwurfs-Kennzeichen neu berechnet wird.
 - **Anlegen, dann aktualisieren:** Das erste Speichern fragt den Namen ab
@@ -169,15 +171,21 @@ die ursprüngliche Fassung verlangte an jedem optionalen Element ein aufnehmen/w
 
 - Ein optionales **Blatt** ist ein freies Feld: ein Wert bringt es in die
   Nachricht, kein Wert lässt es weg. Es ist nie offen und blockiert nichts;
-  „Weiter" (→) übergeht es folgenlos.
-- Ein optionaler **Container** ist eine Station mit „angeben" (↓) und „nicht
-  angeben" (→). Erst die Angabe holt seinen Teilbaum in den Durchlauf — samt der
+  „Weiter" (↓) übergeht es folgenlos.
+- Ein optionaler **Container** ist eine Station mit „angeben" (←) und „nicht
+  angeben" (↓). Erst die Angabe holt seinen Teilbaum in den Durchlauf — samt der
   Pflichtfelder darunter. Ohne Angabe verlangt der Durchlauf dort nichts.
 - Übergehen hält **keine** Aussage fest; die Station bleibt jederzeit
   anspringbar. Eine Angabe ist zurücknehmbar, solange der Teilbaum leer ist —
   stehen Werte darunter, entscheidet der Wert (erst löschen, dann übergehen).
-- Der ganze Durchlauf lässt sich mit `→` durchblättern; er erzeugt dann eine
-  Nachricht aus Pflicht-Rückgrat und sonst nichts.
+- Der ganze Durchlauf lässt sich mit `↓` durchblättern; er erzeugt dann eine
+  Nachricht aus Pflicht-Rückgrat und sonst nichts — **außer** an einer offenen
+  Pflichtangabe: die hält die Spur fest, bis sie befüllt (bzw. die Auswahl
+  belegt) ist. Zurück, hinein/heraus, „Nächster offener" und jeder Klick im Baum
+  bleiben frei.
+- Jede Station ist **farblich eingeordnet** — grün, wo die Nachricht die Angabe
+  verlangt, orange, wo sie frei ist (dieselben Farben wie „zwingend" und
+  „anzugeben, wenn vorhanden" in der Profilierung).
 
 ### D. Auswahlen (`choice`)
 
@@ -210,8 +218,8 @@ die ursprüngliche Fassung verlangte an jedem optionalen Element ein aufnehmen/w
   Vorkommen-Blätter — dazu ein freies Feld, sobald ein Wert darin steht.
   _(Nachgezogen mit [ADR 0016](../adr/0016-wert-entscheidet-im-instanz-durchlauf.md);
   vorher zählte jede optionale Entscheidung mit.)_
-- Der Normalweg ist das Blättern: „Weiter ›" (→) geht zur nächsten Station,
-  „‹ Zurück" (←) zur vorigen, ↓ betritt einen Container, ↑ verlässt ihn.
+- Der Normalweg ist das Blättern: „Weiter ›" (↓) geht zur nächsten Station,
+  „‹ Zurück" (↑) zur vorigen, ← betritt einen Container, → verlässt ihn.
   „**Nächster offener**" springt zur nächsten Lücke; freies Anspringen im Baum
   bleibt möglich.
 

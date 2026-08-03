@@ -58,9 +58,21 @@ Daraus folgt:
   keine Abwahl mehr, an der `kardSperreWeglassen` greifen könnte (ADR 0015): die
   Untergrenze macht das Element deshalb zum Pflicht-Rückgrat. Die Sperre selbst bleibt für
   Baum und Bearbeitungs-Modus bestehen.
-- **Blättern ist die Grundbewegung.** `←` `→` gehen eine Station zurück bzw. weiter, `↓`
-  gibt einen Container an und springt hinein, `↑` verlässt ihn. Die beiden Knöpfe am
-  Container sind der Mausweg zu `↓` und `→`.
+- **Blättern ist die Grundbewegung.** Senkrecht läuft die Spur (`↓` zur nächsten Station —
+  zugleich das Übergehen einer freien —, `↑` zurück), waagerecht die Tiefe (`←` gibt einen
+  Container an und geht hinein, `→` wieder heraus). Die beiden Knöpfe am Container sind der
+  Mausweg zu `←` und `↓`.
+- **Pflichtangaben lassen sich nicht übergehen.** `ueberspringSperre` hält `↓` und „Weiter ›"
+  an einer offenen Pflichtangabe oder einer unbelegten Pflicht-Auswahl fest und nennt den
+  Grund. Festgehalten wird nur die Weiter-Bewegung: zurück, hinein/heraus, „Nächster offener"
+  und jeder Klick im Baum bleiben frei — sonst wäre der Durchlauf an einer Stelle gefangen,
+  die sich vielleicht erst später beantworten lässt.
+- **Die Verbindlichkeit ist sichtbar.** `stationArt(path)` ordnet jede Station ein und färbt
+  sie in den Farben der Profilierung ein (`profile-defaults`): grün `#1D9E75`, wo die
+  Nachricht die Angabe verlangt, orange `#BA7517`, wo sie frei ist. Getragen wird das im Baum
+  vom Statusstreifen (auch im Mini-Kasten sichtbar) und von den Tags `t-mand`/`t-frei`, im
+  Detailbereich vom Abzeichen neben „Geführte Angabe". Ein befülltes freies Feld bleibt
+  orange — es ist weiterhin löschbar; die Einordnung ist strukturell, nicht Zustand.
 
 Die Elternabhängigkeit bleibt unangetastet und trägt das Ganze: in einen optionalen Ast
 steigt der Walk nur ab, wenn er angegeben ist oder Inhalt trägt. Was der Durchlauf nicht

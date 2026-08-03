@@ -457,6 +457,10 @@ export class DetailPanel {
       offen: offene.has(path),
       nOffen: offene.size,
       freierWert,
+      // Einordnung der Station (grün = die Nachricht verlangt sie, orange =
+      // frei) und der Grund, warum „Weiter" hier nicht weiterkommt.
+      stationArt: this.guided.stationArt(path),
+      ueberspringSperre: this.guided.ueberspringSperre(),
       // Container-Station: angegeben (Ast ist Teil der Nachricht) und der Grund,
       // warum sich das nicht zuruecknehmen laesst.
       angegeben: w === 'pflicht',
@@ -825,7 +829,7 @@ export class DetailPanel {
       const grund = this.guided.angabeSperre(path);
       if (grund) this.toast.show(grund);
     }
-    this.guided.gotoNext();
+    this.guidedNext();
   }
 
   /** Instanz-Auswahl: genau einen Zweig waehlen. */
@@ -916,7 +920,16 @@ export class DetailPanel {
     this.guided.gotoPrev();
   }
 
+  /**
+   * „Weiter ›" — dieselbe Bewegung wie Taste ↓, samt derselben Sperre: eine
+   * offene Pflichtangabe haelt die Spur fest und nennt den Grund.
+   */
   protected guidedNext(): void {
+    const grund = this.guided.ueberspringSperre();
+    if (grund) {
+      this.toast.show(grund);
+      return;
+    }
     this.guided.gotoNext();
   }
 

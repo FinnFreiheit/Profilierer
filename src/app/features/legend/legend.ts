@@ -16,4 +16,8 @@ export class Legend {
   protected readonly guided = computed(
     () => this.state.guided() && !this.state.readOnly() && !this.guidedSvc.instanzModus(),
   );
+  /** Gefuehrter Durchlauf einer Nachricht: eigene Farben und Tastenbelegung (ADR 0016). */
+  protected readonly durchlauf = computed(
+    () => this.state.guided() && !this.state.readOnly() && this.guidedSvc.instanzModus(),
+  );
 }

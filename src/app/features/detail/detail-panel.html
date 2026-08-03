@@ -180,7 +180,12 @@
     @if (giv(); as g) {
       <div class="dsec guidedSec">
         <label>
-          Geführte Entscheidung
+          Geführte Angabe
+          @if (g.stationArt === 'pflicht') {
+            <span class="gStation gPflicht">Pflicht</span>
+          } @else if (g.stationArt === 'frei') {
+            <span class="gStation gFrei">optional</span>
+          }
           @if (g.offen) {
             <span class="gOffen">offen</span>
           }
@@ -213,7 +218,7 @@
             <button
               [class.active]="g.angegeben"
               [class.gAuf]="true"
-              title="Angaben machen — der Teilbaum wird betreten (Taste ↓)"
+              title="Angaben machen — der Teilbaum wird betreten (Taste ←)"
               (click)="angeben()"
             >
               angeben
@@ -223,7 +228,7 @@
               [disabled]="g.angegeben && !!g.angabeSperre"
               [title]="
                 (g.angegeben && g.angabeSperre) ||
-                'Ohne Angabe weiter zur nächsten Station (Taste →)'
+                'Ohne Angabe weiter zur nächsten Station (Taste ↓)'
               "
               (click)="nichtAngeben()"
             >
@@ -270,16 +275,27 @@
           <div class="gHint">entfällt — übergeordnet weggelassen</div>
         }
 
+        @if (g.ueberspringSperre) {
+          <div class="gHint gSperre">{{ g.ueberspringSperre }}</div>
+        }
+
         <div class="gNav">
-          <button title="Taste ←" (click)="guidedPrev()">‹ Zurück</button>
-          <button class="primary" title="Taste →" (click)="guidedNext()">Weiter ›</button>
+          <button title="Taste ↑" (click)="guidedPrev()">‹ Zurück</button>
+          <button
+            class="primary"
+            [class.gesperrt]="!!g.ueberspringSperre"
+            [title]="g.ueberspringSperre || 'Taste ↓'"
+            (click)="guidedNext()"
+          >
+            Weiter ›
+          </button>
           <button [disabled]="!g.nOffen" (click)="guidedNextOpen()">
             Nächster offener ({{ g.nOffen }})
           </button>
         </div>
         <div class="gKbdHint">
-          Tastatur: ← → blättern · ↓ Teilbaum angeben und betreten · ↑ zurück zum übergeordneten
-          Punkt
+          Tastatur: ↓ weiter (Pflichtangaben halten fest) · ↑ zurück · ← Teilbaum angeben und
+          betreten · → wieder heraus
         </div>
       </div>
     }

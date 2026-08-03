@@ -597,6 +597,46 @@ describe('GuidedService', () => {
       expect(pfade()).toContain(`${M}/_gruppe/detail`);
     });
 
+    it('Pflichtangaben lassen sich nicht uebergehen, freie schon', () => {
+      const nav = TestBed.inject(NavService);
+
+      // Offener Pflichtwert: die Spur bleibt stehen und nennt den Grund.
+      nav.jumpTo(`${M}/kopf`);
+      expect(svc.ueberspringSperre()).toContain('Pflichtangabe');
+      expect(svc.ueberspringen()).toBeFalse();
+      const sel1 = state.selItem();
+      expect(sel1 && itemPath(sel1)).toBe(`${M}/kopf`);
+
+      // Mit typkonformem Wert gibt sie den Weg frei.
+      state.setElementProfile(`${M}/kopf`, { beispiel: 'Kopfwert' });
+      expect(svc.ueberspringSperre()).toBeNull();
+      expect(svc.ueberspringen()).toBeTrue();
+
+      // Offene Pflicht-Auswahl haelt ebenso fest.
+      nav.jumpTo(`${M}/_auswahl`);
+      expect(svc.ueberspringSperre()).toContain('Auswahl');
+      svc.waehleZweig(`${M}/_auswahl`, `${M}/_auswahl/email`);
+      state.setElementProfile(`${M}/_auswahl/email`, { beispiel: 'a@b.de' });
+      expect(svc.ueberspringSperre()).toBeNull();
+
+      // Ein freies Feld haelt nie fest.
+      nav.jumpTo(`${M}/az`);
+      expect(svc.ueberspringSperre()).toBeNull();
+      expect(svc.ueberspringen()).toBeTrue();
+    });
+
+    it('stationArt faerbt Pflicht und Freies auseinander', () => {
+      expect(svc.stationArt(`${M}/kopf`)).toBe('pflicht'); // Pflicht-Blatt
+      expect(svc.stationArt(`${M}/_auswahl`)).toBe('pflicht'); // Pflicht-Auswahl
+      expect(svc.stationArt(`${M}/az`)).toBe('frei'); // optionales Blatt
+      expect(svc.stationArt(`${M}/_gruppe`)).toBe('frei'); // optionaler Container
+      // Ein befuelltes freies Feld bleibt frei — es ist weiterhin loeschbar.
+      state.setElementProfile(`${M}/az`, { beispiel: '12 C 34/26' });
+      expect(svc.stationArt(`${M}/az`)).toBe('frei');
+      // Kein Punkt, keine Farbe.
+      expect(svc.stationArt(`${M}/_gruppe/detail`)).toBeNull();
+    });
+
     it('betreteStation gibt an und springt auf die erste Station darunter', () => {
       state.selItem.set(TestBed.inject(NavService).findItemByPath(`${M}/_gruppe`));
       expect(svc.betreteStation()).toBeTrue();
