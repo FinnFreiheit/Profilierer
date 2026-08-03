@@ -34,5 +34,8 @@ npm-debug.log
 /server/node_modules
 /server/data
 
+# Lokale Umgebung (XJP_AG_KEY u. a.) — enthaelt Geheimnisse
+.env.local
+
 # Claude Code (persoenliche Einstellungen)
 .claude/settings.local.json

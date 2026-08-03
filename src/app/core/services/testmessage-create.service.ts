@@ -216,6 +216,11 @@ export class TestmessageCreateService {
       if (!it || it.kind !== 'el' || this.tree.isLeaf(it.node)) continue;
       // Erzwingt der Container etwas? Schema-Rueckgrat darunter …
       if (this.tree.collectMandatoryPaths(it.node).length) continue;
+      // … eine Auswahl, die einen Zweig verlangt, ohne ihn zu benennen
+      // (Nachtrag 26.08.03: `auswahl_*` ist in XJustiz der Regelfall, nicht die
+      // Ausnahme — ohne diese Frage meldete der Start jeden zwingend gesetzten
+      // Auswahl-Container als Mangel) …
+      if (this.tree.verlangtAuswahl(it.node)) continue;
       // … oder eine eigene zwingende Festlegung der Profilierung darunter.
       const zwingendesKind = Object.entries(doc.elemente).some(
         ([k, kp]) => k !== pfad && unterPfad(k, pfad) && wirkungVon(kp.status) === 'pflicht',
@@ -225,6 +230,44 @@ export class TestmessageCreateService {
         pfad,
         text: `${kurz(pfad)} (${pfad}): „zwingend" erzwingt hier nichts — alle Kinder sind schema-optional und keines ist selbst zwingend gesetzt. Der Durchlauf kann den Teilbaum leer lassen; in der Profilierung klären, welches Kind das Szenario verlangt.`,
       });
+    }
+
+    // Vierter Widerspruch (Nachtrag 26.08.03): eine Auswahl, die belegt werden
+    // muss, deren Zweige die Profilierung aber samt und sonders ausschliesst.
+    // Anders als der dritte Fall erzwingt das Schema hier etwas — nur laesst
+    // die Profilierung keine zulaessige Wahl uebrig, und der Durchlauf steht
+    // vor einer leeren Auswahl. Geprueft wird, wohin der Durchlauf zwingend
+    // muss: das Pflicht-Rueckgrat der Nachricht, jeder zwingend gesetzte
+    // Container und dessen eigenes Rueckgrat.
+    const root = this.state.root();
+    const zwingend = new Set<string>(root ? this.tree.collectMandatoryPaths(root) : []);
+    for (const [pfad, p] of Object.entries(doc.elemente)) {
+      if (wirkungVon(p.status) !== 'pflicht') continue;
+      zwingend.add(pfad);
+      const it = this.nav.findItemByPath(pfad);
+      if (it?.kind === 'el')
+        for (const k of this.tree.collectMandatoryPaths(it.node)) zwingend.add(k);
+    }
+    for (const pfad of zwingend) {
+      // Ein ausgeschlossener Ast wird gar nicht erst erzeugt — dort ist die
+      // leere Auswahl kein Widerspruch, und der Ausschluss selbst ist oben
+      // schon gemeldet, wo die Profilierung ihn zugleich verlangt.
+      if (schliesstAus(pfad) || vorfahren(pfad).some((a) => schliesstAus(a))) continue;
+      const it = this.nav.findItemByPath(pfad);
+      if (!it || it.kind !== 'el') continue;
+      for (const zweige of this.tree.auswahlZweige(it.node)) {
+        if (!zweige.length) continue;
+        // Eine Gruppen-Alternative (synthetisch) traegt keine Festlegung und
+        // bleibt darum immer waehlbar — nur benannte Zweige kann die
+        // Profilierung ausschliessen.
+        const offen = zweige.filter((z) => z.synthetic || !schliesstAus(z.path));
+        if (offen.length) continue;
+        eintraege.push({
+          pfad,
+          text: `${kurz(pfad)} (${pfad}): Die Auswahl muss belegt werden, aber ${zweige.map((z) => `„${kurz(z.path)}"`).join(', ')} ${zweige.length > 1 ? 'sind' : 'ist'} ausgeschlossen — dem Durchlauf bleibt kein zulässiger Zweig. In der Profilierung klären, welcher Zweig das Szenario trägt.`,
+        });
+        break; // eine blockierte Auswahl je Container genuegt als Meldung
+      }
     }
 
     if (!eintraege.length) return;
@@ -340,27 +383,18 @@ export class TestmessageCreateService {
 
   /**
    * Stand speichern: erstes Mal anlegen (Namensabfrage), danach denselben
-   * Eintrag aktualisieren. Offene *optionale* Entscheidungen warnen nur, wenn
-   * die Nachricht ansonsten vollstaendig waere (weiche Fuehrung); offene
-   * Pflicht-Punkte machen den Eintrag zum gekennzeichneten Entwurf.
-   * Gibt true zurueck, wenn gespeichert wurde.
+   * Eintrag aktualisieren. Offene Pflicht-Punkte machen den Eintrag zum
+   * gekennzeichneten Entwurf. Gibt true zurueck, wenn gespeichert wurde.
    */
   async speichern(): Promise<boolean> {
     const session = this.state.messageCreate();
     if (!session) return false;
 
+    // Gezaehlt werden nur die geschuldeten Angaben (ADR 0016) — Optionales, das
+    // der Durchlauf uebergangen hat, ist keine offene Entscheidung und loest
+    // darum auch keine Rueckfrage mehr aus.
     const { x, y } = this.guided.fortschritt();
     const kritisch = this.guided.offenePflicht();
-    const optionalOffen = y - x - kritisch;
-    if (!kritisch && optionalOffen > 0) {
-      const w = confirm(
-        `Noch ${optionalOffen} offene Entscheidung${optionalOffen === 1 ? '' : 'en'} zu optionalen Elementen — trotzdem speichern?`,
-      );
-      if (!w) {
-        this.guided.gotoNextOpen();
-        return false;
-      }
-    }
 
     const res = this.exporter.buildBeispielXmlMitPfaden({ instanz: true });
     if (res == null) throw new Error('Nachricht konnte nicht erzeugt werden.');

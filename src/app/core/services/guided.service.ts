@@ -2,7 +2,7 @@ import { Injectable, Signal, computed, inject } from '@angular/core';
 import { Auspraegung } from '../../models/profile.model';
 import { TreeNode, itemPath } from '../../models/node.model';
 import { refKindEff, refTraeger } from '../refs';
-import { segmentKette } from '../util/pfad.util';
+import { segmentKette, unterPfad, vorfahren } from '../util/pfad.util';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { NavService } from './nav.service';
@@ -24,8 +24,12 @@ export type PunktMarker = 'zuklaeren' | 'nichtprofiliert';
 /**
  * Ein Entscheidungspunkt des gefuehrten Durchlaufs. Im Profil-Modus: ein
  * Element/eine Gruppe/eine Auspraegung, zu der eine Disposition zu treffen ist.
- * Im Instanz-Modus (Testnachricht gefuehrt erstellen) zusaetzlich `wert`:
- * ein Pflicht-Blatt, das einen typkonformen Wert braucht.
+ *
+ * Im Instanz-Modus (Testnachricht gefuehrt erstellen) sind es **Stationen**, und
+ * nur ein Teil davon schuldet eine Antwort: `wert` mit `pflicht: true` braucht
+ * einen typkonformen Wert, `wert` mit `pflicht: false` ist ein freies Feld (der
+ * Wert allein sagt, ob das Element vorkommt), `element` ist ein optionaler
+ * Container, den man angibt oder uebergeht.
  */
 export interface DecisionPoint {
   path: string;
@@ -60,12 +64,16 @@ interface WalkErgebnis {
  *
  * **Instanz-Modus** (US "Testnachricht gefuehrt erstellen", aktiv bei laufender
  * `messageCreate`- oder `messageEdit`-Session): dieselbe Punkte-Mechanik, aber
- * mit Instanz-Semantik —
+ * mit Instanz-Semantik — **der Wert entscheidet** (ADR 0016):
  * - Pflicht-Blaetter sind `wert`-Punkte (offen, bis ein typkonformer Wert da ist),
- * - optionale Elemente entscheiden **aufnehmen** (Wirkung `pflicht`) oder
- *   **weglassen** (`ausgeschlossen`); abgestiegen wird nur in Aufgenommenes
- *   (bzw. in Aeste, die bereits Inhalt tragen — Nachrichten-Bearbeitung),
- * - eine Auswahl (`choice`) verlangt **genau einen** Zweig je Vorkommen,
+ * - optionale Blaetter sind freie `wert`-Punkte: ein eingetragener Wert bringt
+ *   das Element in die Nachricht, kein Wert laesst es weg — es gibt dort keine
+ *   Ja/Nein-Frage und nichts Offenes (nur ein typwidriger Wert zaehlt als offen),
+ * - optionale **Container** tragen keinen Wert; sie werden angegeben (Wirkung
+ *   `pflicht`) oder uebergangen. Abgestiegen wird nur in Angegebenes (bzw. in
+ *   Aeste, die bereits Inhalt tragen — Nachrichten-Bearbeitung),
+ * - eine Auswahl (`choice`) verlangt **genau einen** Zweig je Vorkommen; ist
+ *   keiner ausdruecklich gewaehlt, gilt ein einzig befuellter Zweig als gewaehlt,
  * - Auspraegungen sind die Vorkommen wiederholbarer Elemente.
  *
  * Reaktivitaet: Der teure Struktur-Walk haengt an root/auspraegungen, einem
@@ -85,6 +93,34 @@ export class GuidedService {
   readonly instanzModus = computed<boolean>(
     () => !!this.state.messageCreate() || !!this.state.messageEdit(),
   );
+
+  /**
+   * Pfade, unter denen die Nachricht **Inhalt** traegt (erfasster Wert oder
+   * angelegtes Vorkommen) — jeweils samt aller Vorfahren, damit `has(pfad)`
+   * fragt: liegt unter diesem Ast irgendetwas? Grundlage des wertgetriebenen
+   * Durchlaufs: der Walk steigt in befuellte Aeste auch ohne Angabe ab, ein
+   * einzig befuellter Auswahl-Zweig gilt als gewaehlt, und eine Angabe laesst
+   * sich nicht zuruecknehmen, solange darunter Werte stehen. Bewusst **ohne**
+   * Modus-Bedingung: die Serialisierung fragt dieselbe Karte, und sie laeuft
+   * auch ohne laufende Sitzung (Erzeugen aus dem Speicher heraus). Gelesen wird
+   * sie ohnehin nur auf Instanz-Wegen.
+   */
+  private readonly inhaltPfade = computed<ReadonlySet<string>>(() => {
+    const set = new Set<string>();
+    const merke = (path: string): void => {
+      for (const p of segmentKette(path)) set.add(p);
+    };
+    for (const [path, p] of Object.entries(this.state.elemente())) {
+      if (p.beispiel) merke(path);
+    }
+    for (const path of Object.keys(this.state.auspraegungen())) merke(path);
+    return set;
+  });
+
+  /** Traegt dieser Ast (Element selbst oder etwas darunter) eine Angabe? */
+  hatInhalt(path: string): boolean {
+    return this.inhaltPfade().has(path);
+  }
 
   /** Sortierter Fingerprint aller ausgeschlossenen Pfade (Struktur-Invalidierung). */
   private readonly exclKey = computed<string>(() => {
@@ -111,14 +147,25 @@ export class GuidedService {
     // sichtbar bleibt).
     const gesperrt = (path: string): boolean => this.state.vorgabeSchliesstAus(path);
     // Zwingend gesetzt: die gebundene Fassung verlangt das Element, auch wo das
-    // Schema es freistellt. Es ist damit kein Aufnehmen/Weglassen-Punkt mehr,
-    // sondern Pflicht-Rueckgrat — Blaetter brauchen einen typkonformen Wert,
-    // Container werden ohne Rueckfrage betreten. Wie der Marker ueber
+    // Schema es freistellt. Es ist damit keine freie Station mehr, sondern
+    // Pflicht-Rueckgrat — Blaetter brauchen einen typkonformen Wert, Container
+    // werden ohne Rueckfrage betreten. Wie der Marker ueber
     // profilWirkungGeerbt, damit die Festlegung auch innerhalb eines Vorkommens
     // greift — sonst verlangte der Durchlauf am Traegerelement, was er in der
     // Auspraegung wieder freigibt.
-    const zwingend = (path: string): boolean =>
-      instanz && this.state.profilWirkungGeerbt(path) === 'pflicht';
+    //
+    // Die **Mindestanzahl der Profilierung** zaehlt genauso: seit der Durchlauf
+    // kein "weglassen" mehr kennt, gibt es keine Abwahl, an der eine Sperre
+    // greifen koennte (frueher `kardSperreWeglassen`) — eine Untergrenze >= 1
+    // macht das Element deshalb zum Pflicht-Rueckgrat. Nur die Eingrenzung der
+    // Profilierung: die Schema-Untergrenze fuehrt ohnehin ueber `n.min`, und ein
+    // Auswahl-Zweig traegt sein `min=1` aus dem Schema.
+    const zwingend = (n: TreeNode): boolean => {
+      if (!instanz) return false;
+      if (this.state.profilWirkungGeerbt(n.path) === 'pflicht') return true;
+      const k = this.state.effKard(n);
+      return k.minProfil && (parseInt(k.min, 10) || 0) >= 1;
+    };
     const punkte: DecisionPoint[] = [];
     const seqOf = new Map<string, number>();
     const wertNodes = new Map<string, PlaceholderNode>();
@@ -126,18 +173,9 @@ export class GuidedService {
     let seq = 0;
 
     // Pfade, unter denen bereits Inhalt liegt (Werte/Auspraegungen) — im
-    // Instanz-Modus wird in solche Aeste auch ohne Aufnahme-Wirkung abgestiegen
+    // Instanz-Modus wird in solche Aeste auch ohne Angabe abgestiegen
     // (Nachrichten-Bearbeitung: vorhandener Inhalt hat keine Wirkungen).
-    const inhalt = new Set<string>();
-    if (instanz) {
-      const merke = (path: string): void => {
-        for (const p of segmentKette(path)) inhalt.add(p);
-      };
-      for (const [path, p] of Object.entries(this.state.elemente())) {
-        if (p.beispiel) merke(path);
-      }
-      for (const path of Object.keys(this.state.auspraegungen())) merke(path);
-    }
+    const inhalt = this.inhaltPfade();
 
     const merkeWertNode = (n: TreeNode, path: string): void => {
       wertNodes.set(path, { name: n.name, path, typeName: n.typeName, codelist: n.codelist });
@@ -165,8 +203,9 @@ export class GuidedService {
             kinder: instanz ? kinderPfade(n) : undefined,
             synthetisch: true,
           });
-        } else if (n.min === '0' && !zwingend(n.path)) {
-          // Optionale Gruppe: eigener Punkt, sonst blieben ihre Pflicht-Kinder unentschieden.
+        } else if (n.min === '0' && !zwingend(n)) {
+          // Optionale Gruppe: eigene Station (Container), sonst blieben ihre
+          // Pflicht-Kinder unerreichbar bzw. beim Profilieren unentschieden.
           punkte.push({
             path: n.path,
             art: 'element',
@@ -185,7 +224,7 @@ export class GuidedService {
       }
 
       seqOf.set(n.path, seq++);
-      const optional = (n.min === '0' && !zwingend(n.path)) || n.inChoice;
+      const optional = (n.min === '0' && !zwingend(n)) || n.inChoice;
       const leaf = this.tree.isLeaf(n);
       const istChoiceEl = !leaf && !n.recursive && (this.tree.expandNode(n), n.model === 'choice');
 
@@ -214,8 +253,22 @@ export class GuidedService {
             merkeWertNode(n, n.path);
           }
         } else if (optional) {
-          punkte.push({ path: n.path, art: 'element', seq: seqOf.get(n.path)!, leaf });
-          if (leaf) merkeWertNode(n, n.path);
+          // Der Wert entscheidet (ADR 0016): am optionalen **Blatt** gibt es
+          // keine Ja/Nein-Frage, nur ein freies Feld. Ein optionaler
+          // **Container** traegt keinen Wert — dort bleibt die Station
+          // "angeben / uebergehen".
+          if (leaf) {
+            punkte.push({
+              path: n.path,
+              art: 'wert',
+              seq: seqOf.get(n.path)!,
+              leaf: true,
+              pflicht: false,
+            });
+            merkeWertNode(n, n.path);
+          } else {
+            punkte.push({ path: n.path, art: 'element', seq: seqOf.get(n.path)! });
+          }
         } else if (leaf) {
           // Unbedingtes Pflicht-Blatt: Wert noetig.
           punkte.push({
@@ -233,8 +286,10 @@ export class GuidedService {
 
       if (excl.has(n.path)) return; // abgeschnitten
       if (n.recursive) return;
-      // Instanz: in nicht aufgenommene optionale Teilbaeume nicht absteigen —
-      // ihre Punkte entstehen erst mit der Aufnahme.
+      // Instanz: in uebergangene optionale Teilbaeume nicht absteigen — ihre
+      // Stationen entstehen erst mit der Angabe (oder mit Inhalt darunter).
+      // Damit haengt auch jede **Pflicht** unterhalb an der Elternkette: was der
+      // Durchlauf nicht betritt, verlangt er nicht.
       if (instanz && optional && !istChoiceEl && !steigAb(n.path)) return;
 
       const vorkommen = this.tree.vorkommenKinder(n);
@@ -243,11 +298,12 @@ export class GuidedService {
         // im TreeService (vorkommenKinder), der Walk behaelt seine Punktlogik.
         for (const { node: cn, ausp: a } of vorkommen) {
           if (gesperrt(cn.path)) continue; // ausgeschlossenes Vorkommen der Vorgabe
-          // Optionale Auspraegung der gebundenen Fassung: ein Entscheidungspunkt
-          // "aufnehmen / weglassen" statt eines Vorkommens, das mit seinem
-          // Dasein bereits entschieden waere (Spec #28). Nur fuer **profilierte**
-          // Auspraegungen — eine selbst angelegte Kopie (`vonId`) hat der
-          // Anwender bewusst erzeugt, sie ist damit aufgenommen.
+          // Optionale Auspraegung der gebundenen Fassung: eine Station statt
+          // eines Vorkommens, das mit seinem Dasein bereits entschieden waere
+          // (Spec #28) — ein Blatt-Vorkommen als freies Feld, ein Container als
+          // "angeben / uebergehen". Nur fuer **profilierte** Auspraegungen —
+          // eine selbst angelegte Kopie (`vonId`) hat der Anwender bewusst
+          // erzeugt, sie ist damit angegeben.
           const auspOptional =
             instanz && !a.vonId && this.state.profilWirkung(cn.path) === 'optional';
           seqOf.set(cn.path, seq++);
@@ -263,18 +319,28 @@ export class GuidedService {
               pflicht: true,
               kinder: kinderPfade(cn),
             });
+          } else if (auspOptional && cnLeaf) {
+            // Optionales Blatt-Vorkommen: freies Feld, der Wert entscheidet.
+            punkte.push({
+              path: cn.path,
+              art: 'wert',
+              seq: seqOf.get(cn.path)!,
+              leaf: true,
+              pflicht: false,
+            });
+            merkeWertNode(cn, cn.path);
           } else {
             punkte.push({
               path: cn.path,
               art: auspOptional ? 'element' : 'auspraegung',
               seq: seqOf.get(cn.path)!,
-              leaf: cnLeaf,
+              leaf: cnLeaf, // bei auspOptional hier stets false (Blatt oben behandelt)
             });
             if (instanz && cnLeaf) merkeWertNode(cn, cn.path);
           }
           if (excl.has(cn.path)) continue;
-          // Wie bei jedem optionalen Element: die Punkte darunter entstehen erst
-          // mit der Aufnahme.
+          // Wie bei jedem optionalen Element: die Stationen darunter entstehen
+          // erst mit der Angabe.
           if (auspOptional && !steigAb(cn.path)) continue;
           for (const c of this.tree.kinder(cn)) {
             if (instanz && cnChoice && !steigAb(c.path)) continue;
@@ -356,18 +422,58 @@ export class GuidedService {
    * Fortschritt: X entschiedene von Y echten Nutzer-Entscheidungen, dazu die
    * geparkten (Issue #41). Restarbeit und Klaerungsbedarf sind zwei Dinge und
    * werden getrennt ausgewiesen: `x + offen + zuKlaeren === y`.
+   *
+   * Im **Instanz-Modus** zaehlt Y nur die geschuldeten Stationen
+   * (`zaehltZurPflicht`) — Optionales, das man einfach uebergeht, ist keine
+   * Restarbeit und darf den Zaehler nicht aufblaehen (ADR 0016). Die Invariante
+   * `x + offen === y` bleibt: jede offene Station ist eine geschuldete.
    */
   readonly fortschritt: Signal<{ x: number; y: number; zuKlaeren: number }> = computed(() => {
-    const y = this.walk().punkte.length;
+    const punkte = this.walk().punkte;
+    if (this.instanzModus()) {
+      let x = 0;
+      let y = 0;
+      for (const p of punkte) {
+        if (!this.zaehltZurPflicht(p)) continue;
+        y++;
+        if (this.istEntschiedenPunkt(p)) x++;
+      }
+      return { x, y, zuKlaeren: 0 };
+    }
+    const y = punkte.length;
     const zuKlaeren = this.geparkteSet().size;
     return { x: y - this.offeneSet().size - zuKlaeren, y, zuKlaeren };
   });
 
   /**
+   * Instanz-Modus: schuldet diese Station eine Antwort, gehoert sie also in den
+   * Nenner von "X von Y Pflichtangaben"? Ein freies Feld zaehlt erst mit, sobald
+   * ein Wert darin steht — was angegeben ist, muss auch stimmen; ein leeres
+   * bleibt aussen vor. Eine optionale Auswahl zaehlt erst, wenn sie betreten
+   * wurde, ein Container nie (er ist Weg, nicht Angabe).
+   */
+  private zaehltZurPflicht(p: DecisionPoint): boolean {
+    switch (p.art) {
+      case 'wert':
+        return p.pflicht !== false || !!this.state.elemente()[p.path]?.beispiel?.trim();
+      case 'auswahl':
+        return this.auswahlGefordert(p);
+      case 'auspraegung':
+        return !!p.leaf;
+      case 'element':
+        return false;
+    }
+  }
+
+  /** Muss diese Auswahl belegt werden (Schema-Pflicht oder betretener Container)? */
+  private auswahlGefordert(p: DecisionPoint): boolean {
+    return !!p.pflicht || this.state.wirkungOf(p.path) === 'pflicht';
+  }
+
+  /**
    * Instanz-Modus: Anzahl offener Punkte, die die Schema-Vollstaendigkeit
    * verletzen (leere/typwidrige Pflichtwerte, ungeloeste Pflicht-Auswahlen,
-   * aufgenommene Blaetter ohne Wert) — das "valide"-Kriterium der Story.
-   * Offene reine Aufnahme-Entscheidungen zaehlen hier nicht.
+   * typwidrige freie Werte) — das "valide"-Kriterium der Story.
    */
   readonly offenePflicht: Signal<number> = computed(() => {
     if (!this.instanzModus()) return 0;
@@ -382,10 +488,11 @@ export class GuidedService {
   /**
    * Gebundener Durchlauf: wie viele **beruehrte** Elemente ungeklaert bzw. nicht
    * profiliert sind — die Sammelmeldung beim Speichern (Spec "Testnachricht aus
-   * einer Profilierung"). Beruehrt heisst: das Element landet in der Nachricht.
-   * Ein optionaler Punkt zaehlt also erst mit der Aufnahme, Weggelassenes nie.
-   * Synthetische Gruppen (choice/sequence) bleiben aussen vor — sie sind keine
-   * Elemente der Nachricht, sondern Schema-Partikel.
+   * einer Profilierung"). Beruehrt heisst: das Element landet in der Nachricht —
+   * ein freies Feld also erst mit einem Wert, ein optionaler Container erst mit
+   * der Angabe (oder Inhalt darunter), Uebergangenes nie. Synthetische Gruppen
+   * (choice/sequence) bleiben aussen vor — sie sind keine Elemente der
+   * Nachricht, sondern Schema-Partikel.
    */
   readonly markerZaehlung: Signal<{ ungeklaert: number; nichtProfiliert: number }> = computed(
     () => {
@@ -404,9 +511,19 @@ export class GuidedService {
   private istEnthalten(p: DecisionPoint): boolean {
     const w = this.state.wirkungOf(p.path);
     if (w === 'ausgeschlossen') return false;
-    // Optionales ist erst mit der Aufnahme Teil der Nachricht; alles andere hat
-    // der Walk nur besucht, weil es auf dem Pflicht-/gewaehlten Weg liegt.
-    return p.art === 'element' ? w === 'pflicht' : true;
+    switch (p.art) {
+      // Freies Feld: der Wert entscheidet. Pflichtwerte liegen ohnehin auf dem
+      // erzwungenen Weg und zaehlen auch leer als beruehrt.
+      case 'wert':
+        return p.pflicht !== false || !!this.state.elemente()[p.path]?.beispiel?.trim();
+      // Optionaler Container: angegeben oder mit Inhalt darunter.
+      case 'element':
+        return w === 'pflicht' || this.hatInhalt(p.path);
+      // Alles Weitere hat der Walk nur besucht, weil es auf dem
+      // Pflicht-/gewaehlten Weg liegt.
+      default:
+        return true;
+    }
   }
 
   /** Deduplizierte Freitexte (anmerkung) des Profils — als Vorschlaege wiederverwendbar. */
@@ -444,15 +561,20 @@ export class GuidedService {
     if (w === 'ausgeschlossen') return true;
     switch (p.art) {
       case 'wert':
+        // Freies Feld: leer ist eine gueltige Antwort ("kein Vorkommen"), ein
+        // eingetragener Wert muss dagegen typkonform sein — sonst entstuende
+        // stillschweigend eine schemawidrige Nachricht.
+        if (p.pflicht === false && !this.state.elemente()[p.path]?.beispiel?.trim()) return true;
         return this.wertOk(p.path);
-      case 'auswahl': {
-        const kinder = p.kinder ?? [];
-        const offen = kinder.filter((k) => this.state.wirkungOf(k) !== 'ausgeschlossen');
-        return offen.length === 1 && this.state.wirkungOf(offen[0]!) === 'pflicht';
-      }
+      case 'auswahl':
+        if (this.gewaehlterZweig(p.path, p.kinder)) return true;
+        // Ohne Zweig ist nur eine geforderte Auswahl offen; eine optionale
+        // wartet nicht auf eine Antwort, sie wird schlicht uebergangen.
+        return !this.auswahlGefordert(p);
       case 'element':
-        if (w !== 'pflicht') return false; // weder aufgenommen noch weggelassen
-        return p.leaf ? this.wertOk(p.path) : true;
+        // Optionaler Container: eine Station, keine Frage — der Durchlauf darf
+        // sie jederzeit uebergehen (ADR 0016).
+        return true;
       case 'auspraegung':
         // Das Vorkommen existiert (Entscheidung getroffen); Blaetter brauchen den Wert.
         return p.leaf ? this.wertOk(p.path) : true;
@@ -463,14 +585,38 @@ export class GuidedService {
   private istKritisch(p: DecisionPoint): boolean {
     switch (p.art) {
       case 'wert':
+        // Offen heisst hier: Pflichtwert fehlt/ist typwidrig, oder ein freier
+        // Wert wurde typwidrig eingetragen — beides verletzt das Schema.
         return true;
       case 'auswahl':
-        return !!p.pflicht || this.state.wirkungOf(p.path) === 'pflicht';
+        return this.auswahlGefordert(p);
       case 'element':
-        return !!p.leaf && this.state.wirkungOf(p.path) === 'pflicht';
+        return false; // Container-Station ist nie offen
       case 'auspraegung':
         return !!p.leaf;
     }
+  }
+
+  /**
+   * Der gewaehlte Zweig einer Auswahl — `null`, solange die Wahl offen oder
+   * mehrdeutig ist. Zwei Lesarten, in dieser Reihenfolge:
+   *
+   * 1. **ausdruecklich gewaehlt** (`waehleZweig`: der Zweig traegt `pflicht`),
+   * 2. **einzig befuellt** — steht in genau einem Zweig ein Wert und ist keiner
+   *    ausdruecklich gewaehlt, ist die Wahl damit getroffen (ADR 0016: es reicht,
+   *    einen Wert anzugeben). Bei mehreren befuellten Zweigen bleibt die Auswahl
+   *    offen, statt einen zu erfinden.
+   *
+   * Gemeinsame Leseregel von Fuehrung und Serialisierung (`ExportService`),
+   * damit im XML genau der Zweig steht, den der Durchlauf als gewaehlt anzeigt.
+   */
+  gewaehlterZweig(auswahlPath: string, kinderPfade?: string[]): string | null {
+    const kinder = kinderPfade ?? this.punktAt(auswahlPath)?.kinder ?? [];
+    const offen = kinder.filter((k) => this.state.wirkungOf(k) !== 'ausgeschlossen');
+    const gewaehlt = offen.filter((k) => this.state.wirkungOf(k) === 'pflicht');
+    if (gewaehlt.length) return gewaehlt.length === 1 ? gewaehlt[0]! : null;
+    const befuellt = offen.filter((k) => this.hatInhalt(k));
+    return befuellt.length === 1 ? befuellt[0]! : null;
   }
 
   /** Blatt hat einen nicht-leeren, typkonformen Wert. */
@@ -675,24 +821,68 @@ export class GuidedService {
     if (p) this.nav.jumpTo(p);
   }
 
-  /** Naechster Punkt (auch entschiedene — zum Durchblaettern/Korrigieren). */
-  gotoNext(): void {
+  /**
+   * Naechste Station (auch entschiedene — zum Durchblaettern/Korrigieren). Im
+   * Instanz-Durchlauf ist das der Normalweg: eine uebergangene Station bleibt
+   * ohne Aussage zurueck, und der Teilbaum eines nicht angegebenen Containers
+   * wird mit uebersprungen — seine Kinder sind gar keine Stationen.
+   */
+  gotoNext(): boolean {
     const { punkte, seqOf } = this.walk();
     const fromSeq = this.selSeq(seqOf);
     const p = punkte.find((x) => x.seq > fromSeq);
-    if (p) this.nav.jumpTo(p.path);
+    if (!p) return false;
+    this.nav.jumpTo(p.path);
+    return true;
   }
 
-  /** Vorheriger Punkt. */
-  gotoPrev(): void {
+  /** Vorherige Station. */
+  gotoPrev(): boolean {
     const { punkte, seqOf } = this.walk();
     const fromSeq = this.selSeq(seqOf);
     for (let i = punkte.length - 1; i >= 0; i--) {
       if (punkte[i]!.seq < fromSeq) {
         this.nav.jumpTo(punkte[i]!.path);
-        return;
+        return true;
       }
     }
+    return false;
+  }
+
+  /**
+   * Instanz-Durchlauf, Taste ↓: den ausgewaehlten optionalen Container angeben
+   * und in ihn hineinspringen (auf seine erste Station). false, wenn die
+   * Auswahl kein Container ist — dann bleibt es bei der Baum-Navigation.
+   */
+  betreteStation(): boolean {
+    const path = this.selPath();
+    if (path == null || !this.instanzModus()) return false;
+    const p = this.punktAt(path);
+    if (!p || p.art !== 'element') return false;
+    this.gibAn(path);
+    // Nach der Angabe entstehen die Stationen darunter — der Walk ist ein
+    // Computed, die naechste Lesung sieht sie bereits.
+    const { punkte, seqOf } = this.walk();
+    const fromSeq = seqOf.get(path) ?? -1;
+    const erste = punkte.find((x) => x.seq > fromSeq && unterPfad(x.path, path));
+    this.nav.jumpTo(erste?.path ?? path);
+    return true;
+  }
+
+  /**
+   * Instanz-Durchlauf, Taste ↑: zur naechsthoeheren Station (den Container
+   * verlassen). false, wenn darueber keine liegt.
+   */
+  gotoUebergeordnet(): boolean {
+    const path = this.selPath();
+    if (path == null || !this.instanzModus()) return false;
+    const punkte = this.walk().punkte;
+    const anc = vorfahren(path)
+      .reverse()
+      .find((a) => punkte.some((p) => p.path === a));
+    if (!anc) return false;
+    this.nav.jumpTo(anc);
+    return true;
   }
 
   /**
@@ -776,25 +966,45 @@ export class GuidedService {
     if (pflicht) this.state.setElementProfile(groupPath, { status: pflicht.id });
   }
 
-  // ── Instanz-Modus: Aufnahme, Zweigwahl, Dummy-Befuellung ────────────
+  // ── Instanz-Modus: Angabe, Zweigwahl, Dummy-Befuellung ──────────────
 
   /**
-   * Optionales Element aufnehmen (`pflicht`), weglassen (`ausgeschlossen`)
-   * oder die Entscheidung zuruecknehmen (null). Nicht-destruktiv: darunter
-   * erfasste Werte bleiben erhalten und wirken erst wieder mit der Aufnahme.
-   * Was die gebundene Fassung zwingend setzt oder mit einer Mindestanzahl
-   * verlangt, ist nicht abwaehlbar — der Durchlauf kann das Szenario nicht
-   * unterlaufen.
+   * Optionalen Container **angeben**: der Ast gehoert in die Nachricht, der
+   * Durchlauf steigt in ihn ab. Modelltechnisch dieselbe Wirkung `pflicht` wie
+   * frueher das "aufnehmen" — nur gibt es kein Gegenstueck mehr: wer nichts
+   * angibt, sagt nichts (ADR 0016).
    */
-  setzeAufnahme(path: string, aufnehmen: boolean | null): void {
-    if (!aufnehmen && this.state.profilWirkungGeerbt(path) === 'pflicht') return;
-    if (!aufnehmen && this.kardSperreWeglassen(path)) return;
-    if (aufnehmen === null) {
-      this.state.setElementProfile(path, { status: undefined });
-      return;
-    }
-    const st = aufnehmen ? this.state.pflichtStatus() : this.state.exclStatus();
+  gibAn(path: string): void {
+    const st = this.state.pflichtStatus();
     if (st) this.state.setElementProfile(path, { status: st.id });
+  }
+
+  /**
+   * Grund, warum sich die Angabe an diesem Container **nicht zuruecknehmen**
+   * laesst — null, wenn sie frei ist. Drei Gruende: die gebundene Fassung setzt
+   * den Ast zwingend, sie verlangt eine Mindestanzahl, oder es stehen bereits
+   * Werte darunter (dann entscheidet der Wert, nicht die Ruecknahme).
+   */
+  angabeSperre(path: string): string | null {
+    if (this.state.profilWirkungGeerbt(path) === 'pflicht')
+      return 'Die Profilierung setzt dieses Element zwingend.';
+    const kard = this.kardSperreWeglassen(path);
+    if (kard) return kard;
+    if (this.hatInhalt(path))
+      return 'Der Teilbaum enthält Angaben — zum Weglassen zuerst die Werte darunter löschen.';
+    return null;
+  }
+
+  /**
+   * Angabe zuruecknehmen ("nicht angeben"): der Status faellt weg, der Ast ist
+   * wieder uebergangen. Kein Ausschluss — der Durchlauf haelt bewusst nicht
+   * fest, was **nicht** angegeben wurde. Gibt false zurueck, wenn eine Sperre
+   * greift (`angabeSperre` nennt den Grund).
+   */
+  gibNichtAn(path: string): boolean {
+    if (this.angabeSperre(path)) return false;
+    this.state.setElementProfile(path, { status: undefined });
+    return true;
   }
 
   /**

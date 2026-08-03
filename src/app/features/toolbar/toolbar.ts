@@ -102,6 +102,10 @@ export class Toolbar {
       // Drei getrennte Zahlen (Issue #41): Restarbeit und Klaerungsbedarf sind
       // zweierlei — geparkte Punkte zaehlen zu keiner der beiden Mengen.
       const { x, y, zuKlaeren } = this.guided.fortschritt();
+      // Im Durchlauf einer Nachricht zaehlen nur die geschuldeten Angaben
+      // (ADR 0016) — "entschieden" waere dort das falsche Wort: Uebergangenes
+      // ist keine Entscheidung.
+      if (this.guided.instanzModus()) return `${x} von ${y} Pflichtangaben`;
       const offen = y - x - zuKlaeren;
       return zuKlaeren
         ? `${x} von ${y} entschieden · ${offen} offen · ${zuKlaeren} zu klären`

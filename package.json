@@ -19,9 +19,9 @@
     "check": "npm run lint && npm run format:check && npm run test:ci && npm run test:server && npm run build",
     "schemas:manifest": "node scripts/gen-schema-manifest.mjs",
     "schemas:fetch": "node scripts/fetch-schemas.mjs",
-    "server": "node server/index.js",
+    "server": "sh -c '[ -f .env.local ] && . ./.env.local; node server/index.js'",
     "dev": "concurrently -n web,api -c cyan,green \"npm:start\" \"npm:server\"",
-    "start:prod": "npm run build && node server/index.js"
+    "start:prod": "npm run build && npm run server"
   },
   "prettier": {
     "printWidth": 100,

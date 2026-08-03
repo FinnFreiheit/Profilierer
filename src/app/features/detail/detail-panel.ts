@@ -410,9 +410,10 @@ export class DetailPanel {
   });
 
   /**
-   * Gefuehrte Instanz-Entscheidung (US "Testnachricht gefuehrt erstellen"):
-   * aufnehmen/weglassen fuer Optionales, genau EIN Zweig je Auswahl,
-   * Pflichtwert-Hinweis fuer Blaetter und die Spur-Navigation.
+   * Gefuehrte Instanz-Station (US "Testnachricht gefuehrt erstellen"): am
+   * optionalen **Container** angeben/uebergehen, genau EIN Zweig je Auswahl,
+   * Wert-Hinweis fuer Blaetter und die Spur-Navigation. Am optionalen **Blatt**
+   * gibt es keine Ja/Nein-Frage — der Wert entscheidet (ADR 0016).
    */
   protected readonly giv = computed(() => {
     if (!this.state.guided() || this.state.readOnly()) return null;
@@ -443,11 +444,11 @@ export class DetailPanel {
       }));
     }
 
+    // Freies Feld: ein optionales Blatt, an dem der Wert allein entscheidet.
+    const freierWert = punkt?.art === 'wert' && punkt.pflicht === false;
     const wertOffen =
-      (punkt?.art === 'wert' ||
-        ((punkt?.art === 'element' || punkt?.art === 'auspraegung') &&
-          punkt.leaf &&
-          w === 'pflicht')) &&
+      (punkt?.art === 'wert' || (punkt?.art === 'auspraegung' && punkt.leaf)) &&
+      !!this.state.elemente()[path]?.beispiel?.trim() &&
       !this.guided.wertOk(path);
 
     return {
@@ -455,16 +456,16 @@ export class DetailPanel {
       istPunkt: !!punkt,
       offen: offene.has(path),
       nOffen: offene.size,
-      aufgenommen: w === 'pflicht',
-      weggelassen: w === 'ausgeschlossen',
+      freierWert,
+      // Container-Station: angegeben (Ast ist Teil der Nachricht) und der Grund,
+      // warum sich das nicht zuruecknehmen laesst.
+      angegeben: w === 'pflicht',
+      angabeSperre: punkt?.art === 'element' ? this.guided.angabeSperre(path) : null,
       entfaellt: !w && this.state.inheritedExcluded(path),
       zweige,
       wertOffen,
       // Gebundener Durchlauf: was die Profilierung festlegt bzw. offen laesst.
       zwingend: this.state.profilWirkungGeerbt(path) === 'pflicht',
-      // Grund, warum das Element nicht weggelassen werden darf (Mindestanzahl
-      // der Profilierung, Issue #50) — null, solange es abwaehlbar ist.
-      weglassSperre: this.guided.kardSperreWeglassen(path),
       marker: this.guided.markerOf(path),
       // Anmerkung der Profilierung als Hilfetext am Entscheidungspunkt: sie ist
       // oft die Begruendung, warum das Feld so aussehen muss. Bewusst
@@ -805,11 +806,26 @@ export class DetailPanel {
 
   // ── Gefuehrte Instanz-Entscheidung (Testnachricht erstellen) ────────
 
-  /** aufnehmen (true) / weglassen (false); erneuter Klick nimmt die Entscheidung zurueck. */
-  protected aufnahme(auf: boolean): void {
-    const w = this.state.wirkungOf(this.path());
-    const aktiv = auf ? w === 'pflicht' : w === 'ausgeschlossen';
-    this.guided.setzeAufnahme(this.path(), aktiv ? null : auf);
+  /**
+   * Container angeben (Taste ↓): aufnehmen und in den Ast springen — derselbe
+   * Weg wie die Tastatur, damit Maus und Tastatur nicht auseinanderlaufen.
+   */
+  protected angeben(): void {
+    this.guided.betreteStation();
+  }
+
+  /**
+   * Container uebergehen (Taste →): eine gesetzte Angabe zuruecknehmen und
+   * weiterblaettern. Greift eine Sperre, bleibt der Ast und der Grund wird
+   * genannt — geblaettert wird trotzdem.
+   */
+  protected nichtAngeben(): void {
+    const path = this.path();
+    if (this.state.wirkungOf(path) === 'pflicht' && !this.guided.gibNichtAn(path)) {
+      const grund = this.guided.angabeSperre(path);
+      if (grund) this.toast.show(grund);
+    }
+    this.guided.gotoNext();
   }
 
   /** Instanz-Auswahl: genau einen Zweig waehlen. */

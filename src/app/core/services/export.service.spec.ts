@@ -304,6 +304,20 @@ describe('ExportService (Schematron)', () => {
       expect(xml).not.toContain('Auswahl noch offen');
     });
 
+    it('ein einzig befuellter Zweig wird serialisiert, ohne dass er gewaehlt wurde', () => {
+      // ADR 0016: der Wert entscheidet — Fuehrung und Serialisierung lesen
+      // dieselbe Regel (`GuidedService.gewaehlterZweig`).
+      state.setElementProfile(`${M}/_auswahl/telefon`, { beispiel: '0301234' });
+      const xml = instanz();
+      expect(xml).toContain('<telefon>0301234</telefon>');
+      expect(xml).not.toContain('<email>');
+      expect(xml).not.toContain('Auswahl noch offen');
+
+      // Zwei befuellte Zweige bleiben mehrdeutig — es wird keiner geraten.
+      state.setElementProfile(`${M}/_auswahl/email`, { beispiel: 'a@b.de' });
+      expect(instanz()).toContain('<!-- Auswahl noch offen:');
+    });
+
     it('nicht aufgenommene optionale Gruppen entfallen; aufgenommene bringen ihre Pflicht-Kinder', () => {
       expect(instanz()).not.toContain('<detail>');
       state.setElementProfile(`${M}/_gruppe`, { status: 's1' });
