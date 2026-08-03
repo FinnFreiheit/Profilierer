@@ -237,6 +237,16 @@ export class App implements OnInit {
     if (t && ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) && !istZweigWahl(t)) return;
     if (document.querySelector('dialog[open]')) return;
 
+    // Auswahl aufheben (#82). Beim Oeffnen einer Nachricht waehlt der
+    // NavService sofort die Wurzel; ohne diesen Ausstieg gaebe es keinen
+    // Zustand "nichts ausgewaehlt" und die Liste der offenen Punkte im
+    // Detailbereich waere nicht erreichbar.
+    if (e.key === 'Escape' && this.state.selItem()) {
+      this.state.selItem.set(null);
+      e.preventDefault();
+      return;
+    }
+
     if (
       this.state.guided() &&
       !this.state.readOnly() &&

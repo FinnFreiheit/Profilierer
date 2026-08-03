@@ -1172,6 +1172,39 @@ app-detail-panel {
   font-size: 13px;
   padding: 8px 2px;
 }
+/* Sprungliste der offenen Punkte (#82) — sie fuellt die Spalte, solange
+   nichts ausgewaehlt ist, statt sie leer stehen zu lassen. */
+.ruheListe {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ruheItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  background: none;
+  padding: 6px 8px;
+}
+.ruheItem:hover {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+}
+.ruheLabel {
+  display: block;
+  font-size: 13px;
+}
+.ruheCrumb {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* Standard-Beschreibung gedeckelt: bei gut dokumentierten Elementen schob sie
    Status und Kardinalitaet sonst unter die Falz. */
 .docDeckel {

@@ -163,7 +163,7 @@ Konsumenten: `childItems` (die Referenz-Darstellung selbst), `collectMandatoryPa
 
 ## GuidedService
 
-Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten): offene Entscheidungspunkte (`offeneSet`), geparkte (`geparkteSet`), `fortschritt` (x von y plus `zuKlaeren`), `gotoNextOpen`, `offenePflicht`, `markerOf`/`markerZaehlung` (gebundener Durchlauf), `fuellePflichtfelder` (Dummy-Werte typkonform). Getestet in `guided.service.spec.ts`.
+Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten): offene Entscheidungspunkte (`offeneListe/offeneSet`), geparkte (`geparkteSet`), `fortschritt` (x von y plus `zuKlaeren`), `gotoNextOpen`, `offenePflicht`, `markerOf`/`markerZaehlung` (gebundener Durchlauf), `fuellePflichtfelder` (Dummy-Werte typkonform). Getestet in `guided.service.spec.ts`.
 
 **Instanz-Modus: der Wert entscheidet** ([ADR 0016](adr/0016-wert-entscheidet-im-instanz-durchlauf.md)). Die Punkte heißen dort **Stationen**, und nur ein Teil schuldet eine Antwort:
 

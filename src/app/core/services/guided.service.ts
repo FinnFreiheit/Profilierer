@@ -407,16 +407,27 @@ export class GuidedService {
     return set;
   });
 
-  /** Offene (unentschiedene, nicht geparkte) Punkt-Pfade — O(1)-Lookup fuer den Baum. */
-  readonly offeneSet: Signal<ReadonlySet<string>> = computed(() => {
+  /**
+   * Offene (unentschiedene, nicht geparkte) Punkte in Dokumentreihenfolge.
+   * `kritisch` heisst: der Punkt verletzt im Instanz-Modus die
+   * Schema-Vollstaendigkeit — dieselbe Bedingung, die `offenePflicht` zaehlt.
+   * Grundlage der Ruhezustands-Liste im Detailbereich (#82).
+   */
+  readonly offeneListe: Signal<readonly { path: string; kritisch: boolean }[]> = computed(() => {
     const geparkt = this.geparkteSet();
-    const set = new Set<string>();
+    const raus: { path: string; kritisch: boolean }[] = [];
     for (const p of this.walk().punkte) {
       if (geparkt.has(p.path)) continue; // geparkt: sichtbar erledigt-vertagt
-      if (!this.istEntschiedenPunkt(p)) set.add(p.path);
+      if (this.istEntschiedenPunkt(p)) continue;
+      raus.push({ path: p.path, kritisch: this.istKritisch(p) });
     }
-    return set;
+    return raus;
   });
+
+  /** Offene Punkt-Pfade — O(1)-Lookup fuer den Baum. */
+  readonly offeneSet: Signal<ReadonlySet<string>> = computed(
+    () => new Set(this.offeneListe().map((p) => p.path)),
+  );
 
   /**
    * Fortschritt: X entschiedene von Y echten Nutzer-Entscheidungen, dazu die

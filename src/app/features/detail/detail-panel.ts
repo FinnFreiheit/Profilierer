@@ -20,6 +20,7 @@ import { ErweiterungDialogService } from '../../core/services/erweiterung-dialog
 import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { LoggerService } from '../../core/services/logger.service';
 import { UiSettingsService } from '../../core/services/ui-settings.service';
+import { SearchService } from '../../core/services/search.service';
 import { itemPath } from '../../models/node.model';
 import { fmtKard, kardText, pretty } from '../../core/util/pretty.util';
 import { hinweisFehlerText, hinweisHerkunft } from '../../core/util/hinweis.util';
@@ -166,6 +167,54 @@ export class DetailPanel {
   protected readonly eingeklappt = this.ui.flagge('detailZu', false);
   /** Aufgeklappte Standard-Beschreibung; sie ist sonst auf wenige Zeilen gedeckelt. */
   protected readonly dokuOffen = signal(false);
+
+  // ── Ruhezustand: offene Punkte statt leerer Spalte (#82) ────────────
+
+  private readonly suche = inject(SearchService);
+
+  /** Wie viele offene Punkte die Liste zeigt, bevor sie auf die Gesamtzahl verweist. */
+  private static readonly RUHE_MAX = 10;
+
+  /**
+   * Was ohne Auswahl in der Spalte steht: die naechsten offenen Punkte zum
+   * Anspringen. Im Instanz-Modus zaehlen nur die kritischen — dort ist
+   * "offen" alles, was die Schema-Vollstaendigkeit verletzt (ADR 0016);
+   * uebergangene freie Felder sind keine Restarbeit.
+   */
+  protected readonly ruheOffen = computed(() => {
+    if (!this.state.hasRoot() || this.state.schemaView()) return [];
+    const alle = this.guided.offeneListe();
+    return this.guided.instanzModus() ? alle.filter((p) => p.kritisch) : alle;
+  });
+
+  /** Beschriftung der Sprungliste; der Suchindex kennt Label und Pfadkette schon. */
+  protected readonly ruheListe = computed(() => {
+    const offen = this.ruheOffen();
+    if (!offen.length) return [];
+    const index = new Map(this.suche.index().map((e) => [e.path, e]));
+    return offen.slice(0, DetailPanel.RUHE_MAX).map((p) => {
+      const e = index.get(p.path);
+      return {
+        path: p.path,
+        label: e?.label || p.path.split('/').pop() || p.path,
+        crumb: e?.crumb ?? '',
+      };
+    });
+  });
+
+  /** Wie viele Punkte die Liste nicht zeigt — nie stillschweigend abschneiden. */
+  protected readonly ruheWeitere = computed(() =>
+    Math.max(0, this.ruheOffen().length - DetailPanel.RUHE_MAX),
+  );
+
+  /** Ueberschrift der Liste: im Durchlauf sind es Pflichtangaben, sonst Entscheidungen. */
+  protected readonly ruheTitel = computed(() =>
+    this.guided.instanzModus() ? 'Offene Pflichtangaben' : 'Offene Entscheidungen',
+  );
+
+  protected springeZu(path: string): void {
+    this.nav.jumpTo(path, true);
+  }
 
   /** Untere Grenze: darunter passen Statusknoepfe und Kardinalitaet nicht mehr nebeneinander. */
   private static readonly MIN_BREITE = 300;

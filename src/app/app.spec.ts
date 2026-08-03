@@ -26,6 +26,33 @@ describe('App', () => {
     expect(compiled.querySelector('.dashHead h1')?.textContent).toContain('Profilierer');
   });
 
+  describe('Escape hebt die Auswahl auf (#82)', () => {
+    it('leert selItem und macht damit die Liste der offenen Punkte erreichbar', () => {
+      const fixture = TestBed.createComponent(App);
+      const app = fixture.componentInstance;
+      const state = TestBed.inject(StateService);
+      state.selItem.set({ kind: 'el', node: { path: 'x' } } as unknown as TreeItem);
+
+      const ev = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+      app.onKeydown(ev);
+
+      expect(state.selItem()).toBeNull();
+      expect(ev.defaultPrevented).toBe(true);
+    });
+
+    it('bleibt ohne Auswahl wirkungslos', () => {
+      const fixture = TestBed.createComponent(App);
+      const app = fixture.componentInstance;
+      const state = TestBed.inject(StateService);
+      state.selItem.set(null);
+
+      const ev = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+      app.onKeydown(ev);
+
+      expect(ev.defaultPrevented).toBe(false);
+    });
+  });
+
   describe('onKeydown (gefuehrter Profil-Modus)', () => {
     let app: App;
     let state: StateService;
