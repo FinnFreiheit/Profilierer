@@ -208,12 +208,47 @@ export class App implements OnInit {
    * Tastatur-Navigation (Z.2443-2463): Pfeiltasten im Baum; im gefuehrten
    * Profil-Modus zusaetzlich Links/Rechts = Spur (vorheriger Punkt / naechster
    * offener) und z/o/n = Disposition mit Auto-Sprung.
+   *
+   * Im gefuehrten **Instanz**-Durchlauf blaettert man statt zu entscheiden
+   * (ADR 0016): ← → gehen eine Station zurueck bzw. weiter — Weitergehen ist
+   * zugleich das Uebergehen einer optionalen Station —, ↓ gibt den
+   * ausgewaehlten Container an und springt hinein, ↑ verlaesst ihn wieder. Wo
+   * keine Station passt, greift die gewohnte Baum-Navigation.
    */
   onKeydown(e: KeyboardEvent): void {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target as HTMLElement | null;
     if (t && ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return;
     if (document.querySelector('dialog[open]')) return;
+
+    if (
+      this.state.guided() &&
+      !this.state.readOnly() &&
+      this.guided.instanzModus() &&
+      this.state.selItem()
+    ) {
+      // Links/Rechts gehoeren der Spur — auch am Ende der Nachricht, wo es
+      // keine naechste Station gibt: der Ruecksprung der Baum-Navigation
+      // (erstes Kind) warf den Durchlauf sonst an den Anfang zurueck.
+      if (e.key === 'ArrowRight') {
+        this.guided.gotoNext();
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        this.guided.gotoPrev();
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'ArrowDown' && this.guided.betreteStation()) {
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'ArrowUp' && this.guided.gotoUebergeordnet()) {
+        e.preventDefault();
+        return;
+      }
+    }
 
     // Gefuehrter Profil-Modus (gleiche Bedingung wie gv im Detail-Panel).
     if (

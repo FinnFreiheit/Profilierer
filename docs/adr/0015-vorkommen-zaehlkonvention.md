@@ -39,6 +39,13 @@ gesamten Pflicht-Rückgrat eine benannte Vorkommen-Ebene, wo das Schema nur ein 
 vorsieht — sichtbar im Baum, in der Excel-Ausleitung und in jedem Verweisziel, ohne dass die
 Nachricht dadurch anders aussähe. Der Name („Vorkommen 1") wäre reines Gerüst.
 
+> **Nachtrag (ADR 0016, 26.08.03):** Im Instanz-Durchlauf gibt es die Aufnahme-Entscheidung
+> nicht mehr — dort entscheidet der Wert. Die Untergrenze der Profilierung wirkt seitdem als
+> **Pflicht** (Blatt = Pflichtwert, Container = wird ohne Rückfrage betreten), statt eine
+> Abwahl zu sperren. `kardSperreWeglassen` bleibt unverändert und trägt weiterhin die Wege,
+> die eine Angabe entfernen: `✕` im Baum, „✕ Angabe entfernen" beim Bearbeiten und den
+> Zweigwechsel.
+
 **Die Untergrenze bekommt stattdessen Zähne an der Aufnahme-Entscheidung.**
 `kardSperreWeglassen(path)` nennt den Grund, warum ein Element nicht weggelassen werden darf;
 `setzeAufnahme` verweigert das Weglassen wie bei zwingend gesetzten Elementen, und jeder weitere Weg,

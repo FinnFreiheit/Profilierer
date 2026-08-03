@@ -28,7 +28,7 @@ dabei den bisherigen Ein-Klick-Weg (siehe Refinement-Entscheidungen).
 Bereits vorhanden und wiederverwendbar:
 
 - **Führung im Instanz-Modus:** `GuidedService` (Entscheidungspunkte in
-  Dokumentreihenfolge, Pflicht-Blätter als Wert-Punkte, aufnehmen/weglassen,
+  Dokumentreihenfolge, Pflicht-Blätter als Wert-Punkte, Angabe am Container,
   `choice` = genau ein Zweig, Vorkommen, Fortschritt „X von Y", nächster offener
   Punkt, Würfel je Feld und global).
 - **Sitzung, Speichern, Fortsetzen:** `TestmessageCreateService`,
@@ -85,12 +85,12 @@ Profil frei konfigurierbar):
 | Wirkung im Profil          | Verhalten beim Erstellen                                                                                               |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `ausgeschlossen`           | nicht befüllbar, kein Entscheidungspunkt, erscheint nie in der Instanz                                                 |
-| `pflicht`                  | vorhanden und **muss** befüllt werden — kein „weglassen", auch bei Schema-`min=0`                                      |
-| `optional`                 | Entscheidungspunkt **aufnehmen / weglassen**                                                                           |
+| `pflicht`                  | vorhanden und **muss** befüllt werden — nicht abwählbar, auch bei Schema-`min=0`                                       |
+| `optional`                 | freies Feld am Blatt (der Wert entscheidet), Station **angeben / übergehen** am Container (ADR 0016)                   |
 | `markierung` („zu klären") | wie `optional`, zusätzlich sichtbarer Hinweis am Element; beim Speichern Sammelmeldung „N ungeklärte Elemente berührt" |
 
 - **Offene Welt bei Schweigen des Profils:** Elemente ohne Festlegung folgen der
-  Schema-Semantik (Pflicht bleibt Pflicht, Optionales wird Entscheidungspunkt),
+  Schema-Semantik (Pflicht bleibt Pflicht, Optionales bleibt freie Angabe),
   tragen aber den neutralen Marker **„nicht profiliert"**; ihre Zahl nennt der
   Speicherdialog. Eine geschlossene Welt („nicht profiliert = nicht verwendet")
   würde bei jedem unvollständigen Profil Schema-Pflichtfelder unterschlagen und
@@ -110,7 +110,8 @@ Profil frei konfigurierbar):
 - **Zählkonvention:** Ein Element ohne benannte Ausprägungen ist **ein**
   Vorkommen (der generische Unterbaum); ein weggelassenes ist **keines**. Als
   Vorkommen angelegt wird darum erst `min ≥ 2`; `min = 1` erfüllt das Element
-  selbst und wird durchgesetzt, indem es sich nicht weglassen lässt. Ohne diese
+  selbst und wird durchgesetzt, indem der Durchlauf es wie eine Pflicht behandelt
+  (ADR 0016; bis dahin: indem es sich nicht weglassen ließ). Ohne diese
   Festlegung bliebe „`min` wird materialisiert" für den häufigsten Fall eine
   reine Zählregel ohne Zähne.
 - **Konfliktregel:** Trägt ein Element `ausgeschlossen` **und** `min ≥ 1`,
@@ -122,8 +123,8 @@ Profil frei konfigurierbar):
 
 - **Materialisierung nach Wirkung:** Ausprägungen mit Wirkung `pflicht` werden
   automatisch als Vorkommen angelegt, tragen ihren Namen sichtbar und sind
-  nicht entfernbar; `optional` erscheint als Entscheidungspunkt
-  aufnehmen/weglassen; ausgeschlossene tauchen nicht auf. Innerhalb jedes
+  nicht entfernbar; `optional` erscheint als Station „angeben / übergehen"
+  (Blatt-Vorkommen: der Wert entscheidet); ausgeschlossene tauchen nicht auf. Innerhalb jedes
   Vorkommens gilt die jeweilige **Unter-Profilierung**.
 - **Keine freien Vorkommen:** Definiert das Profil Ausprägungen, entsteht jedes
   weitere Vorkommen als **Kopie einer vorhandenen Ausprägung** (Auswahl
@@ -234,8 +235,8 @@ Profil frei konfigurierbar):
 
 - Elemente mit Wirkung `pflicht` sind vorhanden, nicht abwählbar und müssen
   typkonform befüllt werden — auch dort, wo das Schema `min=0` erlaubt.
-- Elemente mit Wirkung `optional` bleiben Entscheidungspunkt
-  aufnehmen/weglassen; unbeantwortet zählt als offen.
+- Elemente mit Wirkung `optional` bleiben eine freie Angabe: am Blatt entscheidet
+  der Wert, am Container die Angabe — nichts davon zählt als offen (ADR 0016).
 - Elemente mit Wirkung `markierung` verhalten sich wie `optional`, tragen einen
   „zu klären"-Hinweis, und ihre Zahl erscheint beim Speichern.
 - Elemente ohne Festlegung folgen der Schema-Semantik, tragen den Marker „nicht
@@ -245,8 +246,9 @@ Profil frei konfigurierbar):
 
 - Profil-`min ≥ 2` wird beim Start als Vorkommen angelegt; die entstandenen
   Vorkommen lassen sich nicht entfernen.
-- Profil-`min = 1` erfüllt das Element selbst — es lässt sich nicht weglassen,
-  und die Sperre nennt den Grund.
+- Profil-`min = 1` erfüllt das Element selbst — im Durchlauf ist es damit eine
+  Pflichtangabe (ADR 0016); auf allen anderen Wegen, die eine Angabe entfernen,
+  nennt die Sperre den Grund.
 - Bei erreichtem Profil-`max` ist „+ weiteres Vorkommen" gesperrt und nennt den
   Grund.
 

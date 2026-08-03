@@ -31,10 +31,26 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
     <xs:element name="extras" type="Type.Test.Extras" minOccurs="0"/>
   </xs:sequence></xs:complexType>
   <!-- Voll-optionaler Container fuer den Widerspruch aus #71: "zwingend"
-       erzwingt hier nichts, weil kein Kind ein Pflicht-Rueckgrat bildet. -->
+       erzwingt hier nichts, weil kein Kind ein Pflicht-Rueckgrat bildet.
+       Der Auswahl-Container haengt hier statt an der Wurzel, damit er die
+       Zaehlungen der beruehrten Wurzel-Elemente nicht verschiebt. -->
   <xs:complexType name="Type.Test.Extras"><xs:sequence>
     <xs:element name="notiz" type="xs:string" minOccurs="0"/>
+    <xs:element name="auswahl_kontakt" type="Type.Test.Auswahl" minOccurs="0"/>
+    <xs:element name="wahlblock" type="Type.Test.Wahlblock" minOccurs="0"/>
   </xs:sequence></xs:complexType>
+  <!-- Traegt die Auswahl als Schema-Pflichtkind: wer den Block zwingend
+       setzt, muss auch die Auswahl darunter beantworten koennen. -->
+  <xs:complexType name="Type.Test.Wahlblock"><xs:sequence>
+    <xs:element name="auswahl_weg" type="Type.Test.Auswahl"/>
+  </xs:sequence></xs:complexType>
+  <!-- Auswahl-Container in XJustiz-Manier (auswahl_*): kein Kind ist fuer
+       sich Pflicht, die Auswahl verlangt aber genau einen Zweig — welchen,
+       laesst das Schema offen. Kein Mangel im Sinne von #71. -->
+  <xs:complexType name="Type.Test.Auswahl"><xs:choice>
+    <xs:element name="email" type="xs:string"/>
+    <xs:element name="telefon" type="xs:string"/>
+  </xs:choice></xs:complexType>
   <xs:complexType name="Type.Test.Anlage"><xs:sequence>
     <xs:element name="name" type="xs:string"/>
   </xs:sequence></xs:complexType>
@@ -168,12 +184,14 @@ describe('TestmessageCreateService', () => {
       expect(patched[0]!.id).toBe('id-neu');
     });
 
-    it('vollstaendig = kein Entwurf; offene optionale Entscheidungen fragen nach', async () => {
+    it('vollstaendig = kein Entwurf; uebergangenes Optionales fragt nicht nach', async () => {
       spyOn(window, 'prompt').and.returnValue('X.xml');
       guided.fuellePflichtfelder(); // kopf + 2x anlage/name
       const confirmSpy = spyOn(window, 'confirm').and.returnValue(true);
       await svc.speichern();
-      expect(confirmSpy).toHaveBeenCalled(); // az (optional) ist noch offen
+      // az (optional) ist ohne Wert schlicht nicht Teil der Nachricht — keine
+      // offene Entscheidung, also auch keine Rueckfrage (ADR 0016).
+      expect(confirmSpy).not.toHaveBeenCalled();
       expect(created[0]!.entwurf).toBeFalse();
     });
 
@@ -469,6 +487,85 @@ describe('TestmessageCreateService', () => {
       expect(report.offen()).toBeFalse();
     });
 
+    it('kein Mangel an einem zwingenden Auswahl-Container (#71, Nachtrag 26.08.03)', async () => {
+      // Eine Auswahl hat kein Pflicht-Rueckgrat — keine Alternative ist fuer
+      // sich unbedingt. Erzwungen ist trotzdem etwas: genau ein Zweig muss
+      // belegt werden, welcher ist Sache des Durchlaufs. XJustiz 3.6.2 fuehrt
+      // 145 solcher `auswahl_*`-Container; sie duerfen nicht als Mangel gelten.
+      arbeitsstand = doc({
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+          { id: 'v1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' },
+        ],
+        elemente: { [`${M}/extras/auswahl_kontakt`]: { status: 'v1' } },
+      });
+
+      await svc.neuAusProfil(profil(), null);
+
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.offen()).toBeFalse();
+    });
+
+    it('meldet die Auswahl, deren Zweige samt und sonders ausgeschlossen sind', async () => {
+      arbeitsstand = doc({
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+          { id: 'v1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' },
+        ],
+        elemente: {
+          [`${M}/extras/auswahl_kontakt`]: { status: 'v1' },
+          [`${M}/extras/auswahl_kontakt/email`]: { status: 'v9' },
+          [`${M}/extras/auswahl_kontakt/telefon`]: { status: 'v9' },
+        },
+      });
+
+      await svc.neuAusProfil(profil(), null);
+
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.eintraege().length).toBe(1);
+      expect(report.eintraege()[0]!.pfad).toBe(`${M}/extras/auswahl_kontakt`);
+      expect(report.eintraege()[0]!.text).toContain('kein zulässiger Zweig');
+    });
+
+    it('kein Mangel, solange die Auswahl einen Zweig behaelt', async () => {
+      arbeitsstand = doc({
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+          { id: 'v1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' },
+        ],
+        elemente: {
+          [`${M}/extras/auswahl_kontakt`]: { status: 'v1' },
+          [`${M}/extras/auswahl_kontakt/email`]: { status: 'v9' },
+        },
+      });
+
+      await svc.neuAusProfil(profil(), null);
+
+      expect(TestBed.inject(ValidationReportService).offen()).toBeFalse();
+    });
+
+    it('prueft die Auswahl auch auf dem Rueckgrat unter einem zwingenden Container', async () => {
+      // wahlblock ist gesetzt, die Auswahl darunter ist Schema-Pflicht — der
+      // Durchlauf muss dort hin, findet aber keinen zulaessigen Zweig.
+      arbeitsstand = doc({
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+          { id: 'v1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' },
+        ],
+        elemente: {
+          [`${M}/extras/wahlblock`]: { status: 'v1' },
+          [`${M}/extras/wahlblock/auswahl_weg/email`]: { status: 'v9' },
+          [`${M}/extras/wahlblock/auswahl_weg/telefon`]: { status: 'v9' },
+        },
+      });
+
+      await svc.neuAusProfil(profil(), null);
+
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.eintraege().length).toBe(1);
+      expect(report.eintraege()[0]!.pfad).toBe(`${M}/extras/wahlblock/auswahl_weg`);
+    });
+
     it('meldet auch den vererbten Ausschluss — der Teilbaum wird sonst still halbiert', async () => {
       arbeitsstand = doc({
         elemente: {
@@ -730,17 +827,18 @@ describe('TestmessageCreateService', () => {
       expect(state.messageCreate()!.entryId).toBeNull();
     });
 
-    it('als Kopie: der Durchlauf steht auf den noch offenen Punkten', async () => {
+    it('als Kopie: der Durchlauf uebernimmt den Stand der Vorlage', async () => {
       await ersteGespeichert();
       const vorher = guided.fortschritt();
 
       await svc.weitereTestnachricht(true);
 
-      // Uebernommene Entscheidungen zaehlen weiter als entschieden; offen bleibt,
-      // was auch in der Vorlage offen war (hier das optionale beteiligung).
+      // Uebernommene Werte zaehlen weiter als erledigt. Das optionale
+      // `beteiligung` ist eine Station ohne Schuld — nichts steht mehr offen
+      // (ADR 0016), die Nachricht ist unmittelbar wieder speicherbar.
       expect(guided.fortschritt()).toEqual(vorher);
       expect(guided.offenePflicht()).toBe(0);
-      expect(guided.nextOpen(null)).toBe(`${M}/beteiligung`);
+      expect(guided.nextOpen(null)).toBeNull();
     });
 
     it('leer: die Pflichtpunkte sind wieder offen', async () => {

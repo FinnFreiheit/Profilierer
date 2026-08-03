@@ -19,8 +19,11 @@ für Schritt durch die Nachricht, zu jedem Punkt eine bewusste Aussage, nichts
 
 Der Unterschied zur Profilierung: Dort sind die Entscheidungen **Dispositionen**
 (zwingend / anzugeben wenn vorhanden / nicht verwendet); bei einer Instanz sind
-es **Instanz-Entscheidungen** — optionales Element aufnehmen oder weglassen,
-welcher `choice`-Zweig, wie viele Wiederholungen, welcher Wert in jedem Blatt.
+es **Instanz-Angaben** — welcher Wert in jedem Blatt, welcher `choice`-Zweig, wie
+viele Wiederholungen, und welche optionalen Teilbäume die Nachricht überhaupt
+füllt. _Nachgezogen ([ADR 0016](../adr/0016-wert-entscheidet-im-instanz-durchlauf.md)):_
+ein „aufnehmen / weglassen" je Element gibt es nicht mehr — am Blatt entscheidet
+der Wert, nur der Container wird angegeben oder übergangen.
 
 Bereits vorhanden und wiederverwendbar:
 
@@ -63,11 +66,15 @@ Bereits vorhanden und wiederverwendbar:
 - **Pflicht-Blatt:** Wert eingeben — offen, bis ein **typkonformer** Wert
   vorliegt (die vorhandene Datentyp-/Pattern-Prüfung zählt ein falsch
   formatiertes Feld als offen).
-- **Optionales Element (`min=0`):** explizite Entscheidung **aufnehmen**
-  (Teilbaum wird angelegt und weiter durchlaufen) oder **weglassen** (Teilbaum
-  übersprungen, zählt nicht mehr); unbeantwortet = offen. Weglassen ist
-  **nicht-destruktiv** zurücknehmbar (zuvor eingegebene Unter-Werte bleiben
-  erhalten).
+- **Optionales Blatt (`min=0`):** _Nachgezogen ([ADR 0016](../adr/0016-wert-entscheidet-im-instanz-durchlauf.md), 26.08.03):_
+  **keine** Entscheidung mehr — der Wert entscheidet. Eingetragen heißt vorhanden,
+  leer heißt nicht vorhanden; die Station ist nie offen. Nur ein eingetragener,
+  **typwidriger** Wert zählt als offen.
+- **Optionaler Container (`min=0`):** trägt keinen Wert und bleibt darum eine
+  Station mit zwei Wegen: **angeben** (Taste ↓ — der Teilbaum wird betreten und
+  weiter durchlaufen) oder **übergehen** (Taste →, der Teilbaum entfällt samt
+  Inhalt). Übergehen hält nichts fest und ist jederzeit nachholbar; eine Angabe
+  lässt sich zurücknehmen, solange darunter keine Werte stehen.
 - **Auswahl (`choice`):** genau **ein** Zweig je Vorkommen (Entweder-oder) —
   anders als bei der Profilierung, die mehrere Alternativen zulässt; das Schema
   erzwingt in der Instanz einen Zweig. Zweigwechsel ist nicht-destruktiv
@@ -128,7 +135,8 @@ Bereits vorhanden und wiederverwendbar:
 > aus einem hinterlegten Schema erstellen — Version und Nachricht wählen und
 > dann Knoten für Knoten geführt werden: jedes Pflichtfeld aktiv befüllen (auf
 > Wunsch per typkonformem Zufallswert, einzeln oder alle offenen auf einmal),
-> Optionales bewusst aufnehmen oder weglassen, je `choice` genau einen Zweig
+> Optionales durch die bloße Angabe eines Wertes aufnehmen und ohne Angabe
+> überspringen, je `choice` genau einen Zweig
 > wählen, Wiederholungen iterativ anlegen (auch als Kopie) — und den Stand
 > jederzeit als gekennzeichneten Entwurf speichern und später exakt dort
 > fortsetzen,
@@ -156,11 +164,20 @@ Bereits vorhanden und wiederverwendbar:
 
 ### C. Optionale Elemente
 
-- Jedes optionale Element ist ein Entscheidungspunkt mit **aufnehmen** /
-  **weglassen**; unbeantwortet zählt als offen.
-- „Weglassen" überspringt den Teilbaum (wird nicht mehr abgefragt, zählt
-  nicht); Rücknahme ist nicht-destruktiv — zuvor eingegebene Unter-Werte
-  erscheinen unverändert wieder.
+_Neu gefasst ([ADR 0016](../adr/0016-wert-entscheidet-im-instanz-durchlauf.md), 26.08.03) —
+die ursprüngliche Fassung verlangte an jedem optionalen Element ein aufnehmen/weglassen._
+
+- Ein optionales **Blatt** ist ein freies Feld: ein Wert bringt es in die
+  Nachricht, kein Wert lässt es weg. Es ist nie offen und blockiert nichts;
+  „Weiter" (→) übergeht es folgenlos.
+- Ein optionaler **Container** ist eine Station mit „angeben" (↓) und „nicht
+  angeben" (→). Erst die Angabe holt seinen Teilbaum in den Durchlauf — samt der
+  Pflichtfelder darunter. Ohne Angabe verlangt der Durchlauf dort nichts.
+- Übergehen hält **keine** Aussage fest; die Station bleibt jederzeit
+  anspringbar. Eine Angabe ist zurücknehmbar, solange der Teilbaum leer ist —
+  stehen Werte darunter, entscheidet der Wert (erst löschen, dann übergehen).
+- Der ganze Durchlauf lässt sich mit `→` durchblättern; er erzeugt dann eine
+  Nachricht aus Pflicht-Rückgrat und sonst nichts.
 
 ### D. Auswahlen (`choice`)
 
@@ -188,11 +205,15 @@ Bereits vorhanden und wiederverwendbar:
 
 ### G. Fortschritt und Navigation
 
-- Fortschritt „**X von Y**" ist jederzeit sichtbar; gezählt werden
-  Pflicht-Blätter (Wert), optionale Entscheidungen, Auswahl-Schritte und
-  angelegte Vorkommen.
-- Der Durchlauf schlägt den **nächsten offenen Punkt** in Dokumentreihenfolge
-  vor (Vor/Zurück, Wrap-around); freies Anspringen bleibt möglich.
+- Fortschritt „**X von Y Pflichtangaben**" ist jederzeit sichtbar; gezählt wird
+  nur, was die Nachricht schuldet: Pflichtwerte, Pflicht-Auswahlen,
+  Vorkommen-Blätter — dazu ein freies Feld, sobald ein Wert darin steht.
+  _(Nachgezogen mit [ADR 0016](../adr/0016-wert-entscheidet-im-instanz-durchlauf.md);
+  vorher zählte jede optionale Entscheidung mit.)_
+- Der Normalweg ist das Blättern: „Weiter ›" (→) geht zur nächsten Station,
+  „‹ Zurück" (←) zur vorigen, ↓ betritt einen Container, ↑ verlässt ihn.
+  „**Nächster offener**" springt zur nächsten Lücke; freies Anspringen im Baum
+  bleibt möglich.
 
 ### H. Speichern, Entwurf, Fortsetzen
 
@@ -202,9 +223,10 @@ Bereits vorhanden und wiederverwendbar:
 - Unvollständige Einträge tragen auf der Kachel „**Entwurf — unvollständig**"
   samt Fortschritt; vollständige Einträge tragen kein Kennzeichen. Das
   Kennzeichen wird bei jedem Speichern neu berechnet.
-- Beim Speichern mit offenen **optionalen** Entscheidungen erscheint eine
-  Warnung mit Rückfrage; leere Pflichtfelder machen den Eintrag zum Entwurf,
-  verhindern das Speichern aber nicht.
+- Leere Pflichtfelder machen den Eintrag zum Entwurf, verhindern das Speichern
+  aber nicht. _Entfallen ([ADR 0016](../adr/0016-wert-entscheidet-im-instanz-durchlauf.md)):_
+  die Rückfrage bei offenen optionalen Entscheidungen — Übergangenes ist keine
+  offene Entscheidung mehr.
 - Der Eintrag speichert **XML + Entscheidungsstand**; Klick auf die Kachel
   eines geführt erstellten Eintrags öffnet den Baum mit aktiver Führung und
   springt zum nächsten offenen Punkt.
@@ -229,7 +251,7 @@ Bereits vorhanden und wiederverwendbar:
   Version→Nachricht, Badge, Fortsetzen, Download-Rückfrage)
 - Führung: `src/app/core/services/guided.service.ts` (Instanz-Variante des
   Walks: Pflicht-Blätter als Punkte, choice = genau ein Zweig),
-  `src/app/features/detail/detail-panel.ts` (aufnehmen/weglassen,
+  `src/app/features/detail/detail-panel.ts` (angeben/nicht angeben,
   Zweig-Wahl, Würfel-Button), `src/app/features/toolbar/`
   (Fortschritt, globale Dummy-Aktion, Speichern)
 - Werte: `src/app/core/services/value.service.ts` (`placeholderFor`,

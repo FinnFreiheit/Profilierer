@@ -205,31 +205,33 @@
         }
 
         @if (g.art === 'element') {
-          <div class="gHint">Optionales Element — kommt es in dieser Testnachricht vor?</div>
+          <div class="gHint">
+            Optionaler Teilbaum — soll die Nachricht hier Angaben enthalten? Ohne Angabe entfällt er
+            samt Inhalt.
+          </div>
           <div class="statusBtns">
             <button
-              [class.active]="g.aufgenommen"
+              [class.active]="g.angegeben"
               [class.gAuf]="true"
-              title="Element aufnehmen und befüllen (erneut klicken: Entscheidung zurücknehmen)"
-              (click)="aufnahme(true)"
+              title="Angaben machen — der Teilbaum wird betreten (Taste ↓)"
+              (click)="angeben()"
             >
-              aufnehmen
+              angeben
             </button>
             <button
-              [class.active]="g.weggelassen"
               [class.gWeg]="true"
-              [disabled]="!!g.weglassSperre"
+              [disabled]="g.angegeben && !!g.angabeSperre"
               [title]="
-                g.weglassSperre ||
-                'Element weglassen — der Teilbaum wird übersprungen (erneut klicken: zurücknehmen)'
+                (g.angegeben && g.angabeSperre) ||
+                'Ohne Angabe weiter zur nächsten Station (Taste →)'
               "
-              (click)="aufnahme(false)"
+              (click)="nichtAngeben()"
             >
-              weglassen
+              nicht angeben
             </button>
           </div>
-          @if (g.weglassSperre) {
-            <div class="gHint">{{ g.weglassSperre }} Weglassen ist nicht möglich.</div>
+          @if (g.angegeben && g.angabeSperre) {
+            <div class="gHint">{{ g.angabeSperre }}</div>
           }
         }
 
@@ -238,6 +240,9 @@
             @if (g.zwingend) {
               Die gebundene Profilierung setzt dieses Element zwingend — ein typkonformer Wert ist
               erforderlich, weglassen ist nicht möglich.
+            } @else if (g.freierWert) {
+              Optional — der Wert entscheidet: eintragen (unten oder würfeln), damit das Element in
+              der Nachricht erscheint, oder mit „Weiter" übergehen.
             } @else {
               Pflichtfeld — ein typkonformer Wert ist erforderlich (unten eingeben oder würfeln).
             }
@@ -258,19 +263,23 @@
             Schema-Semantik.
           </div>
         }
-        @if (g.wertOffen && g.art !== 'wert') {
-          <div class="gHint">Für dieses Blatt fehlt noch ein typkonformer Wert.</div>
+        @if (g.wertOffen) {
+          <div class="gHint">Der eingetragene Wert passt nicht zum Datentyp.</div>
         }
         @if (g.entfaellt) {
           <div class="gHint">entfällt — übergeordnet weggelassen</div>
         }
 
         <div class="gNav">
-          <button (click)="guidedPrev()">‹ Zurück</button>
-          <button (click)="guidedNext()">Weiter ›</button>
-          <button class="primary" [disabled]="!g.nOffen" (click)="guidedNextOpen()">
+          <button title="Taste ←" (click)="guidedPrev()">‹ Zurück</button>
+          <button class="primary" title="Taste →" (click)="guidedNext()">Weiter ›</button>
+          <button [disabled]="!g.nOffen" (click)="guidedNextOpen()">
             Nächster offener ({{ g.nOffen }})
           </button>
+        </div>
+        <div class="gKbdHint">
+          Tastatur: ← → blättern · ↓ Teilbaum angeben und betreten · ↑ zurück zum übergeordneten
+          Punkt
         </div>
       </div>
     }

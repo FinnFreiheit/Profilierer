@@ -83,6 +83,21 @@ const XSD_VERWEIS = `<?xml version="1.0" encoding="UTF-8"?>
 
 const M3 = 'nachricht.test.0003';
 
+/**
+ * Vierte Fixture fuer die Typpruefung am **freien** Feld: ein optionales
+ * `datum` (xs:date). Leer ist dort eine gueltige Antwort, ein eingetragener
+ * Wert muss aber zum Datentyp passen (ADR 0016).
+ */
+const XSD_TYP = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0004" type="Type.Test4.Root"/>
+  <xs:complexType name="Type.Test4.Root"><xs:sequence>
+    <xs:element name="datum" type="xs:date" minOccurs="0"/>
+  </xs:sequence></xs:complexType>
+</xs:schema>`;
+
+const M4 = 'nachricht.test.0004';
+
 describe('GuidedService', () => {
   let svc: GuidedService;
   let state: StateService;
@@ -113,6 +128,16 @@ describe('GuidedService', () => {
     const idx = parser.buildIndexFrom([{ file: 'xjustiz_0000_test2.xsd', dom }]).idx;
     state.idx.set(idx);
     state.root.set(tree.buildRoot(M2, idx));
+  };
+
+  /** Schaltet die Testbasis auf die Typ-Fixture (M4) um. */
+  const ladeTypFixture = (): void => {
+    const tree = TestBed.inject(TreeService);
+    const parser = TestBed.inject(XsdParserService);
+    const dom = new DOMParser().parseFromString(XSD_TYP, 'application/xml');
+    const idx = parser.buildIndexFrom([{ file: 'xjustiz_0000_test4.xsd', dom }]).idx;
+    state.idx.set(idx);
+    state.root.set(tree.buildRoot(M4, idx));
   };
 
   /** Schaltet die Testbasis auf die Verweis-Fixture (M3) um. */
@@ -428,7 +453,7 @@ describe('GuidedService', () => {
       state.messageCreate.set({ msgName: M, entryId: null, name: null });
     });
 
-    it('Punkte: Pflicht-Blaetter als Wert-Punkte, keine Zweig-Punkte, kein Abstieg in Unentschiedenes', () => {
+    it('Stationen: Blaetter als Wert-Punkte, Container als Angabe-Punkt, kein Abstieg in Uebergangenes', () => {
       expect(pfade()).toEqual([
         `${M}/kopf`, // Pflicht-Blatt → Wert noetig
         `${M}/az`,
@@ -438,11 +463,33 @@ describe('GuidedService', () => {
       ]);
       const arten = Object.fromEntries(svc.punkte().map((p) => [p.path, p.art]));
       expect(arten[`${M}/kopf`]).toBe('wert');
-      expect(arten[`${M}/az`]).toBe('element');
+      // Optionales Blatt: freies Feld, keine Ja/Nein-Frage (ADR 0016).
+      expect(arten[`${M}/az`]).toBe('wert');
+      expect(svc.punktAt(`${M}/az`)?.pflicht).toBeFalse();
+      // Optionaler Container: Station "angeben / uebergehen".
+      expect(arten[`${M}/beteiligung`]).toBe('element');
+      expect(arten[`${M}/_gruppe`]).toBe('element');
       expect(arten[`${M}/_auswahl`]).toBe('auswahl');
-      // Zweige und Pflicht-Kinder nicht aufgenommener Gruppen sind keine Punkte.
+      // Zweige und Pflicht-Kinder uebergangener Gruppen sind keine Stationen.
       expect(pfade()).not.toContain(`${M}/_auswahl/email`);
       expect(pfade()).not.toContain(`${M}/_gruppe/detail`);
+    });
+
+    it('optionales Blatt ist nie offen — ohne Wert entfaellt es einfach', () => {
+      expect(svc.punkte().some((p) => p.path === `${M}/az`)).toBeTrue();
+      expect(svc.offeneSet().has(`${M}/az`)).toBeFalse();
+      // Auch nach dem Blaettern bleibt nichts zurueck: kein Status, keine Aussage.
+      expect(state.elemente()[`${M}/az`]).toBeUndefined();
+      state.setElementProfile(`${M}/az`, { beispiel: '12 C 34/26' });
+      expect(svc.offeneSet().has(`${M}/az`)).toBeFalse();
+    });
+
+    it('optionaler Container ist nie offen; Angabe und Ruecknahme steuern nur den Abstieg', () => {
+      expect(svc.offeneSet().has(`${M}/_gruppe`)).toBeFalse();
+      svc.gibAn(`${M}/_gruppe`);
+      expect(svc.offeneSet().has(`${M}/_gruppe`)).toBeFalse();
+      expect(svc.gibNichtAn(`${M}/_gruppe`)).toBeTrue();
+      expect(state.wirkungOf(`${M}/_gruppe`)).toBeFalsy(); // kein Ausschluss, nur nichts
     });
 
     it('Wert-Punkt: entschieden erst mit nicht-leerem Wert', () => {
@@ -457,6 +504,33 @@ describe('GuidedService', () => {
       expect(svc.offenePflicht()).toBe(2); // kopf + _auswahl
       state.setElementProfile(`${M}/kopf`, { beispiel: 'x' });
       expect(svc.offenePflicht()).toBe(1); // _auswahl
+    });
+
+    it('Fortschritt zaehlt nur geschuldete Angaben; ein freies Feld erst mit Wert', () => {
+      // kopf (Pflichtwert) + _auswahl (Pflicht-Auswahl) — az, beteiligung und
+      // _gruppe sind Stationen, aber keine Schuld.
+      expect(svc.fortschritt()).toEqual({ x: 0, y: 2, zuKlaeren: 0 });
+      state.setElementProfile(`${M}/kopf`, { beispiel: 'x' });
+      expect(svc.fortschritt()).toEqual({ x: 1, y: 2, zuKlaeren: 0 });
+      // Wer etwas angibt, schuldet auch einen brauchbaren Wert.
+      state.setElementProfile(`${M}/az`, { beispiel: '12 C 34/26' });
+      expect(svc.fortschritt()).toEqual({ x: 2, y: 3, zuKlaeren: 0 });
+    });
+
+    it('typwidriger Wert in einem freien Feld ist offen und kritisch', () => {
+      ladeTypFixture();
+      state.messageCreate.set({ msgName: M4, entryId: null, name: null });
+      const datum = `${M4}/datum`;
+      expect(svc.punktAt(datum)?.pflicht).toBeFalse();
+      expect(svc.offeneSet().has(datum)).toBeFalse(); // leer ist eine gueltige Antwort
+
+      state.setElementProfile(datum, { beispiel: '31.12.2026' });
+      expect(svc.offeneSet().has(datum)).toBeTrue();
+      expect(svc.offenePflicht()).toBe(1);
+
+      state.setElementProfile(datum, { beispiel: '2026-12-31' });
+      expect(svc.offeneSet().has(datum)).toBeFalse();
+      expect(svc.offenePflicht()).toBe(0);
     });
 
     it('waehleZweig: genau ein Zweig, gewaehltes Blatt braucht einen Wert', () => {
@@ -505,28 +579,71 @@ describe('GuidedService', () => {
       expect(state.wirkungOf(`${M}/_auswahl/email`)).toBe('pflicht');
     });
 
-    it('aufnehmen steigt ab (neue Punkte), weglassen entscheidet ohne Abstieg', () => {
+    it('angeben steigt ab (neue Stationen), Ruecknahme nimmt sie wieder heraus', () => {
       const y0 = svc.fortschritt().y;
-      svc.setzeAufnahme(`${M}/_gruppe`, true);
+      svc.gibAn(`${M}/_gruppe`);
       expect(pfade()).toContain(`${M}/_gruppe/detail`); // Pflicht-Blatt der Gruppe
-      expect(svc.fortschritt().y).toBe(y0 + 1);
-      svc.setzeAufnahme(`${M}/_gruppe`, false);
+      expect(svc.fortschritt().y).toBe(y0 + 1); // erst jetzt geschuldet
+      expect(svc.gibNichtAn(`${M}/_gruppe`)).toBeTrue();
       expect(pfade()).not.toContain(`${M}/_gruppe/detail`);
-      expect(svc.offeneSet().has(`${M}/_gruppe`)).toBeFalse(); // weggelassen = entschieden
-      svc.setzeAufnahme(`${M}/_gruppe`, null);
-      expect(svc.offeneSet().has(`${M}/_gruppe`)).toBeTrue(); // zurueckgenommen = offen
+      expect(svc.fortschritt().y).toBe(y0);
     });
 
-    it('aufgenommenes optionales Blatt ist erst mit Wert entschieden', () => {
-      svc.setzeAufnahme(`${M}/az`, true);
-      expect(svc.offeneSet().has(`${M}/az`)).toBeTrue();
-      expect(svc.offenePflicht()).toBe(3); // kopf, _auswahl + aufgenommenes Blatt ohne Wert
-      state.setElementProfile(`${M}/az`, { beispiel: '12 C 34/26' });
-      expect(svc.offeneSet().has(`${M}/az`)).toBeFalse();
+    it('ein befuellter Teilbaum bleibt: die Angabe laesst sich nicht zuruecknehmen', () => {
+      svc.gibAn(`${M}/_gruppe`);
+      state.setElementProfile(`${M}/_gruppe/detail`, { beispiel: 'Wert' });
+      expect(svc.angabeSperre(`${M}/_gruppe`)).toContain('Angaben');
+      expect(svc.gibNichtAn(`${M}/_gruppe`)).toBeFalse();
+      expect(pfade()).toContain(`${M}/_gruppe/detail`);
+    });
+
+    it('betreteStation gibt an und springt auf die erste Station darunter', () => {
+      state.selItem.set(TestBed.inject(NavService).findItemByPath(`${M}/_gruppe`));
+      expect(svc.betreteStation()).toBeTrue();
+      expect(state.wirkungOf(`${M}/_gruppe`)).toBe('pflicht');
+      const sel = state.selItem();
+      expect(sel && itemPath(sel)).toBe(`${M}/_gruppe/detail`);
+      // An einer Wert-Station greift die Taste nicht — dort gilt die Baum-Navigation.
+      expect(svc.betreteStation()).toBeFalse();
+      // Von dort fuehrt ↑ zurueck auf den Container.
+      expect(svc.gotoUebergeordnet()).toBeTrue();
+      const oben = state.selItem();
+      expect(oben && itemPath(oben)).toBe(`${M}/_gruppe`);
+    });
+
+    it('ein einzig befuellter Auswahl-Zweig gilt als gewaehlt', () => {
+      // ADR 0016: es reicht, einen Wert anzugeben — auch an der Auswahl.
+      expect(svc.gewaehlterZweig(`${M}/_auswahl`)).toBeNull();
+      state.setElementProfile(`${M}/_auswahl/email`, { beispiel: 'a@b.de' });
+      expect(svc.gewaehlterZweig(`${M}/_auswahl`)).toBe(`${M}/_auswahl/email`);
+      expect(svc.offeneSet().has(`${M}/_auswahl`)).toBeFalse();
+
+      // Zwei befuellte Zweige sind mehrdeutig — die Auswahl bleibt offen.
+      state.setElementProfile(`${M}/_auswahl/telefon`, { beispiel: '0301234' });
+      expect(svc.gewaehlterZweig(`${M}/_auswahl`)).toBeNull();
+      expect(svc.offeneSet().has(`${M}/_auswahl`)).toBeTrue();
+
+      // Die ausdrueckliche Wahl entscheidet den Gleichstand.
+      svc.waehleZweig(`${M}/_auswahl`, `${M}/_auswahl/telefon`);
+      expect(svc.gewaehlterZweig(`${M}/_auswahl`)).toBe(`${M}/_auswahl/telefon`);
+    });
+
+    it('gespeicherte Altstaende bleiben lesbar (aufnehmen/weglassen von frueher)', () => {
+      // Entwuerfe vor ADR 0016 tragen an optionalen Elementen `pflicht`
+      // (aufgenommen) bzw. `ausgeschlossen` (weggelassen). Beides muss sich
+      // weiter so verhalten wie beim Speichern, sonst kippt ein fortgesetzter
+      // Entwurf still seinen Inhalt.
+      state.setElementProfile(`${M}/_gruppe`, { status: S.pflicht }); // aufgenommen
+      expect(pfade()).toContain(`${M}/_gruppe/detail`);
+
+      state.setElementProfile(`${M}/beteiligung`, { status: S.excl }); // weggelassen
+      const a = state.addAusp(`${M}/beteiligung`, 'Vorkommen 1');
+      expect(pfade()).not.toContain(`${M}/beteiligung@${a}/name`);
+      expect(svc.offeneSet().has(`${M}/beteiligung`)).toBeFalse();
     });
 
     it('Vorkommen (Auspraegungen) zaehlen; ihre Pflicht-Blaetter sind Wert-Punkte', () => {
-      svc.setzeAufnahme(`${M}/beteiligung`, true);
+      svc.gibAn(`${M}/beteiligung`);
       const a = state.addAusp(`${M}/beteiligung`, 'Vorkommen 1');
       const p = pfade();
       expect(p).toContain(`${M}/beteiligung@${a}`);
@@ -597,12 +714,11 @@ describe('GuidedService', () => {
       expect(pfade()).not.toContain(`${M}/_auswahl/telefon`);
     });
 
-    it('laesst eigene Weglassen-Entscheidungen des Durchlaufs unangetastet', () => {
+    it('laesst uebergangene Stationen des Durchlaufs als Station stehen', () => {
       bindeVorgabe({});
-      svc.setzeAufnahme(`${M}/az`, false);
 
-      // Weggelassen bleibt Punkt (entschieden, korrigierbar) — anders als
-      // Ausgeschlossenes der Vorgabe, das gar nicht erst gefragt wird.
+      // Uebergangenes bleibt Station (jederzeit nachtragbar) — anders als
+      // Ausgeschlossenes der Vorgabe, das gar nicht erst auftaucht.
       expect(pfade()).toContain(`${M}/az`);
       expect(svc.offeneSet().has(`${M}/az`)).toBeFalse();
     });
@@ -740,10 +856,11 @@ describe('GuidedService', () => {
         expect(svc.kardSperreWeglassen(`${M}/beteiligung`)).toContain('2');
       });
 
-      it('optionales Vorkommen ist ein Aufnehmen/Weglassen-Punkt (#28)', () => {
-        // Spec #28: "optionale erscheinen als Entscheidungspunkt aufnehmen /
-        // weglassen" — ohne diese Unterscheidung galte ein Vorkommen mit seinem
-        // blossen Dasein als entschieden.
+      it('optionales Vorkommen ist eine Container-Station (#28)', () => {
+        // Spec #28: ein optionales Vorkommen ist eine eigene Station — ohne
+        // diese Unterscheidung galte es mit seinem blossen Dasein als
+        // aufgenommen. Seit ADR 0016 ist es eine Station ohne Schuld: der
+        // Durchlauf kann sie uebergehen.
         bindeVorgabe(
           {
             [`${M}/beteiligung`]: { status: V.pflicht },
@@ -759,22 +876,21 @@ describe('GuidedService', () => {
           },
         );
 
-        // Zwingend: da, entschieden. Optional: offener Punkt bis zur Antwort.
+        // Zwingend: da, verlangt. Optional: Station, aber nie offen.
         expect(svc.punktAt(`${M}/beteiligung@n1`)?.art).toBe('auspraegung');
         expect(svc.punktAt(`${M}/beteiligung@n2`)?.art).toBe('element');
-        expect(svc.offeneSet().has(`${M}/beteiligung@n2`)).toBeTrue();
-        // In das nicht aufgenommene Vorkommen steigt der Durchlauf nicht ab.
+        expect(svc.offeneSet().has(`${M}/beteiligung@n2`)).toBeFalse();
+        // In das uebergangene Vorkommen steigt der Durchlauf nicht ab.
         expect(pfade()).not.toContain(`${M}/beteiligung@n2/name`);
 
-        svc.setzeAufnahme(`${M}/beteiligung@n2`, true);
-        expect(svc.offeneSet().has(`${M}/beteiligung@n2`)).toBeFalse();
+        svc.gibAn(`${M}/beteiligung@n2`);
         expect(pfade()).toContain(`${M}/beteiligung@n2/name`);
 
-        svc.setzeAufnahme(`${M}/beteiligung@n2`, false);
-        expect(svc.offeneSet().has(`${M}/beteiligung@n2`)).toBeFalse();
+        expect(svc.gibNichtAn(`${M}/beteiligung@n2`)).toBeTrue();
+        expect(pfade()).not.toContain(`${M}/beteiligung@n2/name`);
       });
 
-      it('eine selbst angelegte Kopie ist aufgenommen, kein neuer offener Punkt', () => {
+      it('eine selbst angelegte Kopie ist angegeben, kein neuer offener Punkt', () => {
         bindeVorgabe(
           {
             [`${M}/beteiligung`]: { status: V.pflicht },
@@ -886,22 +1002,53 @@ describe('GuidedService', () => {
         expect(svc.offeneSet().has(`${M}/az`)).toBeFalse();
       });
 
-      it('verlangt den Teilbaum: der Container wird ohne Aufnahme-Frage betreten', () => {
+      it('verlangt den Teilbaum: der Container wird ohne Rueckfrage betreten', () => {
         bindeVorgabe({ [`${M}/_gruppe`]: { status: V.pflicht } });
 
-        // Kein Aufnehmen/Weglassen-Punkt mehr — stattdessen sein Pflicht-Kind.
+        // Keine Angabe-Station mehr — stattdessen sein Pflicht-Kind.
         expect(svc.punktAt(`${M}/_gruppe`)).toBeNull();
         expect(svc.punktAt(`${M}/_gruppe/detail`)?.art).toBe('wert');
         expect(svc.offeneSet().has(`${M}/_gruppe/detail`)).toBeTrue();
       });
 
-      it('laesst sich nicht weglassen', () => {
+      it('macht auch eine Profil-Mindestanzahl >= 1 zur Pflicht', () => {
+        // Ohne Weglassen-Entscheidung gibt es keine Sperre mehr, an der die
+        // Untergrenze haengen koennte — sie wirkt jetzt als Pflicht.
+        bindeVorgabe({ [`${M}/az`]: { min: '1' } });
+
+        expect(svc.punktAt(`${M}/az`)?.pflicht).toBeTrue();
+        expect(svc.offeneSet().has(`${M}/az`)).toBeTrue();
+        expect(svc.offenePflicht()).toBe(3); // kopf, _auswahl, az
+      });
+
+      it('greift erst, wenn der Durchlauf den Elternast betritt', () => {
+        // Die Elternabhaengigkeit ist die Voraussetzung dafuer, dass "einfach
+        // weiterblaettern" moeglich bleibt: was unter einem uebergangenen
+        // Container liegt, verlangt der Durchlauf nicht — auch nicht, wenn die
+        // Profilierung es zwingend setzt oder eine Mindestanzahl verlangt.
+        bindeVorgabe({
+          [`${M}/_gruppe/detail`]: { status: V.pflicht },
+          [`${M}/beteiligung/name`]: { min: '1' },
+        });
+
+        expect(pfade()).not.toContain(`${M}/_gruppe/detail`);
+        expect(pfade()).not.toContain(`${M}/beteiligung/name`);
+        expect(svc.fortschritt()).toEqual({ x: 0, y: 2, zuKlaeren: 0 }); // kopf + _auswahl
+        expect(svc.offenePflicht()).toBe(2);
+
+        // Erst die Angabe holt die Pflicht in den Durchlauf.
+        svc.gibAn(`${M}/_gruppe`);
+        expect(pfade()).toContain(`${M}/_gruppe/detail`);
+        expect(svc.fortschritt().y).toBe(3);
+        expect(svc.offenePflicht()).toBe(3);
+      });
+
+      it('ein zwingendes Blatt bleibt Pflicht-Wert-Punkt', () => {
         bindeVorgabe({ [`${M}/az`]: { status: V.pflicht } });
 
-        svc.setzeAufnahme(`${M}/az`, false);
-
-        expect(state.wirkungOf(`${M}/az`)).toBe('pflicht');
         expect(svc.punktAt(`${M}/az`)?.art).toBe('wert');
+        expect(svc.punktAt(`${M}/az`)?.pflicht).toBeTrue();
+        expect(svc.angabeSperre(`${M}/az`)).toContain('zwingend');
       });
 
       it('gilt auch innerhalb eines Vorkommens — dort kennt die Profilierung nur den generischen Pfad', () => {
@@ -910,57 +1057,54 @@ describe('GuidedService', () => {
         ladeVorkommenFixture();
         state.messageCreate.set({ msgName: M2, entryId: null, name: null });
         bindeVorgabe({ [`${M2}/beteiligung/rolle`]: { status: V.pflicht } });
-        svc.setzeAufnahme(`${M2}/beteiligung`, true);
+        svc.gibAn(`${M2}/beteiligung`);
         const a = state.addAusp(`${M2}/beteiligung`, 'Kläger');
         const rolle = `${M2}/beteiligung@${a}/rolle`;
 
-        // Pflicht-Wert-Punkt statt Aufnehmen/Weglassen-Frage ...
+        // Pflicht-Wert-Punkt statt freiem Feld ...
         expect(svc.punktAt(rolle)?.art).toBe('wert');
+        expect(svc.punktAt(rolle)?.pflicht).toBeTrue();
         expect(svc.offeneSet().has(rolle)).toBeTrue();
         // ... ohne Marker, denn die Profilierung hat sich festgelegt ...
         expect(svc.markerOf(rolle)).toBeNull();
 
-        // ... und nicht weglassbar.
-        svc.setzeAufnahme(rolle, false);
-        expect(state.wirkungOf(rolle)).not.toBe('ausgeschlossen');
-        expect(svc.punktAt(rolle)?.art).toBe('wert');
+        // ... und nicht abwaehlbar.
+        expect(svc.angabeSperre(rolle)).toContain('zwingend');
       });
     });
 
     describe('anzugeben, wenn vorhanden', () => {
-      it('bleibt Entscheidungspunkt; unbeantwortet zaehlt als offen', () => {
+      it('bleibt ein freies Feld: der Wert entscheidet, nichts ist offen', () => {
         bindeVorgabe({ [`${M}/az`]: { status: V.optional } });
 
-        expect(svc.punktAt(`${M}/az`)?.art).toBe('element');
-        expect(svc.offeneSet().has(`${M}/az`)).toBeTrue();
-        expect(svc.offenePflicht()).toBe(2); // kopf + _auswahl — die Frage selbst ist nicht kritisch
-
-        svc.setzeAufnahme(`${M}/az`, false);
+        expect(svc.punktAt(`${M}/az`)?.art).toBe('wert');
+        expect(svc.punktAt(`${M}/az`)?.pflicht).toBeFalse();
         expect(svc.offeneSet().has(`${M}/az`)).toBeFalse();
+        expect(svc.offenePflicht()).toBe(2); // kopf + _auswahl
       });
     });
 
     describe('reine Markierung ("zu klaeren")', () => {
-      it('verhaelt sich wie optional: Entscheidungspunkt, offen, kein Abstieg', () => {
+      it('verhaelt sich wie optional: Station, nicht offen, kein Abstieg', () => {
         bindeVorgabe({ [`${M}/_gruppe`]: { status: V.markierung } });
 
         expect(svc.punktAt(`${M}/_gruppe`)?.art).toBe('element');
-        expect(svc.offeneSet().has(`${M}/_gruppe`)).toBeTrue();
-        expect(pfade()).not.toContain(`${M}/_gruppe/detail`); // erst mit der Aufnahme
+        expect(svc.offeneSet().has(`${M}/_gruppe`)).toBeFalse();
+        expect(pfade()).not.toContain(`${M}/_gruppe/detail`); // erst mit der Angabe
 
-        svc.setzeAufnahme(`${M}/_gruppe`, true);
+        svc.gibAn(`${M}/_gruppe`);
         expect(pfade()).toContain(`${M}/_gruppe/detail`);
       });
 
-      it('ist als ungeklaert gekennzeichnet — auch nach der eigenen Entscheidung', () => {
+      it('ist als ungeklaert gekennzeichnet — auch nach der eigenen Angabe', () => {
         bindeVorgabe({ [`${M}/az`]: { status: V.markierung } });
 
         expect(svc.markerOf(`${M}/az`)).toBe('zuklaeren');
         expect(svc.punktAt(`${M}/az`)?.marker).toBe('zuklaeren');
 
         // Die offene Frage der Profilierung bleibt offen, auch wenn der
-        // Durchlauf das Element aufnimmt.
-        svc.setzeAufnahme(`${M}/az`, true);
+        // Durchlauf das Element befuellt.
+        state.setElementProfile(`${M}/az`, { beispiel: '12 C 34/26' });
         expect(svc.markerOf(`${M}/az`)).toBe('zuklaeren');
       });
     });
@@ -1000,13 +1144,14 @@ describe('GuidedService', () => {
       it('zaehlt nur, was in der Nachricht landet', () => {
         bindeVorgabe({ [`${M}/az`]: { status: V.markierung } });
 
-        // kopf: Schema-Pflicht ohne Festlegung. az: noch nicht aufgenommen.
+        // kopf: Schema-Pflicht ohne Festlegung. az: noch ohne Wert, also nicht
+        // in der Nachricht — beruehrt wird es erst mit der Angabe (ADR 0016).
         expect(svc.markerZaehlung()).toEqual({ ungeklaert: 0, nichtProfiliert: 1 });
 
-        svc.setzeAufnahme(`${M}/az`, true);
+        state.setElementProfile(`${M}/az`, { beispiel: '12 C 34/26' });
         expect(svc.markerZaehlung()).toEqual({ ungeklaert: 1, nichtProfiliert: 1 });
 
-        svc.setzeAufnahme(`${M}/az`, false);
+        state.setElementProfile(`${M}/az`, { beispiel: undefined });
         expect(svc.markerZaehlung()).toEqual({ ungeklaert: 0, nichtProfiliert: 1 });
       });
 
@@ -1156,6 +1301,15 @@ describe('GuidedService', () => {
 
       // ── Zaehlkonvention der Vorkommen (Issue #50) ──────────────────
 
+      /**
+       * Angabe entfernen wie beim **Bearbeiten** einer Nachricht — den Weg
+       * "weglassen" gibt es im gefuehrten Neu-Durchlauf nicht mehr (ADR 0016),
+       * der Ausschluss-Status bleibt aber die Modellform dafuer.
+       */
+      const entferneAngabe = (path: string): void => {
+        state.setElementProfile(path, { status: state.exclStatus()!.id });
+      };
+
       it('zaehlt ein weggelassenes Element als kein Vorkommen', () => {
         bindeKard({ [beteiligung]: { max: '1' } });
 
@@ -1164,7 +1318,7 @@ describe('GuidedService', () => {
         expect(svc.kardSperreHinzu(beteiligung)).toContain('1');
 
         // Weggelassen traegt es keines; das erste Vorkommen ist wieder moeglich.
-        svc.setzeAufnahme(beteiligung, false);
+        entferneAngabe(beteiligung);
         expect(svc.kardSperreHinzu(beteiligung)).toBeNull();
       });
 
@@ -1175,17 +1329,20 @@ describe('GuidedService', () => {
         expect(grund).toContain('1');
         expect(grund).toContain('Profilierung');
 
-        svc.setzeAufnahme(beteiligung, false);
-        expect(state.wirkungOf(beteiligung)).not.toBe('ausgeschlossen');
+        // Im Durchlauf laesst sich die Angabe darum nicht zuruecknehmen ...
+        svc.gibAn(beteiligung);
+        expect(svc.gibNichtAn(beteiligung)).toBeFalse();
+        expect(state.wirkungOf(beteiligung)).toBe('pflicht');
       });
 
-      it('laesst Optionales ohne Eingrenzung im Profil weiterhin weglassen', () => {
+      it('laesst Optionales ohne Eingrenzung im Profil weiterhin uebergehen', () => {
         bindeKard({});
 
         expect(svc.kardSperreWeglassen(beteiligung)).toBeNull();
 
-        svc.setzeAufnahme(beteiligung, false);
-        expect(state.wirkungOf(beteiligung)).toBe('ausgeschlossen');
+        svc.gibAn(beteiligung);
+        expect(svc.gibNichtAn(beteiligung)).toBeTrue();
+        expect(state.wirkungOf(beteiligung)).toBeFalsy();
       });
 
       it('sperrt nicht bei einer Mindestanzahl aus dem Schema', () => {
@@ -1201,8 +1358,9 @@ describe('GuidedService', () => {
     });
 
     describe('Fortschritt', () => {
-      it('zaehlt die profilbedingten Punkte mit', () => {
-        const y0 = svc.fortschritt().y; // 5 ohne Bindung
+      it('zaehlt die profilbedingten Pflichtangaben mit', () => {
+        // Ohne Bindung: kopf (Pflichtwert) und _auswahl (Pflicht-Auswahl).
+        expect(svc.fortschritt()).toEqual({ x: 0, y: 2, zuKlaeren: 0 });
 
         bindeVorgabe(
           { [`${M}/beteiligung`]: { status: V.pflicht } },
@@ -1210,14 +1368,14 @@ describe('GuidedService', () => {
           { [`${M}/beteiligung`]: [{ id: 'v1', name: 'Notar/in' }] },
         );
 
-        // Statt der Aufnahme-Frage zu `beteiligung` stehen jetzt das zwingende
+        // Statt der Angabe-Station zu `beteiligung` stehen jetzt das zwingende
         // Vorkommen und sein Pflicht-Blatt an, dazu die Schema-Erweiterung.
         expect(pfade()).toContain(`${M}/beteiligung@v1`);
         expect(pfade()).toContain(`${M}/beteiligung@v1/name`);
         expect(pfade()).toContain(`${M}/~e1`);
-        // Das zwingende Vorkommen ist per Definition erledigt (es existiert),
-        // die uebrigen Punkte sind offen.
-        expect(svc.fortschritt()).toEqual({ x: 1, y: y0 + 2, zuKlaeren: 0 });
+        // Geschuldet sind die beiden neuen Pflichtwerte; das Vorkommen selbst
+        // ist ein Container und schuldet nichts.
+        expect(svc.fortschritt()).toEqual({ x: 0, y: 4, zuKlaeren: 0 });
       });
     });
   });

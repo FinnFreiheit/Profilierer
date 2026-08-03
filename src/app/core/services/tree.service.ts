@@ -407,6 +407,39 @@ export class TreeService {
     return out;
   }
 
+  /**
+   * Verlangt der Container selbst eine Auswahl? `collectMandatoryPaths` bricht
+   * an jeder `choice` ab — zu Recht, denn keine Alternative ist fuer sich
+   * unbedingt, und die Zwingend-Vorbelegung darf keinen Zweig vorwegnehmen.
+   * Fuer die Mangel-Frage aus #71 ist das aber die falsche Antwort: die Auswahl
+   * erzwingt sehr wohl etwas — genau ein Zweig muss belegt werden, nur welcher
+   * ist Sache des Durchlaufs (XJustiz 3.6.2 fuehrt 145 `auswahl_*`-Container).
+   *
+   * Geprueft werden die beiden Formen, in denen eine Auswahl unmittelbar unter
+   * dem Container steht: sein eigenes Inhaltsmodell ist die `choice`, oder eine
+   * unbedingte `choice`-Gruppe liegt als synthetisches Kind darunter. Tiefer
+   * zu suchen ist unnoetig — eine Auswahl unterhalb eines Pflicht-Kindes
+   * bedeutet ein Pflicht-Rueckgrat, und dann stellt sich die Frage nicht mehr.
+   */
+  verlangtAuswahl(anker: TreeNode): boolean {
+    return this.auswahlZweige(anker).some((zweige) => zweige.length > 0);
+  }
+
+  /**
+   * Die Alternativen je Auswahl, die unmittelbar unter dem Container zu treffen
+   * ist — eine Liste je Auswahl, weil eine Sequenz mehrere `choice`-Gruppen
+   * enthalten kann. Grundlage von `verlangtAuswahl` und der Frage, ob eine
+   * Profilierung der Auswahl noch einen Zweig laesst.
+   */
+  auswahlZweige(anker: TreeNode): TreeNode[][] {
+    const kinder = this.kinder(anker);
+    if (!kinder.length) return [];
+    if (anker.model === 'choice') return [kinder];
+    return kinder
+      .filter((c) => c.synthetic && c.model === 'choice' && c.min !== '0' && !c.inChoice)
+      .map((gruppe) => this.kinder(gruppe));
+  }
+
   /** itemHasKids (Z.1056-1065). */
   itemHasKids(it: TreeItem): boolean {
     if (it.kind === 'el') {

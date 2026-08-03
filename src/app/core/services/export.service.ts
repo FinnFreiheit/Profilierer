@@ -414,15 +414,23 @@ export class ExportService {
       if (hasProfilBelow(n.path)) return true;
       return false;
     };
-    const chooseBranch = (children: TreeNode[]): TreeNode | null => {
+    const chooseBranch = (auswahlPfad: string, children: TreeNode[]): TreeNode | null => {
+      // Instanz: kein Raten — es gilt die Leseregel der Fuehrung
+      // (`gewaehlterZweig`): ausdruecklich gewaehlt, sonst der einzig befuellte
+      // Zweig. Bleibt sie ohne Ergebnis, ist die Auswahl offen (Kommentar),
+      // statt einen Zweig zu erfinden.
+      if (instanz) {
+        const gewaehlt = this.guided.gewaehlterZweig(
+          auswahlPfad,
+          children.map((c) => c.path),
+        );
+        return children.find((c) => c.path === gewaehlt) ?? null;
+      }
       const decided = children.find((c) => {
         const w = this.state.wirkungOf(c.path);
         return w && w !== 'ausgeschlossen';
       });
       if (decided) return decided;
-      // Instanz: kein Raten — eine Auswahl ohne explizit gewaehlten Zweig
-      // bleibt offen (Kommentar), statt einen Zweig zu erfinden.
-      if (instanz) return null;
       return children.find((c) => this.state.wirkungOf(c.path) !== 'ausgeschlossen') || null;
     };
     /** Instanz: optionale Gruppe nur, wenn aufgenommen oder mit Inhalt darunter. */
@@ -443,7 +451,7 @@ export class ExportService {
         if (!gruppeAktiv(n)) return;
         this.tree.expandNode(n);
         if (n.model === 'choice') {
-          const b = chooseBranch(n.children ?? []);
+          const b = chooseBranch(n.path, n.children ?? []);
           if (b) emit(b, depth);
           else offeneAuswahl(n, depth);
         } else {
@@ -473,7 +481,7 @@ export class ExportService {
       const pad = IND.repeat(depth);
       push(`${pad}<${name}${this.fixedRequiredAttrs(n)}>`, n.path);
       if (n.model === 'choice') {
-        const b = chooseBranch(n.children ?? []);
+        const b = chooseBranch(n.path, n.children ?? []);
         if (b) emit(b, depth + 1);
         else offeneAuswahl(n, depth + 1);
         // Erweiterungen liegen ausserhalb der Auswahl-Logik und kommen zusaetzlich.

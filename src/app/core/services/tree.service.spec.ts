@@ -32,6 +32,24 @@ const XSD_MAND = `<?xml version="1.0" encoding="UTF-8"?>
         <xs:element name="varianteB" type="xs:string"/>
         <xs:sequence><xs:element name="paarPflicht" type="xs:string"/></xs:sequence>
       </xs:choice>
+      <xs:element name="auswahlContainer" type="Type.Test.Auswahl" minOccurs="0"/>
+      <xs:element name="optionaleAuswahl" type="Type.Test.OptAuswahl" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <!-- Inhaltsmodell ist die Auswahl selbst (XJustiz-Form auswahl_*). -->
+  <xs:complexType name="Type.Test.Auswahl">
+    <xs:choice>
+      <xs:element name="email" type="xs:string"/>
+      <xs:element name="telefon" type="xs:string"/>
+    </xs:choice>
+  </xs:complexType>
+  <!-- Auswahl als optionale Gruppe: verlangt nichts. -->
+  <xs:complexType name="Type.Test.OptAuswahl">
+    <xs:sequence>
+      <xs:choice minOccurs="0">
+        <xs:element name="x" type="xs:string"/>
+        <xs:element name="y" type="xs:string"/>
+      </xs:choice>
     </xs:sequence>
   </xs:complexType>
   <xs:complexType name="Type.Test.Bet">
@@ -169,6 +187,46 @@ describe('TreeService', () => {
       // Element- wie Sequenz-Alternativen sind gleichermassen frei waehlbar —
       // keine davon gehoert zum unbedingten Rueckgrat.
       expect(tree.collectMandatoryPaths(anker)).toEqual([]);
+    });
+  });
+
+  describe('verlangtAuswahl (#71): die Auswahl erzwingt einen Zweig', () => {
+    let mandIdx: XsdIndex;
+
+    beforeEach(() => {
+      const parser = TestBed.inject(XsdParserService);
+      const dom = new DOMParser().parseFromString(XSD_MAND, 'application/xml');
+      mandIdx = parser.buildIndexFrom([{ file: 'xjustiz_0000_mand.xsd', dom }]).idx;
+    });
+
+    it('erkennt den Container, dessen Inhaltsmodell die Auswahl ist', () => {
+      const root = tree.buildRoot('nachricht.test.0001', mandIdx);
+      const anker = tree.kinder(root).find((k) => k.name === 'auswahlContainer')!;
+
+      // Kein Pflicht-Rueckgrat — und trotzdem kein Mangel: einer der beiden
+      // Zweige muss belegt werden, welcher ist Sache des Durchlaufs.
+      expect(tree.collectMandatoryPaths(anker)).toEqual([]);
+      expect(tree.verlangtAuswahl(anker)).toBeTrue();
+    });
+
+    it('erkennt die unbedingte Auswahl-Gruppe innerhalb einer Sequenz', () => {
+      const root = tree.buildRoot('nachricht.test.0001', mandIdx);
+
+      expect(tree.verlangtAuswahl(root)).toBeTrue();
+    });
+
+    it('eine optionale Auswahl-Gruppe verlangt nichts', () => {
+      const root = tree.buildRoot('nachricht.test.0001', mandIdx);
+      const anker = tree.kinder(root).find((k) => k.name === 'optionaleAuswahl')!;
+
+      expect(tree.verlangtAuswahl(anker)).toBeFalse();
+    });
+
+    it('ein Container ohne Auswahl bleibt unberuehrt', () => {
+      const root = tree.buildRoot('nachricht.test.0001', mandIdx);
+      const anker = tree.kinder(root).find((k) => k.name === 'beteiligter')!;
+
+      expect(tree.verlangtAuswahl(anker)).toBeFalse();
     });
   });
 
