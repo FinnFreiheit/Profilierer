@@ -1,790 +1,859 @@
 @let v = vm();
-<div id="detail" [class.open]="!!v">
-  @if (v) {
-    @if (v.isAusp) {
-      <div class="dsec">
-        <label>Name der Ausprägung</label>
-        @if (roEff()) {
-          <div class="docbox">{{ v.auspName }}</div>
-        } @else {
-          <input
-            type="text"
-            style="width: 100%"
-            [value]="v.auspName"
-            (change)="onAuspNameSelf($event)"
-          />
-        }
-      </div>
-      <div class="sub">Ausprägung von {{ v.parentName }}</div>
+<!--
+  Detailbereich (#81): eine feste Spalte, die auch ohne Auswahl Platz belegt —
+  sonst braeche die Kasten-Kaskade beim ersten Klick um ~400px neu um.
+  Innen gilt: erst entscheiden, dann nachschlagen.
+-->
+@if (hasRoot()) {
+  <div id="detail" [class.zu]="eingeklappt()" [style.width.px]="eingeklappt() ? null : breite()">
+    @if (eingeklappt()) {
+      <button class="detailAuf" title="Detailbereich einblenden" (click)="ausklappen()">‹</button>
     } @else {
-      <h3>
-        {{ v.title }}
-        @if (v.istErweiterung) {
-          <span class="tag t-ext" style="vertical-align: middle">Schema-Erweiterung</span>
-        }
-      </h3>
-      <div class="sub">
-        {{ v.sub }} <span style="color: #aaa">({{ v.subKard }})</span>
-      </div>
-      @if (v.doc && !v.erw) {
-        <div class="dsec">
-          <label>Beschreibung (Standard)</label>
-          <div class="docbox">{{ v.doc }}</div>
-        </div>
-      }
-    }
+      <!-- Ziehgriff: Doppelklick stellt die automatische Breite wieder her. -->
+      <div
+        class="detailGriff"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Breite des Detailbereichs"
+        title="Ziehen ändert die Breite, Doppelklick stellt die automatische Breite her"
+        (pointerdown)="griffAb($event)"
+      ></div>
 
-    @if (v.gesperrt) {
-      <div class="dsec">
-        <span class="dsecTitel">Von der Profilierung ausgeschlossen</span>
-        <div class="docbox">{{ v.sperrGrund }}</div>
-      </div>
-    }
-
-    @if (v.erw; as erw) {
-      @if (!roEff() && !msgMode()) {
-        <div class="dsec">
-          <label>Schema-Erweiterung bearbeiten</label>
-          <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
-            Nachzubeauftragendes Element — nicht im XJustiz-Schema enthalten.
-          </div>
-          <div class="metaGrid">
-            <label>Elementname</label>
-            <input type="text" [value]="erw.name" (change)="setErwField('name', $event)" />
-            <label>Beschreibung</label>
-            <textarea
-              placeholder="Fachliche Bedeutung / Begründung der Nachbeauftragung"
-              [value]="erw.beschreibung"
-              (change)="setErwField('beschreibung', $event)"
-            ></textarea>
-            <label>Kardinalität</label>
-            <div class="erwKard">
-              <input
-                type="text"
-                [value]="erw.min"
-                (change)="setErwField('min', $event)"
-                title="min"
-              />
-              <span>..</span>
-              <input
-                type="text"
-                [value]="erw.max === 'unbounded' ? '*' : erw.max"
-                (change)="setErwField('max', $event)"
-                title="max — * für beliebig viele"
-              />
+      <div class="detailInhalt">
+        @if (v) {
+          <!-- Sticky: der Elementname bleibt beim Scrollen stehen. -->
+          <div class="detailKopf">
+            <div class="detailKopfText">
+              @if (v.isAusp) {
+                <h3>{{ v.auspName || 'Ausprägung' }}</h3>
+                <div class="sub">Ausprägung von {{ v.parentName }}</div>
+              } @else {
+                <h3>
+                  {{ v.title }}
+                  @if (v.istErweiterung) {
+                    <span class="tag t-ext" style="vertical-align: middle">Schema-Erweiterung</span>
+                  }
+                </h3>
+                <div class="sub">
+                  {{ v.sub }} <span style="color: #aaa">({{ v.subKard }})</span>
+                </div>
+              }
             </div>
-            <label>Datentyp</label>
-            <div class="erwTyp">
-              <select [value]="erw.typWahl" (change)="onErwTypWahl($event)">
-                @for (t of erwDatentypen; track t) {
-                  <option [value]="t">xs:{{ t }}</option>
-                }
-                <option value="sonstig">Sonstiger…</option>
-                <option value="container">Container (enthält Unterelemente)</option>
-              </select>
-              @if (erw.typWahl === 'sonstig') {
+            <button class="detailZu" title="Detailbereich einklappen" (click)="einklappen()">
+              ×
+            </button>
+          </div>
+
+          <!-- ── Entscheiden ────────────────────────────────────────────── -->
+          @if (v.isAusp) {
+            <div class="dsec">
+              <label>Name der Ausprägung</label>
+              @if (roEff()) {
+                <div class="docbox">{{ v.auspName }}</div>
+              } @else {
                 <input
                   type="text"
-                  placeholder="eigener Typ"
-                  [value]="erw.typFrei"
-                  (change)="onErwTypFrei($event)"
+                  style="width: 100%"
+                  [value]="v.auspName"
+                  (change)="onAuspNameSelf($event)"
                 />
               }
             </div>
-          </div>
-          <div style="display: flex; gap: 6px; margin-top: 8px">
-            @if (erw.container) {
-              <button (click)="addErwUnter()">+ Unterelement</button>
+          }
+
+          @if (v.gesperrt) {
+            <div class="dsec">
+              <span class="dsecTitel">Von der Profilierung ausgeschlossen</span>
+              <div class="docbox">{{ v.sperrGrund }}</div>
+            </div>
+          }
+
+          @if (v.erw; as erw) {
+            @if (!roEff() && !msgMode()) {
+              <div class="dsec">
+                <label>Schema-Erweiterung bearbeiten</label>
+                <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
+                  Nachzubeauftragendes Element — nicht im XJustiz-Schema enthalten.
+                </div>
+                <div class="metaGrid">
+                  <label>Elementname</label>
+                  <input type="text" [value]="erw.name" (change)="setErwField('name', $event)" />
+                  <label>Beschreibung</label>
+                  <textarea
+                    placeholder="Fachliche Bedeutung / Begründung der Nachbeauftragung"
+                    [value]="erw.beschreibung"
+                    (change)="setErwField('beschreibung', $event)"
+                  ></textarea>
+                  <label>Kardinalität</label>
+                  <div class="erwKard">
+                    <input
+                      type="text"
+                      [value]="erw.min"
+                      (change)="setErwField('min', $event)"
+                      title="min"
+                    />
+                    <span>..</span>
+                    <input
+                      type="text"
+                      [value]="erw.max === 'unbounded' ? '*' : erw.max"
+                      (change)="setErwField('max', $event)"
+                      title="max — * für beliebig viele"
+                    />
+                  </div>
+                  <label>Datentyp</label>
+                  <div class="erwTyp">
+                    <select [value]="erw.typWahl" (change)="onErwTypWahl($event)">
+                      @for (t of erwDatentypen; track t) {
+                        <option [value]="t">xs:{{ t }}</option>
+                      }
+                      <option value="sonstig">Sonstiger…</option>
+                      <option value="container">Container (enthält Unterelemente)</option>
+                    </select>
+                    @if (erw.typWahl === 'sonstig') {
+                      <input
+                        type="text"
+                        placeholder="eigener Typ"
+                        [value]="erw.typFrei"
+                        (change)="onErwTypFrei($event)"
+                      />
+                    }
+                  </div>
+                </div>
+                <div style="display: flex; gap: 6px; margin-top: 8px">
+                  @if (erw.container) {
+                    <button (click)="addErwUnter()">+ Unterelement</button>
+                  }
+                  <button (click)="delErw()">Erweiterung löschen</button>
+                </div>
+              </div>
+            } @else if (erw.beschreibung) {
+              <div class="dsec">
+                <label>Beschreibung</label>
+                <div class="docbox">{{ erw.beschreibung }}</div>
+              </div>
             }
-            <button (click)="delErw()">Erweiterung löschen</button>
-          </div>
-        </div>
-      } @else if (erw.beschreibung) {
-        <div class="dsec">
-          <label>Beschreibung</label>
-          <div class="docbox">{{ erw.beschreibung }}</div>
-        </div>
-      }
-    }
-
-    @if (gv(); as g) {
-      <div class="dsec guidedSec">
-        <label>
-          Geführte Entscheidung
-          @if (g.offen) {
-            <span class="gOffen">offen</span>
           }
-          @if (g.geparkt) {
-            <span class="gOffen">zu klären</span>
+
+          @if (gv(); as g) {
+            <div class="dsec guidedSec">
+              <label>
+                Geführte Entscheidung
+                @if (g.offen) {
+                  <span class="gOffen">offen</span>
+                }
+                @if (g.geparkt) {
+                  <span class="gOffen">zu klären</span>
+                }
+              </label>
+
+              @if (g.isChoice) {
+                <div class="gHint">Welche Alternativen sind im Szenario zulässig?</div>
+                @for (z of g.zweige; track z.path) {
+                  <label class="gZweig">
+                    <input
+                      type="checkbox"
+                      [checked]="z.zulaessig"
+                      (change)="onZweig(z.path, $event)"
+                    />
+                    {{ z.label }}
+                  </label>
+                }
+                @if (g.synthChoice && g.minChoice !== '0' && !g.bestaetigt) {
+                  <button class="gBestaetigen" (click)="bestaetigeAuswahl()">
+                    Alternativen bestätigen
+                  </button>
+                }
+              }
+              @if (!g.synthChoice) {
+                <div class="statusBtns" [style.margin-top]="g.isChoice ? '8px' : null">
+                  @for (d of g.dispo; track d.label) {
+                    <button
+                      [disabled]="d.disabled"
+                      [class.active]="d.active"
+                      [style.background]="d.active ? d.farbe : null"
+                      [style.border-color]="d.active ? d.farbe : d.disabled ? null : d.farbe + '66'"
+                      [style.color]="d.active ? '#fff' : d.disabled ? null : d.farbe"
+                      [title]="
+                        d.disabled
+                          ? 'Keine Statusstufe mit passender Wirkung konfiguriert — unter Status… anlegen'
+                          : d.active
+                            ? 'Erneut klicken: zurück auf „wie Standard“ (Taste ' + d.taste + ')'
+                            : 'Taste ' + d.taste
+                      "
+                      (click)="
+                        !d.disabled && setStatus(d.active ? '' : d.id, d.markierung && !d.active)
+                      "
+                    >
+                      {{ d.label }}
+                    </button>
+                  }
+                </div>
+              }
+
+              @if (g.vorschlaege.length) {
+                <label style="margin-top: 8px">Festlegung übernehmen</label>
+                <div class="gChips">
+                  @for (t of g.vorschlaege; track t) {
+                    <button class="gChip" [title]="t" (click)="uebernehmeAnmerkung(t)">
+                      {{ t }}
+                    </button>
+                  }
+                </div>
+              }
+
+              <div class="gNav">
+                <button title="Taste ←" (click)="guidedPrev()">‹ Zurück</button>
+                <button (click)="guidedNext()">Weiter ›</button>
+                <button
+                  class="primary"
+                  title="Taste →"
+                  [disabled]="!g.nOffen"
+                  (click)="guidedNextOpen()"
+                >
+                  Nächster offener ({{ g.nOffen }})
+                </button>
+              </div>
+              <div class="gKbdHint">
+                Tastatur: ← → navigieren · z / o / n entscheiden · k zu klären
+              </div>
+            </div>
           }
-        </label>
 
-        @if (g.isChoice) {
-          <div class="gHint">Welche Alternativen sind im Szenario zulässig?</div>
-          @for (z of g.zweige; track z.path) {
-            <label class="gZweig">
-              <input type="checkbox" [checked]="z.zulaessig" (change)="onZweig(z.path, $event)" />
-              {{ z.label }}
-            </label>
+          @if (giv(); as g) {
+            <div class="dsec guidedSec">
+              <label>
+                Geführte Angabe
+                @if (g.stationArt === 'pflicht') {
+                  <span class="gStation gPflicht">Pflicht</span>
+                } @else if (g.stationArt === 'frei') {
+                  <span class="gStation gFrei">optional</span>
+                }
+                @if (g.offen) {
+                  <span class="gOffen">offen</span>
+                }
+              </label>
+
+              @if (g.art === 'auswahl') {
+                <div class="gHint">
+                  Genau eine Alternative wählen — nur der gewählte Zweig wird Teil der Nachricht.
+                </div>
+                @for (z of g.zweige; track z.path) {
+                  <label class="gZweig" [class.gesperrt]="!!z.sperre" [title]="z.sperre ?? ''">
+                    <input
+                      type="radio"
+                      name="givZweig"
+                      [checked]="z.gewaehlt"
+                      [disabled]="!!z.sperre"
+                      (change)="waehleZweig(z.path)"
+                    />
+                    {{ z.label }}
+                  </label>
+                }
+              }
+
+              @if (g.art === 'element') {
+                <div class="gHint">
+                  Optionaler Teilbaum — soll die Nachricht hier Angaben enthalten? Ohne Angabe
+                  entfällt er samt Inhalt.
+                </div>
+                <div class="statusBtns">
+                  <button
+                    [class.active]="g.angegeben"
+                    [class.gAuf]="true"
+                    title="Angaben machen — der Teilbaum wird betreten (Taste ←)"
+                    (click)="angeben()"
+                  >
+                    angeben
+                  </button>
+                  <button
+                    [class.gWeg]="true"
+                    [disabled]="g.angegeben && !!g.angabeSperre"
+                    [title]="
+                      (g.angegeben && g.angabeSperre) ||
+                      'Ohne Angabe weiter zur nächsten Station (Taste ↓)'
+                    "
+                    (click)="nichtAngeben()"
+                  >
+                    nicht angeben
+                  </button>
+                </div>
+                @if (g.angegeben && g.angabeSperre) {
+                  <div class="gHint">{{ g.angabeSperre }}</div>
+                }
+              }
+
+              @if (g.art === 'wert') {
+                <div class="gHint">
+                  @if (g.zwingend) {
+                    Die gebundene Profilierung setzt dieses Element zwingend — ein typkonformer Wert
+                    ist erforderlich, weglassen ist nicht möglich.
+                  } @else if (g.freierWert) {
+                    Optional — der Wert entscheidet: eintragen (unten oder würfeln), damit das
+                    Element in der Nachricht erscheint, oder mit „Weiter" übergehen.
+                  } @else {
+                    Pflichtfeld — ein typkonformer Wert ist erforderlich (unten eingeben oder
+                    würfeln).
+                  }
+                </div>
+              }
+              @if (g.hilfetext) {
+                <div class="gHint gAnm">{{ g.hilfetext }}</div>
+              }
+              @if (g.marker === 'zuklaeren') {
+                <div class="gHint gKlaeren">
+                  zu klären — die Profilierung markiert dieses Element nur; die fachliche Frage ist
+                  offen. Es verhält sich wie ein optionales Element.
+                </div>
+              }
+              @if (g.marker === 'nichtprofiliert') {
+                <div class="gHint gNprof">
+                  nicht profiliert — die Profilierung sagt zu diesem Element nichts; es folgt der
+                  Schema-Semantik.
+                </div>
+              }
+              @if (g.wertOffen) {
+                <div class="gHint">Der eingetragene Wert passt nicht zum Datentyp.</div>
+              }
+              @if (g.entfaellt) {
+                <div class="gHint">entfällt — übergeordnet weggelassen</div>
+              }
+
+              @if (g.ueberspringSperre) {
+                <div class="gHint gSperre">{{ g.ueberspringSperre }}</div>
+              }
+
+              <div class="gNav">
+                <button title="Taste ↑" (click)="guidedPrev()">‹ Zurück</button>
+                <button
+                  class="primary"
+                  [class.gesperrt]="!!g.ueberspringSperre"
+                  [title]="g.ueberspringSperre || 'Taste ↓'"
+                  (click)="guidedNext()"
+                >
+                  Weiter ›
+                </button>
+                <button [disabled]="!g.nOffen" (click)="guidedNextOpen()">
+                  Nächster offener ({{ g.nOffen }})
+                </button>
+              </div>
+              <div class="gKbdHint">
+                Tastatur: ↓ weiter (Pflichtangaben halten fest) · ↑ zurück · ← Teilbaum angeben und
+                betreten · → wieder heraus
+              </div>
+            </div>
           }
-          @if (g.synthChoice && g.minChoice !== '0' && !g.bestaetigt) {
-            <button class="gBestaetigen" (click)="bestaetigeAuswahl()">
-              Alternativen bestätigen
-            </button>
-          }
-        }
-        @if (!g.synthChoice) {
-          <div class="statusBtns" [style.margin-top]="g.isChoice ? '8px' : null">
-            @for (d of g.dispo; track d.label) {
-              <button
-                [disabled]="d.disabled"
-                [class.active]="d.active"
-                [style.background]="d.active ? d.farbe : null"
-                [style.border-color]="d.active ? d.farbe : d.disabled ? null : d.farbe + '66'"
-                [style.color]="d.active ? '#fff' : d.disabled ? null : d.farbe"
-                [title]="
-                  d.disabled
-                    ? 'Keine Statusstufe mit passender Wirkung konfiguriert — unter Status… anlegen'
-                    : d.active
-                      ? 'Erneut klicken: zurück auf „wie Standard“ (Taste ' + d.taste + ')'
-                      : 'Taste ' + d.taste
-                "
-                (click)="!d.disabled && setStatus(d.active ? '' : d.id, d.markierung && !d.active)"
-              >
-                {{ d.label }}
-              </button>
-            }
-          </div>
-        }
 
-        @if (g.vorschlaege.length) {
-          <label style="margin-top: 8px">Festlegung übernehmen</label>
-          <div class="gChips">
-            @for (t of g.vorschlaege; track t) {
-              <button class="gChip" [title]="t" (click)="uebernehmeAnmerkung(t)">{{ t }}</button>
-            }
-          </div>
-        }
-
-        <div class="gNav">
-          <button title="Taste ←" (click)="guidedPrev()">‹ Zurück</button>
-          <button (click)="guidedNext()">Weiter ›</button>
-          <button class="primary" title="Taste →" [disabled]="!g.nOffen" (click)="guidedNextOpen()">
-            Nächster offener ({{ g.nOffen }})
-          </button>
-        </div>
-        <div class="gKbdHint">Tastatur: ← → navigieren · z / o / n entscheiden · k zu klären</div>
-      </div>
-    }
-
-    @if (giv(); as g) {
-      <div class="dsec guidedSec">
-        <label>
-          Geführte Angabe
-          @if (g.stationArt === 'pflicht') {
-            <span class="gStation gPflicht">Pflicht</span>
-          } @else if (g.stationArt === 'frei') {
-            <span class="gStation gFrei">optional</span>
-          }
-          @if (g.offen) {
-            <span class="gOffen">offen</span>
-          }
-        </label>
-
-        @if (g.art === 'auswahl') {
-          <div class="gHint">
-            Genau eine Alternative wählen — nur der gewählte Zweig wird Teil der Nachricht.
-          </div>
-          @for (z of g.zweige; track z.path) {
-            <label class="gZweig" [class.gesperrt]="!!z.sperre" [title]="z.sperre ?? ''">
-              <input
-                type="radio"
-                name="givZweig"
-                [checked]="z.gewaehlt"
-                [disabled]="!!z.sperre"
-                (change)="waehleZweig(z.path)"
-              />
-              {{ z.label }}
-            </label>
-          }
-        }
-
-        @if (g.art === 'element') {
-          <div class="gHint">
-            Optionaler Teilbaum — soll die Nachricht hier Angaben enthalten? Ohne Angabe entfällt er
-            samt Inhalt.
-          </div>
-          <div class="statusBtns">
-            <button
-              [class.active]="g.angegeben"
-              [class.gAuf]="true"
-              title="Angaben machen — der Teilbaum wird betreten (Taste ←)"
-              (click)="angeben()"
-            >
-              angeben
-            </button>
-            <button
-              [class.gWeg]="true"
-              [disabled]="g.angegeben && !!g.angabeSperre"
-              [title]="
-                (g.angegeben && g.angabeSperre) ||
-                'Ohne Angabe weiter zur nächsten Station (Taste ↓)'
-              "
-              (click)="nichtAngeben()"
-            >
-              nicht angeben
-            </button>
-          </div>
-          @if (g.angegeben && g.angabeSperre) {
-            <div class="gHint">{{ g.angabeSperre }}</div>
-          }
-        }
-
-        @if (g.art === 'wert') {
-          <div class="gHint">
-            @if (g.zwingend) {
-              Die gebundene Profilierung setzt dieses Element zwingend — ein typkonformer Wert ist
-              erforderlich, weglassen ist nicht möglich.
-            } @else if (g.freierWert) {
-              Optional — der Wert entscheidet: eintragen (unten oder würfeln), damit das Element in
-              der Nachricht erscheint, oder mit „Weiter" übergehen.
-            } @else {
-              Pflichtfeld — ein typkonformer Wert ist erforderlich (unten eingeben oder würfeln).
-            }
-          </div>
-        }
-        @if (g.hilfetext) {
-          <div class="gHint gAnm">{{ g.hilfetext }}</div>
-        }
-        @if (g.marker === 'zuklaeren') {
-          <div class="gHint gKlaeren">
-            zu klären — die Profilierung markiert dieses Element nur; die fachliche Frage ist offen.
-            Es verhält sich wie ein optionales Element.
-          </div>
-        }
-        @if (g.marker === 'nichtprofiliert') {
-          <div class="gHint gNprof">
-            nicht profiliert — die Profilierung sagt zu diesem Element nichts; es folgt der
-            Schema-Semantik.
-          </div>
-        }
-        @if (g.wertOffen) {
-          <div class="gHint">Der eingetragene Wert passt nicht zum Datentyp.</div>
-        }
-        @if (g.entfaellt) {
-          <div class="gHint">entfällt — übergeordnet weggelassen</div>
-        }
-
-        @if (g.ueberspringSperre) {
-          <div class="gHint gSperre">{{ g.ueberspringSperre }}</div>
-        }
-
-        <div class="gNav">
-          <button title="Taste ↑" (click)="guidedPrev()">‹ Zurück</button>
-          <button
-            class="primary"
-            [class.gesperrt]="!!g.ueberspringSperre"
-            [title]="g.ueberspringSperre || 'Taste ↓'"
-            (click)="guidedNext()"
-          >
-            Weiter ›
-          </button>
-          <button [disabled]="!g.nOffen" (click)="guidedNextOpen()">
-            Nächster offener ({{ g.nOffen }})
-          </button>
-        </div>
-        <div class="gKbdHint">
-          Tastatur: ↓ weiter (Pflichtangaben halten fest) · ↑ zurück · ← Teilbaum angeben und
-          betreten · → wieder heraus
-        </div>
-      </div>
-    }
-
-    @if (!roEff()) {
-      <!-- Im gefuehrten Modus ersetzt der Guided-Block den vollen Status-Strip
+          @if (!roEff()) {
+            <!-- Im gefuehrten Modus ersetzt der Guided-Block den vollen Status-Strip
            (drei Dispositionen statt aller konfigurierten Stufen). Bei der
            Testnachricht-Erstellung gibt es keine Status-/Kardinalitaets-
            Profilierung. -->
-      @if (!gv() && msgMode() && !isCreate() && !v.erw) {
-        <div class="dsec">
-          <span class="dsecTitel">Angabe in der Nachricht</span>
-          <button
-            [title]="
-              v.entfernt
-                ? 'Element wieder in die Nachricht aufnehmen'
-                : 'Element beim Speichern aus der Nachricht entfernen (samt Vorkommen)'
-            "
-            (click)="toggleEntfernt()"
-          >
-            {{ v.entfernt ? '↺ Wieder aufnehmen' : '✕ Angabe entfernen' }}
-          </button>
-        </div>
-      }
-
-      @if (!gv() && !msgMode()) {
-        <div class="dsec">
-          <label>Status im Szenario</label>
-          <div class="statusBtns">
-            @for (b of v.statusButtons; track b.id) {
-              <button
-                [class.active]="b.active"
-                [style.background]="b.active ? b.farbe : null"
-                [style.border-color]="b.active ? b.farbe : b.id ? b.farbe + '66' : null"
-                [style.color]="b.active ? '#fff' : b.id ? b.farbe : null"
-                (click)="setStatus(b.id)"
-              >
-                {{ b.name }}
-              </button>
-            }
-          </div>
-        </div>
-      }
-
-      @if (!msgMode() && !v.erw) {
-        <div class="dsec">
-          <label>Kardinalität im Szenario</label>
-          <div class="kardRow">
-            <input
-              type="text"
-              [placeholder]="v.kminPlaceholder"
-              [value]="v.minValue"
-              (change)="setField('min', $event)"
-            />
-            bis
-            <input
-              type="text"
-              [placeholder]="v.kmaxPlaceholder"
-              [value]="v.maxValue"
-              (change)="setField('max', $event)"
-            />
-            <span style="color: var(--muted); font-size: 12px">leer = {{ v.kardHint }}</span>
-          </div>
-        </div>
-      }
-    }
-
-    @if (v.showAusps && (v.auspList.length || (msgMode() && !roEff()))) {
-      <div class="dsec">
-        <label>{{ msgMode() ? 'Vorkommen' : 'Ausprägungen' }}</label>
-        @if (roEff()) {
-          <div id="auspList">
-            @for (a of v.auspList; track a.id) {
-              <div class="docbox">{{ a.name }}</div>
-            }
-          </div>
-        } @else {
-          <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
-            @if (msgMode()) {
-              Wiederholbares Element — jedes Vorkommen wird einzeln befüllt; „⧉" kopiert ein
-              Vorkommen samt Werten.
-            } @else {
-              Benannte Fälle dieses Elements mit je eigener Profilierung — z. B. mehrere Beteiligte
-              mit verschiedenen Rollen.
-            }
-          </div>
-          <div id="auspList">
-            @for (a of v.auspList; track a.id) {
-              <div class="auspRow">
-                <input type="text" [value]="a.name" (change)="renameAuspRow(a.id, $event)" />
-                @if (msgMode()) {
-                  <button
-                    [disabled]="!!v.kardHinzuSperre"
-                    [title]="v.kardHinzuSperre || 'Vorkommen samt Werten kopieren'"
-                    (click)="copyVorkommen(a.id)"
-                  >
-                    ⧉
-                  </button>
-                }
+            @if (!gv() && msgMode() && !isCreate() && !v.erw) {
+              <div class="dsec">
+                <span class="dsecTitel">Angabe in der Nachricht</span>
                 <button
-                  [disabled]="!!(a.sperre || v.kardEntfernenSperre)"
                   [title]="
-                    a.sperre ||
-                    v.kardEntfernenSperre ||
-                    (msgMode() ? 'Vorkommen löschen' : 'Ausprägung löschen')
+                    v.entfernt
+                      ? 'Element wieder in die Nachricht aufnehmen'
+                      : 'Element beim Speichern aus der Nachricht entfernen (samt Vorkommen)'
                   "
-                  (click)="delAuspRow(a.id)"
+                  (click)="toggleEntfernt()"
                 >
-                  ✕
+                  {{ v.entfernt ? '↺ Wieder aufnehmen' : '✕ Angabe entfernen' }}
                 </button>
               </div>
             }
-          </div>
-          @if (msgMode()) {
-            @if (v.auspKopieKandidaten; as kandidaten) {
-              <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
-                Weitere Vorkommen entstehen als Kopie einer profilierten Ausprägung — welche?
-              </div>
-              @for (k of kandidaten; track k.id) {
-                <button
-                  [disabled]="!!v.kardHinzuSperre"
-                  [title]="v.kardHinzuSperre || 'Vorkommen als Kopie von „' + k.name + '“ anlegen'"
-                  (click)="addVorkommenAusProfil(k.id)"
-                >
-                  + {{ k.name }}
-                </button>
-              }
-            } @else {
-              <button
-                [disabled]="!!v.kardHinzuSperre"
-                [title]="v.kardHinzuSperre || 'Weiteres Vorkommen dieses Elements anlegen'"
-                (click)="addVorkommen()"
-              >
-                + weiteres Vorkommen
-              </button>
-            }
-          } @else {
-            <button (click)="addAusp()">+ Ausprägung</button>
-          }
-          @if (v.kardHinzuSperre || v.kardEntfernenSperre) {
-            <div style="font-size: 12px; color: var(--muted); margin-top: 6px">
-              {{ v.kardHinzuSperre || v.kardEntfernenSperre }}
-            </div>
-          }
-        }
-      </div>
-    }
 
-    @if (v.codelist; as cl) {
-      <div class="dsec">
-        <label>
-          Codeliste{{ cl.nameLang ? ': ' + cl.nameLang : '' }}
-          @if (cl.geladen) {
-            <span style="color: #1e7d3e; text-transform: none">
-              (geladen{{ cl.version ? ' · V ' + cl.version : '' }})
-            </span>
-          }
-        </label>
-        @if (cl.kennung) {
-          <div
-            style="
-              font-size: 11.5px;
-              color: var(--muted);
-              margin-bottom: 5px;
-              font-family: var(--mono);
-            "
-          >
-            {{ cl.kennung }}
-          </div>
-        }
-        @if (cl.eff) {
-          @if (!roEff() && !msgMode()) {
-            <div class="clTools">
-              <a (click)="clAll()">alle</a>
-              <a (click)="clNone()">keine</a>
-              <span style="color: var(--muted)">
-                {{
-                  cl.restricted
-                    ? cl.allowedCount + ' von ' + cl.total + ' zugelassen'
-                    : 'keine Einschränkung'
-                }}
-              </span>
-            </div>
-          } @else if (cl.restricted && cl.total) {
-            <!-- Umfang der Einschraenkung bleibt auch ohne Bedienelemente sichtbar. -->
-            <div class="clTools">
-              <span style="color: var(--muted)">
-                {{ cl.allowedCount + ' von ' + cl.total + ' zugelassen' }}
-              </span>
-            </div>
-          }
-          @if (!roEff() && msgMode()) {
-            <div style="font-size: 12px; color: var(--muted); margin-bottom: 5px">
-              @if (cl.restricted) {
-                Die Profilierung lässt nur diese Werte zu — Klick übernimmt den Wert in das Feld.
-              } @else {
-                Klick auf einen Wert übernimmt ihn in das Feld.
-              }
-            </div>
-          }
-          @if (clSicht().umschalter) {
-            <label
-              class="clAlleToggle"
-              [title]="
-                clSicht().erzwungen
-                  ? 'Alle Werte ausgeschlossen — die vollständige Liste bleibt sichtbar.'
-                  : 'Auch die ausgeschlossenen Werte anzeigen'
-              "
-            >
-              <input
-                type="checkbox"
-                [checked]="!clSicht().gefiltert"
-                [disabled]="clSicht().erzwungen"
-                (change)="onClAlle($event)"
-              />
-              alle zeigen
-            </label>
-          }
-          @if (cl.showFilter) {
-            <input
-              type="text"
-              placeholder="Werte filtern…"
-              style="width: 100%; margin-bottom: 5px"
-              [value]="clFilter()"
-              (input)="onClFilter($event)"
-            />
-          }
-          <div class="clWrap">
-            @for (w of filteredEff(); track w.value) {
-              @if (roEff()) {
-                <div
-                  class="clRow"
-                  [class.belegt]="w.belegt"
-                  [title]="w.belegt ? 'In dieser Nachricht belegter Wert' : ''"
-                >
-                  <code>{{ w.value }}</code
-                  ><span>{{ w.label }}</span>
+            @if (!gv() && !msgMode()) {
+              <div class="dsec">
+                <label>Status im Szenario</label>
+                <div class="statusBtns">
+                  @for (b of v.statusButtons; track b.id) {
+                    <button
+                      [class.active]="b.active"
+                      [style.background]="b.active ? b.farbe : null"
+                      [style.border-color]="b.active ? b.farbe : b.id ? b.farbe + '66' : null"
+                      [style.color]="b.active ? '#fff' : b.id ? b.farbe : null"
+                      (click)="setStatus(b.id)"
+                    >
+                      {{ b.name }}
+                    </button>
+                  }
                 </div>
-              } @else if (msgMode()) {
-                <div
-                  class="clRow clPick"
-                  [class.belegt]="w.belegt"
-                  [title]="w.belegt ? 'Aktuell belegter Wert' : 'Als Wert übernehmen'"
-                  (click)="setWertAusListe(w.value)"
-                >
-                  <code>{{ w.value }}</code
-                  ><span>{{ w.label }}</span>
-                </div>
-              } @else {
-                <label class="clRow" [class.belegt]="w.belegt">
+              </div>
+            }
+
+            @if (!msgMode() && !v.erw) {
+              <div class="dsec">
+                <label>Kardinalität im Szenario</label>
+                <div class="kardRow">
                   <input
-                    type="checkbox"
-                    class="clv"
-                    [checked]="w.checked"
-                    (change)="toggleWert(w.value)"
+                    type="text"
+                    [placeholder]="v.kminPlaceholder"
+                    [value]="v.minValue"
+                    (change)="setField('min', $event)"
                   />
-                  <code>{{ w.value }}</code
-                  ><span>{{ w.label }}</span>
-                </label>
-              }
-            }
-          </div>
-        } @else {
-          <div class="extern">Werte extern gepflegt (Code-Typ 3, XRepository).</div>
-          @if (!roEff()) {
-            <div style="margin: 6px 0">
-              <button (click)="fetchSingle()">Diese Liste aus dem XRepository laden</button>
-            </div>
-            @if (!msgMode()) {
-              <div style="font-size: 12px; color: var(--muted); margin-bottom: 4px">
-                Oder alle Listen auf einmal über „Codelisten: XRepository" in der Kopfzeile. Bis
-                dahin: zulässige Werte als Text, ein Wert pro Zeile:
+                  bis
+                  <input
+                    type="text"
+                    [placeholder]="v.kmaxPlaceholder"
+                    [value]="v.maxValue"
+                    (change)="setField('max', $event)"
+                  />
+                  <span style="color: var(--muted); font-size: 12px">leer = {{ v.kardHint }}</span>
+                </div>
               </div>
-              <textarea
-                placeholder="2001 — Genehmigung Grundstücksgeschäft"
-                [value]="cl.manualText"
-                (change)="onManualWerte($event)"
-              ></textarea>
             }
           }
-        }
-      </div>
-    }
 
-    @if (v.ref; as ref) {
-      <div class="dsec">
-        <label>{{ msgMode() ? 'Verweisziel' : 'Verweisziel im Szenario' }} ({{ ref.label }})</label>
-        @if (msgMode() && !roEff()) {
-          <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
-            Welches Vorkommen ist gemeint? Die Nummern an beiden Enden vergibt das Werkzeug.
-            @if (ref.beschraenkt) {
-              Die Profilierung legt das Ziel fest — die Auswahl ist darauf eingeschränkt.
-            }
-          </div>
-        }
-        @if (roEff()) {
-          <div style="display: flex; gap: 6px; align-items: center">
-            <span class="docbox" style="flex: 1">{{ ref.curLabel }}</span>
-            @if (ref.cur) {
-              <button title="Zum Ziel springen" (click)="refJump()">→ Ziel</button>
-            }
-          </div>
-        } @else {
-          <div style="display: flex; gap: 6px">
-            <select style="flex: 1" (change)="setRefZiel($event)">
-              @for (o of ref.options; track o.path) {
-                <option [value]="o.path" [selected]="o.selected">{{ o.label }}</option>
+          @if (v.showAusps && (v.auspList.length || (msgMode() && !roEff()))) {
+            <div class="dsec">
+              <label>{{ msgMode() ? 'Vorkommen' : 'Ausprägungen' }}</label>
+              @if (roEff()) {
+                <div id="auspList">
+                  @for (a of v.auspList; track a.id) {
+                    <div class="docbox">{{ a.name }}</div>
+                  }
+                </div>
+              } @else {
+                <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
+                  @if (msgMode()) {
+                    Wiederholbares Element — jedes Vorkommen wird einzeln befüllt; „⧉" kopiert ein
+                    Vorkommen samt Werten.
+                  } @else {
+                    Benannte Fälle dieses Elements mit je eigener Profilierung — z. B. mehrere
+                    Beteiligte mit verschiedenen Rollen.
+                  }
+                </div>
+                <div id="auspList">
+                  @for (a of v.auspList; track a.id) {
+                    <div class="auspRow">
+                      <input type="text" [value]="a.name" (change)="renameAuspRow(a.id, $event)" />
+                      @if (msgMode()) {
+                        <button
+                          [disabled]="!!v.kardHinzuSperre"
+                          [title]="v.kardHinzuSperre || 'Vorkommen samt Werten kopieren'"
+                          (click)="copyVorkommen(a.id)"
+                        >
+                          ⧉
+                        </button>
+                      }
+                      <button
+                        [disabled]="!!(a.sperre || v.kardEntfernenSperre)"
+                        [title]="
+                          a.sperre ||
+                          v.kardEntfernenSperre ||
+                          (msgMode() ? 'Vorkommen löschen' : 'Ausprägung löschen')
+                        "
+                        (click)="delAuspRow(a.id)"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  }
+                </div>
+                @if (msgMode()) {
+                  @if (v.auspKopieKandidaten; as kandidaten) {
+                    <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
+                      Weitere Vorkommen entstehen als Kopie einer profilierten Ausprägung — welche?
+                    </div>
+                    @for (k of kandidaten; track k.id) {
+                      <button
+                        [disabled]="!!v.kardHinzuSperre"
+                        [title]="
+                          v.kardHinzuSperre || 'Vorkommen als Kopie von „' + k.name + '“ anlegen'
+                        "
+                        (click)="addVorkommenAusProfil(k.id)"
+                      >
+                        + {{ k.name }}
+                      </button>
+                    }
+                  } @else {
+                    <button
+                      [disabled]="!!v.kardHinzuSperre"
+                      [title]="v.kardHinzuSperre || 'Weiteres Vorkommen dieses Elements anlegen'"
+                      (click)="addVorkommen()"
+                    >
+                      + weiteres Vorkommen
+                    </button>
+                  }
+                } @else {
+                  <button (click)="addAusp()">+ Ausprägung</button>
+                }
+                @if (v.kardHinzuSperre || v.kardEntfernenSperre) {
+                  <div style="font-size: 12px; color: var(--muted); margin-top: 6px">
+                    {{ v.kardHinzuSperre || v.kardEntfernenSperre }}
+                  </div>
+                }
               }
-            </select>
-            @if (ref.cur) {
-              <button title="Zum Ziel springen" (click)="refJump()">→ Ziel</button>
-            }
-          </div>
-          @if (!ref.options.length || ref.options.length === 1) {
-            <div style="font-size: 12px; color: var(--muted); margin-top: 4px">
-              Noch keine passenden Ausprägungen angelegt — erst das Zielelement (z. B. Beteiligung)
-              duplizieren/benennen, dann hier zuordnen.
             </div>
           }
-        }
-      </div>
-    }
 
-    <!-- Hinweise sind der Rueckmeldekanal (#42): sie bleiben auch im
+          @if (v.codelist; as cl) {
+            <div class="dsec">
+              <label>
+                Codeliste{{ cl.nameLang ? ': ' + cl.nameLang : '' }}
+                @if (cl.geladen) {
+                  <span style="color: #1e7d3e; text-transform: none">
+                    (geladen{{ cl.version ? ' · V ' + cl.version : '' }})
+                  </span>
+                }
+              </label>
+              @if (cl.kennung) {
+                <div
+                  style="
+                    font-size: 11.5px;
+                    color: var(--muted);
+                    margin-bottom: 5px;
+                    font-family: var(--mono);
+                  "
+                >
+                  {{ cl.kennung }}
+                </div>
+              }
+              @if (cl.eff) {
+                @if (!roEff() && !msgMode()) {
+                  <div class="clTools">
+                    <a (click)="clAll()">alle</a>
+                    <a (click)="clNone()">keine</a>
+                    <span style="color: var(--muted)">
+                      {{
+                        cl.restricted
+                          ? cl.allowedCount + ' von ' + cl.total + ' zugelassen'
+                          : 'keine Einschränkung'
+                      }}
+                    </span>
+                  </div>
+                } @else if (cl.restricted && cl.total) {
+                  <!-- Umfang der Einschraenkung bleibt auch ohne Bedienelemente sichtbar. -->
+                  <div class="clTools">
+                    <span style="color: var(--muted)">
+                      {{ cl.allowedCount + ' von ' + cl.total + ' zugelassen' }}
+                    </span>
+                  </div>
+                }
+                @if (!roEff() && msgMode()) {
+                  <div style="font-size: 12px; color: var(--muted); margin-bottom: 5px">
+                    @if (cl.restricted) {
+                      Die Profilierung lässt nur diese Werte zu — Klick übernimmt den Wert in das
+                      Feld.
+                    } @else {
+                      Klick auf einen Wert übernimmt ihn in das Feld.
+                    }
+                  </div>
+                }
+                @if (clSicht().umschalter) {
+                  <label
+                    class="clAlleToggle"
+                    [title]="
+                      clSicht().erzwungen
+                        ? 'Alle Werte ausgeschlossen — die vollständige Liste bleibt sichtbar.'
+                        : 'Auch die ausgeschlossenen Werte anzeigen'
+                    "
+                  >
+                    <input
+                      type="checkbox"
+                      [checked]="!clSicht().gefiltert"
+                      [disabled]="clSicht().erzwungen"
+                      (change)="onClAlle($event)"
+                    />
+                    alle zeigen
+                  </label>
+                }
+                @if (cl.showFilter) {
+                  <input
+                    type="text"
+                    placeholder="Werte filtern…"
+                    style="width: 100%; margin-bottom: 5px"
+                    [value]="clFilter()"
+                    (input)="onClFilter($event)"
+                  />
+                }
+                <div class="clWrap">
+                  @for (w of filteredEff(); track w.value) {
+                    @if (roEff()) {
+                      <div
+                        class="clRow"
+                        [class.belegt]="w.belegt"
+                        [title]="w.belegt ? 'In dieser Nachricht belegter Wert' : ''"
+                      >
+                        <code>{{ w.value }}</code
+                        ><span>{{ w.label }}</span>
+                      </div>
+                    } @else if (msgMode()) {
+                      <div
+                        class="clRow clPick"
+                        [class.belegt]="w.belegt"
+                        [title]="w.belegt ? 'Aktuell belegter Wert' : 'Als Wert übernehmen'"
+                        (click)="setWertAusListe(w.value)"
+                      >
+                        <code>{{ w.value }}</code
+                        ><span>{{ w.label }}</span>
+                      </div>
+                    } @else {
+                      <label class="clRow" [class.belegt]="w.belegt">
+                        <input
+                          type="checkbox"
+                          class="clv"
+                          [checked]="w.checked"
+                          (change)="toggleWert(w.value)"
+                        />
+                        <code>{{ w.value }}</code
+                        ><span>{{ w.label }}</span>
+                      </label>
+                    }
+                  }
+                </div>
+              } @else {
+                <div class="extern">Werte extern gepflegt (Code-Typ 3, XRepository).</div>
+                @if (!roEff()) {
+                  <div style="margin: 6px 0">
+                    <button (click)="fetchSingle()">Diese Liste aus dem XRepository laden</button>
+                  </div>
+                  @if (!msgMode()) {
+                    <div style="font-size: 12px; color: var(--muted); margin-bottom: 4px">
+                      Oder alle Listen auf einmal über „Codelisten: XRepository" in der Kopfzeile.
+                      Bis dahin: zulässige Werte als Text, ein Wert pro Zeile:
+                    </div>
+                    <textarea
+                      placeholder="2001 — Genehmigung Grundstücksgeschäft"
+                      [value]="cl.manualText"
+                      (change)="onManualWerte($event)"
+                    ></textarea>
+                  }
+                }
+              }
+            </div>
+          }
+
+          <!-- Wert und Verweisnummer sind Entscheidungen und stehen deshalb oben. -->
+          @if (!roEff()) {
+            @if (v.refNummer) {
+              <div class="dsec">
+                <label>Verweisnummer</label>
+                <div class="docbox">
+                  {{ v.beispiel || '— noch kein Ziel gewählt —' }}
+                </div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 4px">
+                  Die Nummer folgt der Zielwahl oben und steht an beiden Enden gleich — sie wird
+                  nicht von Hand eingetragen.
+                </div>
+              </div>
+            } @else if (!msgMode() || v.leaf) {
+              <div class="dsec">
+                <label>{{ msgMode() ? 'Wert' : 'Beispielwert' }}</label>
+                @if (v.vorschlag) {
+                  <div class="wertVorschlag">
+                    <span
+                      >Vorschlag der Profilierung: <em>{{ v.vorschlag }}</em></span
+                    >
+                    <button (click)="uebernehmeVorschlag()">übernehmen</button>
+                  </div>
+                }
+                <div class="wertRow">
+                  <textarea
+                    style="min-height: 40px"
+                    [placeholder]="
+                      v.wertGesperrt
+                        ? 'Wert aus der Liste der zugelassenen Codes wählen'
+                        : msgMode()
+                          ? 'Wert dieses Feldes in der Testnachricht'
+                          : 'konkretes Beispiel — wird für die Beispiel-XML verwendet'
+                    "
+                    [class.invalid]="v.beispielProblem"
+                    [readOnly]="v.wertGesperrt"
+                    [title]="
+                      v.wertGesperrt
+                        ? 'Die Profilierung schränkt die Codeliste ein — freie Eingabe ist gesperrt.'
+                        : ''
+                    "
+                    [value]="v.beispiel"
+                    (change)="setField('beispiel', $event)"
+                  ></textarea>
+                  @if (msgMode() && v.leaf) {
+                    <button
+                      class="wuerfel"
+                      title="Typkonformen Dummy-Wert erzeugen (UUID, Datum, Pattern, Codeliste)"
+                      (click)="wuerfeln()"
+                    >
+                      Würfeln
+                    </button>
+                  }
+                </div>
+                @if (v.wertGesperrt) {
+                  <div style="font-size: 12px; color: var(--muted); margin-top: 4px">
+                    @if (v.codelist?.allowedSichtbar) {
+                      Die Profilierung lässt hier nur bestimmte Codes zu — Wert oben aus der Liste
+                      wählen.
+                    } @else if (v.codelist?.allowedCount) {
+                      Die geladene Codeliste führt keinen der freigegebenen Codes — vermutlich meint
+                      die Profilierung eine andere Listenfassung. Der Widerspruch gehört in der
+                      Profilierung geklärt; er steht auch im Bericht beim Start des Durchlaufs.
+                    } @else {
+                      Die Profilierung lässt an diesem Element keinen Wert zu — der Widerspruch
+                      gehört in der Profilierung geklärt.
+                    }
+                  </div>
+                }
+                @if (v.beispielProblem) {
+                  <div class="feldProblem">{{ v.beispielProblem }}</div>
+                }
+              </div>
+            }
+          } @else if (v.beispiel) {
+            @if (v.beispiel) {
+              <div class="dsec">
+                <label>Beispielwert</label>
+                <div class="docbox">
+                  @if (v.beispielLabel) {
+                    <code class="codeval">{{ v.beispiel }}</code>
+                    <span style="color: var(--muted)">{{ v.beispielLabel }}</span>
+                  } @else {
+                    {{ v.beispiel }}
+                  }
+                </div>
+              </div>
+            }
+          }
+
+          <!-- ── Nachschlagen ───────────────────────────────────────────── -->
+          <div class="detailTrenner"></div>
+
+          @if (v.doc && !v.erw) {
+            <div class="dsec">
+              <label>Beschreibung (Standard)</label>
+              <div class="docbox docDeckel" [class.docOffen]="dokuOffen()">{{ v.doc }}</div>
+              <button class="docMehr" (click)="dokuOffen.set(!dokuOffen())">
+                {{ dokuOffen() ? 'weniger' : 'mehr anzeigen' }}
+              </button>
+            </div>
+          }
+
+          @if (v.ref; as ref) {
+            <div class="dsec">
+              <label
+                >{{ msgMode() ? 'Verweisziel' : 'Verweisziel im Szenario' }} ({{
+                  ref.label
+                }})</label
+              >
+              @if (msgMode() && !roEff()) {
+                <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
+                  Welches Vorkommen ist gemeint? Die Nummern an beiden Enden vergibt das Werkzeug.
+                  @if (ref.beschraenkt) {
+                    Die Profilierung legt das Ziel fest — die Auswahl ist darauf eingeschränkt.
+                  }
+                </div>
+              }
+              @if (roEff()) {
+                <div style="display: flex; gap: 6px; align-items: center">
+                  <span class="docbox" style="flex: 1">{{ ref.curLabel }}</span>
+                  @if (ref.cur) {
+                    <button title="Zum Ziel springen" (click)="refJump()">→ Ziel</button>
+                  }
+                </div>
+              } @else {
+                <div style="display: flex; gap: 6px">
+                  <select style="flex: 1" (change)="setRefZiel($event)">
+                    @for (o of ref.options; track o.path) {
+                      <option [value]="o.path" [selected]="o.selected">{{ o.label }}</option>
+                    }
+                  </select>
+                  @if (ref.cur) {
+                    <button title="Zum Ziel springen" (click)="refJump()">→ Ziel</button>
+                  }
+                </div>
+                @if (!ref.options.length || ref.options.length === 1) {
+                  <div style="font-size: 12px; color: var(--muted); margin-top: 4px">
+                    Noch keine passenden Ausprägungen angelegt — erst das Zielelement (z. B.
+                    Beteiligung) duplizieren/benennen, dann hier zuordnen.
+                  </div>
+                }
+              }
+            </div>
+          }
+
+          <!-- Hinweise sind der Rueckmeldekanal (#42): sie bleiben auch im
          schreibgeschuetzten Editor einer abgenommenen Profilierung bedienbar —
          als einziges Feld. Ausserhalb dieses Falls gilt die alte Regel
          (bearbeitbar, kein Nachrichten-Modus). -->
-    @if (hinweiseBedienbar()) {
-      <div class="dsec">
-        <label>Hinweise</label>
-        @if (roEff()) {
-          <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
-            Von der BLK-AG abgenommen — nur dieses Feld ist bedienbar. Ihre Rückmeldung bleibt am
-            Element hängen; die Profilierung selbst bleibt unverändert.
-          </div>
-        }
-        @for (h of v.hinweise; track h.id) {
-          <div class="hwZeile" [class.hwErledigt]="h.erledigt">
-            @if (darfAendern(h.id)) {
-              <input
-                type="checkbox"
-                title="Hinweis abarbeiten"
-                [checked]="h.erledigt"
-                (change)="toggleHinweisErledigt(h.id, $event)"
-              />
-            }
-            <span class="hwText" [title]="herkunft(h)">{{ h.text }}</span>
-            @if (darfAendern(h.id)) {
-              <button class="hwWeg" title="Hinweis löschen" (click)="loescheHinweis(h.id)">
-                ×
-              </button>
-            }
-          </div>
-        }
-        <textarea
-          #hinweisFeld
-          placeholder="Hinweis hinzufügen — erscheint im Excel-Export, nie im XML"
-          [value]="neuerHinweis()"
-          (input)="onNeuerHinweis($event)"
-          (change)="addHinweis()"
-        ></textarea>
-        <input
-          type="text"
-          style="width: 100%; margin-top: 4px"
-          placeholder="Ihr Name — erscheint am Hinweis (Rolle setzt der Server)"
-          [value]="hinweise.autor()"
-          (change)="onAutor($event)"
-        />
-      </div>
-    }
-
-    @if (!roEff()) {
-      <!-- Review-Notizen gehoeren zur Profilierung, nicht in eine Instanz. -->
-      @if (!msgMode()) {
-        <div class="dsec">
-          <label>Fachliche Anmerkung</label>
-          <textarea
-            placeholder="Ausfüllhinweis, juristische Erläuterung, offene Frage…"
-            [value]="v.anmerkung"
-            (change)="setField('anmerkung', $event)"
-          ></textarea>
-        </div>
-      }
-      @if (v.refNummer) {
-        <div class="dsec">
-          <label>Verweisnummer</label>
-          <div class="docbox">
-            {{ v.beispiel || '— noch kein Ziel gewählt —' }}
-          </div>
-          <div style="font-size: 12px; color: var(--muted); margin-top: 4px">
-            Die Nummer folgt der Zielwahl oben und steht an beiden Enden gleich — sie wird nicht von
-            Hand eingetragen.
-          </div>
-        </div>
-      } @else if (!msgMode() || v.leaf) {
-        <div class="dsec">
-          <label>{{ msgMode() ? 'Wert' : 'Beispielwert' }}</label>
-          @if (v.vorschlag) {
-            <div class="wertVorschlag">
-              <span
-                >Vorschlag der Profilierung: <em>{{ v.vorschlag }}</em></span
-              >
-              <button (click)="uebernehmeVorschlag()">übernehmen</button>
-            </div>
-          }
-          <div class="wertRow">
-            <textarea
-              style="min-height: 40px"
-              [placeholder]="
-                v.wertGesperrt
-                  ? 'Wert aus der Liste der zugelassenen Codes wählen'
-                  : msgMode()
-                    ? 'Wert dieses Feldes in der Testnachricht'
-                    : 'konkretes Beispiel — wird für die Beispiel-XML verwendet'
-              "
-              [class.invalid]="v.beispielProblem"
-              [readOnly]="v.wertGesperrt"
-              [title]="
-                v.wertGesperrt
-                  ? 'Die Profilierung schränkt die Codeliste ein — freie Eingabe ist gesperrt.'
-                  : ''
-              "
-              [value]="v.beispiel"
-              (change)="setField('beispiel', $event)"
-            ></textarea>
-            @if (msgMode() && v.leaf) {
-              <button
-                class="wuerfel"
-                title="Typkonformen Dummy-Wert erzeugen (UUID, Datum, Pattern, Codeliste)"
-                (click)="wuerfeln()"
-              >
-                Würfeln
-              </button>
-            }
-          </div>
-          @if (v.wertGesperrt) {
-            <div style="font-size: 12px; color: var(--muted); margin-top: 4px">
-              @if (v.codelist?.allowedSichtbar) {
-                Die Profilierung lässt hier nur bestimmte Codes zu — Wert oben aus der Liste wählen.
-              } @else if (v.codelist?.allowedCount) {
-                Die geladene Codeliste führt keinen der freigegebenen Codes — vermutlich meint die
-                Profilierung eine andere Listenfassung. Der Widerspruch gehört in der Profilierung
-                geklärt; er steht auch im Bericht beim Start des Durchlaufs.
-              } @else {
-                Die Profilierung lässt an diesem Element keinen Wert zu — der Widerspruch gehört in
-                der Profilierung geklärt.
+          @if (hinweiseBedienbar()) {
+            <div class="dsec">
+              <label>Hinweise</label>
+              @if (roEff()) {
+                <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
+                  Von der BLK-AG abgenommen — nur dieses Feld ist bedienbar. Ihre Rückmeldung bleibt
+                  am Element hängen; die Profilierung selbst bleibt unverändert.
+                </div>
               }
+              @for (h of v.hinweise; track h.id) {
+                <div class="hwZeile" [class.hwErledigt]="h.erledigt">
+                  @if (darfAendern(h.id)) {
+                    <input
+                      type="checkbox"
+                      title="Hinweis abarbeiten"
+                      [checked]="h.erledigt"
+                      (change)="toggleHinweisErledigt(h.id, $event)"
+                    />
+                  }
+                  <span class="hwText" [title]="herkunft(h)">{{ h.text }}</span>
+                  @if (darfAendern(h.id)) {
+                    <button class="hwWeg" title="Hinweis löschen" (click)="loescheHinweis(h.id)">
+                      ×
+                    </button>
+                  }
+                </div>
+              }
+              <textarea
+                #hinweisFeld
+                placeholder="Hinweis hinzufügen — erscheint im Excel-Export, nie im XML"
+                [value]="neuerHinweis()"
+                (input)="onNeuerHinweis($event)"
+                (change)="addHinweis()"
+              ></textarea>
+              <input
+                type="text"
+                style="width: 100%; margin-top: 4px"
+                placeholder="Ihr Name — erscheint am Hinweis (Rolle setzt der Server)"
+                [value]="hinweise.autor()"
+                (change)="onAutor($event)"
+              />
             </div>
-          }
-          @if (v.beispielProblem) {
-            <div class="feldProblem">{{ v.beispielProblem }}</div>
-          }
-        </div>
-      }
-    } @else {
-      @if (v.anmerkung) {
-        <div class="dsec">
-          <label>Fachliche Anmerkung</label>
-          <div class="docbox">{{ v.anmerkung }}</div>
-        </div>
-      }
-      @if (v.hinweise.length) {
-        <div class="dsec">
-          <label>Hinweise</label>
-          <div class="docbox">
-            @for (h of v.hinweise; track h.id) {
-              <div [class.hwErledigt]="h.erledigt">
-                {{ h.text }}
-                @if (h.erledigt) {
-                  <span style="color: var(--muted)"> (erledigt)</span>
+          } @else if (v.hinweise.length) {
+            <div class="dsec">
+              <label>Hinweise</label>
+              <div class="docbox">
+                @for (h of v.hinweise; track h.id) {
+                  <div [class.hwErledigt]="h.erledigt">
+                    {{ h.text }}
+                    @if (h.erledigt) {
+                      <span style="color: var(--muted)"> (erledigt)</span>
+                    }
+                  </div>
                 }
               </div>
-            }
-          </div>
-        </div>
-      }
-      @if (v.beispiel) {
-        <div class="dsec">
-          <label>Beispielwert</label>
-          <div class="docbox">
-            @if (v.beispielLabel) {
-              <code class="codeval">{{ v.beispiel }}</code>
-              <span style="color: var(--muted)">{{ v.beispielLabel }}</span>
-            } @else {
-              {{ v.beispiel }}
-            }
-          </div>
-        </div>
-      }
+            </div>
+          }
+
+          @if (!roEff() && !msgMode()) {
+            <div class="dsec">
+              <label>Fachliche Anmerkung</label>
+              <textarea
+                placeholder="Ausfüllhinweis, juristische Erläuterung, offene Frage…"
+                [value]="v.anmerkung"
+                (change)="setField('anmerkung', $event)"
+              ></textarea>
+            </div>
+          } @else if (v.anmerkung) {
+            <div class="dsec">
+              <label>Fachliche Anmerkung</label>
+              <div class="docbox">{{ v.anmerkung }}</div>
+            </div>
+          }
+        } @else {
+          <!-- Ruhezustand: Inhalt folgt mit #82; die Spalte haelt schon jetzt den Platz. -->
+          <div class="detailRuhe">Ein Element im Baum auswählen, um hier zu entscheiden.</div>
+        }
+      </div>
     }
-  }
-</div>
+  </div>
+}
