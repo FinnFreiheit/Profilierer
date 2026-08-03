@@ -884,6 +884,18 @@ label.menuItem:has(input:disabled) {
   color: #9a6a00;
   border: 1px dashed #d9a927;
 }
+/* Durchlauf einer Nachricht: was die Nachricht verlangt (grün) und was frei
+   ist (orange) — dieselben Farben wie die Dispositionen der Profilierung. */
+.tag.t-mand {
+  background: #e6f5ef;
+  color: #12684f;
+  border: 1px solid #1d9e75;
+}
+.tag.t-frei {
+  background: #fbf1e2;
+  color: #8a560f;
+  border: 1px solid #ba7517;
+}
 /* Gebundener Durchlauf: die Profilierung laesst die Frage offen ("zu klaeren"). */
 .tag.t-klaeren {
   background: #fdf3d8;
@@ -1029,6 +1041,37 @@ app-detail-panel {
   font-size: 12.5px;
   color: var(--muted);
   margin-bottom: 6px;
+}
+/* Einordnung der Station: grün = die Nachricht verlangt sie, orange = frei.
+   Dieselben Farben wie die Dispositionen der Profilierung (profile-defaults). */
+.guidedSec .gStation {
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 10px;
+  margin-left: 6px;
+  text-transform: none;
+  letter-spacing: 0;
+  border: 1px solid;
+}
+.guidedSec .gPflicht {
+  background: #e6f5ef;
+  color: #12684f;
+  border-color: #1d9e75;
+}
+.guidedSec .gFrei {
+  background: #fbf1e2;
+  color: #8a560f;
+  border-color: #ba7517;
+}
+/* Pflichtangabe hält die Spur fest (ADR 0016). */
+.guidedSec .gSperre {
+  border-left: 3px solid #1d9e75;
+  padding-left: 6px;
+  color: #12684f;
+}
+.gNav .primary.gesperrt {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 /* Marker der gebundenen Profilierung am Entscheidungspunkt. */
 .guidedSec .gKlaeren,

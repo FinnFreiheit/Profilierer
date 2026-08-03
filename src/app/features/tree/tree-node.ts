@@ -323,6 +323,25 @@ export class TreeNode {
         title:
           'Die gebundene Profilierung sagt zu diesem Element nichts — es folgt der Schema-Semantik. Die Testnachricht geht insoweit über das Szenario hinaus.',
       });
+    // Gefuehrter Instanz-Durchlauf: Stationen nach ihrer Verbindlichkeit
+    // einfaerben — grün, was die Nachricht verlangt, orange, was frei ist
+    // (dieselben Farben wie die Dispositionen der Profilierung, ADR 0016).
+    const stationArt = this.state.guided() && !readOnly ? this.guided.stationArt(path) : null;
+    if (stationArt === 'pflicht')
+      tags.push({
+        cls: 't-mand',
+        text: 'Pflicht',
+        title:
+          'Die Nachricht verlangt diese Angabe — der Durchlauf blättert nicht darüber hinweg, solange sie fehlt.',
+      });
+    else if (stationArt === 'frei')
+      tags.push({
+        cls: 't-frei',
+        text: 'optional',
+        title:
+          'Freie Angabe — ein Wert bringt das Element in die Nachricht, ohne Wert entfällt es. Mit ↓ übergehen.',
+      });
+
     // Gefuehrter Modus: offene Entscheidungspunkte markieren.
     if (this.state.guided() && !readOnly && this.guided.offeneSet().has(path))
       tags.push({ cls: 't-open', text: 'offen', title: 'Entscheidung steht noch aus' });
@@ -418,7 +437,17 @@ export class TreeNode {
       exclInherit: !isExcl && inhExcl,
       leafBox: isValueBox,
       parentBox: !isValueBox,
-      statusStrip: st ? st.farbe : null,
+      // Im Durchlauf gewinnt die Farbe der Station: sie sagt, was die Nachricht
+      // verlangt — und bleibt anders als die Tags auch im Mini-Kasten sichtbar.
+      // Sonst wie bisher die Farbe der gesetzten Statusstufe.
+      statusStrip:
+        stationArt === 'pflicht'
+          ? '#1D9E75'
+          : stationArt === 'frei'
+            ? '#BA7517'
+            : st
+              ? st.farbe
+              : null,
       title: it.kind === 'ausp' ? it.ausp.name : pretty(n.name),
       refkind: rk,
       refziel: pe.refZiel ?? null,

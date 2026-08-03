@@ -23,10 +23,17 @@
     ></span>
     Verweis
   </span>
+  @if (durchlauf()) {
+    <span><span class="tag t-mand">Pflicht</span> die Nachricht verlangt diese Angabe</span>
+    <span><span class="tag t-frei">optional</span> freie Angabe — der Wert entscheidet</span>
+  }
   <span style="margin-left: auto">
     @if (guided()) {
       ✕ ausblenden · ⧉ duplizieren · +/− Ast auf/zu · Pfeiltasten: ←→ offene Punkte, ↑↓ Geschwister
       · z/o/n entscheiden
+    } @else if (durchlauf()) {
+      ✕ ausblenden · ⧉ duplizieren · +/− Ast auf/zu · Pfeiltasten: ↓ weiter (Pflichtangaben halten
+      fest), ↑ zurück, ← Teilbaum betreten, → heraus
     } @else {
       ✕ ausblenden · ⧉ duplizieren · +/− Ast auf/zu · Pfeiltasten: ← Eltern, → Kind, ↑↓ Geschwister
     }

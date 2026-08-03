@@ -471,6 +471,63 @@ export class GuidedService {
   }
 
   /**
+   * Einordnung einer Station fuer die Darstellung: verlangt die Nachricht sie
+   * (`pflicht`, grün) oder steht sie frei (`frei`, orange)? Anders als
+   * `zaehltZurPflicht` ist das eine **strukturelle** Aussage — ein befülltes
+   * freies Feld bleibt frei, es ist ja weiterhin löschbar. `null` ausserhalb des
+   * Instanz-Modus und an Pfaden ohne Station.
+   */
+  stationArt(path: string): 'pflicht' | 'frei' | null {
+    if (!this.instanzModus()) return null;
+    const p = this.punktAt(path);
+    if (!p) return null;
+    switch (p.art) {
+      case 'wert':
+        return p.pflicht === false ? 'frei' : 'pflicht';
+      case 'auswahl':
+        return this.auswahlGefordert(p) ? 'pflicht' : 'frei';
+      case 'element':
+        return 'frei';
+      case 'auspraegung':
+        return 'pflicht'; // das Vorkommen existiert und gehoert zur Nachricht
+    }
+  }
+
+  /**
+   * Grund, warum die ausgewaehlte Station **nicht uebersprungen** werden darf —
+   * null, wenn der Durchlauf weiterblaettern darf. Pflichtangaben sind nicht
+   * uebergehbar: eine leere oder typwidrige Pflichtangabe und eine unbelegte
+   * Pflicht-Auswahl halten die Spur fest, statt still eine unvollstaendige
+   * Nachricht entstehen zu lassen.
+   *
+   * Festgehalten wird nur die **Weiter**-Bewegung. Zurueck (↑), das Verlassen
+   * eines Containers (→), der Sprung „Nächster offener" und jeder Klick im Baum
+   * bleiben frei — sonst waere der Durchlauf an einer Stelle gefangen, die sich
+   * vielleicht erst spaeter beantworten laesst.
+   */
+  ueberspringSperre(): string | null {
+    if (!this.instanzModus()) return null;
+    const path = this.selPath();
+    if (path == null) return null;
+    const p = this.punktAt(path);
+    if (!p || this.istEntschiedenPunkt(p) || !this.istKritisch(p)) return null;
+    return p.art === 'auswahl'
+      ? 'Pflicht-Auswahl — erst einen Zweig wählen, dann weiter.'
+      : 'Pflichtangabe — erst einen typkonformen Wert eintragen, dann weiter.';
+  }
+
+  /**
+   * Eine Station uebergehen (Taste ↓, „Weiter ›"): zur naechsten blaettern,
+   * sofern die aktuelle das zulaesst. `false` mit Grund in `ueberspringSperre`,
+   * wenn eine Pflichtangabe festhaelt.
+   */
+  ueberspringen(): boolean {
+    if (this.ueberspringSperre()) return false;
+    this.gotoNext();
+    return true;
+  }
+
+  /**
    * Instanz-Modus: Anzahl offener Punkte, die die Schema-Vollstaendigkeit
    * verletzen (leere/typwidrige Pflichtwerte, ungeloeste Pflicht-Auswahlen,
    * typwidrige freie Werte) — das "valide"-Kriterium der Story.
