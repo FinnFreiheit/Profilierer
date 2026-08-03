@@ -38,6 +38,16 @@ import { XmlDiffDialog } from './features/dialogs/xml-diff-dialog';
 import { VergleichService } from './core/services/vergleich.service';
 import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
 
+/**
+ * Ist das Ziel ein **Zweig-Radio** der gefuehrten Auswahl? Solche Knoepfe geben
+ * die Tastatur an die Fuehrung ab (siehe `App.onKeydown`). Radios ausserhalb —
+ * die Fassungswahl im Erstellen-Dialog — sind davon nicht betroffen: bei
+ * offenem Dialog steigt `onKeydown` ohnehin vorher aus.
+ */
+function istZweigWahl(el: HTMLElement): boolean {
+  return el instanceof HTMLInputElement && el.type === 'radio';
+}
+
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -216,11 +226,17 @@ export class App implements OnInit {
    * Pflichtangaben halten das Uebergehen fest (`ueberspringSperre`); zurueck,
    * hinein/heraus und jeder Klick im Baum bleiben frei. Wo keine Station passt,
    * greift die gewohnte Baum-Navigation.
+   *
+   * Eingabefelder behalten die Tastatur — die **Zweig-Radios** der Auswahl
+   * nicht: dort haben Pfeiltasten keine Eingabebedeutung, und nach einem Klick
+   * auf einen Zweig blieben sie im Radio haengen (Browser-Standard: Pfeil
+   * schaltet den Zweig weiter), statt den Durchlauf fortzusetzen. Die Radios
+   * bleiben per Tab erreichbar und mit Leertaste bedienbar.
    */
   onKeydown(e: KeyboardEvent): void {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target as HTMLElement | null;
-    if (t && ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return;
+    if (t && ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) && !istZweigWahl(t)) return;
     if (document.querySelector('dialog[open]')) return;
 
     if (

@@ -3,6 +3,7 @@ import { App } from './app';
 import { StateService } from './core/services/state.service';
 import { GuidedService } from './core/services/guided.service';
 import { NavService } from './core/services/nav.service';
+import { ToastService } from './core/services/toast.service';
 import { TreeItem } from './models/node.model';
 
 describe('App', () => {
@@ -97,6 +98,68 @@ describe('App', () => {
       state.readOnly.set(true);
       app.onKeydown(key('z'));
       expect(guided.setzeDisposition).not.toHaveBeenCalled();
+    });
+
+    // ── Gefuehrter Durchlauf einer Nachricht (ADR 0016) ────────────────
+    describe('Instanz-Durchlauf', () => {
+      beforeEach(() => {
+        state.messageCreate.set({ msgName: 'm', entryId: null, name: null });
+        spyOn(guided, 'gotoNext');
+        spyOn(guided, 'betreteStation').and.returnValue(true);
+        spyOn(guided, 'gotoUebergeordnet').and.returnValue(true);
+      });
+
+      it('senkrecht die Spur, waagerecht die Tiefe — ohne Rueckfall auf den Baum', () => {
+        const runter = key('ArrowDown');
+        app.onKeydown(runter);
+        expect(guided.gotoNext).toHaveBeenCalled();
+        expect(runter.defaultPrevented).toBeTrue();
+
+        app.onKeydown(key('ArrowUp'));
+        expect(guided.gotoPrev).toHaveBeenCalled();
+
+        app.onKeydown(key('ArrowLeft'));
+        expect(guided.betreteStation).toHaveBeenCalled();
+
+        app.onKeydown(key('ArrowRight'));
+        expect(guided.gotoUebergeordnet).toHaveBeenCalled();
+        // Die Baum-Navigation laeuft andersherum und darf hier nicht greifen.
+        expect(nav.arrowNavigate).not.toHaveBeenCalled();
+      });
+
+      it('eine offene Pflichtangabe haelt das Weiterblaettern fest und nennt den Grund', () => {
+        spyOn(guided, 'ueberspringSperre').and.returnValue('Pflichtangabe — …');
+        const toast = spyOn(TestBed.inject(ToastService), 'show');
+
+        const runter = key('ArrowDown');
+        app.onKeydown(runter);
+
+        expect(guided.gotoNext).not.toHaveBeenCalled();
+        expect(toast).toHaveBeenCalledWith('Pflichtangabe — …');
+        expect(runter.defaultPrevented).toBeTrue();
+        // Zurueck bleibt frei — sonst waere der Durchlauf dort gefangen.
+        app.onKeydown(key('ArrowUp'));
+        expect(guided.gotoPrev).toHaveBeenCalled();
+      });
+
+      it('nimmt den Zweig-Radios die Pfeiltasten ab (Fokus nach der Zweigwahl)', () => {
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        const runter = key('ArrowDown');
+        Object.defineProperty(runter, 'target', { value: radio });
+
+        app.onKeydown(runter);
+
+        expect(guided.gotoNext).toHaveBeenCalled();
+        expect(runter.defaultPrevented).toBeTrue(); // Browser schaltet den Zweig nicht weiter
+      });
+
+      it('laesst Textfelder unberuehrt', () => {
+        const imFeld = key('ArrowDown');
+        Object.defineProperty(imFeld, 'target', { value: document.createElement('input') });
+        app.onKeydown(imFeld);
+        expect(guided.gotoNext).not.toHaveBeenCalled();
+      });
     });
   });
 });
