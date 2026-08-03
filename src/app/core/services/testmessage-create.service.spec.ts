@@ -28,6 +28,12 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
     <xs:element name="az" type="xs:string" minOccurs="0"/>
     <xs:element name="anlage" type="Type.Test.Anlage" minOccurs="2" maxOccurs="unbounded"/>
     <xs:element name="beteiligung" type="Type.Test.Bet" minOccurs="0" maxOccurs="unbounded"/>
+    <xs:element name="extras" type="Type.Test.Extras" minOccurs="0"/>
+  </xs:sequence></xs:complexType>
+  <!-- Voll-optionaler Container fuer den Widerspruch aus #71: "zwingend"
+       erzwingt hier nichts, weil kein Kind ein Pflicht-Rueckgrat bildet. -->
+  <xs:complexType name="Type.Test.Extras"><xs:sequence>
+    <xs:element name="notiz" type="xs:string" minOccurs="0"/>
   </xs:sequence></xs:complexType>
   <xs:complexType name="Type.Test.Anlage"><xs:sequence>
     <xs:element name="name" type="xs:string"/>
@@ -419,6 +425,48 @@ describe('TestmessageCreateService', () => {
       // Der Ausschluss gewinnt: keine Vorkommen, kein Entscheidungspunkt.
       expect(state.auspraegungen()[`${M}/anlage`]).toBeUndefined();
       expect(guided.punktAt(`${M}/anlage`)).toBeNull();
+    });
+
+    it('meldet einen zwingenden Container, unter dem nichts zwingend ist (#71)', async () => {
+      // Entschieden 26.08.03: die Konstellation soll in einer Profilierung
+      // nicht vorkommen — sie wird beim Start als Mangel gemeldet, statt eine
+      // neue Walk-Semantik zu bekommen.
+      arbeitsstand = doc({
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+          { id: 'v1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' },
+        ],
+        elemente: { [`${M}/extras`]: { status: 'v1' } },
+      });
+
+      await svc.neuAusProfil(profil(), null);
+
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.offen()).toBeTrue();
+      expect(report.eintraege().length).toBe(1);
+      expect(report.eintraege()[0]!.pfad).toBe(`${M}/extras`);
+      expect(report.eintraege()[0]!.text).toContain('erzwingt hier nichts');
+    });
+
+    it('kein Mangel, wenn ein Kind zwingend gesetzt oder das Schema-Rueckgrat da ist (#71)', async () => {
+      arbeitsstand = doc({
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+          { id: 'v1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' },
+        ],
+        elemente: {
+          // extras erzwingt ueber das zwingend gesetzte Kind etwas …
+          [`${M}/extras`]: { status: 'v1' },
+          [`${M}/extras/notiz`]: { status: 'v1' },
+          // … und beteiligung traegt ein Schema-Pflichtkind (name).
+          [`${M}/beteiligung`]: { status: 'v1' },
+        },
+      });
+
+      await svc.neuAusProfil(profil(), null);
+
+      const report = TestBed.inject(ValidationReportService);
+      expect(report.offen()).toBeFalse();
     });
 
     it('meldet auch den vererbten Ausschluss — der Teilbaum wird sonst still halbiert', async () => {
