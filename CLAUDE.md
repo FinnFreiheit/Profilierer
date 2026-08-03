@@ -34,7 +34,7 @@ xjustiz-profilierer/
 │   │   ├── util/              xml.util, pretty.util, testmessage.util, pattern-sample.util
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
 │   │   └── profile-defaults.ts
-│   ├── features/              Topbar, Toolbar, Crumbs, Search, MessagePicker, Tree (TreeCanvas +
+│   ├── features/              Objektleiste, Werkzeugleiste, Crumbs, Search, MessagePicker, Tree (TreeCanvas +
 │   │                          rekursive TreeNode), Detail, Dialoge (Status/Meta/Diff), Legend, Print
 │   ├── shared/                Toast, FileDropDirective
 │   ├── app.ts / app.html      Shell (Komposition + Tastatur-Nav + Drop-Routing)
@@ -65,7 +65,7 @@ Node ≥ 22.12 nötig (Angular 20). Die Anforderung steht in `.nvmrc` (24) und i
 - **Prüfkette vor dem Commit:** `npm run check` — Lint, Formatprüfung, Frontend-Tests, Backend-Tests, Build. Genau das fährt auch CI (`.github/workflows/ci.yml`, bei Push auf `main` und bei jedem PR). Einzeln: `npm run lint`, `npm run lint:fix`, `npm run format`, `npm run format:check`.
 - **Lint/Format:** ESLint 9 Flat Config (`eslint.config.mjs`, angular-eslint 20), Formatierung ausschließlich Prettier. Die drei Barrierefreiheits-Regeln für Templates stehen bewusst auf `warn` — 68 Altlast-Treffer im Bestand, siehe [ADR 0011](docs/adr/0011-lint-format-ci.md). Neue Warnungen dort nicht vermehren.
 - **E2E-Prüfung:** Puppeteer-Skript, das XSDs per Drag&Drop-Event lädt (`uploadFile` befüllt `webkitdirectory`-Inputs nicht).
-- **Hinterlegte Schemata:** 3.6.2 und 4.0.0 liegen unter `public/schemas/<version>/`; die App lädt 3.6.2 automatisch beim Start (`BundledSchemaService`, Umschalter in der Topbar, Diff-Vergleich per Klick) — Ordner-Upload nur noch für Fremdschemata. Nach dem Ändern der XSDs `npm run schemas:manifest` ausführen. **Aktualisieren aus der Quelle:** `npm run schemas:fetch` holt die veröffentlichten ZIPs von xjustiz.de, entpackt sie nach `public/schemas/` und baut das Manifest neu (`-- --dry` zeigt nur den Abgleich). Zur Laufzeit macht „Laden → Schemata: xjustiz.de" dasselbe im Browser (`RemoteSchemaService`, Proxy `/xjustiz-api`) — die abgerufenen Versionen ersetzen die hinterlegten Einträge.
+- **Hinterlegte Schemata:** 3.6.2 und 4.0.0 liegen unter `public/schemas/<version>/`; die App lädt 3.6.2 automatisch beim Start (`BundledSchemaService`, Umschalter im Datenbasis-Menü der Werkzeugleiste, Diff-Vergleich per Klick) — Ordner-Upload nur noch für Fremdschemata. Nach dem Ändern der XSDs `npm run schemas:manifest` ausführen. **Aktualisieren aus der Quelle:** `npm run schemas:fetch` holt die veröffentlichten ZIPs von xjustiz.de, entpackt sie nach `public/schemas/` und baut das Manifest neu (`-- --dry` zeigt nur den Abgleich). Zur Laufzeit macht „Laden → Schemata: xjustiz.de" dasselbe im Browser (`RemoteSchemaService`, Proxy `/xjustiz-api`) — die abgerufenen Versionen ersetzen die hinterlegten Einträge.
 - Testdaten (Quellen der hinterlegten Kopien): `/Users/finnfreiheit/code/XJustiz_3_6_2_XSD` (3.6.2) und `/Users/finnfreiheit/code/XJustiz_4.0.0_Schemata` (4.0.0, Vergleichsversion für den Diff).
 
 ## Konventionen

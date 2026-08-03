@@ -1,0 +1,228 @@
+<!--
+  Zeile 2 der Kopfzone (#80): Nachricht + Pfad links, Werkzeuge rechts.
+  Feste Zonen — die Leiste bricht nie um, sie schrumpft nach Prioritaet.
+-->
+<div id="werkzeugleiste" class="kopfleiste">
+  <input #xsdInput type="file" webkitdirectory multiple class="hidden" (change)="onXsd($event)" />
+  <input
+    #clInput
+    type="file"
+    multiple
+    accept=".xml,.zip"
+    class="hidden"
+    (change)="onCodelist($event)"
+  />
+
+  <!-- Zone: wo bin ich — Nachrichtenwahl und Pfad als eine Kette -->
+  <div class="zone zoneOrt">
+    <app-message-picker></app-message-picker>
+    <app-crumbs></app-crumbs>
+  </div>
+
+  <span class="zoneTrenner"></span>
+
+  <!-- Zone: wie arbeite ich -->
+  <div class="zone zoneModus">
+    <div class="modusSeg" role="group" aria-label="Arbeitsweise" [title]="modusTitel()">
+      <button
+        [class.aktiv]="modus() === 'betrachten'"
+        [attr.aria-pressed]="modus() === 'betrachten'"
+        [disabled]="!hasRoot()"
+        title="Nur ansehen — es wird nichts entschieden und nichts geändert"
+        (click)="setzeModus('betrachten')"
+      >
+        Betrachten
+      </button>
+      <button
+        [class.aktiv]="modus() === 'bearbeiten'"
+        [attr.aria-pressed]="modus() === 'bearbeiten'"
+        [disabled]="modusGesperrt()"
+        title="Frei entscheiden — Status, Kardinalitäten und Werte am ausgewählten Element"
+        (click)="setzeModus('bearbeiten')"
+      >
+        Bearbeiten
+      </button>
+      <button
+        [class.aktiv]="modus() === 'gefuehrt'"
+        [attr.aria-pressed]="modus() === 'gefuehrt'"
+        [disabled]="modusGesperrt()"
+        [title]="
+          isCreate() || isMessage()
+            ? 'Geführt durch die Nachricht: Station für Station blättern, Werte eintragen, Auswahlen treffen'
+            : 'Geführt durch alle offenen Entscheidungen der Profilierung'
+        "
+        (click)="setzeModus('gefuehrt')"
+      >
+        Geführt
+      </button>
+    </div>
+
+    <app-search></app-search>
+
+    <app-menu label="Ansicht" kurz="≡" btnClass="mAnsicht" #ansicht>
+      <label class="menuItem" title="Versionsunterschiede im Baum markieren">
+        <input
+          type="checkbox"
+          [disabled]="!hasIdxB()"
+          [checked]="state.showDiff()"
+          (change)="state.showDiff.set(checked($event))"
+        />
+        Diff
+      </label>
+      <label
+        class="menuItem"
+        title="Aktiver Pfad und seine Kinder in voller Größe, alles andere als Kompakt-Chips"
+      >
+        <input
+          type="checkbox"
+          [checked]="state.focusMode()"
+          (change)="state.focusMode.set(checked($event))"
+        />
+        Fokus
+      </label>
+      <label class="menuItem">
+        <input
+          type="checkbox"
+          [checked]="state.showTech()"
+          (change)="state.showTech.set(checked($event))"
+        />
+        Technik
+      </label>
+      <label class="menuItem">
+        <input
+          type="checkbox"
+          [checked]="state.showRefs()"
+          (change)="state.showRefs.set(checked($event))"
+        />
+        Verweise
+      </label>
+      <label
+        class="menuItem"
+        title="Blätter auf eine bündige Wertespalte ausrichten (aus: Blatt direkt am Elternknoten, kurze Wege)"
+      >
+        <input
+          type="checkbox"
+          [checked]="state.alignLeaves()"
+          (change)="state.alignLeaves.set(checked($event))"
+        />
+        Blätter ausrichten
+      </label>
+      @if (!isSchemaView()) {
+        <label
+          class="menuItem"
+          [title]="
+            state.hatVorgabe()
+              ? 'Von der gebundenen Profilierung Ausgeschlossenes einblenden (gesperrt, mit Begründung)'
+              : 'Ausgeschlossene Elemente ausblenden'
+          "
+        >
+          <input
+            type="checkbox"
+            [checked]="state.onlyProfile()"
+            (change)="state.onlyProfile.set(checked($event))"
+          />
+          nur Profil
+        </label>
+        <label
+          class="menuItem"
+          title="Nur Elemente mit Wert/Inhalt zeigen statt des gesamten Standards"
+        >
+          <input
+            type="checkbox"
+            [checked]="state.onlyValues()"
+            (change)="toggleOnlyValues(checked($event))"
+          />
+          nur Werte
+        </label>
+      }
+      <div class="menuSep"></div>
+      <button class="menuItem" [disabled]="!hasRoot()" (click)="ansicht.close(); expand()">
+        Alles ausklappen
+      </button>
+      <button class="menuItem" [disabled]="!hasRoot()" (click)="ansicht.close(); collapse()">
+        Zuklappen
+      </button>
+    </app-menu>
+
+    <!--
+      Der Versions-Umschalter ist selbst das Datenbasis-Menue (#80): Versionen
+      und Quellen sind dieselbe Frage — "worauf beruht das hier".
+    -->
+    <app-menu
+      [label]="datenbasisLabel()"
+      kurz="XJ"
+      btnClass="mDatenbasis"
+      [titel]="verInfo()"
+      #datenbasis
+    >
+      @for (v of bundledVersions(); track v.dir) {
+        <button
+          class="menuItem"
+          [class.aktiv]="v.dir === activeBundle()"
+          (click)="datenbasis.close(); bundledPick.emit(v.dir)"
+        >
+          {{ v.dir === activeBundle() ? '✓ ' : '' }}XJustiz {{ v.label
+          }}{{ v.default ? ' (Standard)' : '' }}
+        </button>
+      }
+      @if (bundledVersions().length) {
+        <div class="menuSep"></div>
+      }
+      <button
+        class="menuItem"
+        title="Eigenen Ordner mit XJustiz-Schemadateien laden"
+        (click)="datenbasis.close(); pick(xsdInput)"
+      >
+        Eigener XSD-Ordner…
+      </button>
+      <button
+        class="menuItem"
+        title="Veröffentlichte XJustiz-Versionen von xjustiz.de abrufen (holt den aktuellen Stand inkl. Nachlieferungen)"
+        (click)="datenbasis.close(); remoteSchemaClick.emit()"
+      >
+        Schemata: xjustiz.de
+      </button>
+      <button
+        class="menuItem"
+        [disabled]="!hasIdx()"
+        title="Alle vom Standard genutzten Codelisten über die XRepository-REST-Schnittstelle abrufen"
+        (click)="datenbasis.close(); xrepClick.emit()"
+      >
+        Codelisten: XRepository
+      </button>
+      <button
+        class="menuItem"
+        title="Genericode-Dateien oder ZIP aus Dateien laden"
+        (click)="datenbasis.close(); pick(clInput)"
+      >
+        Codelisten: Datei…
+      </button>
+      <div class="menuSep"></div>
+      <button
+        class="menuItem"
+        [disabled]="!hasIdx()"
+        title="Zweiten XSD-Ordner (andere XJustiz-Version) laden und Unterschiede anzeigen"
+        (click)="datenbasis.close(); diffClick.emit()"
+      >
+        {{ diffLabel() }}
+      </button>
+      <button
+        class="menuItem"
+        title="Protokoll der letzten Fehler und Warnungen als Textdatei speichern (für Fehlermeldungen)"
+        (click)="datenbasis.close(); logExportClick.emit()"
+      >
+        Fehlerprotokoll speichern…
+      </button>
+    </app-menu>
+  </div>
+
+  <!-- Zone: Fortschritt — reservierte Breite, damit der wechselnde Text nichts verschiebt -->
+  <div class="zone zoneFortschritt" [title]="fortschrittText()">
+    @if (fortschrittAnteil() !== null) {
+      <span class="fsBalken" aria-hidden="true">
+        <span class="fsBalkenFuell" [style.width.%]="fortschrittAnteil()! * 100"></span>
+      </span>
+    }
+    <span id="fortschritt">{{ fortschrittText() }}</span>
+  </div>
+</div>

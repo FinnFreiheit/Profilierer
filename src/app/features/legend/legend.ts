@@ -1,16 +1,25 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { GuidedService } from '../../core/services/guided.service';
+import { UiSettingsService } from '../../core/services/ui-settings.service';
+import { ProfileStoreService } from '../../core/services/profile-store.service';
 
-/** Statuslegende (renderLegend, Profilierer.html Z.1458-1466). */
+/**
+ * Fusszeile (renderLegend, Profilierer.html Z.1458-1466). Seit #80 immer genau
+ * eine Zeile hoch: links der Zustandstext (Autosave, Versionsstand — aus der
+ * Kopfzone hierher verlagert), rechts die Tastaturhilfe, dazwischen der
+ * Aufklapper fuer die Farb- und Tag-Erklaerungen.
+ */
 @Component({
   selector: 'app-legend',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './legend.html',
 })
 export class Legend {
-  private readonly state = inject(StateService);
+  protected readonly state = inject(StateService);
   private readonly guidedSvc = inject(GuidedService);
+  private readonly ui = inject(UiSettingsService);
+
   protected readonly statuses = this.state.statuses;
   /** Tastatur-Hinweis nur im gefuehrten Profil-Modus (nicht Instanz-Modus). */
   protected readonly guided = computed(
@@ -20,4 +29,25 @@ export class Legend {
   protected readonly durchlauf = computed(
     () => this.state.guided() && !this.state.readOnly() && this.guidedSvc.instanzModus(),
   );
+
+  /** Aufgeklappte Erklaerungen ueberleben den Reload (Workshop-Betrieb). */
+  protected readonly offen = this.ui.flagge('legendeOffen', false);
+
+  private readonly store = inject(ProfileStoreService);
+
+  /**
+   * Entwurfs-Kennzeichen "geändert seit vX": der Arbeitsstand ist in keiner
+   * Version eingefroren. Seit #80 Systemtelemetrie in der Fusszeile statt
+   * einer Pille zwischen den Knoepfen der Kopfzone.
+   */
+  protected readonly versionsStand = computed(() => {
+    if (this.state.isMessageEdit() || this.state.isMessageCreate()) return '';
+    const id = this.state.activeProfileId();
+    const e = id ? this.store.entries().find((x) => x.id === id) : undefined;
+    return e?.geaendert && e.letzteVersionNr ? `geändert seit v${e.letzteVersionNr}` : '';
+  });
+
+  protected umschalten(): void {
+    this.offen.update((v) => !v);
+  }
 }

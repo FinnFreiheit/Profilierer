@@ -1,33 +1,62 @@
-<div id="legend">
-  @for (s of statuses(); track s.id) {
-    <span><span class="legDot" [style.background]="s.farbe"></span>{{ s.name }}</span>
-  }
-  <span><span class="tag t-wert">Wert: Text</span> erhält einen Wert</span>
-  <span><span class="tag t-ext">Schema-Erweiterung</span> nachzubeauftragendes Element</span>
-  <span><span class="tag t-hint">Hinweis</span> offener Hinweis am Element</span>
-  <span
-    ><span class="legDot" style="background: #f2f4f8; border: 1px solid var(--border)"></span
-    >Elternelement</span
-  >
-  <span>
+<!--
+  Fusszeile (#80): immer genau eine Zeile. Die Erklaerungen klappen darueber
+  auf, damit sie den Baum nicht dauerhaft Hoehe kosten.
+-->
+@if (offen()) {
+  <div id="legendErklaerung">
+    @for (s of statuses(); track s.id) {
+      <span><span class="legDot" [style.background]="s.farbe"></span>{{ s.name }}</span>
+    }
+    <span><span class="tag t-wert">Wert: Text</span> erhält einen Wert</span>
+    <span><span class="tag t-ext">Schema-Erweiterung</span> nachzubeauftragendes Element</span>
+    <span><span class="tag t-hint">Hinweis</span> offener Hinweis am Element</span>
     <span
-      class="legDot"
-      style="
-        background: transparent;
-        border-bottom: 2px dashed #d4537e;
-        border-radius: 0;
-        height: 2px;
-        width: 16px;
-        margin-bottom: 3px;
-      "
-    ></span>
-    Verweis
+      ><span class="legDot" style="background: #f2f4f8; border: 1px solid var(--border)"></span
+      >Elternelement</span
+    >
+    <span>
+      <span
+        class="legDot"
+        style="
+          background: transparent;
+          border-bottom: 2px dashed #d4537e;
+          border-radius: 0;
+          height: 2px;
+          width: 16px;
+          margin-bottom: 3px;
+        "
+      ></span>
+      Verweis
+    </span>
+    @if (durchlauf()) {
+      <span><span class="tag t-mand">Pflicht</span> die Nachricht verlangt diese Angabe</span>
+      <span><span class="tag t-frei">optional</span> freie Angabe — der Wert entscheidet</span>
+    }
+  </div>
+}
+
+<div id="legend">
+  <span id="zustandText">
+    <span [class.warn]="state.autosaveInfo().startsWith('⚠')">{{ state.autosaveInfo() }}</span>
+    @if (versionsStand()) {
+      <span
+        class="zustandTeil"
+        title="Der Arbeitsstand ist in keiner Version eingefroren — im Versionen-Dialog sichern"
+        >{{ versionsStand() }}</span
+      >
+    }
   </span>
-  @if (durchlauf()) {
-    <span><span class="tag t-mand">Pflicht</span> die Nachricht verlangt diese Angabe</span>
-    <span><span class="tag t-frei">optional</span> freie Angabe — der Wert entscheidet</span>
-  }
-  <span style="margin-left: auto">
+
+  <button
+    id="legendToggle"
+    [attr.aria-expanded]="offen()"
+    title="Farben und Kennzeichen erklären"
+    (click)="umschalten()"
+  >
+    Legende {{ offen() ? '▾' : '▴' }}
+  </button>
+
+  <span id="tastenHilfe">
     @if (guided()) {
       ✕ ausblenden · ⧉ duplizieren · +/− Ast auf/zu · Pfeiltasten: ←→ offene Punkte, ↑↓ Geschwister
       · z/o/n entscheiden
