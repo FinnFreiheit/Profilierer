@@ -91,6 +91,13 @@ export class TreeCanvas {
       if (canvas && 'ResizeObserver' in window) {
         this.ro = new ResizeObserver(() => this.scheduleRedraw());
         this.ro.observe(canvas);
+        // Zusaetzlich den Scrollbehaelter beobachten (#81): der Canvas hat
+        // `min-width: max-content` und behaelt seine Breite, wenn der Baum
+        // breiter ist als sein Behaelter. Am Ziehgriff des Detailbereichs
+        // aendert sich dann nur `#colWrap` — ohne diese zweite Beobachtung
+        // blieben die Verbindungslinien beim Ziehen stehen.
+        const wrap = canvas.closest('#colWrap');
+        if (wrap) this.ro.observe(wrap);
       }
       if (canvas) this.setupPan(canvas);
       this.scheduleRedraw();

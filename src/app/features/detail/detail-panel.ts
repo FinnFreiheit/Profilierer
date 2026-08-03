@@ -19,6 +19,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { ErweiterungDialogService } from '../../core/services/erweiterung-dialog.service';
 import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { LoggerService } from '../../core/services/logger.service';
+import { UiSettingsService } from '../../core/services/ui-settings.service';
 import { itemPath } from '../../models/node.model';
 import { fmtKard, kardText, pretty } from '../../core/util/pretty.util';
 import { hinweisFehlerText, hinweisHerkunft } from '../../core/util/hinweis.util';
@@ -142,6 +143,90 @@ export class DetailPanel {
 
   /** Gefuehrte Testnachricht-Erstellung (US "Testnachricht gefuehrt erstellen"). */
   protected readonly isCreate = this.state.isMessageCreate;
+
+  // ── Spaltenbreite und Sichtbarkeit (#81) ────────────────────────────
+  //
+  // Die Spalte belegt seit #81 immer Platz — auch ohne Auswahl. Vorher hing
+  // ihre Sichtbarkeit an der Selektion, wodurch der erste Klick auf einen
+  // Kasten den Baumbereich schlagartig um ~400px verschmaelerte und die
+  // gesamte Kaskade neu umbrach.
+
+  private readonly ui = inject(UiSettingsService);
+
+  /**
+   * Ohne geladene Nachricht gibt es keine Spalte: dort steht der Einstiegstext
+   * in voller Breite. Der einmalige Sprung beim Laden einer Nachricht ist
+   * gewollt — dort fuellt sich ohnehin der ganze Bildschirm.
+   */
+  protected readonly hasRoot = this.state.hasRoot;
+
+  /** Von Hand gezogene Breite in px; `null` = automatische Breite (CSS-clamp). */
+  protected readonly breite = this.ui.zahl('detailBreite', null);
+  /** Bewusst weggeklappte Spalte (Knopf im Panelkopf). */
+  protected readonly eingeklappt = this.ui.flagge('detailZu', false);
+  /** Aufgeklappte Standard-Beschreibung; sie ist sonst auf wenige Zeilen gedeckelt. */
+  protected readonly dokuOffen = signal(false);
+
+  /** Untere Grenze: darunter passen Statusknoepfe und Kardinalitaet nicht mehr nebeneinander. */
+  private static readonly MIN_BREITE = 300;
+
+  /** Obere Grenze: dem Baum muss die Mehrheit des Fensters bleiben. */
+  private maxBreite(): number {
+    return Math.max(DetailPanel.MIN_BREITE, Math.round(window.innerWidth * 0.6));
+  }
+
+  protected einklappen(): void {
+    this.eingeklappt.set(true);
+  }
+
+  protected ausklappen(): void {
+    this.eingeklappt.set(false);
+  }
+
+  protected breiteZuruecksetzen(): void {
+    this.breite.set(null);
+  }
+
+  /**
+   * Ziehen am Griff. Pointer-Events statt Maus-Events, damit Trackpad und
+   * Stift gleich behandelt werden; `setPointerCapture` haelt das Ziehen auch
+   * dann fest, wenn der Zeiger den schmalen Griff verlaesst.
+   *
+   * Der Doppelklick (zurueck auf automatische Breite) wird hier an `detail`
+   * mitgelesen statt ueber ein eigenes `dblclick`: das `preventDefault()`
+   * unten unterdrueckt die daraus abgeleiteten Maus-Ereignisse, ein
+   * `(dblclick)`-Binding am Griff feuerte also nie.
+   */
+  protected griffAb(ev: PointerEvent): void {
+    if (this.eingeklappt()) return;
+    const griff = ev.target as HTMLElement;
+    const panel = griff.closest<HTMLElement>('#detail');
+    if (!panel) return;
+    if (ev.detail >= 2) {
+      this.breiteZuruecksetzen();
+      return;
+    }
+    ev.preventDefault();
+    const startX = ev.clientX;
+    const startBreite = panel.getBoundingClientRect().width;
+    griff.setPointerCapture(ev.pointerId);
+
+    const zieh = (e: PointerEvent): void => {
+      // Der Griff sitzt links am Panel: nach links ziehen macht breiter.
+      const roh = startBreite + (startX - e.clientX);
+      this.breite.set(
+        Math.round(Math.min(this.maxBreite(), Math.max(DetailPanel.MIN_BREITE, roh))),
+      );
+    };
+    const los = (): void => {
+      griff.removeEventListener('pointermove', zieh);
+      griff.removeEventListener('pointerup', los);
+      griff.removeEventListener('pointercancel', los);
+    };
+    griff.addEventListener('pointermove', zieh);
+    griff.addEventListener('pointerup', los);
+    griff.addEventListener('pointercancel', los);
+  }
 
   protected readonly vm = computed(() => {
     const it = this.state.selItem();
