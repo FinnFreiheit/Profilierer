@@ -61,7 +61,10 @@ Daraus folgt:
 - **Blättern ist die Grundbewegung.** Senkrecht läuft die Spur (`↓` zur nächsten Station —
   zugleich das Übergehen einer freien —, `↑` zurück), waagerecht die Tiefe (`←` gibt einen
   Container an und geht hinein, `→` wieder heraus). Die beiden Knöpfe am Container sind der
-  Mausweg zu `←` und `↓`.
+  Mausweg zu `←` und `↓`. Die **Zweig-Radios** der Auswahl geben die Pfeiltasten an die
+  Führung ab (`App.onKeydown`/`istZweigWahl`): sonst blieben sie nach einem Klick auf einen
+  Zweig im Radio hängen, wo der Browser-Standard den Zweig weiterschaltet, statt den
+  Durchlauf fortzusetzen. Per Tab erreichbar und mit Leertaste bedienbar bleiben sie.
 - **Pflichtangaben lassen sich nicht übergehen.** `ueberspringSperre` hält `↓` und „Weiter ›"
   an einer offenen Pflichtangabe oder einer unbelegten Pflicht-Auswahl fest und nennt den
   Grund. Festgehalten wird nur die Weiter-Bewegung: zurück, hinein/heraus, „Nächster offener"
