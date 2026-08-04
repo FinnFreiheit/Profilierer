@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { TreeItem, TreeNode } from '../../models/node.model';
 import { Auspraegung, Erweiterung } from '../../models/profile.model';
-import { XsdIndex } from '../../models/xsd-index.model';
+import { ParticleModel, XsdIndex } from '../../models/xsd-index.model';
 import { datentypQuelleOf } from '../util/datentyp.util';
 import { docOf, kid, local } from '../util/xml.util';
 import { XS } from '../util/xml.util';
@@ -25,6 +25,13 @@ export class TreeService {
 
   private nodeId = 0;
   private ctxCache: Record<string, TreeNode> = {};
+  /**
+   * `particlesOfCT` je **benanntem** Typ gemerkt. `isLeaf` laeuft bei jeder
+   * Change-Detection ueber den sichtbaren Baum, und seit #97 haengt unter einer
+   * Erweiterung ein ganzer Typ-Unterbau daran. Der Index steht waehrend eines
+   * Baums fest, das Ergebnis also auch — geleert wird mit `buildRoot`.
+   */
+  private ctModell: Record<string, ParticleModel> = {};
   private idx: XsdIndex | null = null;
 
   private get i(): XsdIndex {
@@ -60,6 +67,7 @@ export class TreeService {
   buildRoot(msgName: string, idx: XsdIndex): TreeNode {
     this.nodeId = 0;
     this.ctxCache = {};
+    this.ctModell = {};
     this.idx = idx;
     const el = idx.el[msgName] ?? null;
     return this.makeNode({
@@ -99,6 +107,11 @@ export class TreeService {
     if (cm.simple) return;
     n.model = cm.model;
     this.addParts(n, cm.parts, cm.model === 'choice');
+  }
+
+  /** Partikel eines benannten complexType — gemerkt, siehe `ctModell`. */
+  private modellVon(name: string, ct: Element): ParticleModel {
+    return (this.ctModell[name] ??= this.parser.particlesOfCT(ct, this.i));
   }
 
   /** addParts (Z.493-526): erzeugt Kind-Knoten aus Partikeln. */
@@ -243,7 +256,7 @@ export class TreeService {
       if (!n.erweiterung.datentyp) return false;
       const ct = this.erwCT(n.erweiterung);
       if (!ct) return true;
-      const cm = this.parser.particlesOfCT(ct, this.i);
+      const cm = this.modellVon(n.erweiterung.datentyp, ct);
       return cm.simple || cm.parts.length === 0;
     }
     if (n.codelist) return true;
@@ -253,7 +266,7 @@ export class TreeService {
       if (kid(n.xsdEl, 'complexType')) return false;
       const t = n.typeName;
       if (t && this.i.ct[t]) {
-        const cm = this.parser.particlesOfCT(this.i.ct[t]!, this.i);
+        const cm = this.modellVon(t, this.i.ct[t]!);
         return cm.simple || cm.parts.length === 0;
       }
       return true;

@@ -4,7 +4,9 @@ import { StateService } from '../../core/services/state.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { NavService } from '../../core/services/nav.service';
 import { DatentypQuelle } from '../../models/profile.model';
+import { TreeNode } from '../../models/node.model';
 import { signal } from '@angular/core';
+import { erwTypwechselFrage } from '../../core/util/erweiterung.util';
 
 /**
  * Kern von #81: die Spalte belegt Platz, sobald eine Nachricht geladen ist —
@@ -224,6 +226,21 @@ describe('DetailPanel — Datentyp einer Schema-Erweiterung', () => {
     expect(el().textContent).toContain('+ Unterelement');
   });
 
+  it('bietet an einem rekursiven Knoten kein Unterelement an', () => {
+    // `isLeaf` schaut `recursive` nicht an — der Knoten ist also kein Blatt,
+    // rendert seinen Unterbau aber nie (`abstiegsKinder` bricht ab). Ohne den
+    // Waechter entstuenden dort unsichtbare Profildaten, die im Fortschritt
+    // trotzdem mitzaehlen.
+    waehleErw({}); // Container: bietet Unterelemente an
+    expect(el().textContent).toContain('+ Unterelement');
+
+    const sel = state.selItem() as { kind: 'el'; node: TreeNode };
+    state.selItem.set({ ...sel, node: { ...sel.node, recursive: true } } as never);
+    fixture.detectChanges();
+
+    expect(el().textContent).not.toContain('+ Unterelement');
+  });
+
   describe('Typwechsel mit Festlegungen darunter (#97)', () => {
     /** Erweiterung mit Typ und drei Festlegungen im Teilbaum. */
     const mitUnterbau = (): string => {
@@ -243,8 +260,9 @@ describe('DetailPanel — Datentyp einer Schema-Erweiterung', () => {
       fixture.detectChanges();
 
       expect(frage).toHaveBeenCalledTimes(1);
-      expect(frage.calls.mostRecent().args[0]).toContain('3 Festlegungen');
-      expect(frage.calls.mostRecent().args[0]).toContain('zusatz');
+      // Wortlaut vollstaendig statt stueckweise — `toContain('zusatz')` traf
+      // nur den Elementnamen und sagte ueber die Frage selbst nichts aus.
+      expect(frage.calls.mostRecent().args[0]).toBe(erwTypwechselFrage('zusatz', 3));
       expect(state.erweiterungenOf(ELTERN)!.find((x) => x.id === id)!.datentyp).toBe('string');
       expect(state.festlegungenUnter(`${ELTERN}/~${id}`)).toBe(0);
     });

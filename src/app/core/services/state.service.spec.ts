@@ -288,6 +288,38 @@ describe('StateService', () => {
       expect(s.selItem()).toBeNull();
     });
 
+    it('festlegungenUnter zaehlt Hinweise darunter mit, den am Knoten nicht', () => {
+      // Ohne sie untertriebe die Rueckfrage — und laegen unterhalb *nur*
+      // Hinweise, wechselte der Typ kommentarlos und liesse sie verwaisen.
+      const id = s.addErweiterung('m/a', { name: 'beiakte', min: '1', max: '1' });
+      const pfad = 'm/a/~' + id;
+      TestBed.inject(HinweisStoreService).hinweise.set([
+        { id: 'h1', pfad, text: 'am Knoten', zeit: 1 },
+        { id: 'h2', pfad: pfad + '/identifikation', text: 'darunter', zeit: 1 },
+      ]);
+      expect(s.festlegungenUnter(pfad)).toBe(1);
+    });
+
+    it('bereinigeUnter laesst den Hinweis am Knoten selbst stehen', () => {
+      // `loescheUnter` ist praefix-inklusiv; der Knoten ueberlebt den Typwechsel
+      // aber samt seiner Notiz.
+      const hinweise = TestBed.inject(HinweisStoreService);
+      const id = s.addErweiterung('m/a', { name: 'beiakte', min: '1', max: '1' });
+      const pfad = 'm/a/~' + id;
+      const geloescht: string[] = [];
+      spyOn(hinweise, 'loeschen').and.callFake(async (hid: string) => {
+        geloescht.push(hid);
+      });
+      hinweise.hinweise.set([
+        { id: 'h1', pfad, text: 'am Knoten', zeit: 1 },
+        { id: 'h2', pfad: pfad + '/identifikation', text: 'darunter', zeit: 1 },
+      ]);
+
+      s.bereinigeUnter(pfad);
+
+      expect(geloescht).toEqual(['h2']);
+    });
+
     it('fortschritt zaehlt nErw ueber alle Ebenen', () => {
       const id = s.addErweiterung('m/a', { name: 'c', min: '1', max: '1' });
       s.addErweiterung('m/a/~' + id, { name: 'k', min: '1', max: '1', datentyp: 'string' });

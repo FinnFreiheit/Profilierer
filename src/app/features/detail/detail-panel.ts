@@ -384,8 +384,10 @@ export class DetailPanel {
           typ: { datentyp: e.datentyp, datentypQuelle: e.datentypQuelle },
           // Unterelemente stehen ueberall dort an, wo der Knoten kein Blatt ist —
           // dieselbe Regel wie im Baum: Container und typisierte Struktur ja,
-          // Wert- und Codelisten-Typ nein.
-          kannUnterelement: !isAusp && !this.tree.isLeaf(it.node),
+          // Wert- und Codelisten-Typ nein. Ein rekursiver Knoten ist zwar kein
+          // Blatt, rendert seinen Unterbau aber nicht (`abstiegsKinder` bricht
+          // ab) — dort angelegte Erweiterungen waeren unsichtbare Profildaten.
+          kannUnterelement: !isAusp && !it.node.recursive && !this.tree.isLeaf(it.node),
           typFehlt: typFehlt ? erwTypFehltText(typFehlt, this.state.idx()?.version) : '',
         }
       : null;

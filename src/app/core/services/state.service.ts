@@ -844,7 +844,10 @@ export class StateService {
       summe(this.auspraegungen(), echtDarunter) +
       // Erweiterungen sind am **Eltern**pfad indiziert: die Liste am Pfad selbst
       // haengt bereits unter dem Knoten.
-      summe(this.erweiterungen(), (k) => unterPfad(k, prefix))
+      summe(this.erweiterungen(), (k) => unterPfad(k, prefix)) +
+      // Hinweise fallen mit dem Unterbau — sonst untertreibt die Rueckfrage,
+      // und liegen unterhalb *nur* Hinweise, wechselte der Typ kommentarlos.
+      this.hinweisStore.hinweise().filter((h) => echtDarunter(h.pfad)).length
     );
   }
 
@@ -875,8 +878,12 @@ export class StateService {
       return next;
     });
 
-    // Wie in removeErweiterung: die Hinweise des Teilbaums fallen mit.
-    void this.hinweisStore.loescheUnter(prefix);
+    // Wie in removeErweiterung fallen die Hinweise des Teilbaums mit — aber
+    // **nur** die darunter: `loescheUnter` schliesst den Pfad selbst ein
+    // (`unterPfad` ist inklusiv), und der Knoten ueberlebt den Typwechsel
+    // samt seiner Notiz. Darum einzeln statt per Praefix.
+    for (const h of this.hinweisStore.hinweise().filter((h) => betroffen(h.pfad)))
+      void this.hinweisStore.loeschen(h.id);
 
     const sel = this.selItem();
     if (sel && betroffen(itemPath(sel))) this.selItem.set(null);
