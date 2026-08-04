@@ -52,3 +52,17 @@ Download-Sperre) würden die Funktion unbrauchbar machen.
 - **Folgeaufgaben:** Profildatei-Format auf `formatVersion 3` gehoben (v2-Import
   defaultet auf leer); Server-Indexspalte `n_erw` per PRAGMA-Migration; Altbestände
   zeigen das Dashboard-Badge erst nach dem nächsten Speichern.
+
+## Nachtrag (26.08.04, #98)
+
+Punkt 3 gilt für das **Beispiel-XML** weiter, für die **maschinellen Prüfartefakte**
+nicht mehr: Testnachricht und Schematron sind für Profilierungen mit Erweiterungen
+**gesperrt** statt gelockert. Die Klassifikation hat den blinden Fleck nicht geschlossen
+— beide Artefakte behaupten Gültigkeit gegen eine XSD, die das nachbeauftragte Element
+per Definition nicht kennt (die Testnachricht ließ die Erweiterung schlicht weg,
+`instance-export.service.ts` läuft über `node.children`). Das Sperrkriterium ist bewusst
+grob: jede Erweiterung sperrt (`nErw > 0`), unabhängig von Status und Fassung — die
+Sperre ist eine Warnung, keine technische Feinabgrenzung. Regel und Begründungstext
+liegen in `core/util/erweiterung-sperre.ts`; das Beispiel-XML trägt stattdessen einen
+Warnkommentar im Kopf. Details in der
+[US Schema-Erweiterung](../user-stories/schema-erweiterung.md).

@@ -29,6 +29,7 @@ import { LibraryEntry, ProfilVersion } from '../../models/profile.model';
 import { MessageRef } from '../../models/xsd-index.model';
 import { parseTestmessage } from '../../core/util/testmessage.util';
 import { nachrichtTeile } from '../../core/util/pretty.util';
+import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiterung-sperre';
 import { firstLine } from '../../core/util/pretty.util';
 
 /** Eine Fachmodul-Gruppe fuer die Kachel-Ansicht. */
@@ -109,10 +110,23 @@ export class Testdaten {
 
   /** Laufende Generierung (Profil-id) — sperrt Doppelklicks im Dialog. */
 
-  /** Bibliotheksprofile, aus denen sich eine Nachricht erzeugen laesst. */
+  /**
+   * Bibliotheksprofile, aus denen sich eine Nachricht erzeugen laesst.
+   * Profilierungen mit Schema-Erweiterungen bleiben **gelistet** und werden nur
+   * gesperrt (#98) — wer gerade eine Erweiterung angelegt hat, sucht sein
+   * Profil hier und darf es nicht spurlos vermissen.
+   */
   protected readonly profilKandidaten = computed<LibraryEntry[]>(() =>
     this.profiles.entries().filter((e) => !!e.nachricht),
   );
+
+  /** Begruendung der Sperre im `title` des gesperrten Listeneintrags. */
+  protected readonly erwGrund = ERW_SPERRE_GRUND;
+
+  /** Schema-Erweiterungen sperren die Testnachricht-Erstellung (#98). */
+  protected erwSperre(e: LibraryEntry): boolean {
+    return sperrtPruefartefakte(e.nErw);
+  }
 
   /** Bearbeiten-Dialog: aktive id + Puffer für Name und Beschreibung. */
   protected readonly editId = signal<string | null>(null);
@@ -245,6 +259,13 @@ export class Testdaten {
    * der Arbeitsstand.
    */
   protected async chooseProfil(e: LibraryEntry): Promise<void> {
+    // Sperre bei Schema-Erweiterungen (#98). Der Listeneintrag ist gesperrt —
+    // die Regel steht trotzdem hier, weil der Einstieg von der Profil-Kachel
+    // (start.anfrage) denselben Weg nimmt.
+    if (this.erwSperre(e)) {
+      this.toast.show(ERW_SPERRE_GRUND);
+      return;
+    }
     if (this.createLoading()) return;
     this.createLoading.set(true);
     try {

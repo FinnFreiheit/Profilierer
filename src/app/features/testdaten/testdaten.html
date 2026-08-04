@@ -282,7 +282,8 @@
           @for (e of profilKandidaten(); track e.id) {
             <button
               style="display: block; width: 100%; text-align: left; margin-bottom: 6px"
-              [disabled]="createLoading()"
+              [disabled]="createLoading() || erwSperre(e)"
+              [title]="erwSperre(e) ? erwGrund : ''"
               (click)="chooseProfil(e)"
             >
               <b>{{ e.name || '(ohne Namen)' }}</b> — {{ e.nachricht }}
@@ -291,6 +292,9 @@
               }
               @if (e.abgenommen) {
                 <span class="pill pillAbn">✔ BLK-AG abgenommen</span>
+              }
+              @if (erwSperre(e)) {
+                <span class="pill pillExt">{{ e.nErw }} Erw. — gesperrt</span>
               }
             </button>
           }

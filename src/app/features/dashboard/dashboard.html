@@ -90,7 +90,8 @@
                 @if (e.nachricht) {
                   <button
                     class="menuItem"
-                    title="Testnachricht zu dieser Profilierung erstellen — geführter Durchlauf mit Wahl der zu bindenden Fassung"
+                    [disabled]="erwSperre(e)"
+                    [title]="testnachrichtTitel(e)"
                     (click)="werkzeuge.close(); testnachrichtErstellen(e, $event)"
                   >
                     Testnachricht erstellen…

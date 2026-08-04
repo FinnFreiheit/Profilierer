@@ -26,6 +26,13 @@ als solche hervorgehoben sein — im Baum, im Detailbereich, in den Exporten und
    Validierungs-Sperre (invalide → Entwurf/Download blockiert) greift dafür nicht:
    erweiterungs-bedingte Fehler erscheinen im Bericht als „bekannte
    Schema-Erweiterung" und blockieren allein nicht.
+5. **Maschinelle Prüfartefakte sind gesperrt** (#98, 26.08.04): aus einer Profilierung
+   mit Erweiterungen entstehen **keine** Testnachricht und **kein** Schematron — beide
+   würden Gültigkeit gegen eine XSD behaupten, die das nachbeauftragte Element per
+   Definition nicht kennt. Sperrkriterium ist grob gehalten: **jede** Erweiterung sperrt
+   (`nErw > 0`), unabhängig vom Status und von der zu bindenden Fassung. Excel, Druck,
+   Profil-Export und Beispiel-XML bleiben frei — das sind Kommunikationsmittel für die
+   AG, die den Zielzustand zeigen dürfen.
 
 ## Akzeptanzkriterien
 
@@ -40,12 +47,17 @@ als solche hervorgehoben sein — im Baum, im Detailbereich, in den Exporten und
   den Teilbaum samt Unter-Profilierung (Kaskade).
 - Status, Anmerkung und Beispielwert sind für Erweiterungen wie für Schema-Elemente
   profilierbar (generisches `ElementProfile` am Erweiterungs-Pfad).
-- **Exporte:** Beispiel-XML/Testnachrichten enthalten Erweiterungen immer (typkonformer
-  Platzhalter bzw. erfasster Wert); Excel kennzeichnet mit Typ `[Erweiterung] …`,
-  die Druckansicht mit `[Schema-Erweiterung]`; das Schematron dokumentiert je
-  Erweiterung einen Kommentar (keine Asserts gegen Nicht-Schema-Pfade).
-- **Validierung:** Fehler, die nur auf Erweiterungen zurückgehen, machen Testnachrichten
-  **nicht** zum Entwurf und sperren den Beispiel-XML-Download nicht; im Bericht sind sie
+- **Exporte:** Beispiel-XML enthält Erweiterungen immer (typkonformer Platzhalter) und
+  trägt bei Erweiterungen einen Warnkommentar im Kopf („gegen XJustiz `<version>` nicht
+  gültig"); Excel kennzeichnet mit Typ `[Erweiterung] …`, die Druckansicht mit
+  `[Schema-Erweiterung]`.
+- **Gesperrt bei Erweiterungen (#98):** „Testnachricht erstellen…" im Kachelmenü des
+  Dashboards, der Listeneintrag im Testdaten-Speicher („aus Profilierung") und der
+  Schematron-Export. Die Bedienelemente bleiben **sichtbar und gesperrt**, mit der
+  Begründung im `title` — ein verschwundener Eintrag wäre ein Rätsel für den, der gerade
+  eine Erweiterung angelegt hat.
+- **Validierung:** Fehler, die nur auf Erweiterungen zurückgehen, sperren den
+  Beispiel-XML-Download nicht; im Bericht sind sie
   als „bekannte Schema-Erweiterung" gekennzeichnet und werden getrennt gezählt. Echte
   Fehler blockieren weiterhin.
 - **Dashboard:** Profil-Karten mit Erweiterungen zeigen das Badge
@@ -67,7 +79,12 @@ als solche hervorgehoben sein — im Baum, im Detailbereich, in den Exporten und
   (`erweiterung`-Flag, `nurErweiterungsFehler`), gelockerte Tore in
   `ExportService.genBeispielXml`, `TestmessageGenerationService`,
   `TestmessageCreateService.speichern`.
-- Tests: `state.service.spec`, `tree.service.spec`, `export.service.spec`,
+- Sperre (#98): `core/util/erweiterung-sperre.ts` (`sperrtPruefartefakte`,
+  `ERW_SPERRE_GRUND`, `erweiterungsWarnung`), Signal `StateService.hatErweiterungen`;
+  Bindung in `Dashboard`, `Testdaten`, `Objektleiste` und als Guard in
+  `ExportService.exportSchematron` / `Testdaten.chooseProfil`.
+- Tests: `erweiterung-sperre.spec`, `testdaten.spec`, `dashboard.spec`,
+  `state.service.spec`, `tree.service.spec`, `export.service.spec`,
   `validation-marker.service.spec`, `testmessage-*.spec`, `excel-export.service.spec`,
   `persistence.service.spec`, `server/profiles.test.js`.
 

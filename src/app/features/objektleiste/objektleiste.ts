@@ -7,6 +7,7 @@ import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { Menu } from '../../shared/menu/menu';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
+import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
 
 /**
  * Zeile 1 der Kopfzone: das Dokument (Issue #80). Feste Zonen, wechselnder
@@ -54,6 +55,11 @@ export class Objektleiste {
   readonly weitereTestnachrichtClick = output<boolean>();
 
   protected readonly hasRoot = this.state.hasRoot;
+  /**
+   * Begruendung der Schematron-Sperre (#98). Der Knopf bleibt sichtbar und
+   * gesperrt — Excel, Beispiel-XML und Druck daneben bleiben frei.
+   */
+  protected readonly erwGrund = ERW_SPERRE_GRUND;
   protected readonly isMessage = this.state.isMessageEdit;
   protected readonly isCreate = this.state.isMessageCreate;
   protected readonly isSchemaView = this.state.schemaView;
