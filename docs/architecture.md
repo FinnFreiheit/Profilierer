@@ -9,7 +9,7 @@ src/app/
   models/     Reine Interfaces (kein Verhalten)              → data-model.md
   core/
     services/ Zustand & Logik (13 Services)                  → services.md
-    util/     Reine Helfer (xml.util, pretty.util)
+    util/     Reine Helfer (xml.util, pretty.util, fachmodul.util)
     refs.ts   Referenz-Metadaten (Type.GDS.Ref.*)
   features/   Feature-Komponenten (Sichten)                  → components.md
   shared/     Querschnitt (Toast, FileDropDirective)

@@ -315,6 +315,7 @@ Abgeleitete Sichten (alle `computed`): `eintraege` (offene vor erledigten, dann 
 - `ToastService`: `show(text, ms)` über ein Signal → `Toast`-Komponente; `showError(e, fallback)` und `fail(msg)` als einheitliche Fehlerhelfer.
 - `core/util/xml.util.ts`: `kids/kid/local/docOf/appinfoOf/byName/leafValue/esc/escapeRegExp`, Namespaces `XS`/`XJNS`.
 - `core/util/pretty.util.ts`: `pretty/kardText/fmtKard/firstLine`.
+- `core/util/fachmodul.util.ts`: `fachmodulOf/nachFachmodul` — Fachmodul-Kürzel aus dem zweiten Segment des Nachrichtennamens (`nachricht.`**`enova`**`.…`) und Gruppierung danach (Übersichtsseite #88, Nachrichtenwahl #89). Bewusst aus dem Namen statt aus der Schemadatei: die Übersichtsseite zeigt gespeicherte Profilierungen, ohne dass ein Schema geladen ist. Angezeigt wird das Kürzel — eine Klartext-Zuordnung für die 29 Module des Standards wird nicht gepflegt.
 - `core/util/testmessage.util.ts`: `parseTestmessage` (Root-Metadaten), `frageTestnachrichtName`, `testmessageInput`.
 - `core/util/pattern-sample.util.ts`: Beispielwerte zu XSD-Pattern-Facetten.
 - `core/refs.ts`: `REF_LABELS/REF_TARGETS`, `refKindOf(node)`.

@@ -22,6 +22,8 @@ export class Menu {
   readonly kurz = input('');
   /** Zusatzklassen des Menue-Knopfes (Breakpoint-Steuerung der Kopfzone). */
   readonly btnClass = input('');
+  /** Aufklapp-Pfeil zeigen; aus, wo das Label selbst schon Menue signalisiert (⋯). */
+  readonly pfeil = input(true);
 
   protected readonly open = signal(false);
   protected readonly pos = signal<{ left: number; top: number }>({ left: 0, top: 0 });

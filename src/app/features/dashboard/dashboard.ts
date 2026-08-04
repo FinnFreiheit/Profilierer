@@ -17,11 +17,18 @@ import { VergleichService } from '../../core/services/vergleich.service';
 import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
+import { Menu } from '../../shared/menu/menu';
 import { LibraryEntry } from '../../models/profile.model';
+import { nachFachmodul } from '../../core/util/fachmodul.util';
 
-/** Ein Abschnitt der Bibliothek (abgenommene Vorlagen oben, Rest darunter). */
+/**
+ * Ein Abschnitt der Bibliothek: seit #88 je Fachmodul einer. Die Abnahme
+ * gruppiert nicht mehr — sie ist ein Zustand der einzelnen Profilierung
+ * (Kennzeichen auf der Kachel, Filter in der Kopfzeile), kein Ordnungskriterium.
+ */
 interface Sektion {
-  titel: string | null;
+  /** Fachmodul-Kuerzel; leer = Profilierungen ohne erkennbare Nachricht. */
+  modul: string;
   items: LibraryEntry[];
 }
 
@@ -36,7 +43,7 @@ interface Sektion {
 @Component({
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge],
+  imports: [RolleBadge, Menu],
   templateUrl: './dashboard.html',
 })
 export class Dashboard {
@@ -62,20 +69,52 @@ export class Dashboard {
    */
   protected readonly nurMitHinweisen = signal(false);
 
-  /** Abgenommene Vorlagen als eigener Abschnitt oben, uebriger Bestand darunter. */
+  /**
+   * Ein Abschnitt je Fachmodul (#88). Die beiden Filter greifen davor, sodass
+   * nur Module mit Treffern erscheinen — eine leere Gruppenueberschrift waere
+   * beim Filtern nur Rauschen.
+   */
   protected readonly sektionen = computed<Sektion[]>(() => {
-    const alle = this.nurMitHinweisen()
-      ? this.store.entries().filter((e) => !!e.nHinweiseOffen)
-      : this.store.entries();
-    const abgenommen = alle.filter((e) => e.abgenommen);
-    const s: Sektion[] = [];
-    if (abgenommen.length) s.push({ titel: 'Von der BLK-AG abgenommen', items: abgenommen });
-    if (this.nurAbgenommene()) return s;
-    const rest = alle.filter((e) => !e.abgenommen);
-    if (rest.length)
-      s.push({ titel: abgenommen.length ? 'Weitere Profilierungen' : null, items: rest });
-    return s;
+    let alle = this.store.entries();
+    if (this.nurMitHinweisen()) alle = alle.filter((e) => !!e.nHinweiseOffen);
+    if (this.nurAbgenommene()) alle = alle.filter((e) => !!e.abgenommen);
+    return nachFachmodul(alle, (e) => e.nachricht).map((g) => ({ modul: g.modul, items: g.items }));
   });
+
+  /** Ueberschrift eines Abschnitts; ohne erkennbares Modul eine Sammelgruppe. */
+  protected modulTitel(modul: string): string {
+    return modul || 'ohne Nachricht';
+  }
+
+  /**
+   * Nachrichtenname, in der Mitte gekuerzt: der vordere Teil schrumpft, das
+   * letzte Segment (die Nummer, an der die Nachricht wiedererkannt wird)
+   * bleibt stehen. Reines CSS kann nur am Ende kuerzen — genau dort steht aber
+   * das Unterscheidende.
+   */
+  protected msgKopf(e: LibraryEntry): string {
+    const n = e.nachricht ?? '';
+    const i = n.lastIndexOf('.');
+    return i > 0 ? n.slice(0, i) : n;
+  }
+
+  protected msgEnde(e: LibraryEntry): string {
+    const n = e.nachricht ?? '';
+    const i = n.lastIndexOf('.');
+    return i > 0 ? n.slice(i) : '';
+  }
+
+  /**
+   * Was frueher als eigene Pillen auf der Kachel stand und ihre Hoehe
+   * schwanken liess: XJustiz-Version, eingefrorene Staende, Entwurfs-Kennzeichen.
+   */
+  protected fussTitel(e: LibraryEntry): string {
+    const teile: string[] = [];
+    if (e.xjustizVersion) teile.push(`XJustiz ${e.xjustizVersion}`);
+    if (e.nVersionen) teile.push(`${e.nVersionen} Version${e.nVersionen === 1 ? '' : 'en'}`);
+    if (e.geaendert && e.letzteVersionNr) teile.push(`geändert seit v${e.letzteVersionNr}`);
+    return teile.join(' · ');
+  }
 
   /**
    * Beschriftung des Rueckmelde-Badges: "3 Hinweise (2 extern)". Ohne externe
@@ -264,7 +303,14 @@ export class Dashboard {
   }
 
   /** Anzeigedatum: fachliches Speicherdatum, sonst letzte Sicherung. */
+  /**
+   * Datum der Kachel, einheitlich deutsch formatiert. `meta.gespeichert` liegt
+   * als ISO-Datum vor, `aktualisiert` als Zeitstempel — nebeneinander standen
+   * auf den Kacheln sonst "2026-07-24" und "3.8.2026" (#88).
+   */
   protected datum(e: LibraryEntry): string {
-    return e.gespeichert || new Date(e.aktualisiert).toLocaleDateString('de-DE');
+    const roh = e.gespeichert ? new Date(e.gespeichert) : new Date(e.aktualisiert);
+    if (Number.isNaN(roh.getTime())) return e.gespeichert ?? '';
+    return roh.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
 }

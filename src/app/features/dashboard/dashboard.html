@@ -42,25 +42,89 @@
   </div>
 
   @if (store.entries().length) {
-    @for (s of sektionen(); track s.titel) {
-      @if (s.titel) {
-        <div class="tdGroupHead">
-          @if (s.titel === 'Von der BLK-AG abgenommen') {
-            <span class="pill pillAbn">✔ {{ s.titel }}</span>
-          } @else {
-            <span class="pill pillMuted">{{ s.titel }}</span>
-          }
-          <span class="tdGroupCount">{{ s.items.length }}</span>
-        </div>
-      }
+    <!-- Ein Abschnitt je Fachmodul (#88); die Abnahme gruppiert nicht mehr,
+         sie steht als Kennzeichen auf der Kachel. -->
+    @for (s of sektionen(); track s.modul) {
+      <div class="tdGroupHead">
+        <span class="pill pillMuted">{{ modulTitel(s.modul) }}</span>
+        <span class="tdGroupCount">{{ s.items.length }}</span>
+      </div>
       <div id="dashGrid">
         @for (e of s.items; track e.id) {
           <div class="dashCard" title="Öffnen und bearbeiten" (click)="open(e.id)">
-            <div class="dcName">{{ e.name || '(ohne Namen)' }}</div>
+            <div class="dcHead">
+              <div class="dcName" [title]="e.name || '(ohne Namen)'">
+                {{ e.name || '(ohne Namen)' }}
+              </div>
+              <!-- Werkzeuge auf Abruf: sie erschienen bisher als fünf Knöpfe
+                   auf jeder Kachel und beherrschten sie optisch. -->
+              <app-menu
+                label="⋯"
+                [pfeil]="false"
+                btnClass="dcMenuBtn"
+                titel="Weitere Aktionen"
+                #werkzeuge
+              >
+                @if (rolle.agAktiv()) {
+                  <button class="menuItem" (click)="werkzeuge.close(); openAbnahme(e.id, $event)">
+                    Abnahme…
+                  </button>
+                }
+                <button
+                  class="menuItem"
+                  [disabled]="gesperrt(e)"
+                  [title]="
+                    gesperrt(e) ? 'Von der BLK-AG abgenommen — Umbenennen nur mit AG-Schlüssel' : ''
+                  "
+                  (click)="werkzeuge.close(); openRename(e.id, $event)"
+                >
+                  Umbenennen
+                </button>
+                @if (e.nachricht) {
+                  <button
+                    class="menuItem"
+                    title="Testnachricht zu dieser Profilierung erstellen — geführter Durchlauf mit Wahl der zu bindenden Fassung"
+                    (click)="werkzeuge.close(); testnachrichtErstellen(e, $event)"
+                  >
+                    Testnachricht erstellen…
+                  </button>
+                }
+                <button
+                  class="menuItem"
+                  title="Als Kopie anlegen — die Kopie ist unmarkiert und frei bearbeitbar"
+                  (click)="werkzeuge.close(); duplicate(e.id, $event)"
+                >
+                  Kopie
+                </button>
+                <button class="menuItem" (click)="werkzeuge.close(); exportEntry(e.id, $event)">
+                  Als Datei exportieren
+                </button>
+                <div class="menuSep"></div>
+                <button
+                  class="menuItem del"
+                  [disabled]="gesperrt(e)"
+                  [title]="
+                    gesperrt(e) ? 'Von der BLK-AG abgenommen — Löschen nur mit AG-Schlüssel' : ''
+                  "
+                  (click)="werkzeuge.close(); remove(e.id, $event)"
+                >
+                  Löschen
+                </button>
+              </app-menu>
+            </div>
+
+            <!-- Einzeilig und in der Mitte gekürzt: das Ende trägt die Nummer,
+                 an der die Nachricht wiedererkannt wird. -->
             @if (e.nachricht) {
-              <div class="dcMsg">{{ e.nachricht }}</div>
+              <div class="dcMsg" [title]="e.nachricht">
+                <span class="dcMsgKopf">{{ msgKopf(e) }}</span
+                ><span class="dcMsgEnde">{{ msgEnde(e) }}</span>
+              </div>
+            } @else {
+              <div class="dcMsg dcMsgLeer">keine Nachricht gewählt</div>
             }
-            <div class="dcMeta">
+
+            <div class="dcStatus">
               @if (e.abgenommen) {
                 @if (e.geaendertSeitAbnahme) {
                   <button
@@ -78,7 +142,7 @@
                     title="Von der BLK-AG abgenommen am {{ abnDatum(e) }}{{
                       e.abnahmeKommentar ? ' · ' + e.abnahmeKommentar : ''
                     }}"
-                    >✔ BLK-AG abgenommen</span
+                    >✔ abgenommen</span
                   >
                 }
               }
@@ -91,82 +155,20 @@
                   {{ hinweisBadge(e) }}
                 </button>
               }
-              @if (e.xjustizVersion) {
-                <span class="pill">XJustiz {{ e.xjustizVersion }}</span>
-              }
               @if (e.nErw) {
                 <span
                   class="pill pillExt"
                   title="Enthält nachzubeauftragende Elemente, die nicht im XJustiz-Schema stehen"
-                  >{{ e.nErw }} Schema-Erweiterung{{ e.nErw === 1 ? '' : 'en' }}</span
+                  >{{ e.nErw }} Erw.</span
                 >
               }
-              @if (e.nVersionen) {
-                <span
-                  class="pill"
-                  title="Eingefrorene Stände — Verwaltung über „Versionen…“ im Editor"
-                  >{{ e.nVersionen }} Version{{ e.nVersionen === 1 ? '' : 'en' }}</span
-                >
-              }
-              @if (e.geaendert && e.letzteVersionNr) {
-                <span class="pill" title="Der gespeicherte Stand ist in keiner Version eingefroren"
-                  >geändert seit v{{ e.letzteVersionNr }}</span
-                >
-              }
-              <span class="dcProg">{{ fortschritt(e) }}</span>
             </div>
-            <div class="dcFoot">
+
+            <!-- Die selten gebrauchten Angaben (Version, Stände) tragen den
+                 Tooltip, damit die Kachelhöhe konstant bleibt. -->
+            <div class="dcFoot" [title]="fussTitel(e)">
+              <span class="dcProg">{{ fortschritt(e) }}</span>
               <span class="dcDate">{{ datum(e) }}</span>
-              <span class="dcTools">
-                @if (rolle.agAktiv()) {
-                  <button
-                    title="Abnehmen bzw. Abnahme-Kennzeichen verwalten (BLK-AG)"
-                    (click)="openAbnahme(e.id, $event)"
-                  >
-                    Abnahme…
-                  </button>
-                }
-                <button
-                  [disabled]="gesperrt(e)"
-                  [title]="
-                    gesperrt(e)
-                      ? 'Von der BLK-AG abgenommen — Umbenennen nur mit AG-Schlüssel'
-                      : 'Umbenennen'
-                  "
-                  (click)="openRename(e.id, $event)"
-                >
-                  Umbenennen
-                </button>
-                @if (e.nachricht) {
-                  <button
-                    title="Testnachricht zu dieser Profilierung erstellen — geführter Durchlauf mit Wahl der zu bindenden Fassung"
-                    (click)="testnachrichtErstellen(e, $event)"
-                  >
-                    Testnachricht erstellen…
-                  </button>
-                }
-                <button
-                  title="Als Kopie anlegen — die Kopie ist unmarkiert und frei bearbeitbar"
-                  (click)="duplicate(e.id, $event)"
-                >
-                  Kopie
-                </button>
-                <button title="Als Datei exportieren" (click)="exportEntry(e.id, $event)">
-                  Export
-                </button>
-                <button
-                  class="del"
-                  [disabled]="gesperrt(e)"
-                  [title]="
-                    gesperrt(e)
-                      ? 'Von der BLK-AG abgenommen — Löschen nur mit AG-Schlüssel'
-                      : 'Löschen'
-                  "
-                  (click)="remove(e.id, $event)"
-                >
-                  Löschen
-                </button>
-              </span>
             </div>
           </div>
         }
@@ -174,8 +176,8 @@
     } @empty {
       <div id="dashEmpty">
         <div class="big">✔</div>
-        <h2>Keine abgenommenen Profilierungen</h2>
-        <p>Noch hat die BLK-AG keine Profilierung abgenommen.</p>
+        <h2>Keine Treffer</h2>
+        <p>Kein Eintrag passt zu den gesetzten Filtern.</p>
       </div>
     }
   } @else {

@@ -9,7 +9,9 @@
   @if (kurz()) {
     <span class="lbl-kurz">{{ kurz() }}</span>
   }
-  ▾
+  @if (pfeil()) {
+    ▾
+  }
 </button>
 
 @if (open()) {

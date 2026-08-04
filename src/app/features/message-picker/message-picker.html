@@ -22,8 +22,8 @@
       />
     </div>
     <div id="msgList">
-      @for (g of groups(); track g.file) {
-        <div class="msgGroup">{{ g.file }}</div>
+      @for (g of groups(); track g.modul) {
+        <div class="msgGroup" [title]="g.dateien">{{ modulTitel(g.modul) }}</div>
         @for (m of g.messages; track m.name) {
           <div class="msgItem" (click)="select(m.name)">
             <div class="mn">{{ m.name }}</div>

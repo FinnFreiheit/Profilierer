@@ -33,6 +33,7 @@ npm run test:server
 - `PersistenceService` (Profildatei) — Export/Import-Roundtrip inklusive Hinweisen unter eigenem Top-Level-Schlüssel und der Umformung des Altformats (`hinweis`-Feld → Listeneintrag).
 - `CodelistService` — `parseGenericode`, `mergeCodelist` (Versionsvergleich).
 - `pretty.util` — `pretty`/`kardText`/`fmtKard`.
+- `fachmodul.util` — Ableitung des Fachmodul-Kürzels und Gruppierung danach (auch: Muster verfehlt, Sammelgruppe zuletzt, nichts geht verloren).
 
 ## End-to-End (Browser)
 
