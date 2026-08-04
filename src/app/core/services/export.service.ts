@@ -1,6 +1,5 @@
 import { Injectable, inject } from '@angular/core';
 import { TreeNode } from '../../models/node.model';
-import { istErweiterungsPfad } from '../util/pfad.util';
 import { ERW_SPERRE_GRUND, erweiterungsWarnung } from '../util/erweiterung-sperre';
 import { Auspraegung } from '../../models/profile.model';
 import { StateService } from './state.service';
@@ -116,7 +115,10 @@ export class ExportService {
     // Sperre bei Schema-Erweiterungen (#98). Der Knopf ist bereits gesperrt —
     // die Regel steht trotzdem hier, damit kein zweiter Aufrufer an ihr vorbei
     // ein Pruefartefakt erzeugt, das Gueltigkeit gegen die offizielle XSD
-    // behauptet.
+    // behauptet. Sie ist zugleich die einzige Stelle, die Erweiterungen aus dem
+    // Schematron heraushaelt: der frueher nachgelagerte Kommentar-Zweig im Walk
+    // war danach unerreichbar und ist entfallen. Wird das Kriterium je
+    // gelockert, muss der Walk mit derselben Aenderung neu bedacht werden.
     if (this.state.hatErweiterungen()) {
       this.toast.show(ERW_SPERRE_GRUND);
       return;
@@ -142,22 +144,6 @@ export class ExportService {
     this.walkFull((x) => {
       if (x.node === this.state.root()) return;
       if (this.state.inheritedExcluded(x.path)) return;
-      // Schema-Erweiterungen: keine Asserts (XPaths gegen das offizielle Schema
-      // wuerden jede real valide Nachricht scheitern lassen) — stattdessen ein
-      // dokumentierender Kommentar je Erweiterung; alles darunter ueberspringen.
-      // Seit #98 sperrt schon der Guard oben; der Zweig bleibt als Ruecklage,
-      // damit ein gelockertes Sperrkriterium nicht schlagartig Asserts gegen
-      // nachbeauftragte Elemente erzeugt.
-      if (istErweiterungsPfad(x.path)) {
-        if (x.kind === 'el' && x.node.erweiterung) {
-          const e = x.node.erweiterung;
-          addComment(
-            xpath(x.segs.slice(0, -1)),
-            `Schema-Erweiterung (nachzubeauftragen): "${x.segs.slice(1).join('/')}" — Kardinalität ${e.min}..${e.max === 'unbounded' ? '*' : e.max}${e.datentyp ? ', Typ ' + e.datentyp : ', Container'}${e.beschreibung ? ' — ' + e.beschreibung : ''}`,
-          );
-        }
-        return;
-      }
       const p = this.state.elemente()[x.path];
       if (x.kind === 'ausp') {
         const st = this.state.statusOf(x.path);

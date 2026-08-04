@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { Dashboard } from './dashboard';
 import { LibraryEntry } from '../../models/profile.model';
 import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
@@ -86,5 +87,54 @@ describe('Dashboard — Testnachricht bei Schema-Erweiterungen', () => {
     expect(dash.erwSperre(eintrag({ nErw: 0 }))).toBeFalse();
     expect(dash.erwSperre(eintrag())).toBeFalse();
     expect(dash.testnachrichtTitel(eintrag())).toContain('geführter Durchlauf');
+  });
+});
+
+/**
+ * Die Akzeptanz aus #98 am gerenderten Menuepunkt, nicht nur an der Naht:
+ * sichtbar, gesperrt, mit Grund. Der `title` sitzt bewusst an der Huelle —
+ * ueber einen `disabled`-Knopf feuert der Browser keine Mausereignisse.
+ */
+describe('Dashboard — gesperrter Menuepunkt im DOM', () => {
+  const eintrag = (over: Partial<LibraryEntry> = {}): LibraryEntry =>
+    ({
+      id: 'x',
+      name: 'P',
+      nachricht: 'nachricht.gds.test.0001',
+      nStatus: 0,
+      nAusp: 0,
+      aktualisiert: 0,
+      ...over,
+    }) as LibraryEntry;
+
+  async function menue(e: LibraryEntry): Promise<HTMLElement> {
+    await TestBed.configureTestingModule({ imports: [Dashboard] }).compileComponents();
+    TestBed.inject(ProfileStoreService).entries.set([e]);
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    host.querySelector<HTMLButtonElement>('.dcMenuBtn')!.click();
+    fixture.detectChanges();
+    return host;
+  }
+
+  const punkt = (host: HTMLElement): HTMLButtonElement =>
+    [...host.querySelectorAll<HTMLButtonElement>('.menuItem')].find((b) =>
+      b.textContent?.includes('Testnachricht erstellen'),
+    )!;
+
+  it('sperrt den Menuepunkt und nennt den Grund sichtbar und im title', async () => {
+    const host = await menue(eintrag({ nErw: 2 }));
+    const knopf = punkt(host);
+    expect(knopf.disabled).toBeTrue();
+    expect(knopf.textContent).toContain('gesperrt: Schema-Erweiterungen');
+    expect(knopf.closest('.menuHuelle')?.getAttribute('title')).toBe(ERW_SPERRE_GRUND);
+  });
+
+  it('laesst den Menuepunkt ohne Erweiterungen offen', async () => {
+    const host = await menue(eintrag({ nErw: 0 }));
+    const knopf = punkt(host);
+    expect(knopf.disabled).toBeFalse();
+    expect(knopf.textContent).not.toContain('gesperrt');
   });
 });

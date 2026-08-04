@@ -315,6 +315,16 @@ describe('TestmessageCreateService', () => {
       ...over,
     });
 
+    it('verweigert die Bindung an eine Profilierung mit Schema-Erweiterungen (#98)', async () => {
+      // Die Regel sitzt an der Naht, nicht nur an der Komponente: sonst kaeme
+      // ein zweiter Aufrufer an ihr vorbei zu einer Testnachricht, in der
+      // genau das nachbeauftragte Element fehlt.
+      arbeitsstand = doc();
+      await expectAsync(svc.neuAusProfil(profil({ nErw: 2 }), null)).toBeRejected();
+      expect(state.msgName()).not.toBe(M);
+      expect(state.hatVorgabe()).toBeFalse();
+    });
+
     it('bindet den Arbeitsstand als Vorgabe und startet ohne Versions-/Nachrichtenwahl', async () => {
       arbeitsstand = doc();
 

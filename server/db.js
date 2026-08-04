@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { toEntry } from './fortschritt.js';
+import { toEntry, zaehleFortschritt } from './fortschritt.js';
 
 /** Wie viele Automatik-Versionen (Oeffnen-Snapshot, Sicherheits-Version) je Profil bleiben. */
 const AUTO_DECKEL = 10;
@@ -264,6 +264,20 @@ export function openDb(path) {
         .map((c) => c.name),
     );
     if (!cols.has('abnahme')) db.exec('ALTER TABLE profile_versions ADD COLUMN abnahme INTEGER');
+  }
+
+  // Migration: n_erw fuer Alt-Bestand nachziehen. Ohne die Zahl blieben Zeilen,
+  // die vor der Spalte gespeichert wurden, ohne Erweiterungs-Kennzeichen — und
+  // damit an der Sperre der Pruefartefakte (#98) vorbei, obwohl sie
+  // nachbeauftragte Elemente enthalten.
+  {
+    const offen = db.prepare('SELECT id, doc FROM profiles WHERE n_erw IS NULL').all();
+    if (offen.length) {
+      const set = db.prepare('UPDATE profiles SET n_erw = ? WHERE id = ?');
+      db.transaction(() => {
+        for (const r of offen) set.run(zaehleFortschritt(JSON.parse(r.doc)).nErw, r.id);
+      })();
+    }
   }
 
   // Migration: doc_hash fuer Alt-Bestand nachziehen (Vergleichsbasis der Versionen).

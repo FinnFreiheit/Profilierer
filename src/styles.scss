@@ -388,6 +388,18 @@ label.menuItem {
   align-items: center;
   gap: 8px;
 }
+/* Traeger des `title` bei gesperrten Menuepunkten — ueber einen disabled-Knopf
+   feuert der Browser keine Mausereignisse, das Tooltip bliebe sonst aus. */
+.menuHuelle {
+  display: block;
+}
+/* Der Grund im Klartext, damit die Sperre auch ohne Hover erklaert ist. */
+.menuGrund {
+  display: block;
+  font-size: 11px;
+  color: #5a50c0;
+  margin-top: 1px;
+}
 label.menuItem:has(input:disabled) {
   opacity: 0.45;
   cursor: not-allowed;
