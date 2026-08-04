@@ -1057,6 +1057,21 @@ label.menuItem:has(input:disabled) {
   color: #5a50c0;
   border-color: #7f77dd;
 }
+/* Datentyp der Nachbeauftragung (#97) — dezenter als die Kennzeichnung selbst. */
+.tag.t-typ {
+  background: #f5f4fc;
+  color: #5a50c0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+/* Der gespeicherte Schema-Typ fehlt im aktiven Schema: Defekt, nicht Normalfall. */
+.tag.t-typerr {
+  background: #f9e9e9;
+  color: #b23a3a;
+  border: 1px solid #d98b8b;
+}
+.typFehlt {
+  color: #b23a3a;
+}
 .pillExt {
   background: #efedfb;
   color: #5a50c0;

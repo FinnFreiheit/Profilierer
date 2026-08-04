@@ -47,3 +47,9 @@ gebraucht hat. Architektur-Entscheidungen dazu in `docs/adr/`.
   **Herkunft** (`xs` / `schema` / `frei`); Altbestand ohne Herkunft wird
   aufgelöst statt migriert. Ein Seam, zwei Konsumenten: Anlege-Dialog und
   Detailpanel teilen sich den `DatentypPicker`.
+- **Lebende Referenz** — ein aus dem Schema gewählter Datentyp einer
+  Schema-Erweiterung steht im Profil nur als Name; seine Unterelemente entstehen
+  bei jedem Rendern aus dem aktiven Schema (`TreeService.kinder`/`expandNode`),
+  samt Doku, Kardinalität, Codelisten-Bindung und Rekursionsschutz. Keine Kopie
+  der Typstruktur ins Profil (ADR 0017). Gegenprobe für den Defektfall:
+  `TreeService.erwTypFehlt` — der Typ, den das aktive Schema nicht kennt.

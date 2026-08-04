@@ -373,6 +373,28 @@ describe('ExportService (Schematron)', () => {
       expect(res.zeilenPfade.get(zeile)).toBe(`${M}/~${id}`);
     });
 
+    it('eine typisierte Erweiterung zieht ihre Schema-Kinder nach (#97)', () => {
+      state.addErweiterung(M, {
+        name: 'zusatzKopf',
+        min: '0',
+        max: '1',
+        datentyp: 'Type.Test.Kopf',
+        datentypQuelle: 'schema',
+      });
+
+      const res = svc.buildBeispielXmlMitPfaden()!;
+
+      // Der Rumpf des Typs erscheint — inklusive der fixen Pflicht-Attribute.
+      expect(res.xml).toContain('<zusatzKopf xjustizVersion="3.6.2">');
+      expect(res.xml).toMatch(/<titel>.+<\/titel>/);
+      // Die Druckzeilen ziehen ueber denselben Walk nach.
+      const rows = svc.buildPrintRows();
+      expect(rows.find((x) => x.tech === 'zusatzKopf')!.erweiterung).toBeTrue();
+      // Das Kind erscheint als eigene Zeile und ist echter Schemainhalt, keine
+      // Nachbeauftragung.
+      expect(rows.find((x) => x.tech === 'titel')!.erweiterung).toBeFalse();
+    });
+
     it('Beispiel-XML traegt den Warnkommentar mit der aktiven Schemaversion (#98)', () => {
       state.version.set('3.6.2');
       state.addErweiterung(M, { name: 'zusatzAngabe', min: '1', max: '1', datentyp: 'string' });

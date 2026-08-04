@@ -14,7 +14,7 @@ import { TreeService } from '../../core/services/tree.service';
 import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
 import { itemPath } from '../../models/node.model';
-import { unterPfad } from '../../core/util/pfad.util';
+import { istErweiterungsPfad, unterPfad } from '../../core/util/pfad.util';
 import { REF_TARGETS } from '../../core/refs';
 
 interface PathSpec {
@@ -286,6 +286,11 @@ export class TreeCanvas {
         const y2 = tr.top + Math.min(tr.height / 2, 22) - cr.top;
         const onP = !!to.dataset['path'] && this.onSelPath(to.dataset['path']!);
         const excl = to.classList.contains('excluded') || to.classList.contains('exclInherit');
+        // Teilbaum einer Schema-Erweiterung: die Linien tragen deren
+        // Kennzeichnung (gestrichelt-lila), die Kaesten der Kinder nicht — sie
+        // sind echter Schemainhalt, keine Nachbeauftragung (#97). Ohne
+        // eigenen Pfad (die "+"-Kaesten) zaehlt der Elternpfad.
+        const imErw = istErweiterungsPfad(to.dataset['path'] ?? from.dataset['path'] ?? '');
         // Orthogonales Routing: gemeinsamer vertikaler "Bus" im Spalt hinter
         // dem Elternknoten, dann gerade Horizontale auf Kindhoehe. Dadurch
         // ueberlagern nach rechts ausgerichtete Blaetter keine anderen Boxen.
@@ -306,9 +311,9 @@ export class TreeCanvas {
         }
         out.push({
           d,
-          stroke: onP ? 'var(--accent)' : '#c3ccd8',
+          stroke: onP ? 'var(--accent)' : imErw ? '#7f77dd' : '#c3ccd8',
           width: onP ? '2.2' : '1.4',
-          dash: excl ? '4 4' : null,
+          dash: excl ? '4 4' : imErw ? '5 4' : null,
           opacity: null,
           markerEnd: null,
         });

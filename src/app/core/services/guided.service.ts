@@ -1157,7 +1157,9 @@ export class GuidedService {
     let n = 0;
     this.tree.walkProfil(root, ({ node: c, ausp }) => {
       if (ausp) return true; // Vorkommen-Kontext: Kinder dort weiter
-      if (c.erweiterung) return false; // wie bisher: nur Schema-Kinder
+      // Erweiterungen sind kein Sonderfall mehr (#97): traegt eine
+      // Nachbeauftragung einen Verweis-Typ, liegt darunter dasselbe
+      // Nummern-Blatt wie unter einem Schemaknoten.
       if (this.state.vorgabeSchliesstAus(c.path)) return false;
       if (refTraeger(c) === c) {
         if (!this.state.refZielOf(c.path)) {

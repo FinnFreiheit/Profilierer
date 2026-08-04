@@ -247,6 +247,47 @@ describe('StateService', () => {
       expect(s.erweiterungenOf('m/a')!.map((e) => e.name)).toEqual(['zusatz']);
     });
 
+    it('festlegungenUnter zaehlt Profil-Eintraege, Vorkommen und Erweiterungen darunter', () => {
+      const id = s.addErweiterung('m/a', {
+        name: 'beiakte',
+        min: '1',
+        max: '1',
+        datentyp: 'Type.Test.Akte',
+        datentypQuelle: 'schema',
+      });
+      const pfad = 'm/a/~' + id;
+      s.setElementProfile(pfad, { status: 's1' }); // der Knoten selbst zaehlt nicht
+      s.setElementProfile(pfad + '/identifikation', { status: 's1' });
+      s.setElementProfile(pfad + '/laufzeit/beginn', { beispiel: '2026-01-01' });
+      s.addAusp(pfad + '/laufzeit');
+      s.addErweiterung(pfad + '/identifikation', { name: 'praefix', min: '1', max: '1' });
+
+      expect(s.festlegungenUnter(pfad)).toBe(4);
+      // Ein gleichnamiges Geschwister darf nicht mitgezaehlt werden.
+      s.setElementProfile('m/a/~' + id + 'x/fremd', { status: 's1' });
+      expect(s.festlegungenUnter(pfad)).toBe(4);
+    });
+
+    it('bereinigeUnter raeumt den Teilbaum, laesst den Knoten selbst stehen', () => {
+      const id = s.addErweiterung('m/a', { name: 'beiakte', min: '1', max: '1' });
+      const pfad = 'm/a/~' + id;
+      s.setElementProfile(pfad, { status: 's1' });
+      s.setElementProfile(pfad + '/identifikation', { status: 's1' });
+      s.addAusp(pfad + '/laufzeit');
+      s.addErweiterung(pfad + '/identifikation', { name: 'praefix', min: '1', max: '1' });
+      s.setOpen(pfad + '/identifikation', true);
+      s.selItem.set({ kind: 'el', node: node(pfad + '/identifikation') } as TreeItem);
+
+      s.bereinigeUnter(pfad);
+
+      expect(s.festlegungenUnter(pfad)).toBe(0);
+      // Die Erweiterung selbst und ihre eigene Festlegung bleiben.
+      expect(s.erweiterungenOf('m/a')!.map((e) => e.id)).toEqual([id]);
+      expect(s.elemente()[pfad]?.status).toBe('s1');
+      expect(s.isOpen(pfad + '/identifikation')).toBeFalse();
+      expect(s.selItem()).toBeNull();
+    });
+
     it('fortschritt zaehlt nErw ueber alle Ebenen', () => {
       const id = s.addErweiterung('m/a', { name: 'c', min: '1', max: '1' });
       s.addErweiterung('m/a/~' + id, { name: 'k', min: '1', max: '1', datentyp: 'string' });

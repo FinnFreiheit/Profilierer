@@ -22,6 +22,7 @@ Architecture Decision Records halten wesentliche Richtungsentscheidungen mit Beg
 | [0014](0014-hinweise-eigene-ressource.md)             | Hinweise als eigene Ressource neben der Profilierung              | Angenommen                    |
 | [0015](0015-vorkommen-zaehlkonvention.md)             | Vorkommen zählen statt Mindestanzahl 1 zu materialisieren         | Angenommen                    |
 | [0016](0016-wert-entscheidet-im-instanz-durchlauf.md) | Im Instanz-Durchlauf entscheidet der Wert (ergänzt 0015)          | Angenommen                    |
+| [0017](0017-erweiterungstyp-lebende-referenz.md)      | Erweiterungs-Datentyp als lebende Referenz (ergänzt 0010)         | Angenommen                    |
 
 ## Vorlage
 
