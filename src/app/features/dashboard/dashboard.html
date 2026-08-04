@@ -173,8 +173,18 @@
 
             <!-- Die selten gebrauchten Angaben (Version, Stände) tragen den
                  Tooltip, damit die Kachelhöhe konstant bleibt. -->
+            <!-- `@let` statt `@if (…; as a)`: bei 0 % ist der Anteil falsy, ein
+                 frisch begonnenes Profil bekäme sonst gar keinen Balken. -->
+            @let a = anteil(e);
             <div class="dcFoot" [title]="fussTitel(e)">
-              <span class="dcProg">{{ fortschritt(e) }}</span>
+              <span class="dcProg">
+                @if (a !== null) {
+                  <span class="kachelBalken" [title]="anteilText(e)" aria-hidden="true">
+                    <span class="kachelBalkenFuell" [style.width.%]="a * 100"></span>
+                  </span>
+                }
+                {{ fortschritt(e) }}
+              </span>
               <span class="dcDate">{{ datum(e) }}</span>
             </div>
           </div>

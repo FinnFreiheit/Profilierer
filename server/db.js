@@ -61,6 +61,13 @@ function fachHash(doc) {
     delete meta.gespeichert;
     d = { ...d, meta };
   }
+  // `fortschritt` ist eine abgeleitete Zaehlung, keine fachliche Aussage (#93):
+  // schon ein Wechsel der Schemaversion aendert den Nenner und markierte sonst
+  // jede gebundene Testnachricht als "Profil weiterentwickelt".
+  if (d && typeof d === 'object' && 'fortschritt' in d) {
+    d = { ...d };
+    delete d.fortschritt;
+  }
   return docHash(kanonisch(d));
 }
 
@@ -236,6 +243,11 @@ export function openDb(path) {
         .map((c) => c.name),
     );
     if (!cols.has('n_erw')) db.exec('ALTER TABLE profiles ADD COLUMN n_erw INTEGER');
+    // Stand der Entscheidungspunkte fuer den Fortschrittsbalken (#93). Bleibt
+    // im Altbestand leer, bis der naechste Autosave die Zahlen mitschreibt.
+    if (!cols.has('n_entschieden'))
+      db.exec('ALTER TABLE profiles ADD COLUMN n_entschieden INTEGER');
+    if (!cols.has('n_punkte')) db.exec('ALTER TABLE profiles ADD COLUMN n_punkte INTEGER');
     if (!cols.has('doc_hash')) db.exec('ALTER TABLE profiles ADD COLUMN doc_hash TEXT');
     if (!cols.has('fach_hash')) db.exec('ALTER TABLE profiles ADD COLUMN fach_hash TEXT');
     // Abnahme durch die BLK-AG: Referenz auf die eingefrorene Abnahme-Version.
@@ -292,6 +304,7 @@ export function openDb(path) {
   const stmt = {
     list: db.prepare(
       `SELECT profiles.id, profiles.name, nachricht, xjustiz_version, n_status, n_ausp, n_erw,
+              n_entschieden, n_punkte,
               gespeichert, aktualisiert, profiles.doc_hash,
               (SELECT COUNT(*) FROM profile_versions v WHERE v.profile_id = profiles.id) AS n_ver,
               (SELECT MAX(nr) FROM profile_versions v WHERE v.profile_id = profiles.id) AS letzte_nr,
@@ -314,15 +327,16 @@ export function openDb(path) {
     del: db.prepare('DELETE FROM profiles WHERE id = ?'),
     upsert: db.prepare(
       `INSERT INTO profiles
-         (id, doc, doc_hash, fach_hash, name, nachricht, xjustiz_version, n_status, n_ausp, n_erw, gespeichert, aktualisiert)
+         (id, doc, doc_hash, fach_hash, name, nachricht, xjustiz_version, n_status, n_ausp, n_erw, n_entschieden, n_punkte, gespeichert, aktualisiert)
        VALUES
-         (@id, @doc, @docHash, @fachHash, @name, @nachricht, @xjustizVersion, @nStatus, @nAusp, @nErw, @gespeichert, @aktualisiert)
+         (@id, @doc, @docHash, @fachHash, @name, @nachricht, @xjustizVersion, @nStatus, @nAusp, @nErw, @nEntschieden, @nPunkte, @gespeichert, @aktualisiert)
        ON CONFLICT(id) DO UPDATE SET
          doc = excluded.doc, doc_hash = excluded.doc_hash, fach_hash = excluded.fach_hash,
          name = excluded.name, nachricht = excluded.nachricht,
          xjustiz_version = excluded.xjustiz_version, n_status = excluded.n_status,
-         n_ausp = excluded.n_ausp, n_erw = excluded.n_erw, gespeichert = excluded.gespeichert,
-         aktualisiert = excluded.aktualisiert`,
+         n_ausp = excluded.n_ausp, n_erw = excluded.n_erw,
+         n_entschieden = excluded.n_entschieden, n_punkte = excluded.n_punkte,
+         gespeichert = excluded.gespeichert, aktualisiert = excluded.aktualisiert`,
     ),
 
     // ── Profil-Versionen (Snapshots) ────────────────────────────────────
@@ -574,6 +588,8 @@ export function openDb(path) {
       nStatus: entry.nStatus,
       nAusp: entry.nAusp,
       nErw: entry.nErw,
+      nEntschieden: entry.nEntschieden ?? null,
+      nPunkte: entry.nPunkte ?? null,
       gespeichert: entry.gespeichert ?? null,
       aktualisiert: ts,
     });
@@ -593,6 +609,8 @@ export function openDb(path) {
         nStatus: r.n_status,
         nAusp: r.n_ausp,
         nErw: r.n_erw ?? undefined,
+        nEntschieden: r.n_entschieden ?? undefined,
+        nPunkte: r.n_punkte ?? undefined,
         gespeichert: r.gespeichert ?? undefined,
         aktualisiert: r.aktualisiert,
         nVersionen: r.n_ver || undefined,

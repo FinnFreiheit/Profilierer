@@ -1769,11 +1769,31 @@ app-dashboard {
   white-space: nowrap;
 }
 .dcProg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   font-size: 12px;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* Fortschrittsbalken der Kachel (#93). Er erscheint nur, wenn der Stand der
+   Entscheidungspunkte bekannt ist — ohne Nenner waere jeder Balken geraten. */
+.kachelBalken {
+  flex: none;
+  display: inline-block;
+  width: 42px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  overflow: hidden;
+}
+.kachelBalkenFuell {
+  display: block;
+  height: 100%;
+  background: var(--accent);
 }
 .dcFoot {
   display: flex;

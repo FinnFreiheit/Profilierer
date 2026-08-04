@@ -309,9 +309,32 @@ export class Dashboard {
   }
 
   /** Fortschritt-Text je Karte (wie toolbar.fortschrittText). */
+  /**
+   * Fusszeile der Kachel. Liegt der Stand der Entscheidungspunkte vor (#93),
+   * zeigt sie ihn — dieselbe Aussage wie der Editor oben rechts. Im Altbestand
+   * (noch kein Autosave seit der Umstellung) bleibt es bei den Festlegungen.
+   */
   protected fortschritt(e: LibraryEntry): string {
+    const anteil = this.anteil(e);
+    if (anteil !== null) return `${e.nEntschieden} von ${e.nPunkte} entschieden`;
     if (!e.nStatus && !e.nAusp) return 'noch leer';
     return `${e.nStatus} Festlegungen${e.nAusp ? ' · ' + e.nAusp + ' Ausprägungen' : ''}`;
+  }
+
+  /**
+   * Anteil entschiedener Punkte (0-1), oder `null`, wenn er nicht bekannt ist —
+   * dann zeigt die Kachel keinen Balken statt einen erfundenen.
+   */
+  protected anteil(e: LibraryEntry): number | null {
+    const { nEntschieden: x, nPunkte: y } = e;
+    if (typeof x !== 'number' || typeof y !== 'number' || y <= 0) return null;
+    return Math.min(1, Math.max(0, x / y));
+  }
+
+  /** Ausgeschriebener Prozentwert fuer den Tooltip des Balkens. */
+  protected anteilText(e: LibraryEntry): string {
+    const a = this.anteil(e);
+    return a === null ? '' : `${Math.round(a * 100)} % entschieden`;
   }
 
   /** Anzeigedatum: fachliches Speicherdatum, sonst letzte Sicherung. */
