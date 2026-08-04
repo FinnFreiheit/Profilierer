@@ -34,8 +34,9 @@
           class="typFrei"
           type="text"
           placeholder="Typname, z. B. Code.GDS.Neu"
+          [value]="freiText()"
           (change)="onFrei($event)"
-          (keydown.escape)="schliesse()"
+          (keydown)="onFreiKeydown($event)"
         />
       </div>
     }
@@ -43,7 +44,13 @@
       @for (g of gruppen(); track g.titel) {
         <div class="msgGroup">{{ g.titel }}</div>
         @for (e of g.eintraege; track e.label) {
-          <button type="button" class="msgItem typItem" [class.hot]="istHot(e)" (click)="waehle(e)">
+          <button
+            #eintrag
+            type="button"
+            class="msgItem typItem"
+            [class.hot]="istHot(e)"
+            (click)="waehle(e)"
+          >
             <span class="mn">{{ e.label }}</span>
             @if (e.info) {
               <span class="md">{{ e.info }}</span>
@@ -51,7 +58,7 @@
           </button>
         }
       }
-      @if (!gruppen().length) {
+      @if (keineTreffer()) {
         <div class="typLeer">keine Treffer</div>
       }
     </div>

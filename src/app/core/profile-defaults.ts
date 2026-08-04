@@ -1,5 +1,4 @@
 import { ProfileDoc, Status, Wirkung } from '../models/profile.model';
-import { DatentypWahl } from './util/datentyp.util';
 
 /** Vordefinierte Statusfarben (Profilierer.html Z.315-318). */
 export const FARBEN: Record<string, string> = {
@@ -26,16 +25,6 @@ export const WIRKUNGEN: ReadonlyArray<readonly [Wirkung, string]> = [
  * (Erweiterungen liegen im Default-Namespace der Nachricht).
  */
 export const ERW_NAME_MUSTER = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
-
-/**
- * Vorbelegter Datentyp einer neuen Schema-Erweiterung (#96): `datatypeC` der
- * DIN 91379 — mit 907 Verwendungen der haeufigste Typ in 3.6.2 ueberhaupt.
- * Vorher stand hier `xs:string`, was den Schemagebrauch nicht traf.
- *
- * Die **waehlbaren** Typen stehen nicht mehr hier, sondern werden aus dem
- * geladenen Schema abgeleitet (`core/util/datentyp.util.ts`).
- */
-export const ERW_TYP_VORGABE: DatentypWahl = { datentyp: 'datatypeC', datentypQuelle: 'schema' };
 
 /** Standard-Statusstufen eines neuen Profils (Z.319-324). */
 export function defaultStatuses(): Status[] {

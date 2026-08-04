@@ -48,6 +48,9 @@ describe('DatentypPicker', () => {
     fixture.detectChanges();
   };
   const eintraege = (): HTMLElement[] => [...el().querySelectorAll<HTMLElement>('.msgItem')];
+  /** Die Eintraege ohne „Sonstiger…" — der ueberlebt jeden Filter. */
+  const typEintraege = (): HTMLElement[] =>
+    eintraege().filter((e) => !e.textContent?.includes('Sonstiger…'));
   const suchfeld = (): HTMLInputElement => el().querySelector('.typSuche')!;
   const tippe = (v: string): void => {
     const f = suchfeld();
@@ -84,18 +87,18 @@ describe('DatentypPicker', () => {
   it('filtert ueber Name und Doku', () => {
     oeffne();
     tippe('verfahrens');
-    expect(eintraege().map((e) => e.textContent)).toEqual([
+    expect(typEintraege().map((e) => e.textContent)).toEqual([
       jasmine.stringContaining('Type.GDS.Akte'),
     ]);
     tippe('gibtesnicht');
-    expect(eintraege().length).toBe(0);
+    expect(typEintraege().length).toBe(0);
     expect(el().textContent).toContain('keine Treffer');
   });
 
   it('meldet einen gewaehlten Schematyp mit seiner Herkunft und schliesst', () => {
     oeffne();
     tippe('Type.GDS.Akte');
-    eintraege()[0]!.click();
+    typEintraege()[0]!.click();
     fixture.detectChanges();
     expect(gemeldet).toEqual([{ datentyp: 'Type.GDS.Akte', datentypQuelle: 'schema' }]);
     expect(el().querySelector('.typPanel')).toBeNull();
@@ -104,14 +107,14 @@ describe('DatentypPicker', () => {
   it('meldet einen Basistyp als xs:-Herkunft', () => {
     oeffne();
     tippe('xs:token');
-    eintraege()[0]!.click();
+    typEintraege()[0]!.click();
     expect(gemeldet).toEqual([{ datentyp: 'token', datentypQuelle: 'xs' }]);
   });
 
   it('meldet den Container ohne Typ', () => {
     oeffne();
     tippe('Container');
-    eintraege()[0]!.click();
+    typEintraege()[0]!.click();
     expect(gemeldet).toEqual([{ datentyp: undefined, datentypQuelle: undefined }]);
   });
 
@@ -147,18 +150,53 @@ describe('DatentypPicker', () => {
   it('laesst sich mit Pfeiltasten und Enter bedienen', () => {
     oeffne();
     tippe('xs:');
+    // Vorn steht „Sonstiger…", dahinter die Basistypen in Schemareihenfolge.
     taste('ArrowDown');
     expect(eintraege()[1]!.classList).toContain('hot');
-    taste('ArrowUp');
-    expect(eintraege()[0]!.classList).toContain('hot');
     taste('ArrowDown');
+    expect(eintraege()[2]!.classList).toContain('hot');
+    taste('ArrowUp');
     taste('Enter');
-    expect(gemeldet).toEqual([{ datentyp: 'normalizedString', datentypQuelle: 'xs' }]);
+    expect(gemeldet).toEqual([{ datentyp: 'string', datentypQuelle: 'xs' }]);
   });
 
   it('schliesst auf Escape, ohne etwas zu melden', () => {
     oeffne();
     taste('Escape');
+    expect(el().querySelector('.typPanel')).toBeNull();
+    expect(gemeldet).toEqual([]);
+  });
+
+  it('bietet den Freitext auch dann an, wenn die Suche nichts findet', () => {
+    oeffne();
+    tippe('Beiaktengrund');
+    // Genau dann braucht man ihn: der gesuchte Typ steht nicht im Schema.
+    expect(eintraege().map((e) => e.textContent)).toEqual([jasmine.stringContaining('Sonstiger…')]);
+  });
+
+  it('uebernimmt den Suchtext ins Freitextfeld', () => {
+    oeffne();
+    tippe('Beiaktengrund');
+    eintraege()[0]!.click();
+    fixture.detectChanges();
+    const frei = el().querySelector<HTMLInputElement>('.typFrei')!;
+    expect(frei.value).toBe('Beiaktengrund');
+    frei.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    fixture.detectChanges();
+    expect(gemeldet).toEqual([{ datentyp: 'Beiaktengrund', datentypQuelle: 'frei' }]);
+  });
+
+  it('haelt Escape im Freitextfeld beim Waehler auf', () => {
+    // Ohne preventDefault schloesse Escape im <dialog> des Anlege-Dialogs den
+    // ganzen Dialog samt eingetragenem Elementnamen.
+    oeffne();
+    tippe('Sonstiger');
+    eintraege()[0]!.click();
+    fixture.detectChanges();
+    const ev = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    el().querySelector<HTMLInputElement>('.typFrei')!.dispatchEvent(ev);
+    fixture.detectChanges();
+    expect(ev.defaultPrevented).toBeTrue();
     expect(el().querySelector('.typPanel')).toBeNull();
     expect(gemeldet).toEqual([]);
   });

@@ -48,6 +48,9 @@ const DIN_TYPEN: ReadonlyArray<string> = [
   'datatypeE',
 ];
 
+/** Der DIN-Typ, mit dem eine neue Erweiterung vorbelegt wird. */
+const DIN_VORGABE = 'datatypeC';
+
 /** Praefix der fachlichen Typen im XJustiz-Schema. */
 const TYPE_PRAEFIX = 'Type.';
 /** Praefix der Codelisten-complexTypes. */
@@ -233,13 +236,37 @@ export function datentypGruppen(idx: XsdIndex | null): DatentypGruppe[] {
  * Freitextsuche ueber den Katalog: Typname **und** Klartext, wie im
  * Nachrichtenwaehler. Leergefilterte Gruppen fallen weg, damit keine
  * Ueberschrift ohne Inhalt stehen bleibt.
+ *
+ * Der Eintrag „Sonstiger…" ueberlebt jeden Filter: gesucht wird ein Typ, den
+ * es im Schema **nicht** gibt, genau dann kommt „keine Treffer" — und genau
+ * dann braucht man den Freitext. Ihn wegzufiltern zwaenge zum Umweg
+ * Suche leeren → Freitext waehlen → Namen ein zweites Mal tippen.
  */
 export function filterGruppen(gruppen: DatentypGruppe[], suche: string): DatentypGruppe[] {
   const q = suche.trim().toLowerCase();
   if (!q) return gruppen;
   const passt = (e: DatentypEintrag): boolean =>
-    e.label.toLowerCase().includes(q) || e.info.toLowerCase().includes(q);
+    e.art === 'frei' || e.label.toLowerCase().includes(q) || e.info.toLowerCase().includes(q);
   return gruppen
     .map((g) => ({ titel: g.titel, eintraege: g.eintraege.filter(passt) }))
     .filter((g) => g.eintraege.length > 0);
+}
+
+/**
+ * Vorbelegter Datentyp einer neuen Schema-Erweiterung (#96): `datatypeC` der
+ * DIN 91379 — mit 907 Verwendungen der haeufigste Typ in 3.6.2 ueberhaupt.
+ * Vorher stand hier `xs:string`, was den Schemagebrauch nicht traf.
+ */
+export const ERW_TYP_VORGABE: DatentypWahl = { datentyp: 'datatypeC', datentypQuelle: 'schema' };
+/** Rueckfall, wenn das geladene Schema `datatypeC` nicht kennt (Fremdschema). */
+export const ERW_TYP_RUECKFALL: DatentypWahl = { datentyp: 'string', datentypQuelle: 'xs' };
+
+/**
+ * Vorbelegung einer neuen Erweiterung. `datatypeC` gilt nur, wenn das geladene
+ * Schema die DIN-91379-Typen ueberhaupt mitbringt — sonst entstuende bei einem
+ * Fremdschema eine Erweiterung, deren Typ nirgends aufloest und die damit
+ * sofort im Warnzustand steht.
+ */
+export function erwTypVorgabe(idx: XsdIndex | null): DatentypWahl {
+  return idx?.st[DIN_VORGABE] ? { ...ERW_TYP_VORGABE } : { ...ERW_TYP_RUECKFALL };
 }

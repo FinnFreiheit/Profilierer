@@ -5,6 +5,7 @@ import {
   datentypGruppen,
   datentypQuelleOf,
   datentypUnbekannt,
+  erwTypVorgabe,
   filterGruppen,
 } from './datentyp.util';
 
@@ -128,24 +129,36 @@ describe('filterGruppen — Suche ueber Name und Doku', () => {
     expect(filterGruppen(alle, '  ')).toEqual(alle);
   });
 
+  /** Die Treffer ohne den stets mitlaufenden Freitext-Eintrag. */
+  const treffer = (q: string): string[] =>
+    filterGruppen(alle, q).flatMap((g) =>
+      g.eintraege.filter((e) => e.art !== 'frei').map((e) => e.name || e.label),
+    );
+
   it('findet ueber den Typnamen, ohne Ruecksicht auf Gross-/Kleinschreibung', () => {
-    expect(namen('aktenzeichen')).toEqual(['Type.GDS.Aktenzeichen']);
+    expect(treffer('aktenzeichen')).toEqual(['Type.GDS.Aktenzeichen']);
   });
 
   it('findet ueber den Klartext', () => {
     // Der Name enthaelt "Verfahren" nicht — nur die Dokumentation.
-    expect(namen('verfahrens')).toEqual(['Type.GDS.Akte']);
+    expect(treffer('verfahrens')).toEqual(['Type.GDS.Akte']);
   });
 
   it('wirft leergefilterte Gruppen weg', () => {
     expect(filterGruppen(alle, 'aktenzeichen').map((g) => g.titel)).toEqual([
+      'Sonstiges',
       'Fachliche Typen · GDS',
     ]);
-    expect(filterGruppen(alle, 'gibtesnicht')).toEqual([]);
   });
 
-  it('filtert die Sondereintraege mit', () => {
-    expect(namen('container')).toEqual(['Container (enthält Unterelemente)']);
+  it('haelt den Freitext-Eintrag auch dann bereit, wenn nichts passt', () => {
+    // Genau dann braucht man ihn: der gesuchte Typ existiert im Schema nicht.
+    expect(namen('gibtesnicht')).toEqual(['Sonstiger… (Freitext)']);
+  });
+
+  it('filtert den Container mit', () => {
+    expect(treffer('container')).toEqual(['Container (enthält Unterelemente)']);
+    expect(treffer('aktenzeichen')).not.toContain('Container (enthält Unterelemente)');
   });
 });
 
@@ -209,5 +222,21 @@ describe('datentypUnbekannt — die gelbe Markierung', () => {
   it('laesst einen Altbestands-Typ in Ruhe, den das Schema kennt', () => {
     // Ohne Herkunft gilt er als Freitext — im Katalog steht er trotzdem.
     expect(datentypUnbekannt({ datentyp: 'Type.GDS.Akte' }, katalog)).toBe(false);
+  });
+});
+
+describe('erwTypVorgabe — Vorbelegung einer neuen Erweiterung', () => {
+  it('nimmt datatypeC, wenn das geladene Schema die DIN-Typen mitbringt', () => {
+    expect(erwTypVorgabe(testIndex())).toEqual({ datentyp: 'datatypeC', datentypQuelle: 'schema' });
+  });
+
+  it('faellt ohne DIN 91379 auf xs:string zurueck — sonst startet die Erweiterung im Warnzustand', () => {
+    const ohneDin = new DOMParser().parseFromString(
+      '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="Type.X.Y"/></xs:schema>',
+      'application/xml',
+    );
+    const idx = new XsdParserService().buildIndexFrom([{ file: 'fremd.xsd', dom: ohneDin }]).idx;
+    expect(erwTypVorgabe(idx)).toEqual({ datentyp: 'string', datentypQuelle: 'xs' });
+    expect(erwTypVorgabe(null)).toEqual({ datentyp: 'string', datentypQuelle: 'xs' });
   });
 });
