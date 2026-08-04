@@ -44,6 +44,11 @@ const STATUS_FELDER: { feld: keyof Status; label: string }[] = [
   { feld: 'farbe', label: 'Farbe' },
 ];
 
+/**
+ * Verglichene Felder einer Schema-Erweiterung. `datentypQuelle` fehlt bewusst
+ * (#96): die Herkunft begleitet den Typ: mitverglichen stuende ein Typwechsel
+ * zweimal im Diff.
+ */
 const ERWEITERUNG_FELDER: { feld: keyof Erweiterung; label: string }[] = [
   { feld: 'name', label: 'Elementname' },
   { feld: 'datentyp', label: 'Datentyp' },

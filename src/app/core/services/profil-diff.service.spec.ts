@@ -238,6 +238,50 @@ describe('ProfilDiffService', () => {
     expect(e.find((x) => x.pfad === `${p}/~x2`)!.art).toBe('neu');
   });
 
+  it('vergleicht den Datentyp, nicht seine Herkunft', () => {
+    // #96: `datentypQuelle` steht neben dem Typ. Wuerde sie mitverglichen,
+    // stuende ein Typwechsel zweimal im Diff.
+    const p = 'nachricht.x/kopf';
+    const a = doc({
+      erweiterungen: {
+        [p]: [{ id: 'x1', name: 'Az', min: '1', max: '1', datentyp: 'datatypeC' }],
+      },
+    });
+    const b = doc({
+      erweiterungen: {
+        [p]: [
+          {
+            id: 'x1',
+            name: 'Az',
+            min: '1',
+            max: '1',
+            datentyp: 'datatypeC',
+            datentypQuelle: 'schema',
+          },
+        ],
+      },
+    });
+    expect(im(svc.vergleiche(a, b), 'erweiterung').length).toBe(0);
+
+    const c = doc({
+      erweiterungen: {
+        [p]: [
+          {
+            id: 'x1',
+            name: 'Az',
+            min: '1',
+            max: '1',
+            datentyp: 'Type.GDS.Akte',
+            datentypQuelle: 'schema',
+          },
+        ],
+      },
+    });
+    const geaendert = im(svc.vergleiche(a, c), 'erweiterung');
+    expect(geaendert.length).toBe(1);
+    expect(geaendert[0]!.felder.map((f) => f.feld)).toEqual(['datentyp']);
+  });
+
   // ── Metadaten ───────────────────────────────────────────────────────
 
   it('meldet Metadaten feldweise, ignoriert aber das Speicherdatum', () => {

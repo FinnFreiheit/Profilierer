@@ -36,6 +36,8 @@ graph TD
   Werkzeugleiste --> Crumbs
   Main --> TreeCanvas
   Main --> DetailPanel
+  DetailPanel --> DatentypPicker
+  Dlgs --> DatentypPicker
   TreeCanvas --> LinkSVG["#linkSvg (Verbindungslinien)"]
   TreeCanvas --> TreeNode
   TreeNode -.->|rekursiv über childItems| TreeNode

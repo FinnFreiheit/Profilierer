@@ -2002,6 +2002,79 @@ dialog::backdrop {
 .erwTyp input {
   flex: 1;
 }
+/* Datentyp-Waehler der Schema-Erweiterung (app-datentyp-picker, #96).
+   Panel und Listeneintraege folgen dem Nachrichtenwaehler (#msgPanel/.msgItem);
+   die Eintraege sind Knoepfe, damit sie ohne Maus erreichbar bleiben. */
+.typWahl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.typInfo {
+  font-size: 12px;
+  color: var(--muted);
+}
+.typWarn {
+  font-size: 12px;
+  color: #9a6a00;
+}
+.typPanel {
+  position: fixed;
+  z-index: 60;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  /* Breite muss zu DatentypPicker.BREITE passen; Hoehe setzt die Komponente
+     je nach Platz ueber dem/unter dem Knopf. */
+  width: 520px;
+  max-width: 94vw;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.typPanel .head {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.typSuche,
+.typFrei {
+  width: 100%;
+}
+.typFreiZeile {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.typListe {
+  overflow: auto;
+  flex: 1;
+  padding: 6px 0;
+}
+.typItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  font: inherit;
+  color: inherit;
+}
+.typItem .mn,
+.typItem .md {
+  display: block;
+}
+.typItem.hot {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+}
+.typLeer {
+  padding: 14px;
+  color: var(--muted);
+}
 .erwProblem {
   color: #b23a3a;
   font-size: 12.5px;

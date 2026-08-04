@@ -1,0 +1,59 @@
+<div class="typWahl">
+  <button type="button" class="typKnopf" (click)="toggle(btn)" #btn>{{ anzeige() }} ▾</button>
+  @if (info()) {
+    <span class="typInfo">{{ info() }}</span>
+  }
+  @if (unbekannt()) {
+    <span class="typWarn">nicht im Schema gefunden</span>
+  }
+</div>
+
+@if (offen()) {
+  <div
+    class="typPanel"
+    [style.left.px]="pos().left"
+    [style.top.px]="pos().top"
+    [style.bottom.px]="pos().bottom"
+    [style.max-height.px]="pos().maxH"
+  >
+    <div class="head">
+      <input
+        #suche
+        class="typSuche"
+        type="text"
+        placeholder="Datentyp suchen (Name oder Beschreibung)…"
+        [value]="filter()"
+        (input)="onFilter($event)"
+        (keydown)="onKeydown($event)"
+      />
+    </div>
+    @if (freiModus()) {
+      <div class="typFreiZeile">
+        <input
+          #frei
+          class="typFrei"
+          type="text"
+          placeholder="Typname, z. B. Code.GDS.Neu"
+          (change)="onFrei($event)"
+          (keydown.escape)="schliesse()"
+        />
+      </div>
+    }
+    <div class="typListe">
+      @for (g of gruppen(); track g.titel) {
+        <div class="msgGroup">{{ g.titel }}</div>
+        @for (e of g.eintraege; track e.label) {
+          <button type="button" class="msgItem typItem" [class.hot]="istHot(e)" (click)="waehle(e)">
+            <span class="mn">{{ e.label }}</span>
+            @if (e.info) {
+              <span class="md">{{ e.info }}</span>
+            }
+          </button>
+        }
+      }
+      @if (!gruppen().length) {
+        <div class="typLeer">keine Treffer</div>
+      }
+    </div>
+  </div>
+}
