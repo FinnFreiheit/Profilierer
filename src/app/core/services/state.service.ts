@@ -10,6 +10,7 @@ import {
 } from '../../models/profile.model';
 import { TreeItem, TreeNode, itemPath } from '../../models/node.model';
 import { auspTeile, blattName, unterPfad, vorfahren } from '../util/pfad.util';
+import { sperrtPruefartefakte } from '../util/erweiterung-sperre';
 import { VorgabeSicht } from '../vorgabe-sicht';
 import { Codelist } from '../../models/codelist.model';
 import { DiffAnc, DiffEntry } from '../../models/diff.model';
@@ -363,6 +364,14 @@ export class StateService {
     const nErw = Object.values(this.erweiterungen()).reduce((s, l) => s + l.length, 0);
     return { nStatus, nAusp, nErw };
   });
+
+  /**
+   * Traegt der Arbeitsstand Schema-Erweiterungen? Sperrkriterium der
+   * maschinellen Pruefartefakte (#98) und Ausloeser des Warnkommentars im
+   * Beispiel-XML. Dieselbe Kennzahl steht im Bibliotheksindex (`LibraryEntry.nErw`),
+   * darum entscheidet in beiden Ansichten dieselbe Regel.
+   */
+  readonly hatErweiterungen = computed(() => sperrtPruefartefakte(this.fortschritt().nErw));
 
   // ── Status-Zugriff ──────────────────────────────────────────────────
 

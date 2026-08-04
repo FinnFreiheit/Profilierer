@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { TreeNode } from '../../models/node.model';
 import { istErweiterungsPfad } from '../util/pfad.util';
+import { ERW_SPERRE_GRUND, erweiterungsWarnung } from '../util/erweiterung-sperre';
 import { Auspraegung } from '../../models/profile.model';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
@@ -112,6 +113,14 @@ export class ExportService {
 
   // ── Schematron (Z.1906-1993) ────────────────────────────────────────
   exportSchematron(): void {
+    // Sperre bei Schema-Erweiterungen (#98). Der Knopf ist bereits gesperrt —
+    // die Regel steht trotzdem hier, damit kein zweiter Aufrufer an ihr vorbei
+    // ein Pruefartefakt erzeugt, das Gueltigkeit gegen die offizielle XSD
+    // behauptet.
+    if (this.state.hatErweiterungen()) {
+      this.toast.show(ERW_SPERRE_GRUND);
+      return;
+    }
     if (!this.bestaetigeOffeneEntscheidungen()) return;
     const rules = new Map<string, { test: string; msg: string }[]>();
     const addAssert = (ctx: string, test: string, msg: string): void => {
@@ -136,6 +145,9 @@ export class ExportService {
       // Schema-Erweiterungen: keine Asserts (XPaths gegen das offizielle Schema
       // wuerden jede real valide Nachricht scheitern lassen) — stattdessen ein
       // dokumentierender Kommentar je Erweiterung; alles darunter ueberspringen.
+      // Seit #98 sperrt schon der Guard oben; der Zweig bleibt als Ruecklage,
+      // damit ein gelockertes Sperrkriterium nicht schlagartig Asserts gegen
+      // nachbeauftragte Elemente erzeugt.
       if (istErweiterungsPfad(x.path)) {
         if (x.kind === 'el' && x.node.erweiterung) {
           const e = x.node.erweiterung;
@@ -331,6 +343,10 @@ export class ExportService {
         `<!-- Beispielnachricht (Entwurf) für Szenario "${this.state.meta().name || ''}" — generiert mit dem XJustiz Profilierer.`,
         `     Platzhalterwerte und Codelisten-Angaben (listURI/listVersionID) sind fachlich zu prüfen. -->`,
       );
+      // Warnkommentar bei Schema-Erweiterungen (#98): das Beispiel-XML bleibt
+      // frei — es zeigt der AG den Zielzustand —, darf aber nicht irrtuemlich
+      // als Testnachricht weitergereicht werden.
+      if (this.state.hatErweiterungen()) lines.push(erweiterungsWarnung(this.state.version()));
     }
     const emitLeaf = (n: TreeNode, depth: number): void => {
       const pad = IND.repeat(depth);

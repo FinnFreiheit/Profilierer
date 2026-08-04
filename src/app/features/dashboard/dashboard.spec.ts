@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Dashboard } from './dashboard';
 import { LibraryEntry } from '../../models/profile.model';
+import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
 
 /**
  * Fortschrittsbalken der Kachel (#93). Der Nenner kommt aus dem Stand der
@@ -55,5 +56,35 @@ describe('Dashboard — Fortschritt auf der Kachel', () => {
       '360 Festlegungen · 4 Ausprägungen',
     );
     expect(dash.fortschritt(eintrag())).toBe('noch leer');
+  });
+});
+
+/**
+ * Sperre der Testnachricht-Erstellung an der Kachel (#98). Der Eintrag bleibt
+ * sichtbar und gesperrt — ein verschwundener Menuepunkt waere ein Raetsel.
+ */
+describe('Dashboard — Testnachricht bei Schema-Erweiterungen', () => {
+  let dash: {
+    erwSperre: (e: LibraryEntry) => boolean;
+    testnachrichtTitel: (e: LibraryEntry) => string;
+  };
+
+  const eintrag = (over: Partial<LibraryEntry> = {}): LibraryEntry =>
+    ({ id: 'x', name: 'P', nStatus: 0, nAusp: 0, aktualisiert: 0, ...over }) as LibraryEntry;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [Dashboard] }).compileComponents();
+    dash = TestBed.createComponent(Dashboard).componentInstance as unknown as typeof dash;
+  });
+
+  it('sperrt jede Profilierung mit Erweiterungen und nennt den Grund', () => {
+    expect(dash.erwSperre(eintrag({ nErw: 1 }))).toBeTrue();
+    expect(dash.testnachrichtTitel(eintrag({ nErw: 1 }))).toBe(ERW_SPERRE_GRUND);
+  });
+
+  it('laesst Profilierungen ohne Erweiterungen unveraendert', () => {
+    expect(dash.erwSperre(eintrag({ nErw: 0 }))).toBeFalse();
+    expect(dash.erwSperre(eintrag())).toBeFalse();
+    expect(dash.testnachrichtTitel(eintrag())).toContain('geführter Durchlauf');
   });
 });

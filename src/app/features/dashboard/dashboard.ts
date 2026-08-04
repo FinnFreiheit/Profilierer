@@ -20,6 +20,7 @@ import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { LibraryEntry } from '../../models/profile.model';
 import { fachmodulOf, nachFachmodul } from '../../core/util/fachmodul.util';
+import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiterung-sperre';
 import { nachrichtTeile } from '../../core/util/pretty.util';
 
 /**
@@ -157,6 +158,18 @@ export class Dashboard {
     ev.stopPropagation();
     this.testnachrichtStart.anfrage.set(e);
     this.state.view.set('testdaten');
+  }
+
+  /** Schema-Erweiterungen sperren die Testnachricht-Erstellung (#98). */
+  protected erwSperre(e: LibraryEntry): boolean {
+    return sperrtPruefartefakte(e.nErw);
+  }
+
+  /** Der `title` des Menuepunkts erklaert die Sperre, sonst den Ablauf. */
+  protected testnachrichtTitel(e: LibraryEntry): string {
+    return this.erwSperre(e)
+      ? ERW_SPERRE_GRUND
+      : 'Testnachricht zu dieser Profilierung erstellen — geführter Durchlauf mit Wahl der zu bindenden Fassung';
   }
 
   /** Zum Testdaten-Speicher wechseln. */

@@ -9,6 +9,7 @@ import { XmlValidationService, XmlValidierung } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
 import { HinweisStoreService } from './hinweis-store.service';
 import { XsdDoc } from '../../models/xsd-index.model';
+import { ERW_SPERRE_GRUND } from '../util/erweiterung-sperre';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
@@ -49,11 +50,13 @@ describe('ExportService (Schematron)', () => {
   let svc: ExportService;
   let state: StateService;
   let downloaded: { name: string; content: string }[];
+  let toasts: string[];
   /** Stub-Ergebnis der Schemavalidierung (Export-Tor); Tests schalten um. */
   let pruefung: XmlValidierung;
 
   beforeEach(() => {
     downloaded = [];
+    toasts = [];
     pruefung = { status: 'valide', fehler: [], fehlerDetails: [] };
     TestBed.configureTestingModule({
       providers: [
@@ -64,7 +67,7 @@ describe('ExportService (Schematron)', () => {
             profilFilename: (ext: string) => 'test.' + ext,
           },
         },
-        { provide: ToastService, useValue: { show: () => {} } },
+        { provide: ToastService, useValue: { show: (t: string) => toasts.push(t) } },
         { provide: XmlValidationService, useValue: { validiere: async () => pruefung } },
       ],
     });
@@ -370,19 +373,30 @@ describe('ExportService (Schematron)', () => {
       expect(res.zeilenPfade.get(zeile)).toBe(`${M}/~${id}`);
     });
 
-    it('Schematron: dokumentierender Kommentar statt Assert', () => {
-      const id = state.addErweiterung(M, {
-        name: 'zusatzAngabe',
-        beschreibung: 'Nachtrag',
-        min: '1',
-        max: '1',
-        datentyp: 'string',
-      });
-      state.setElementProfile(`${M}/~${id}`, { status: 's1' });
+    it('Beispiel-XML traegt den Warnkommentar mit der aktiven Schemaversion (#98)', () => {
+      state.version.set('3.6.2');
+      state.addErweiterung(M, { name: 'zusatzAngabe', min: '1', max: '1', datentyp: 'string' });
+      expect(svc.buildBeispielXml()).toContain(
+        '<!-- Enthält nachbeauftragte Elemente — gegen XJustiz 3.6.2 nicht gültig. -->',
+      );
+    });
+
+    it('Beispiel-XML ohne Erweiterungen bleibt ohne Warnkommentar (#98)', () => {
+      state.version.set('3.6.2');
+      expect(svc.buildBeispielXml()).not.toContain('nachbeauftragte Elemente');
+    });
+
+    it('Schematron ist bei Erweiterungen gesperrt und meldet den Grund (#98)', () => {
+      state.addErweiterung(M, { name: 'zusatzAngabe', min: '1', max: '1', datentyp: 'string' });
       svc.exportSchematron();
-      expect(sch()).toContain('Schema-Erweiterung (nachzubeauftragen)');
-      expect(sch()).toContain('Nachtrag');
-      expect(sch()).not.toContain('xj:zusatzAngabe');
+      expect(downloaded.length).toBe(0);
+      expect(toasts).toContain(ERW_SPERRE_GRUND);
+    });
+
+    it('Excel-Guard und Druck bleiben trotz Erweiterungen frei (#98)', () => {
+      state.addErweiterung(M, { name: 'zusatzAngabe', min: '1', max: '1', datentyp: 'string' });
+      expect(svc.bestaetigeOffeneEntscheidungen()).toBeTrue();
+      expect(svc.buildPrintRows().length).toBeGreaterThan(0);
     });
 
     it('buildPrintRows kennzeichnet Erweiterungs-Zeilen', () => {

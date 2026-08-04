@@ -158,7 +158,8 @@
         </button>
         <button
           class="menuItem"
-          [disabled]="!hasRoot()"
+          [disabled]="!hasRoot() || state.hatErweiterungen()"
+          [title]="state.hatErweiterungen() ? erwGrund : ''"
           (click)="weiteres.close(); schClick.emit()"
         >
           Schematron

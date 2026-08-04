@@ -252,6 +252,14 @@ describe('StateService', () => {
       s.addErweiterung('m/a/~' + id, { name: 'k', min: '1', max: '1', datentyp: 'string' });
       expect(s.fortschritt().nErw).toBe(2);
     });
+
+    it('hatErweiterungen meldet die Sperre der Pruefartefakte (#98)', () => {
+      expect(s.hatErweiterungen()).toBeFalse();
+      const id = s.addErweiterung('m/a', { name: 'c', min: '1', max: '1' });
+      expect(s.hatErweiterungen()).toBeTrue();
+      s.removeErweiterung('m/a', id);
+      expect(s.hatErweiterungen()).toBeFalse();
+    });
   });
 
   describe('Oeffnungszustaende', () => {
