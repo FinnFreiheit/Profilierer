@@ -1,4 +1,4 @@
-import { firstLine, fmtKard, kardText, pretty } from './pretty.util';
+import { firstLine, fmtKard, kardText, nachrichtTeile, pretty } from './pretty.util';
 
 describe('pretty.util', () => {
   describe('pretty', () => {
@@ -40,5 +40,24 @@ describe('pretty.util', () => {
       expect(firstLine('erste\nzweite')).toBe('erste');
       expect(firstLine('einzeilig')).toBe('einzeilig');
     });
+  });
+});
+
+describe('nachrichtTeile', () => {
+  it('trennt am letzten Punkt: Kopf schrumpft, Nummer bleibt', () => {
+    expect(nachrichtTeile('nachricht.enova.entscheidung.2900003')).toEqual({
+      kopf: 'nachricht.enova.entscheidung',
+      ende: '.2900003',
+    });
+  });
+
+  it('laesst Namen ohne Punkt unversehrt', () => {
+    expect(nachrichtTeile('Testnachricht')).toEqual({ kopf: 'Testnachricht', ende: '' });
+  });
+
+  it('kommt mit leer und null klar', () => {
+    expect(nachrichtTeile('')).toEqual({ kopf: '', ende: '' });
+    expect(nachrichtTeile(null)).toEqual({ kopf: '', ende: '' });
+    expect(nachrichtTeile(undefined)).toEqual({ kopf: '', ende: '' });
   });
 });
