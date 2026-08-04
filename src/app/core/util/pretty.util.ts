@@ -53,3 +53,17 @@ export function fmtKard(min: string, max: string): string {
 export function firstLine(s: string): string {
   return s.split('\n')[0]!;
 }
+
+/**
+ * Zerlegt einen Nachrichtennamen fuer die Anzeige auf Kacheln in Kopf und
+ * Ende (Issue #88/#91): `nachricht.enova.entscheidung` + `.2900003`.
+ *
+ * Beide Uebersichten kuerzen den Namen in der **Mitte** — CSS kann nur am Ende
+ * kuerzen, dort steht aber die Nummer, an der die Nachricht wiedererkannt wird.
+ * Der Kopf schrumpft per `text-overflow`, das Ende bleibt stehen.
+ */
+export function nachrichtTeile(name: string | null | undefined): { kopf: string; ende: string } {
+  const n = name ?? '';
+  const i = n.lastIndexOf('.');
+  return i > 0 ? { kopf: n.slice(0, i), ende: n.slice(i) } : { kopf: n, ende: '' };
+}

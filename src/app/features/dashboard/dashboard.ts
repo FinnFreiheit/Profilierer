@@ -20,6 +20,7 @@ import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { LibraryEntry } from '../../models/profile.model';
 import { nachFachmodul } from '../../core/util/fachmodul.util';
+import { nachrichtTeile } from '../../core/util/pretty.util';
 
 /**
  * Ein Abschnitt der Bibliothek: seit #88 je Fachmodul einer. Die Abnahme
@@ -86,22 +87,13 @@ export class Dashboard {
     return modul || 'ohne Nachricht';
   }
 
-  /**
-   * Nachrichtenname, in der Mitte gekuerzt: der vordere Teil schrumpft, das
-   * letzte Segment (die Nummer, an der die Nachricht wiedererkannt wird)
-   * bleibt stehen. Reines CSS kann nur am Ende kuerzen — genau dort steht aber
-   * das Unterscheidende.
-   */
+  /** Nachrichtenname fuer die Mitte-Kuerzung (gemeinsam mit dem Testdatenspeicher). */
   protected msgKopf(e: LibraryEntry): string {
-    const n = e.nachricht ?? '';
-    const i = n.lastIndexOf('.');
-    return i > 0 ? n.slice(0, i) : n;
+    return nachrichtTeile(e.nachricht).kopf;
   }
 
   protected msgEnde(e: LibraryEntry): string {
-    const n = e.nachricht ?? '';
-    const i = n.lastIndexOf('.');
-    return i > 0 ? n.slice(i) : '';
+    return nachrichtTeile(e.nachricht).ende;
   }
 
   /**

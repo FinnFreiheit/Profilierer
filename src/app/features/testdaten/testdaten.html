@@ -47,159 +47,168 @@
   </div>
 
   @if (store.entries().length) {
+    <!-- Kachel und Gruppierung folgen der Profil-Uebersicht (#91): dieselben
+         Klassen, dieselbe Aufteilung, Werkzeuge im ⋯-Menue. -->
     @for (g of gruppen(); track g.fachmodul) {
-      <div class="tdGroup">
-        <div class="tdGroupHead">
-          <span class="pill">{{ g.fachmodul }}</span>
-          <span class="tdGroupCount">{{ g.items.length }}</span>
-        </div>
-        <div id="dashGrid">
-          @for (e of g.items; track e.id) {
-            <div
-              class="dashCard"
-              [title]="e.gefuehrt ? 'Geführt fortsetzen' : 'Im Baum öffnen (betrachten)'"
-              (click)="openEntry(e)"
-            >
-              <div class="dcName">{{ e.name }}</div>
-              @if (e.nachricht) {
-                <div class="dcMsg">{{ e.nachricht }}</div>
-              }
-              <div class="dcMeta">
+      <div class="tdGroupHead">
+        <span class="pill pillMuted">{{ g.fachmodul }}</span>
+        <span class="tdGroupCount">{{ g.items.length }}</span>
+      </div>
+      <div id="dashGrid">
+        @for (e of g.items; track e.id) {
+          <div
+            class="dashCard"
+            [title]="e.gefuehrt ? 'Geführt fortsetzen' : 'Im Baum öffnen (betrachten)'"
+            (click)="openEntry(e)"
+          >
+            <div class="dcHead">
+              <div class="dcName" [title]="e.name">{{ e.name }}</div>
+              <app-menu
+                label="⋯"
+                [pfeil]="false"
+                btnClass="dcMenuBtn"
+                titel="Weitere Aktionen"
+                #werkzeuge
+              >
+                @if (rolle.agAktiv()) {
+                  <button class="menuItem" (click)="werkzeuge.close(); openAbnahme(e, $event)">
+                    Abnahme…
+                  </button>
+                }
+                <button
+                  class="menuItem"
+                  [disabled]="gesperrt(e)"
+                  [title]="
+                    gesperrt(e)
+                      ? 'Von der BLK-AG abgenommen — Bearbeiten nur mit AG-Schlüssel'
+                      : e.gefuehrt
+                        ? 'Geführt fortsetzen'
+                        : 'Werte ändern, Angaben hinzufügen oder entfernen, Vorkommen anlegen'
+                  "
+                  (click)="werkzeuge.close(); bearbeiten(e, $event)"
+                >
+                  Bearbeiten
+                </button>
+                <button
+                  class="menuItem"
+                  [disabled]="gesperrt(e)"
+                  [title]="
+                    gesperrt(e)
+                      ? 'Von der BLK-AG abgenommen — Umbenennen nur mit AG-Schlüssel'
+                      : 'Name und Beschreibung ändern'
+                  "
+                  (click)="werkzeuge.close(); openEdit(e, $event)"
+                >
+                  Umbenennen…
+                </button>
+                <button
+                  class="menuItem"
+                  title="Schemavalidierung ausführen und Befund anzeigen"
+                  (click)="werkzeuge.close(); pruefe(e, $event)"
+                >
+                  Prüfbericht
+                </button>
+                <button class="menuItem" (click)="werkzeuge.close(); download(e, $event)">
+                  XML herunterladen
+                </button>
                 @if (e.abgenommen) {
+                  <button
+                    class="menuItem"
+                    title="Die eingefrorene abgenommene (valide) Fassung herunterladen"
+                    (click)="werkzeuge.close(); downloadAbnahme(e, $event)"
+                  >
+                    Abnahme-XML
+                  </button>
                   @if (e.geaendertSeitAbnahme) {
                     <button
-                      class="pill pillBtn pillAbnWarn"
-                      title="Anzeigen, was sich gegenüber der abgenommenen Fassung geändert hat"
-                      (click)="zeigeAbnahmeDiff(e, $event)"
+                      class="menuItem"
+                      title="Feldgenau anzeigen, was sich gegenüber der abgenommenen Fassung geändert hat"
+                      (click)="werkzeuge.close(); zeigeAbnahmeDiff(e, $event)"
                     >
-                      ⚠ seit Abnahme geändert
-                    </button>
-                  } @else {
-                    <span
-                      class="pill pillAbn"
-                      title="Von der BLK-AG abgenommen am {{ abnDatum(e) }}{{
-                        e.abnahmeKommentar ? ' · ' + e.abnahmeKommentar : ''
-                      }}"
-                      >✔ BLK-AG abgenommen</span
-                    >
-                  }
-                }
-                @if (e.entwurf) {
-                  <span
-                    class="pill pillDraft"
-                    title="Es sind noch Pflicht-Punkte offen oder die Nachricht ist nicht schema-valide — Details über den Prüfbericht"
-                  >
-                    Entwurf — unvollständig
-                  </span>
-                }
-                @if (e.xjustizVersion) {
-                  <span class="pill">XJustiz {{ e.xjustizVersion }}</span>
-                } @else {
-                  <span class="pill pillMuted">Version unbekannt</span>
-                }
-                @if (e.profilId) {
-                  <button
-                    class="pill pillBtn"
-                    title="Zur gebundenen Profilierung springen — Festlegung nachlesen"
-                    (click)="oeffneProfil(e, $event)"
-                  >
-                    {{ herkunft(e) }}
-                  </button>
-                  @if (e.profilWeiterentwickelt) {
-                    <button
-                      class="pill pillBtn pillAbnWarn"
-                      title="Die Profilierung hat sich seit der Bindung geändert — anzeigen, was anders ist. Die Testnachricht bleibt unverändert."
-                      (click)="zeigeVorgabeDiff(e, $event)"
-                    >
-                      ⚠ Profil weiterentwickelt
+                      Änderungen…
                     </button>
                   }
                 }
-                @if (e.fortschritt) {
-                  <span class="dcProg"
-                    >{{ e.fortschritt.x }} von {{ e.fortschritt.y }} Pflichtangaben</span
-                  >
-                }
-                <span class="dcProg">{{ groesse(e) }}</span>
-              </div>
-              @if (e.notiz) {
-                <div class="tdNote">{{ e.notiz }}</div>
-              }
-              <div class="dcFoot">
-                <span class="dcDate">{{ datum(e) }}</span>
-                <span class="dcTools">
-                  @if (rolle.agAktiv()) {
-                    <button
-                      title="Abnehmen bzw. Abnahme-Kennzeichen verwalten (BLK-AG)"
-                      (click)="openAbnahme(e, $event)"
-                    >
-                      Abnahme…
-                    </button>
-                  }
-                  <button
-                    [disabled]="gesperrt(e)"
-                    [title]="
-                      gesperrt(e)
-                        ? 'Von der BLK-AG abgenommen — Bearbeiten nur mit AG-Schlüssel'
-                        : e.gefuehrt
-                          ? 'Geführt fortsetzen'
-                          : 'Werte ändern, Angaben hinzufügen oder entfernen, Vorkommen anlegen'
-                    "
-                    (click)="bearbeiten(e, $event)"
-                  >
-                    Bearbeiten
-                  </button>
-                  <button
-                    [disabled]="gesperrt(e)"
-                    [title]="
-                      gesperrt(e)
-                        ? 'Von der BLK-AG abgenommen — Umbenennen nur mit AG-Schlüssel'
-                        : 'Name und Beschreibung ändern'
-                    "
-                    (click)="openEdit(e, $event)"
-                  >
-                    Umbenennen…
-                  </button>
-                  <button
-                    title="Schemavalidierung ausführen und Befund anzeigen"
-                    (click)="pruefe(e, $event)"
-                  >
-                    Prüfbericht
-                  </button>
-                  <button title="XML herunterladen" (click)="download(e, $event)">Download</button>
-                  @if (e.abgenommen) {
-                    <button
-                      title="Die eingefrorene abgenommene (valide) Fassung herunterladen"
-                      (click)="downloadAbnahme(e, $event)"
-                    >
-                      Abnahme-XML
-                    </button>
-                    @if (e.geaendertSeitAbnahme) {
-                      <button
-                        title="Feldgenau anzeigen, was sich gegenüber der abgenommenen Fassung geändert hat"
-                        (click)="zeigeAbnahmeDiff(e, $event)"
-                      >
-                        Änderungen…
-                      </button>
-                    }
-                  }
-                  <button
-                    class="del"
-                    [disabled]="gesperrt(e)"
-                    [title]="
-                      gesperrt(e)
-                        ? 'Von der BLK-AG abgenommen — Löschen nur mit AG-Schlüssel'
-                        : 'Löschen'
-                    "
-                    (click)="remove(e, $event)"
-                  >
-                    Löschen
-                  </button>
-                </span>
-              </div>
+                <div class="menuSep"></div>
+                <button
+                  class="menuItem del"
+                  [disabled]="gesperrt(e)"
+                  [title]="
+                    gesperrt(e) ? 'Von der BLK-AG abgenommen — Löschen nur mit AG-Schlüssel' : ''
+                  "
+                  (click)="werkzeuge.close(); remove(e, $event)"
+                >
+                  Löschen
+                </button>
+              </app-menu>
             </div>
-          }
-        </div>
+
+            @if (e.nachricht) {
+              <div class="dcMsg" [title]="e.nachricht">
+                <span class="dcMsgKopf">{{ msgKopf(e) }}</span
+                ><span class="dcMsgEnde">{{ msgEnde(e) }}</span>
+              </div>
+            } @else {
+              <div class="dcMsg dcMsgLeer">keine Nachricht erkannt</div>
+            }
+
+            <div class="dcStatus">
+              @if (e.abgenommen) {
+                @if (e.geaendertSeitAbnahme) {
+                  <button
+                    class="pill pillBtn pillAbnWarn"
+                    title="Anzeigen, was sich gegenüber der abgenommenen Fassung geändert hat"
+                    (click)="zeigeAbnahmeDiff(e, $event)"
+                  >
+                    ⚠ seit Abnahme geändert
+                  </button>
+                } @else {
+                  <span
+                    class="pill pillAbn"
+                    title="Von der BLK-AG abgenommen am {{ abnDatum(e) }}{{
+                      e.abnahmeKommentar ? ' · ' + e.abnahmeKommentar : ''
+                    }}"
+                    >✔ abgenommen</span
+                  >
+                }
+              }
+              @if (e.entwurf) {
+                <span
+                  class="pill pillDraft"
+                  title="Es sind noch Pflicht-Punkte offen oder die Nachricht ist nicht schema-valide — Details über den Prüfbericht"
+                  >Entwurf</span
+                >
+              }
+              @if (e.profilId) {
+                <button
+                  class="pill pillBtn"
+                  [title]="'Zur gebundenen Profilierung springen — ' + herkunft(e)"
+                  (click)="oeffneProfil(e, $event)"
+                >
+                  {{ herkunft(e) }}
+                </button>
+                @if (e.profilWeiterentwickelt) {
+                  <button
+                    class="pill pillBtn pillAbnWarn"
+                    title="Die Profilierung hat sich seit der Bindung geändert — anzeigen, was anders ist. Die Testnachricht bleibt unverändert."
+                    (click)="zeigeVorgabeDiff(e, $event)"
+                  >
+                    ⚠ Profil weiterentwickelt
+                  </button>
+                }
+              }
+            </div>
+
+            <!-- Notiz einzeilig: sie liess die Kacheln sonst unterschiedlich
+                 hoch werden; der vollstaendige Text steht im Tooltip. -->
+            <div class="dcNotiz" [title]="e.notiz || ''">{{ e.notiz }}</div>
+
+            <div class="dcFoot" [title]="fussTitel(e)">
+              <span class="dcProg">{{ fussText(e) }}</span>
+              <span class="dcDate">{{ datum(e) }}</span>
+            </div>
+          </div>
+        }
       </div>
     } @empty {
       <div id="dashEmpty">

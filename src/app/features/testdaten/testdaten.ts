@@ -23,10 +23,12 @@ import { ValidationReportService } from '../../core/services/validation-report.s
 import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
+import { Menu } from '../../shared/menu/menu';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { LibraryEntry, ProfilVersion } from '../../models/profile.model';
 import { MessageRef } from '../../models/xsd-index.model';
 import { parseTestmessage } from '../../core/util/testmessage.util';
+import { nachrichtTeile } from '../../core/util/pretty.util';
 import { firstLine } from '../../core/util/pretty.util';
 
 /** Eine Fachmodul-Gruppe fuer die Kachel-Ansicht. */
@@ -46,7 +48,7 @@ interface Gruppe {
 @Component({
   selector: 'app-testdaten',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge],
+  imports: [RolleBadge, Menu],
   templateUrl: './testdaten.html',
 })
 export class Testdaten {
@@ -637,7 +639,46 @@ export class Testdaten {
     return kb < 1 ? `${e.groesse} B` : `${kb.toFixed(kb < 10 ? 1 : 0)} kB`;
   }
 
+  /**
+   * Datum der Kachel, gleiches Format wie in der Profil-Uebersicht (#91):
+   * zweistellig mit fuehrenden Nullen, sonst stuenden "3.8.2026" und
+   * "24.07.2026" in derselben Zeile nebeneinander.
+   */
   protected datum(e: TestmessageEntry): string {
-    return new Date(e.hochgeladen).toLocaleDateString('de-DE');
+    return new Date(e.hochgeladen).toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  }
+
+  /** Nachrichtenname fuer die Mitte-Kuerzung (gemeinsam mit der Profil-Uebersicht). */
+  protected msgKopf(e: TestmessageEntry): string {
+    return nachrichtTeile(e.nachricht).kopf;
+  }
+
+  protected msgEnde(e: TestmessageEntry): string {
+    return nachrichtTeile(e.nachricht).ende;
+  }
+
+  /**
+   * Fusszeile links: Umfang der Nachricht. Im gefuehrten Durchlauf steht der
+   * Stand der Pflichtangaben davor — er sagt mehr als die Dateigroesse.
+   */
+  protected fussText(e: TestmessageEntry): string {
+    const f = e.fortschritt;
+    const groesse = this.groesse(e);
+    return f ? `${f.x} von ${f.y} Pflichtangaben · ${groesse}` : groesse;
+  }
+
+  /**
+   * Was frueher als eigene Pillen auf der Kachel stand und ihre Hoehe
+   * schwanken liess (#91).
+   */
+  protected fussTitel(e: TestmessageEntry): string {
+    const teile: string[] = [];
+    teile.push(e.xjustizVersion ? `XJustiz ${e.xjustizVersion}` : 'Version unbekannt');
+    if (e.notiz) teile.push(e.notiz);
+    return teile.join(' · ');
   }
 }

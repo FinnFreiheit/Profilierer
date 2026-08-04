@@ -9,6 +9,7 @@
  * Namen fuer das Drag&Drop-Routing braucht.
  */
 import { TestmessageInput } from '../../models/testmessage.model';
+import { fachmodulOf } from './fachmodul.util';
 
 export interface TestmessageMeta {
   nachricht: string;
@@ -48,8 +49,10 @@ export function parseTestmessage(xmlText: string): TestmessageMeta | null {
   const root = doc.documentElement;
   const name = root?.localName ?? '';
   if (!/^nachricht\./.test(name)) return null;
-  // fachmodul = zweites Segment (nach "nachricht."); leerer Fallback -> "sonstige".
-  const fachmodul = name.split('.')[1] || 'sonstige';
+  // Fachmodul = zweites Segment; dieselbe Ableitung wie in den beiden
+  // Uebersichten (fachmodul.util). Der Fallback "sonstige" bleibt, weil das
+  // Feld gespeichert wird und bestehende Eintraege ihn tragen.
+  const fachmodul = fachmodulOf(name) || 'sonstige';
   const meta: TestmessageMeta = { nachricht: name, fachmodul };
   const version = leseVersion(root);
   if (version) meta.xjustizVersion = version;
