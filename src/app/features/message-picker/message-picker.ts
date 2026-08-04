@@ -3,9 +3,13 @@ import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
 import { MessageRef } from '../../models/xsd-index.model';
 import { firstLine } from '../../core/util/pretty.util';
+import { nachFachmodul } from '../../core/util/fachmodul.util';
 
 interface MsgGroup {
-  file: string;
+  /** Fachmodul-Kuerzel; leer = Sammelgruppe fuer abweichende Namen. */
+  modul: string;
+  /** Schemadateien der Gruppe — als Tooltip, zum Nachschlagen im Standard. */
+  dateien: string;
   messages: MessageRef[];
 }
 
@@ -32,20 +36,30 @@ export class MessagePicker {
     return m ? m + ' ▾' : 'Nachricht wählen ▾';
   });
 
-  /** renderMsgList (Z.1704-1721): nach Datei gruppiert, gefiltert. */
+  /**
+   * renderMsgList (Z.1704-1721), gefiltert — seit #89 nach **Fachmodul**
+   * gruppiert statt nach Schemadatei. Der Dateiname (`xjustiz_0500_straf_3_6.xsd`)
+   * beantwortete die fachliche Frage nur indirekt; er bleibt als Tooltip der
+   * Ueberschrift erhalten, weil er beim Nachschlagen im Standard hilft.
+   */
   protected readonly groups = computed<MsgGroup[]>(() => {
     const idx = this.state.idx();
     if (!idx) return [];
     const f = this.filter().toLowerCase();
-    const byFile: Record<string, MessageRef[]> = {};
-    for (const m of idx.messages) {
-      if (f && !(m.name.toLowerCase().includes(f) || m.doc.toLowerCase().includes(f))) continue;
-      (byFile[m.file] ??= []).push(m);
-    }
-    return Object.keys(byFile)
-      .sort()
-      .map((file) => ({ file, messages: byFile[file]! }));
+    const treffer = idx.messages.filter(
+      (m) => !f || m.name.toLowerCase().includes(f) || m.doc.toLowerCase().includes(f),
+    );
+    return nachFachmodul(treffer, (m) => m.name).map((g) => ({
+      modul: g.modul,
+      dateien: [...new Set(g.items.map((m) => m.file))].sort().join(' · '),
+      messages: g.items,
+    }));
   });
+
+  /** Ueberschrift einer Gruppe; ohne erkennbares Modul eine Sammelgruppe. */
+  protected modulTitel(modul: string): string {
+    return modul || 'weitere Nachrichten';
+  }
 
   protected toggle(btn: HTMLElement): void {
     if (this.open()) {
