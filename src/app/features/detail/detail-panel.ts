@@ -24,6 +24,11 @@ import { SearchService } from '../../core/services/search.service';
 import { itemPath } from '../../models/node.model';
 import { fmtKard, kardText, pretty } from '../../core/util/pretty.util';
 import { hinweisFehlerText, hinweisHerkunft } from '../../core/util/hinweis.util';
+import {
+  erwLoeschFrage,
+  erwTypFehltText,
+  erwTypwechselFrage,
+} from '../../core/util/erweiterung.util';
 import { Hinweis } from '../../models/profile.model';
 import { ERW_NAME_MUSTER } from '../../core/profile-defaults';
 import { DatentypWahl } from '../../core/util/datentyp.util';
@@ -367,6 +372,9 @@ export class DetailPanel {
 
     // Schema-Erweiterung: Eigenschaften direkt editierbar (US Schema-Erweiterung).
     const e = !isAusp ? (it.node.erweiterung ?? null) : null;
+    // Der im aktiven Schema fehlende Typ (#97): rote Warnung statt stiller
+    // Blattdarstellung — die Profilierung darunter bleibt gespeichert.
+    const typFehlt = !isAusp ? this.tree.erwTypFehlt(it.node) : null;
     const erw = e
       ? {
           name: e.name,
@@ -374,7 +382,11 @@ export class DetailPanel {
           min: e.min,
           max: e.max,
           typ: { datentyp: e.datentyp, datentypQuelle: e.datentypQuelle },
-          container: !e.datentyp,
+          // Unterelemente stehen ueberall dort an, wo der Knoten kein Blatt ist —
+          // dieselbe Regel wie im Baum: Container und typisierte Struktur ja,
+          // Wert- und Codelisten-Typ nein.
+          kannUnterelement: !isAusp && !this.tree.isLeaf(it.node),
+          typFehlt: typFehlt ? erwTypFehltText(typFehlt, this.state.idx()?.version) : '',
         }
       : null;
 
@@ -864,10 +876,24 @@ export class DetailPanel {
     this.state.updateErweiterung(ctx.parentPath, ctx.id, { beschreibung: v || undefined });
   }
 
-  /** Wahl aus dem Typwaehler (#96): Typ und Herkunft wandern zusammen ins Profil. */
+  /**
+   * Wahl aus dem Typwaehler (#96): Typ und Herkunft wandern zusammen ins Profil.
+   *
+   * Der neue Typ bringt eine andere Struktur mit — was unter dem alten Typ
+   * festgelegt wurde, zeigt danach ins Leere (#97). Liegt etwas darunter, faellt
+   * die Entscheidung mit Zahl beim Anwender; sonst wechselt der Typ kommentarlos.
+   */
   protected onErwTyp(wahl: DatentypWahl): void {
     const ctx = this.erwKontext();
-    if (!ctx) return;
+    const it = this.state.selItem();
+    if (!ctx || !it || it.kind !== 'el' || !it.node.erweiterung) return;
+    const alt = it.node.erweiterung;
+    if (alt.datentyp === wahl.datentyp && alt.datentypQuelle === wahl.datentypQuelle) return;
+    const n = this.state.festlegungenUnter(it.node.path);
+    if (n) {
+      if (!confirm(erwTypwechselFrage(alt.name, n))) return;
+      this.state.bereinigeUnter(it.node.path);
+    }
     this.state.updateErweiterung(ctx.parentPath, ctx.id, {
       datentyp: wahl.datentyp,
       datentypQuelle: wahl.datentypQuelle,
@@ -890,7 +916,7 @@ export class DetailPanel {
     const it = this.state.selItem();
     if (!ctx || !it || it.kind !== 'el' || !it.node.erweiterung) return;
     if (
-      confirm('Schema-Erweiterung „' + it.node.erweiterung.name + '" samt Unterelementen löschen?')
+      confirm(erwLoeschFrage(it.node.erweiterung.name, this.state.festlegungenUnter(it.node.path)))
     )
       this.state.removeErweiterung(ctx.parentPath, ctx.id);
   }

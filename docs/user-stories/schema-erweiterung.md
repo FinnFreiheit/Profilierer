@@ -18,8 +18,11 @@ als solche hervorgehoben sein — im Baum, im Detailbereich, in den Exporten und
 
 1. Erweiterungen sind **verschachtelbar** — eine Erweiterung kann Container sein und
    eigene Erweiterungs-Kinder tragen.
-2. Datentyp: **Auswahl gängiger xs:-Basistypen + Freitext** für Sonderfälle;
-   Option „Container" (kein Datentyp).
+2. Datentyp: Auswahl aus dem **geladenen Schema** (#96) — kuratierte xs:-Basistypen,
+   DIN 91379, fachliche `Type.*` je Fachmodul, Codelisten `Code.*` — plus Freitext für
+   Typen, die es noch nicht gibt; Option „Container" (kein Datentyp).
+   Ein aus dem Schema gewählter **komplexer** Typ bringt seine Unterelemente in den
+   Baum (#97, [ADR 0017](../adr/0017-erweiterungstyp-lebende-referenz.md)).
 3. Übersichtsseite = **Dashboard**: Badge mit Anzahl auf der Profil-Karte.
 4. Generierte Testnachrichten/Beispiel-XML enthalten Erweiterungen **immer**. Die
    dadurch entstehenden XSD-Fehler werden bewusst in Kauf genommen — die
@@ -40,6 +43,14 @@ als solche hervorgehoben sein — im Baum, im Detailbereich, in den Exporten und
   den Teilbaum samt Unter-Profilierung (Kaskade).
 - Status, Anmerkung und Beispielwert sind für Erweiterungen wie für Schema-Elemente
   profilierbar (generisches `ElementProfile` am Erweiterungs-Pfad).
+- **Komplexer Datentyp (#97):** eine Erweiterung vom Typ `Type.GDS.Akte` klappt
+  `identifikation`, `auswahl_vertraulichkeit`, `laufzeit`, … auf; die Kinder tragen Doku
+  und Kardinalität aus dem Schema und sind profilierbar. Ein `Code.*`-Typ ist ein
+  Codelisten-Blatt mit Werteauswahl. Rekursion (`Type.GDS.Akte` innerhalb eines
+  Akten-Teilbaums) bricht über `recursive` ab. Fehlt der Typ im aktiven Schema
+  (Versionswechsel, Fremdschema), wird der Knoten zum Blatt und trägt eine **rote**
+  Warnung — das Profil bleibt unangetastet. Ein Typwechsel mit Festlegungen darunter
+  fragt mit Zahl zurück; sinngemäß nennt die Löschfrage die betroffene Zahl.
 - **Exporte:** Beispiel-XML/Testnachrichten enthalten Erweiterungen immer (typkonformer
   Platzhalter bzw. erfasster Wert); Excel kennzeichnet mit Typ `[Erweiterung] …`,
   die Druckansicht mit `[Schema-Erweiterung]`; das Schematron dokumentiert je
@@ -73,7 +84,10 @@ als solche hervorgehoben sein — im Baum, im Detailbereich, in den Exporten und
 
 ## Bekannte Einschränkungen
 
-- Diff, geführter Modus und Instanz-Import bleiben schema- bzw. instanzgetrieben —
-  Erweiterungen erscheinen dort bewusst nicht.
+- Diff und Instanz-Import bleiben schema- bzw. instanzgetrieben — Erweiterungen
+  erscheinen dort bewusst nicht. Der geführte Durchlauf steigt seit #97 im
+  **Profilierungsmodus** in den Teilbaum einer typisierten Erweiterung ab; bestehende
+  Profile mit Erweiterungen verschieben dadurch ihren gespeicherten `fortschritt` beim
+  nächsten Speichern (kein Teil des Fach-Hashes).
 - Der Duplizieren-Button ist an Erweiterungs-Kästen ausgeblendet (bewusst kleiner
   Scope; wiederholte Vorkommen über die Kardinalität dokumentieren).

@@ -11,6 +11,8 @@ import { XsdParserService } from '../../core/services/xsd-parser.service';
 import { ToastService } from '../../core/services/toast.service';
 import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { pretty, kardText } from '../../core/util/pretty.util';
+import { datentypAnzeige } from '../../core/util/datentyp.util';
+import { erwLoeschFrage, erwTypFehltText } from '../../core/util/erweiterung.util';
 import { REF_LABELS, refKindOf } from '../../core/refs';
 import { TreeContextMenu } from './tree-context-menu';
 
@@ -102,7 +104,10 @@ export class TreeNode {
       const n = it.node;
       if (n.synthetic || n.recursive) return false;
       if (this.state.auspsOf(n.path)?.length) return false;
-      return n.erweiterung ? !n.erweiterung.datentyp : !this.tree.isLeaf(n);
+      // Erweiterungsknoten folgen derselben Regel (#97): wo Kinder Platz haben,
+      // darf eine Nachbeauftragung dazu — unter einem Wert- oder
+      // Codelisten-Typ nicht.
+      return !this.tree.isLeaf(n);
     }
     const cn = this.tree.ctxNode(it.parentNode, it.ausp.id);
     return !cn.recursive && !this.tree.isLeaf(cn);
@@ -252,12 +257,28 @@ export class TreeNode {
 
     // Tags (Z.1270-1313, ohne Diff — P7).
     const tags: Tag[] = [];
-    if (n.erweiterung)
+    if (n.erweiterung) {
       tags.push({
         cls: 't-ext',
         text: 'Schema-Erweiterung',
         title: 'Nachbeauftragung — Element ist nicht im XJustiz-Schema enthalten',
       });
+      // Typ-Pill: unter einem komplexen Typ haengt der halbe Baum, das gehoert
+      // an den Kasten (#97). Ein Container traegt keinen Typ.
+      if (n.erweiterung.datentyp)
+        tags.push({
+          cls: 't-typ',
+          text: datentypAnzeige(n.erweiterung),
+          title: 'Datentyp der Nachbeauftragung',
+        });
+      const fehlt = this.tree.erwTypFehlt(n);
+      if (fehlt)
+        tags.push({
+          cls: 't-typerr',
+          text: 'Typ fehlt im Schema',
+          title: erwTypFehltText(fehlt, this.state.idx()?.version),
+        });
+    }
     const rk = refKindOf(n);
     if (rk) {
       const rlbl = pe.refZiel
@@ -622,9 +643,11 @@ export class TreeNode {
     e.stopPropagation();
     const n = this.node();
     if (!n.erweiterung) return;
+    // Der **letzte** '/~': bei verschachtelten Erweiterungen liegt der
+    // Elternpfad vor der innersten, nicht vor der aeussersten.
     const i = n.path.lastIndexOf('/~');
     if (i < 0) return;
-    if (confirm('Schema-Erweiterung „' + n.erweiterung.name + '" samt Unterelementen löschen?'))
+    if (confirm(erwLoeschFrage(n.erweiterung.name, this.state.festlegungenUnter(n.path))))
       this.state.removeErweiterung(n.path.slice(0, i), n.erweiterung.id);
   }
 
