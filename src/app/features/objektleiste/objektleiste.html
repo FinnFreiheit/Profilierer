@@ -156,14 +156,19 @@
         >
           Excel
         </button>
-        <button
-          class="menuItem"
-          [disabled]="!hasRoot() || state.hatErweiterungen()"
-          [title]="state.hatErweiterungen() ? erwGrund : ''"
-          (click)="weiteres.close(); schClick.emit()"
-        >
-          Schematron
-        </button>
+        <!-- title am Wrapper: ueber einen disabled-Knopf kommt kein Tooltip. -->
+        <span class="menuHuelle" [title]="state.hatErweiterungen() ? erwGrund : ''">
+          <button
+            class="menuItem"
+            [disabled]="!hasRoot() || state.hatErweiterungen()"
+            (click)="weiteres.close(); schClick.emit()"
+          >
+            Schematron
+            @if (state.hatErweiterungen()) {
+              <span class="menuGrund">gesperrt: Schema-Erweiterungen</span>
+            }
+          </button>
+        </span>
         <button
           class="menuItem"
           [disabled]="!hasRoot()"

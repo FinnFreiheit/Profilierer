@@ -88,14 +88,22 @@
                   Umbenennen
                 </button>
                 @if (e.nachricht) {
-                  <button
-                    class="menuItem"
-                    [disabled]="erwSperre(e)"
-                    [title]="testnachrichtTitel(e)"
-                    (click)="werkzeuge.close(); testnachrichtErstellen(e, $event)"
-                  >
-                    Testnachricht erstellen…
-                  </button>
+                  <!-- Der title liegt am Wrapper, nicht am Knopf: ueber einen
+                       disabled-Knopf feuert der Browser keine Mausereignisse,
+                       das Tooltip bliebe unsichtbar. Die kurze Marke im Text
+                       nennt den Grund auch ohne Hover. -->
+                  <span class="menuHuelle" [title]="testnachrichtTitel(e)">
+                    <button
+                      class="menuItem"
+                      [disabled]="erwSperre(e)"
+                      (click)="werkzeuge.close(); testnachrichtErstellen(e, $event)"
+                    >
+                      Testnachricht erstellen…
+                      @if (erwSperre(e)) {
+                        <span class="menuGrund">gesperrt: Schema-Erweiterungen</span>
+                      }
+                    </button>
+                  </span>
                 }
                 <button
                   class="menuItem"

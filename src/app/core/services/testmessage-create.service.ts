@@ -26,6 +26,7 @@ import { ValueService } from './value.service';
 import { SitzungsAbgleichService } from './konformitaet.service';
 import { speicherUrteil } from '../util/speicher-urteil';
 import { ReportEintrag } from '../../models/validation.model';
+import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../util/erweiterung-sperre';
 
 /**
  * Testnachricht gefuehrt aus einem Schema erstellen (US "Testnachricht
@@ -91,6 +92,11 @@ export class TestmessageCreateService {
    * der Profilierung. Wirft Error mit Nutzertext.
    */
   async neuAusProfil(profil: LibraryEntry, versionId: string | null): Promise<void> {
+    // Sperre bei Schema-Erweiterungen (#98) — dieselbe Begruendung wie bei
+    // `exportSchematron`: die Regel gehoert an die Naht, nicht nur an die
+    // Komponente, damit kein zweiter Aufrufer an ihr vorbei eine Testnachricht
+    // erzeugt, in der genau das nachbeauftragte Element fehlt.
+    if (sperrtPruefartefakte(profil.nErw)) throw new Error(ERW_SPERRE_GRUND);
     const { doc, fassung } = await this.ladeFassung(profil, versionId);
     const msgName = doc.meta?.nachricht || profil.nachricht;
     if (!msgName)

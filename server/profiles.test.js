@@ -224,3 +224,18 @@ test('upsert schreibt den Punktestand in den Index und liest ihn zurueck', () =>
   assert.equal(p2.nEntschieden, undefined, 'ohne Stand bleibt die Spalte leer');
   assert.equal(p2.nPunkte, undefined);
 });
+
+test('Migration: n_erw wird an einer Alt-DB nachgezogen (Backfill)', () => {
+  // Ohne den Backfill blieben Zeilen aus der Zeit vor der Spalte ohne
+  // Erweiterungs-Kennzeichen — und damit an der Sperre der Pruefartefakte
+  // (#98) vorbei, obwohl sie nachbeauftragte Elemente enthalten.
+  const file = join(mkdtempSync(join(tmpdir(), 'xjp-test-')), 'profil.db');
+  const db = openDb(file);
+  const { id } = db.create(docWith());
+  assert.equal(db.list()[0].nErw, 1);
+  db._db.exec('ALTER TABLE profiles DROP COLUMN n_erw'); // Alt-Schema simulieren
+  db.close();
+  const db2 = openDb(file);
+  assert.equal(db2.list().find((e) => e.id === id).nErw, 1);
+  db2.close();
+});
