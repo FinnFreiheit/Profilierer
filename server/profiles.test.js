@@ -4,7 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb } from './db.js';
-import { zaehleFortschritt, toEntry } from './fortschritt.js';
+import { zaehleFortschritt, toEntry, lesePunkte } from './fortschritt.js';
 
 const docWith = (over = {}) => ({
   meta: { name: 'P', nachricht: 'nachricht.x', xjustizVersion: '3.6.2' },
@@ -160,4 +160,67 @@ test('count spiegelt die Anzahl der Profile', () => {
   db.create(docWith());
   assert.equal(db.count(), 2);
   db.close();
+});
+
+test('lesePunkte uebernimmt den Stand der Entscheidungspunkte (#93)', () => {
+  assert.deepEqual(lesePunkte(docWith({ fortschritt: { x: 12, y: 40 } })), {
+    nEntschieden: 12,
+    nPunkte: 40,
+  });
+});
+
+test('lesePunkte bleibt leer, wo der Stand fehlt oder unbrauchbar ist', () => {
+  const leer = { nEntschieden: null, nPunkte: null };
+  assert.deepEqual(lesePunkte(docWith()), leer, 'Altbestand ohne Feld');
+  assert.deepEqual(lesePunkte(docWith({ fortschritt: { x: 1, y: 0 } })), leer, 'Nenner 0');
+  assert.deepEqual(lesePunkte(docWith({ fortschritt: { x: 1 } })), leer, 'unvollstaendig');
+  assert.deepEqual(lesePunkte(docWith({ fortschritt: { x: 'a', y: 'b' } })), leer, 'keine Zahlen');
+  assert.deepEqual(lesePunkte(null), leer, 'kein Dokument');
+});
+
+test('lesePunkte haelt x innerhalb von y', () => {
+  // Ein Balken ueber 100 % waere ein Anzeigefehler statt einer Information.
+  assert.deepEqual(lesePunkte(docWith({ fortschritt: { x: 99, y: 40 } })), {
+    nEntschieden: 40,
+    nPunkte: 40,
+  });
+  assert.deepEqual(lesePunkte(docWith({ fortschritt: { x: -5, y: 40 } })), {
+    nEntschieden: 0,
+    nPunkte: 40,
+  });
+});
+
+test('der Fach-Hash ignoriert den Punktestand (#93)', () => {
+  // Ein Wechsel der Schemaversion aendert den Nenner. Wuerde er in den Hash
+  // einfliessen, markierte er jede gebundene Testnachricht als
+  // "Profil weiterentwickelt", ohne dass sich fachlich etwas geaendert hat.
+  const dir = mkdtempSync(join(tmpdir(), 'xjp-'));
+  const db = openDb(join(dir, 'p.db'));
+  const a = db.upsert('p1', docWith({ fortschritt: { x: 1, y: 100 } }));
+  const vorher = db._db.prepare('SELECT fach_hash FROM profiles WHERE id = ?').get('p1').fach_hash;
+  db.upsert('p1', docWith({ fortschritt: { x: 77, y: 4829 } }));
+  const nachher = db._db.prepare('SELECT fach_hash FROM profiles WHERE id = ?').get('p1').fach_hash;
+  assert.equal(nachher, vorher, 'reine Zaehleraenderung darf den Fach-Hash nicht bewegen');
+  assert.equal(a.id, 'p1');
+
+  // Eine echte fachliche Aenderung bewegt ihn weiterhin.
+  db.upsert('p1', docWith({ elemente: { a: { status: 's2' } }, fortschritt: { x: 77, y: 4829 } }));
+  const fachlich = db._db
+    .prepare('SELECT fach_hash FROM profiles WHERE id = ?')
+    .get('p1').fach_hash;
+  assert.notEqual(fachlich, nachher);
+});
+
+test('upsert schreibt den Punktestand in den Index und liest ihn zurueck', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'xjp-'));
+  const db = openDb(join(dir, 'p.db'));
+  db.upsert('p1', docWith({ fortschritt: { x: 12, y: 40 } }));
+  db.upsert('p2', docWith());
+  const liste = db.list();
+  const p1 = liste.find((e) => e.id === 'p1');
+  const p2 = liste.find((e) => e.id === 'p2');
+  assert.equal(p1.nEntschieden, 12);
+  assert.equal(p1.nPunkte, 40);
+  assert.equal(p2.nEntschieden, undefined, 'ohne Stand bleibt die Spalte leer');
+  assert.equal(p2.nPunkte, undefined);
 });

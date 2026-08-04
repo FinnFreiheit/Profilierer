@@ -112,6 +112,18 @@ export interface ProfileDoc {
   auspraegungen: Record<string, Auspraegung[]>;
   /** Schema-Erweiterungen, indiziert am Elternpfad. */
   erweiterungen: Record<string, Erweiterung[]>;
+  /**
+   * Abgeleiteter Stand der Entscheidungspunkte (#93): `x` entschieden von `y`
+   * insgesamt — dieselben Zahlen, die der Editor oben rechts zeigt. Sie stehen
+   * hier, weil nur der Client sie kennt (der Server hat kein Schema); die
+   * Uebersicht braucht sie fuer den Fortschrittsbalken.
+   *
+   * **Keine fachliche Aussage.** Der Fach-Hash des Servers laesst sie deshalb
+   * aussen vor — sonst markierte schon ein Wechsel der Schemaversion jede
+   * gebundene Testnachricht als "Profil weiterentwickelt". Fehlt das Feld
+   * (Altbestand, Import ohne Schema), zeigt die Kachel keinen Balken.
+   */
+  fortschritt?: { x: number; y: number };
 }
 
 /**
@@ -127,6 +139,10 @@ export interface LibraryEntry {
   xjustizVersion?: string;
   /** Fortschritt-Snapshot: Elemente mit gesetztem Status. */
   nStatus: number;
+  /** Entschiedene Punkte des gefuehrten Laufs (#93); fehlt im Altbestand. */
+  nEntschieden?: number;
+  /** Punkte insgesamt — Nenner des Balkens (#93); fehlt im Altbestand. */
+  nPunkte?: number;
   /** Fortschritt-Snapshot: Summe aller Auspraegungen. */
   nAusp: number;
   /** Fortschritt-Snapshot: Summe aller Schema-Erweiterungen (alte Server-Zeilen: fehlt). */

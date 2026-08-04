@@ -11,6 +11,7 @@ import { DownloadService } from './download.service';
 import { BundledSchemaService } from './bundled-schema.service';
 import { RolleService } from './rolle.service';
 import { HinweisStoreService } from './hinweis-store.service';
+import { GuidedService } from './guided.service';
 import { hinweiseAusDatei } from '../util/hinweis.util';
 import { defaultStatuses, newProfile } from '../profile-defaults';
 
@@ -44,6 +45,7 @@ export class PersistenceService {
   private readonly bundled = inject(BundledSchemaService);
   private readonly rolle = inject(RolleService);
   private readonly hinweise = inject(HinweisStoreService);
+  private readonly guided = inject(GuidedService);
 
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   /** Verhindert parallele Upserts (Reihenfolge/Lost-Update-Schutz). */
@@ -242,6 +244,22 @@ export class PersistenceService {
    * Autosave-Effekt erneut ausloesen), damit der Bibliothekseintrag den
    * Nachrichtentyp anzeigt und ein Export vollstaendig bleibt.
    */
+  /**
+   * Stand der Entscheidungspunkte fuer den Fortschrittsbalken der Uebersicht
+   * (#93). Nur der Client kennt ihn — der Server hat kein Schema.
+   *
+   * Bewusst zurueckhaltend: ohne geladenen Baum bliebe der Nenner geraten, und
+   * im Instanz-Modus zaehlt `guided.fortschritt` die Pflichtangaben einer
+   * Nachricht statt der Entscheidungen einer Profilierung. In beiden Faellen
+   * bleibt ein zuvor gespeicherter Stand unangetastet, statt ihn mit einer
+   * falschen Zahl zu ueberschreiben.
+   */
+  private punkteStand(): Pick<ProfileDoc, 'fortschritt'> {
+    if (!this.state.hasRoot() || this.guided.instanzModus()) return {};
+    const { x, y } = this.guided.fortschritt();
+    return y > 0 ? { fortschritt: { x, y } } : {};
+  }
+
   private autosaveNow(): Promise<void> {
     // Laeuft noch ein Upsert, den naechsten nach dessen Abschluss nachziehen.
     if (this.autosaveInFlight) {
@@ -266,6 +284,7 @@ export class PersistenceService {
       const merged: ProfileDoc = {
         ...doc,
         meta: { ...doc.meta, nachricht: msg, xjustizVersion: this.state.version() },
+        ...this.punkteStand(),
       };
       await this.store.upsert(id, merged);
       this.autosaveErrorShown = false;
