@@ -25,7 +25,9 @@ import { itemPath } from '../../models/node.model';
 import { fmtKard, kardText, pretty } from '../../core/util/pretty.util';
 import { hinweisFehlerText, hinweisHerkunft } from '../../core/util/hinweis.util';
 import { Hinweis } from '../../models/profile.model';
-import { ERW_DATENTYPEN, ERW_NAME_MUSTER } from '../../core/profile-defaults';
+import { ERW_NAME_MUSTER } from '../../core/profile-defaults';
+import { DatentypWahl } from '../../core/util/datentyp.util';
+import { DatentypPicker } from '../datentyp-picker/datentyp-picker';
 import { REF_LABELS, refKindEff, refKindOf, refTraeger } from '../../core/refs';
 
 /**
@@ -36,6 +38,7 @@ import { REF_LABELS, refKindEff, refKindOf, refTraeger } from '../../core/refs';
   selector: 'app-detail-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './detail-panel.html',
+  imports: [DatentypPicker],
 })
 export class DetailPanel {
   private readonly state = inject(StateService);
@@ -106,9 +109,6 @@ export class DetailPanel {
         quelle.erzwungen,
       ),
   });
-  protected readonly erwDatentypen = ERW_DATENTYPEN;
-  /** Pfad, fuer den im Datentyp-Select "Sonstiger…" gewaehlt wurde (noch ohne Freitext). */
-  private readonly erwSonstig = signal<string | null>(null);
 
   /** Eingabefeld „Hinweis hinzufuegen" — Fokusziel der Entscheidung „zu klären" (#41). */
   private readonly hinweisFeld = viewChild<ElementRef<HTMLTextAreaElement>>('hinweisFeld');
@@ -373,15 +373,7 @@ export class DetailPanel {
           beschreibung: e.beschreibung ?? '',
           min: e.min,
           max: e.max,
-          typWahl:
-            this.erwSonstig() === path
-              ? 'sonstig'
-              : !e.datentyp
-                ? 'container'
-                : ERW_DATENTYPEN.includes(e.datentyp)
-                  ? e.datentyp
-                  : 'sonstig',
-          typFrei: e.datentyp && !ERW_DATENTYPEN.includes(e.datentyp) ? e.datentyp : '',
+          typ: { datentyp: e.datentyp, datentypQuelle: e.datentypQuelle },
           container: !e.datentyp,
         }
       : null;
@@ -872,27 +864,14 @@ export class DetailPanel {
     this.state.updateErweiterung(ctx.parentPath, ctx.id, { beschreibung: v || undefined });
   }
 
-  protected onErwTypWahl(e: Event): void {
+  /** Wahl aus dem Typwaehler (#96): Typ und Herkunft wandern zusammen ins Profil. */
+  protected onErwTyp(wahl: DatentypWahl): void {
     const ctx = this.erwKontext();
     if (!ctx) return;
-    const wahl = (e.target as HTMLSelectElement).value;
-    if (wahl === 'sonstig') {
-      // Erst mit dem Freitext wird der Typ gesetzt; bis dahin nur Anzeige-Zustand.
-      this.erwSonstig.set(this.path());
-      return;
-    }
-    this.erwSonstig.set(null);
     this.state.updateErweiterung(ctx.parentPath, ctx.id, {
-      datentyp: wahl === 'container' ? undefined : wahl,
+      datentyp: wahl.datentyp,
+      datentypQuelle: wahl.datentypQuelle,
     });
-  }
-
-  protected onErwTypFrei(e: Event): void {
-    const ctx = this.erwKontext();
-    if (!ctx) return;
-    const v = (e.target as HTMLInputElement).value.trim();
-    if (v) this.erwSonstig.set(null);
-    this.state.updateErweiterung(ctx.parentPath, ctx.id, { datentyp: v || undefined });
   }
 
   /** "+ Unterelement": Erweiterungs-Dialog fuer ein Kind der aktuellen Erweiterung. */

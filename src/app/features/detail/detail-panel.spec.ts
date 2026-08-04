@@ -1,8 +1,9 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { DetailPanel } from './detail-panel';
 import { StateService } from '../../core/services/state.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { NavService } from '../../core/services/nav.service';
+import { DatentypQuelle } from '../../models/profile.model';
 import { signal } from '@angular/core';
 
 /**
@@ -140,5 +141,86 @@ describe('DetailPanel — Ruhezustand', () => {
     setzeOffen(punkte(5));
     state.schemaView.set(true);
     expect(bauen().querySelector('.ruheListe')).toBeNull();
+  });
+});
+
+/**
+ * Datentyp einer Schema-Erweiterung (#96): das Detailpanel benutzt denselben
+ * Typwaehler wie der Anlege-Dialog — vorher pflegten beide ihre eigene Liste.
+ */
+describe('DetailPanel — Datentyp einer Schema-Erweiterung', () => {
+  let state: StateService;
+  let fixture: ComponentFixture<DetailPanel>;
+
+  const ELTERN = 'nachricht.x/kopf';
+
+  beforeEach(async () => {
+    localStorage.removeItem('xjp.ui.detailBreite');
+    localStorage.removeItem('xjp.ui.detailZu');
+    await TestBed.configureTestingModule({ imports: [DetailPanel] }).compileComponents();
+    state = TestBed.inject(StateService);
+    state.root.set({ path: 'nachricht.x', name: 'nachricht.x' } as never);
+    fixture = TestBed.createComponent(DetailPanel);
+  });
+
+  /** Den Erweiterungs-Knoten selektieren, wie ihn `TreeService` baut. */
+  const selektiere = (id: string): void => {
+    const erw = state.erweiterungenOf(ELTERN)!.find((e) => e.id === id)!;
+    state.selItem.set({
+      kind: 'el',
+      node: {
+        path: `${ELTERN}/~${id}`,
+        name: erw.name,
+        min: erw.min,
+        max: erw.max,
+        doc: '',
+        typeName: erw.datentyp ?? null,
+        erweiterung: erw,
+        children: null,
+        typeStack: [],
+      },
+    } as never);
+    fixture.detectChanges();
+  };
+
+  /** Erweiterung anlegen und als ausgewaehlten Baumknoten setzen. */
+  const waehleErw = (typ: { datentyp?: string; datentypQuelle?: DatentypQuelle }): string => {
+    const id = state.addErweiterung(ELTERN, { name: 'zusatz', min: '1', max: '1', ...typ });
+    selektiere(id);
+    return id;
+  };
+
+  const el = (): HTMLElement => fixture.nativeElement as HTMLElement;
+  const picker = () => fixture.debugElement.query((d) => d.name === 'app-datentyp-picker');
+
+  it('zeigt den gespeicherten Typ im Waehler', () => {
+    waehleErw({ datentyp: 'string' });
+    expect(el().querySelector('.typKnopf')?.textContent).toContain('xs:string');
+  });
+
+  it('schreibt Typ und Herkunft der Wahl in die Erweiterung', () => {
+    const id = waehleErw({ datentyp: 'string' });
+    picker().componentInstance.gewaehlt.emit({
+      datentyp: 'Type.GDS.Akte',
+      datentypQuelle: 'schema',
+    });
+    fixture.detectChanges();
+    const e = state.erweiterungenOf(ELTERN)!.find((x) => x.id === id)!;
+    expect(e.datentyp).toBe('Type.GDS.Akte');
+    expect(e.datentypQuelle).toBe('schema');
+  });
+
+  it('macht aus der Erweiterung einen Container und bietet dann Unterelemente an', () => {
+    const id = waehleErw({ datentyp: 'string' });
+    expect(el().textContent).not.toContain('+ Unterelement');
+    picker().componentInstance.gewaehlt.emit({ datentyp: undefined, datentypQuelle: undefined });
+    fixture.detectChanges();
+    const e = state.erweiterungenOf(ELTERN)!.find((x) => x.id === id)!;
+    expect(e.datentyp).toBeUndefined();
+    expect(e.datentypQuelle).toBeUndefined();
+    // Der Baum baut den Knoten neu; danach ist es ein Container.
+    selektiere(id);
+    expect(el().querySelector('.typKnopf')?.textContent).toContain('Container');
+    expect(el().textContent).toContain('+ Unterelement');
   });
 });

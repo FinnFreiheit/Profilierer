@@ -101,23 +101,7 @@
                     />
                   </div>
                   <label>Datentyp</label>
-                  <div class="erwTyp">
-                    <select [value]="erw.typWahl" (change)="onErwTypWahl($event)">
-                      @for (t of erwDatentypen; track t) {
-                        <option [value]="t">xs:{{ t }}</option>
-                      }
-                      <option value="sonstig">Sonstiger…</option>
-                      <option value="container">Container (enthält Unterelemente)</option>
-                    </select>
-                    @if (erw.typWahl === 'sonstig') {
-                      <input
-                        type="text"
-                        placeholder="eigener Typ"
-                        [value]="erw.typFrei"
-                        (change)="onErwTypFrei($event)"
-                      />
-                    }
-                  </div>
+                  <app-datentyp-picker [wert]="erw.typ" (gewaehlt)="onErwTyp($event)" />
                 </div>
                 <div style="display: flex; gap: 6px; margin-top: 8px">
                   @if (erw.container) {

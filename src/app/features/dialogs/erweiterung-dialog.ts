@@ -10,7 +10,9 @@ import {
 } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { ErweiterungDialogService } from '../../core/services/erweiterung-dialog.service';
-import { ERW_DATENTYPEN, ERW_NAME_MUSTER } from '../../core/profile-defaults';
+import { ERW_NAME_MUSTER, ERW_TYP_VORGABE } from '../../core/profile-defaults';
+import { DatentypPicker } from '../datentyp-picker/datentyp-picker';
+import { DatentypWahl } from '../../core/util/datentyp.util';
 
 /**
  * Formular-Dialog zum Anlegen einer Schema-Erweiterung (US Schema-Erweiterung).
@@ -21,21 +23,19 @@ import { ERW_DATENTYPEN, ERW_NAME_MUSTER } from '../../core/profile-defaults';
   selector: 'app-erweiterung-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './erweiterung-dialog.html',
+  imports: [DatentypPicker],
 })
 export class ErweiterungDialog {
   private readonly state = inject(StateService);
   private readonly svc = inject(ErweiterungDialogService);
   private readonly dlg = viewChild.required<ElementRef<HTMLDialogElement>>('dlg');
 
-  protected readonly datentypen = ERW_DATENTYPEN;
-
   protected readonly eName = signal('');
   protected readonly eBeschr = signal('');
   protected readonly eMin = signal('1');
   protected readonly eMax = signal('1');
-  /** 'container' | xs:-Basistyp | 'sonstig' (Freitext). */
-  protected readonly eTypWahl = signal('string');
-  protected readonly eTypFrei = signal('');
+  /** Datentyp samt Herkunft — beides kommt aus dem Typwaehler (#96). */
+  protected readonly eTyp = signal<DatentypWahl>({ ...ERW_TYP_VORGABE });
 
   /** Blockierender Formfehler (Elementname), sonst null. */
   protected readonly nameProblem = computed<string | null>(() => {
@@ -61,8 +61,7 @@ export class ErweiterungDialog {
       this.eBeschr.set('');
       this.eMin.set('1');
       this.eMax.set('1');
-      this.eTypWahl.set('string');
-      this.eTypFrei.set('');
+      this.eTyp.set({ ...ERW_TYP_VORGABE });
       this.dlg().nativeElement.showModal();
     });
   }
@@ -78,13 +77,6 @@ export class ErweiterungDialog {
   protected submit(): void {
     const a = this.svc.anfrage();
     if (!a || this.nameProblem()) return;
-    const wahl = this.eTypWahl();
-    const datentyp =
-      wahl === 'container'
-        ? undefined
-        : wahl === 'sonstig'
-          ? this.eTypFrei().trim() || undefined
-          : wahl;
     const min = this.eMin().trim() || '1';
     const maxRoh = this.eMax().trim() || '1';
     const max = maxRoh === '*' ? 'unbounded' : maxRoh;
@@ -93,7 +85,7 @@ export class ErweiterungDialog {
       beschreibung: this.eBeschr().trim() || undefined,
       min,
       max,
-      datentyp,
+      ...this.eTyp(),
     });
     this.state.setOpen(a.parentPath, true);
     this.dlg().nativeElement.close();

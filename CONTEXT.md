@@ -40,3 +40,10 @@ gebraucht hat. Architektur-Entscheidungen dazu in `docs/adr/`.
 - **Zählkonvention** — wie Vorkommen gezählt werden (ADR 0015): benannte
   zählen, sonst steht der generische Unterbaum für eines, Weggelassenes für
   keines.
+- **Datentyp-Katalog** (`core/util/datentyp.util.ts`) — die wählbaren Typen
+  einer Schema-Erweiterung, aus dem geladenen Schema-Index abgeleitet
+  (Basistypen kuratiert, DIN 91379, fachliche `Type.*` je Fachmodul,
+  Codelisten `Code.*`). Gespeichert wird der nackte Lokalname plus die
+  **Herkunft** (`xs` / `schema` / `frei`); Altbestand ohne Herkunft wird
+  aufgelöst statt migriert. Ein Seam, zwei Konsumenten: Anlege-Dialog und
+  Detailpanel teilen sich den `DatentypPicker`.

@@ -29,6 +29,14 @@ export interface Auspraegung {
 }
 
 /**
+ * Herkunft des Datentyps einer Schema-Erweiterung (#96): XSD-Builtin,
+ * ein Typ des geladenen Schemas oder Freitext (ein Typ, den es noch nicht
+ * gibt). Fehlt bei Altbestand — dann gilt die Aufloesung in
+ * `core/util/datentyp.util.ts`.
+ */
+export type DatentypQuelle = 'xs' | 'schema' | 'frei';
+
+/**
  * Eine Schema-Erweiterung: ein benutzerdefiniertes Element, das im
  * XJustiz-Schema (noch) nicht existiert und nachbeauftragt werden soll.
  * Pfad-indiziert am Elternpfad; der eigene Pfad ist `elternPfad + '/~' + id`
@@ -41,8 +49,13 @@ export interface Erweiterung {
   beschreibung?: string;
   min: string;
   max: string;
-  /** xs:-Lokalname ohne Praefix oder Freitext; undefined = Container. */
+  /**
+   * Nackter Lokalname des Datentyps ohne Praefix (`string`, `datatypeC`,
+   * `Type.GDS.Akte`); undefined = Container.
+   */
   datentyp?: string;
+  /** Herkunft des Datentyps; fehlt bei Altbestand (#96). */
+  datentypQuelle?: DatentypQuelle;
 }
 
 /**

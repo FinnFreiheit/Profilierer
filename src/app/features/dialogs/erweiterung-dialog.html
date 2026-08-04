@@ -35,23 +35,7 @@
       />
     </div>
     <label>Datentyp</label>
-    <div class="erwTyp">
-      <select [value]="eTypWahl()" (change)="eTypWahl.set($any($event.target).value)">
-        @for (t of datentypen; track t) {
-          <option [value]="t">xs:{{ t }}</option>
-        }
-        <option value="sonstig">Sonstiger…</option>
-        <option value="container">Container (enthält Unterelemente)</option>
-      </select>
-      @if (eTypWahl() === 'sonstig') {
-        <input
-          type="text"
-          placeholder="z. B. Code.GDS.Neu oder eigener Typ"
-          [value]="eTypFrei()"
-          (input)="eTypFrei.set($any($event.target).value)"
-        />
-      }
-    </div>
+    <app-datentyp-picker [wert]="eTyp()" (gewaehlt)="eTyp.set($event)" />
   </div>
   @if (nameProblem(); as np) {
     @if (eName().trim()) {
