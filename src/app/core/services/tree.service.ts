@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { TreeItem, TreeNode } from '../../models/node.model';
-import { Auspraegung } from '../../models/profile.model';
-import { XsdIndex } from '../../models/xsd-index.model';
+import { Auspraegung, Erweiterung } from '../../models/profile.model';
+import { ParticleModel, XsdIndex } from '../../models/xsd-index.model';
+import { datentypQuelleOf } from '../util/datentyp.util';
 import { docOf, kid, local } from '../util/xml.util';
 import { XS } from '../util/xml.util';
 import { fmtKard } from '../util/pretty.util';
@@ -24,6 +25,13 @@ export class TreeService {
 
   private nodeId = 0;
   private ctxCache: Record<string, TreeNode> = {};
+  /**
+   * `particlesOfCT` je **benanntem** Typ gemerkt. `isLeaf` laeuft bei jeder
+   * Change-Detection ueber den sichtbaren Baum, und seit #97 haengt unter einer
+   * Erweiterung ein ganzer Typ-Unterbau daran. Der Index steht waehrend eines
+   * Baums fest, das Ergebnis also auch — geleert wird mit `buildRoot`.
+   */
+  private ctModell: Record<string, ParticleModel> = {};
   private idx: XsdIndex | null = null;
 
   private get i(): XsdIndex {
@@ -59,6 +67,7 @@ export class TreeService {
   buildRoot(msgName: string, idx: XsdIndex): TreeNode {
     this.nodeId = 0;
     this.ctxCache = {};
+    this.ctModell = {};
     this.idx = idx;
     const el = idx.el[msgName] ?? null;
     return this.makeNode({
@@ -88,7 +97,8 @@ export class TreeService {
       );
       return;
     }
-    if (n.xsdEl) {
+    if (n.erweiterung) ct = this.erwCT(n.erweiterung);
+    else if (n.xsdEl) {
       ct = kid(n.xsdEl, 'complexType');
       if (!ct && n.typeName && this.i.ct[n.typeName]) ct = this.i.ct[n.typeName]!;
     }
@@ -97,6 +107,11 @@ export class TreeService {
     if (cm.simple) return;
     n.model = cm.model;
     this.addParts(n, cm.parts, cm.model === 'choice');
+  }
+
+  /** Partikel eines benannten complexType — gemerkt, siehe `ctModell`. */
+  private modellVon(name: string, ct: Element): ParticleModel {
+    return (this.ctModell[name] ??= this.parser.particlesOfCT(ct, this.i));
   }
 
   /** addParts (Z.493-526): erzeugt Kind-Knoten aus Partikeln. */
@@ -155,15 +170,51 @@ export class TreeService {
   }
 
   /**
+   * Der **Schema**-Typ einer Erweiterung (#97) — null, wenn die Erweiterung
+   * einen Container meint, einen xs:-Basistyp traegt oder der Typ Freitext ist.
+   * Nur ein aus dem Schema gewaehlter Typ wird aufgeloest: ein Freitext-Typ ist
+   * ausdruecklich einer, den es (noch) nicht gibt.
+   */
+  private erwSchemaTyp(e: Erweiterung): string | null {
+    return datentypQuelleOf(e) === 'schema' ? (e.datentyp ?? null) : null;
+  }
+
+  /** Der complexType hinter dem Schema-Typ einer Erweiterung; null, wenn keiner auflöst. */
+  private erwCT(e: Erweiterung): Element | null {
+    const t = this.erwSchemaTyp(e);
+    return t ? (this.idx?.ct[t] ?? null) : null;
+  }
+
+  /**
+   * Der Schema-Typ einer Erweiterung, den das **aktive** Schema nicht kennt —
+   * sonst null. Realer Fall: `Type.GDS.GeheimhaltungType` gibt es in 3.6.2, in
+   * 4.0.0 ist er entfallen. Der Knoten wird dann zum Blatt; das Profil bleibt
+   * unangetastet, die Warnung macht den Defekt sichtbar.
+   */
+  erwTypFehlt(n: TreeNode): string | null {
+    if (!n.erweiterung) return null;
+    const t = this.erwSchemaTyp(n.erweiterung);
+    if (!t || !this.idx) return null;
+    return this.idx.ct[t] || this.idx.st[t] ? null : t;
+  }
+
+  /**
    * Synthetisiert die Erweiterungs-Knoten unter einem Elternknoten — frisch pro
    * Aufruf, bewusst ohne Lazy-Cache: der Bestand liegt reaktiv im StateService
    * und wuerde im `children`-Cache bei Add/Remove veralten.
+   *
+   * Traegt die Erweiterung einen Schema-Typ, wird der Knoten wie ein
+   * Schemaknoten bestueckt (#97): Codelisten-Bindung, Typ-Stack und damit der
+   * Rekursionsschutz greifen ueber die Erweiterungsgrenze hinweg. Die
+   * Unterelemente entstehen erst in `expandNode` — **lebende Referenz**, keine
+   * Kopie der Typstruktur ins Profil.
    */
   erweiterungsKinder(parent: TreeNode): TreeNode[] {
     const list = this.state.erweiterungenOf(parent.path);
     if (!list?.length) return [];
-    return list.map((e) =>
-      this.makeNode({
+    return list.map((e) => {
+      const typ = this.erwSchemaTyp(e);
+      const n = this.makeNode({
         name: e.name,
         path: parent.path + '/~' + e.id,
         parent,
@@ -173,13 +224,22 @@ export class TreeService {
         doc: e.beschreibung ?? '',
         typeName: e.datentyp ?? null,
         erweiterung: e,
-      }),
-    );
+        typeStack: typ ? [...parent.typeStack, typ] : parent.typeStack,
+      });
+      if (typ && this.idx) {
+        n.codelist = this.parser.codelistOf(typ, this.idx);
+        if (parent.typeStack.includes(typ)) n.recursive = true;
+      }
+      return n;
+    });
   }
 
-  /** Alle Kinder eines Knotens: Schema-Kinder plus angehaengte Schema-Erweiterungen. */
+  /**
+   * Alle Kinder eines Knotens: Schema-Kinder plus angehaengte
+   * Schema-Erweiterungen. Fuer Erweiterungsknoten gilt dieselbe Regel — ihre
+   * Schema-Kinder kommen aus dem Typ, den sie tragen (#97).
+   */
   kinder(n: TreeNode): TreeNode[] {
-    if (n.erweiterung) return this.erweiterungsKinder(n);
     this.expandNode(n);
     const erw = this.erweiterungsKinder(n);
     return erw.length ? [...(n.children ?? []), ...erw] : (n.children ?? []);
@@ -187,8 +247,18 @@ export class TreeService {
 
   /** isLeaf (Z.527-541). */
   isLeaf(n: TreeNode): boolean {
-    if (n.erweiterung)
-      return !!n.erweiterung.datentyp && !this.state.erweiterungenOf(n.path)?.length;
+    if (n.erweiterung) {
+      // Blatt, wenn der Typ zu keiner Struktur aufloest UND keine eigenen
+      // Erweiterungen hängen. Ein Container (ohne Typ) bleibt aufklappbar —
+      // darunter liegt die "+ Element"-Box.
+      if (this.state.erweiterungenOf(n.path)?.length) return false;
+      if (n.codelist) return true;
+      if (!n.erweiterung.datentyp) return false;
+      const ct = this.erwCT(n.erweiterung);
+      if (!ct) return true;
+      const cm = this.modellVon(n.erweiterung.datentyp, ct);
+      return cm.simple || cm.parts.length === 0;
+    }
     if (n.codelist) return true;
     if (n.children !== null) return n.children.length === 0;
     if (n.synthetic) return false;
@@ -196,7 +266,7 @@ export class TreeService {
       if (kid(n.xsdEl, 'complexType')) return false;
       const t = n.typeName;
       if (t && this.i.ct[t]) {
-        const cm = this.parser.particlesOfCT(this.i.ct[t]!, this.i);
+        const cm = this.modellVon(t, this.i.ct[t]!);
         return cm.simple || cm.parts.length === 0;
       }
       return true;
@@ -444,10 +514,10 @@ export class TreeService {
   itemHasKids(it: TreeItem): boolean {
     if (it.kind === 'el') {
       const n = it.node;
-      // Container-Erweiterungen sind immer aufklappbar (darunter liegt die
-      // "+ Element"-Box — der einzige Weg, dort ein Kind anzulegen).
-      if (n.erweiterung)
-        return !n.erweiterung.datentyp || !!this.state.erweiterungenOf(n.path)?.length;
+      // Erweiterungsknoten folgen derselben Regel wie Schemaknoten (#97):
+      // Container sind immer aufklappbar (darunter liegt die "+ Element"-Box),
+      // ein typisierter Knoten genau dann, wenn sein Typ zu einer Struktur
+      // aufloest — `isLeaf` entscheidet beides.
       const ausps = this.state.auspsOf(n.path);
       if (ausps && ausps.length) return true;
       if (this.state.erweiterungenOf(n.path)?.length) return true;

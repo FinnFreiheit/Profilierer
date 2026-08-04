@@ -4,7 +4,9 @@ import { StateService } from '../../core/services/state.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { NavService } from '../../core/services/nav.service';
 import { DatentypQuelle } from '../../models/profile.model';
+import { TreeNode } from '../../models/node.model';
 import { signal } from '@angular/core';
+import { erwTypwechselFrage } from '../../core/util/erweiterung.util';
 
 /**
  * Kern von #81: die Spalte belegt Platz, sobald eine Nachricht geladen ist —
@@ -222,5 +224,83 @@ describe('DetailPanel — Datentyp einer Schema-Erweiterung', () => {
     selektiere(id);
     expect(el().querySelector('.typKnopf')?.textContent).toContain('Container');
     expect(el().textContent).toContain('+ Unterelement');
+  });
+
+  it('bietet an einem rekursiven Knoten kein Unterelement an', () => {
+    // `isLeaf` schaut `recursive` nicht an — der Knoten ist also kein Blatt,
+    // rendert seinen Unterbau aber nie (`abstiegsKinder` bricht ab). Ohne den
+    // Waechter entstuenden dort unsichtbare Profildaten, die im Fortschritt
+    // trotzdem mitzaehlen.
+    waehleErw({}); // Container: bietet Unterelemente an
+    expect(el().textContent).toContain('+ Unterelement');
+
+    const sel = state.selItem() as { kind: 'el'; node: TreeNode };
+    state.selItem.set({ ...sel, node: { ...sel.node, recursive: true } } as never);
+    fixture.detectChanges();
+
+    expect(el().textContent).not.toContain('+ Unterelement');
+  });
+
+  describe('Typwechsel mit Festlegungen darunter (#97)', () => {
+    /** Erweiterung mit Typ und drei Festlegungen im Teilbaum. */
+    const mitUnterbau = (): string => {
+      const id = waehleErw({ datentyp: 'Type.GDS.Akte', datentypQuelle: 'schema' });
+      const pfad = `${ELTERN}/~${id}`;
+      state.setElementProfile(pfad + '/identifikation', { status: 's1' });
+      state.setElementProfile(pfad + '/laufzeit/beginn', { beispiel: '2026-01-01' });
+      state.addErweiterung(pfad + '/identifikation', { name: 'praefix', min: '1', max: '1' });
+      return id;
+    };
+
+    it('fragt mit der Zahl der Festlegungen und raeumt bei Bestaetigung auf', () => {
+      const id = mitUnterbau();
+      const frage = spyOn(window, 'confirm').and.returnValue(true);
+
+      picker().componentInstance.gewaehlt.emit({ datentyp: 'string', datentypQuelle: 'xs' });
+      fixture.detectChanges();
+
+      expect(frage).toHaveBeenCalledTimes(1);
+      // Wortlaut vollstaendig statt stueckweise — `toContain('zusatz')` traf
+      // nur den Elementnamen und sagte ueber die Frage selbst nichts aus.
+      expect(frage.calls.mostRecent().args[0]).toBe(erwTypwechselFrage('zusatz', 3));
+      expect(state.erweiterungenOf(ELTERN)!.find((x) => x.id === id)!.datentyp).toBe('string');
+      expect(state.festlegungenUnter(`${ELTERN}/~${id}`)).toBe(0);
+    });
+
+    it('laesst bei Abbruch Typ und Festlegungen unangetastet', () => {
+      const id = mitUnterbau();
+      spyOn(window, 'confirm').and.returnValue(false);
+
+      picker().componentInstance.gewaehlt.emit({ datentyp: 'string', datentypQuelle: 'xs' });
+      fixture.detectChanges();
+
+      expect(state.erweiterungenOf(ELTERN)!.find((x) => x.id === id)!.datentyp).toBe(
+        'Type.GDS.Akte',
+      );
+      expect(state.festlegungenUnter(`${ELTERN}/~${id}`)).toBe(3);
+    });
+
+    it('wechselt ohne Festlegungen darunter kommentarlos', () => {
+      const id = waehleErw({ datentyp: 'Type.GDS.Akte', datentypQuelle: 'schema' });
+      const frage = spyOn(window, 'confirm').and.returnValue(true);
+
+      picker().componentInstance.gewaehlt.emit({ datentyp: 'string', datentypQuelle: 'xs' });
+      fixture.detectChanges();
+
+      expect(frage).not.toHaveBeenCalled();
+      expect(state.erweiterungenOf(ELTERN)!.find((x) => x.id === id)!.datentyp).toBe('string');
+    });
+
+    it('nennt beim Loeschen die Zahl der betroffenen Festlegungen', () => {
+      mitUnterbau();
+      const frage = spyOn(window, 'confirm').and.returnValue(false);
+
+      (el().querySelectorAll('button') as NodeListOf<HTMLButtonElement>).forEach((b) => {
+        if (b.textContent?.includes('Erweiterung löschen')) b.click();
+      });
+
+      expect(frage).toHaveBeenCalledTimes(1);
+      expect(frage.calls.mostRecent().args[0]).toContain('3 Festlegungen');
+    });
   });
 });

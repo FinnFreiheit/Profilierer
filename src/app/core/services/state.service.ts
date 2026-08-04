@@ -827,6 +827,74 @@ export class StateService {
     });
   }
 
+  /**
+   * Zahl der Festlegungen **unterhalb** eines Pfades: Profil-Eintraege,
+   * Vorkommen und Schema-Erweiterungen. Der Pfad selbst zaehlt nicht — er
+   * ueberlebt einen Typwechsel, sein Unterbau nicht (#97). Grundlage der
+   * Rueckfrage vor Typwechsel und Loeschen; die Praefix-Grenzen kommen aus der
+   * Pfad-Grammatik, damit `…/anlage` nicht `…/anlageArt` faengt.
+   */
+  festlegungenUnter(prefix: string): number {
+    // Eigene Pfade der Eintraege: der Knoten selbst faellt raus.
+    const echtDarunter = (k: string): boolean => k !== prefix && unterPfad(k, prefix);
+    const summe = (m: Record<string, unknown[]>, passt: (k: string) => boolean): number =>
+      Object.entries(m).reduce((s, [k, l]) => (passt(k) ? s + l.length : s), 0);
+    return (
+      Object.keys(this.elemente()).filter(echtDarunter).length +
+      summe(this.auspraegungen(), echtDarunter) +
+      // Erweiterungen sind am **Eltern**pfad indiziert: die Liste am Pfad selbst
+      // haengt bereits unter dem Knoten.
+      summe(this.erweiterungen(), (k) => unterPfad(k, prefix)) +
+      // Hinweise fallen mit dem Unterbau — sonst untertreibt die Rueckfrage,
+      // und liegen unterhalb *nur* Hinweise, wechselte der Typ kommentarlos.
+      this.hinweisStore.hinweise().filter((h) => echtDarunter(h.pfad)).length
+    );
+  }
+
+  /**
+   * Raeumt alles **unterhalb** eines Pfades weg — dieselbe Kaskade wie
+   * `removeErweiterung`, nur ohne den Knoten selbst. Der Weg fuer den
+   * Typwechsel einer Schema-Erweiterung: die alte Typstruktur ist weg, die
+   * Festlegungen darunter zeigen ins Leere (#97).
+   */
+  bereinigeUnter(prefix: string): void {
+    const betroffen = (k: string): boolean => k !== prefix && unterPfad(k, prefix);
+    const raeume = <T>(m: Record<string, T[]>): Record<string, T[]> => {
+      const next = { ...m };
+      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
+      return next;
+    };
+    this.elemente.update((m) => {
+      const next = { ...m };
+      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
+      return next;
+    });
+    this.auspraegungen.update(raeume);
+    // Erweiterungen sind am Elternpfad indiziert: die Liste **am** Pfad selbst
+    // haengt unter dem Knoten und faellt mit.
+    this.erweiterungen.update((m) => {
+      const next = { ...m };
+      for (const k of Object.keys(next)) if (unterPfad(k, prefix)) delete next[k];
+      return next;
+    });
+
+    // Wie in removeErweiterung fallen die Hinweise des Teilbaums mit — aber
+    // **nur** die darunter: `loescheUnter` schliesst den Pfad selbst ein
+    // (`unterPfad` ist inklusiv), und der Knoten ueberlebt den Typwechsel
+    // samt seiner Notiz. Darum einzeln statt per Praefix.
+    for (const h of this.hinweisStore.hinweise().filter((h) => betroffen(h.pfad)))
+      void this.hinweisStore.loeschen(h.id);
+
+    const sel = this.selItem();
+    if (sel && betroffen(itemPath(sel))) this.selItem.set(null);
+
+    this.open.update((s) => {
+      const next = new Set(s);
+      for (const p of s) if (betroffen(p)) next.delete(p);
+      return next;
+    });
+  }
+
   // ── Oeffnungszustaende ──────────────────────────────────────────────
 
   isOpen(path: string): boolean {

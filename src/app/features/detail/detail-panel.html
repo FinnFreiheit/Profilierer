@@ -69,6 +69,12 @@
           }
 
           @if (v.erw; as erw) {
+            @if (erw.typFehlt) {
+              <div class="dsec">
+                <span class="dsecTitel typFehlt">Datentyp nicht im Schema</span>
+                <div class="docbox typFehlt">{{ erw.typFehlt }}</div>
+              </div>
+            }
             @if (!roEff() && !msgMode()) {
               <div class="dsec">
                 <label>Schema-Erweiterung bearbeiten</label>
@@ -104,7 +110,7 @@
                   <app-datentyp-picker [wert]="erw.typ" (gewaehlt)="onErwTyp($event)" />
                 </div>
                 <div style="display: flex; gap: 6px; margin-top: 8px">
-                  @if (erw.container) {
+                  @if (erw.kannUnterelement) {
                     <button (click)="addErwUnter()">+ Unterelement</button>
                   }
                   <button (click)="delErw()">Erweiterung löschen</button>

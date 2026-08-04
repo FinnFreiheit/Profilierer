@@ -201,6 +201,23 @@ describe('GuidedService', () => {
       expect(state.refZielOf(`${M3}/verweis`)).toBe(`${M3}/beteiligung@${id1}`);
     });
 
+    it('loest ein eindeutiges Ziel auch unter einer typisierten Erweiterung auf (#97)', () => {
+      // Eine Nachbeauftragung vom Verweis-Typ traegt dasselbe Nummern-Blatt wie
+      // ein Schemaknoten — der Durchlauf steigt in den Teilbaum ab.
+      const id1 = state.addAusp(`${M3}/beteiligung`, 'Notar/in');
+      const erwId = state.addErweiterung(M3, {
+        name: 'zweitverweis',
+        min: '1',
+        max: '1',
+        datentyp: 'Type.GDS.Ref.Rollennummer',
+        datentypQuelle: 'schema',
+      });
+
+      expect(svc.loeseEindeutigeVerweise()).toBe(2);
+      expect(state.refZielOf(`${M3}/~${erwId}`)).toBe(`${M3}/beteiligung@${id1}`);
+      expect(state.elemente()[`${M3}/~${erwId}/ref.rollennummer`]?.beispiel).toBe('1');
+    });
+
     it('grenzt die Auswahl auf das von der Profilierung festgelegte Ziel ein', () => {
       // Die gebundene Fassung fuehrt zwei Auspraegungen und legt fest, dass der
       // Verweis auf die erste zielt: waehlbar sind nur deren Vorkommen.
@@ -295,6 +312,43 @@ describe('GuidedService', () => {
     it('Anmerkung allein entscheidet nicht', () => {
       state.setElementProfile(`${M}/az`, { anmerkung: 'nur Notiz' });
       expect(svc.istEntschieden(`${M}/az`)).toBeFalse();
+    });
+  });
+
+  describe('Typisierte Schema-Erweiterung im Durchlauf (#97)', () => {
+    /** Erweiterung vom Typ Type.Test.Bet (Blatt `name`, Pflicht) an der Wurzel. */
+    const legeAn = (min = '0'): string => {
+      const id = state.addErweiterung(M, {
+        name: 'zusatzBeteiligung',
+        min,
+        max: '1',
+        datentyp: 'Type.Test.Bet',
+        datentypQuelle: 'schema',
+      });
+      return `${M}/~${id}`;
+    };
+
+    it('steigt in den Teilbaum ab — die Schema-Kinder werden Punkte', () => {
+      const pfad = legeAn();
+      // Das Schema-Kind `name` ist Pflicht und damit kein Punkt; ein optionales
+      // Geschwister waere einer. Der Erweiterungsknoten selbst ist optional.
+      expect(pfade()).toContain(pfad);
+      expect(pfade()).not.toContain(pfad + '/name');
+
+      // Eine optionale Unter-Erweiterung im Teilbaum wird gezaehlt.
+      const unterId = state.addErweiterung(pfad, { name: 'notiz', min: '0', max: '1' });
+      expect(pfade()).toContain(`${pfad}/~${unterId}`);
+    });
+
+    it('eine auf „nicht verwendet" gesetzte Erweiterung bringt nichts mit', () => {
+      const pfad = legeAn();
+      const unterId = state.addErweiterung(pfad, { name: 'notiz', min: '0', max: '1' });
+      expect(pfade()).toContain(`${pfad}/~${unterId}`);
+
+      state.setElementProfile(pfad, { status: S.excl });
+
+      expect(pfade()).toContain(pfad); // der Knoten selbst bleibt entschieden
+      expect(pfade()).not.toContain(`${pfad}/~${unterId}`);
     });
   });
 

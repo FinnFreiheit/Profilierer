@@ -69,6 +69,47 @@ const XSD_MAND = `<?xml version="1.0" encoding="UTF-8"?>
   </xs:complexType>
 </xs:schema>`;
 
+/**
+ * Schema fuer typisierte Schema-Erweiterungen (#97): ein fachlicher Typ mit
+ * Unterelementen, ein Codelisten-Typ und ein Typ, der eine Rekursion ueber die
+ * Erweiterungsgrenze hinweg erlaubt.
+ */
+const XSD_ERW = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0001" type="Type.Test.Root"/>
+  <xs:complexType name="Type.Test.Root">
+    <xs:sequence>
+      <xs:element name="akte" type="Type.Test.Akte"/>
+      <xs:element name="datum" type="xs:date"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Type.Test.Akte">
+    <xs:sequence>
+      <xs:element name="identifikation" type="xs:string">
+        <xs:annotation><xs:documentation>Aktenzeichen der Beiakte</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="laufzeit" type="Type.Test.Laufzeit" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Type.Test.Laufzeit">
+    <xs:sequence><xs:element name="beginn" type="xs:date"/></xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Code.Test.Aktentyp">
+    <xs:annotation>
+      <xs:appinfo>
+        <codeliste><nameLang>Aktentyp</nameLang><kennung>test:aktentyp</kennung></codeliste>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="code" type="test.aktentyp"/>
+      <xs:element name="name" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="test.aktentyp">
+    <xs:restriction base="xs:token"><xs:enumeration value="001"/></xs:restriction>
+  </xs:simpleType>
+</xs:schema>`;
+
 describe('TreeService', () => {
   let tree: TreeService;
   let state: StateService;
@@ -452,6 +493,145 @@ describe('TreeService', () => {
       const root = tree.buildRoot('nachricht.test.0001', idx);
       const datum = tree.kinder(root)[1]!;
       expect(tree.itemHasKids({ kind: 'el', node: datum })).toBeFalse();
+    });
+  });
+
+  describe('Erweiterung mit komplexem Datentyp (#97)', () => {
+    const M = 'nachricht.test.0001';
+    let erwIdx: XsdIndex;
+
+    beforeEach(() => {
+      const parser = TestBed.inject(XsdParserService);
+      const dom = new DOMParser().parseFromString(XSD_ERW, 'application/xml');
+      erwIdx = parser.buildIndexFrom([{ file: 'xjustiz_0000_erw.xsd', dom }]).idx;
+    });
+
+    /** Legt eine Erweiterung an und liefert ihren Knoten im frisch gebauten Baum. */
+    function erwKnoten(elternPfad: string, daten: Parameters<StateService['addErweiterung']>[1]) {
+      const id = state.addErweiterung(elternPfad, daten);
+      return { id, pfad: elternPfad + '/~' + id };
+    }
+
+    it('loest die Unterelemente eines Schema-Typs auf', () => {
+      const root = tree.buildRoot(M, erwIdx);
+      const { pfad } = erwKnoten(root.path, {
+        name: 'beiakte',
+        min: '0',
+        max: '1',
+        datentyp: 'Type.Test.Akte',
+        datentypQuelle: 'schema',
+      });
+
+      const erw = tree.kinder(root).find((k) => k.path === pfad)!;
+      expect(tree.isLeaf(erw)).toBeFalse();
+      expect(tree.itemHasKids({ kind: 'el', node: erw })).toBeTrue();
+      const kinder = tree.kinder(erw);
+      expect(kinder.map((k) => k.name)).toEqual(['identifikation', 'laufzeit']);
+      // Kinder tragen Doku und Kardinalitaet aus dem Schema und liegen im
+      // Pfadraum der Erweiterung.
+      expect(kinder[0]!.path).toBe(pfad + '/identifikation');
+      expect(kinder[0]!.doc).toBe('Aktenzeichen der Beiakte');
+      expect(kinder[1]!.min).toBe('0');
+    });
+
+    it('ein Codelisten-Typ macht die Erweiterung zum Blatt mit Werteauswahl', () => {
+      const root = tree.buildRoot(M, erwIdx);
+      const { pfad } = erwKnoten(root.path, {
+        name: 'aktentyp',
+        min: '1',
+        max: '1',
+        datentyp: 'Code.Test.Aktentyp',
+        datentypQuelle: 'schema',
+      });
+
+      const erw = tree.kinder(root).find((k) => k.path === pfad)!;
+      expect(erw.codelist?.kennung).toBe('test:aktentyp');
+      expect(erw.codelist?.werte?.map((w) => w.value)).toEqual(['001']);
+      // Der complexType-Rumpf (code/name) wird nicht ausgeklappt — wie bei
+      // Schemaknoten.
+      expect(tree.isLeaf(erw)).toBeTrue();
+      expect(tree.kinder(erw)).toEqual([]);
+      expect(tree.itemHasKids({ kind: 'el', node: erw })).toBeFalse();
+    });
+
+    it('der Rekursionsschutz greift ueber die Erweiterungsgrenze hinweg', () => {
+      const root = tree.buildRoot(M, erwIdx);
+      const akte = tree.kinder(root).find((k) => k.name === 'akte')!;
+      const { pfad } = erwKnoten(akte.path, {
+        name: 'beiakte',
+        min: '0',
+        max: 'unbounded',
+        datentyp: 'Type.Test.Akte',
+        datentypQuelle: 'schema',
+      });
+
+      const erw = tree.kinder(akte).find((k) => k.path === pfad)!;
+      expect(erw.recursive).toBeTrue();
+      // Der gerenderte Baum steigt nicht ab (wie bei rekursiven Schemaknoten).
+      expect(tree.childItems({ kind: 'el', node: erw })).toEqual([]);
+      expect(tree.abstiegsKinder(erw)).toEqual([]);
+    });
+
+    it('ein im Schema fehlender Typ macht den Knoten zum Blatt und wird gemeldet', () => {
+      const root = tree.buildRoot(M, erwIdx);
+      const { pfad } = erwKnoten(root.path, {
+        name: 'geheimhaltung',
+        min: '0',
+        max: '1',
+        datentyp: 'Type.Test.Entfallen',
+        datentypQuelle: 'schema',
+      });
+      // Profilierung unterhalb der Erweiterung — sie bleibt unangetastet.
+      state.setElementProfile(pfad + '/stufe', { anmerkung: 'bleibt' });
+
+      const erw = tree.kinder(root).find((k) => k.path === pfad)!;
+      expect(tree.erwTypFehlt(erw)).toBe('Type.Test.Entfallen');
+      expect(tree.isLeaf(erw)).toBeTrue();
+      expect(state.elemente()[pfad + '/stufe']?.anmerkung).toBe('bleibt');
+    });
+
+    it('ein Freitext-Typ bleibt neutral — keine Fehlt-Meldung', () => {
+      const root = tree.buildRoot(M, erwIdx);
+      const { pfad } = erwKnoten(root.path, {
+        name: 'wunschfeld',
+        min: '0',
+        max: '1',
+        datentyp: 'Type.Test.Entfallen',
+        datentypQuelle: 'frei',
+      });
+
+      const erw = tree.kinder(root).find((k) => k.path === pfad)!;
+      expect(tree.erwTypFehlt(erw)).toBeNull();
+      expect(tree.isLeaf(erw)).toBeTrue();
+    });
+
+    it('typisierte Erweiterung traegt eigene Erweiterungen hinter den Schema-Kindern', () => {
+      const root = tree.buildRoot(M, erwIdx);
+      const aussen = erwKnoten(root.path, {
+        name: 'beiakte',
+        min: '0',
+        max: '1',
+        datentyp: 'Type.Test.Akte',
+        datentypQuelle: 'schema',
+      });
+      erwKnoten(aussen.pfad, { name: 'vermerk', min: '0', max: '1', datentyp: 'string' });
+      // …und unter einem Schema-Kind der Erweiterung.
+      const innen = erwKnoten(aussen.pfad + '/identifikation', {
+        name: 'praefix',
+        min: '0',
+        max: '1',
+        datentyp: 'string',
+      });
+
+      const erw = tree.kinder(root).find((k) => k.path === aussen.pfad)!;
+      expect(tree.kinder(erw).map((k) => k.name)).toEqual([
+        'identifikation',
+        'laufzeit',
+        'vermerk',
+      ]);
+      const ident = tree.kinder(erw)[0]!;
+      expect(tree.kinder(ident).map((k) => k.path)).toEqual([innen.pfad]);
+      expect(tree.itemHasKids({ kind: 'el', node: ident })).toBeTrue();
     });
   });
 });
