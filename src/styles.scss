@@ -1735,6 +1735,14 @@ app-dashboard {
 .dcMenuBtn:focus-visible {
   opacity: 1;
 }
+/* Ohne Hover (Tablet, Touchscreen) bleibt der Knopf sichtbar — sonst waeren
+   Umbenennen, Kopie, Export und Loeschen dort unerreichbar: er liegt zwar an
+   seinem Platz und trifft bei einem Tipp, ist aber nicht zu sehen. */
+@media (hover: none) {
+  .dcMenuBtn {
+    opacity: 1;
+  }
+}
 .dcMsg {
   display: flex;
   font-family: var(--mono);
