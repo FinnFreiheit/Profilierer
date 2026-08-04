@@ -19,7 +19,7 @@ import { TestnachrichtStartService } from '../../core/services/testnachricht-sta
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { LibraryEntry } from '../../models/profile.model';
-import { nachFachmodul } from '../../core/util/fachmodul.util';
+import { fachmodulOf, nachFachmodul } from '../../core/util/fachmodul.util';
 import { nachrichtTeile } from '../../core/util/pretty.util';
 
 /**
@@ -60,6 +60,13 @@ export class Dashboard {
   private readonly renameDlg = viewChild.required<ElementRef<HTMLDialogElement>>('renameDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
 
+  /**
+   * Freitextsuche ueber die Bibliothek (#92) — wie im Testdaten-Speicher.
+   * Durchsucht wird, was auf der Kachel steht bzw. sie ordnet: Name,
+   * Nachrichtenname und Fachmodul.
+   */
+  protected readonly search = signal('');
+
   /** Filter "nur abgenommene" (valide Vorlagen der BLK-AG schnell finden). */
   protected readonly nurAbgenommene = signal(false);
 
@@ -76,11 +83,24 @@ export class Dashboard {
    * beim Filtern nur Rauschen.
    */
   protected readonly sektionen = computed<Sektion[]>(() => {
+    const q = this.search().trim().toLowerCase();
     let alle = this.store.entries();
+    if (q) alle = alle.filter((e) => this.trifft(e, q));
     if (this.nurMitHinweisen()) alle = alle.filter((e) => !!e.nHinweiseOffen);
     if (this.nurAbgenommene()) alle = alle.filter((e) => !!e.abgenommen);
     return nachFachmodul(alle, (e) => e.nachricht).map((g) => ({ modul: g.modul, items: g.items }));
   });
+
+  /**
+   * Sucht in Name, Nachrichtenname und Fachmodul. Das Fachmodul steckt zwar
+   * schon im Nachrichtennamen, wird aber eigens geprueft: es ist die
+   * Gruppenueberschrift, und wer "enova" tippt, meint die Gruppe.
+   */
+  private trifft(e: LibraryEntry, q: string): boolean {
+    return [e.name, e.nachricht, fachmodulOf(e.nachricht)].some((v) =>
+      (v || '').toLowerCase().includes(q),
+    );
+  }
 
   /** Ueberschrift eines Abschnitts; ohne erkennbares Modul eine Sammelgruppe. */
   protected modulTitel(modul: string): string {

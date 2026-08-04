@@ -1834,7 +1834,9 @@ app-dashboard {
 }
 
 /* Testdaten-Speicher: Fachmodul-Gruppen + Suche */
-.tdSearch {
+/* Freitextsuche beider Uebersichten (#92) — frueher `.tdSearch`, obwohl
+   inzwischen beide Ansichten sie tragen. */
+.suchfeld {
   padding: 6px 10px;
   min-width: 280px;
   flex: 1;

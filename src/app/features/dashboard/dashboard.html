@@ -19,6 +19,13 @@
       >
         Schema ansehen
       </button>
+      <input
+        class="suchfeld"
+        type="search"
+        placeholder="Suchen (Name, Nachricht, Fachmodul)…"
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+      />
       <label
         class="abnFilter"
         title="Nur von der BLK-AG abgenommene (valide) Profilierungen zeigen"
@@ -175,9 +182,13 @@
       </div>
     } @empty {
       <div id="dashEmpty">
-        <div class="big">✔</div>
+        <div class="big">🔍</div>
         <h2>Keine Treffer</h2>
-        <p>Kein Eintrag passt zu den gesetzten Filtern.</p>
+        @if (search().trim()) {
+          <p>Kein Eintrag passt zur Suche „{{ search().trim() }}".</p>
+        } @else {
+          <p>Kein Eintrag passt zu den gesetzten Filtern.</p>
+        }
       </div>
     }
   } @else {
