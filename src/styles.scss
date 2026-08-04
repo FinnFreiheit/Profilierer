@@ -1995,13 +1995,6 @@ dialog::backdrop {
 .erwKard input {
   width: 70px;
 }
-.erwTyp {
-  display: flex;
-  gap: 6px;
-}
-.erwTyp input {
-  flex: 1;
-}
 /* Datentyp-Waehler der Schema-Erweiterung (app-datentyp-picker, #96).
    Panel und Listeneintraege folgen dem Nachrichtenwaehler (#msgPanel/.msgItem);
    die Eintraege sind Knoepfe, damit sie ohne Maus erreichbar bleiben. */

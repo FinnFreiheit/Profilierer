@@ -9,6 +9,7 @@ import {
   output,
   signal,
   viewChild,
+  viewChildren,
 } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import {
@@ -51,6 +52,8 @@ export class DatentypPicker {
   protected readonly hot = signal(0);
   /** „Sonstiger…" gewaehlt: das Freitextfeld steht offen, die Wahl ist noch nicht gefallen. */
   protected readonly freiModus = signal(false);
+  /** Vorbelegung des Freitextfelds — uebernimmt den bereits getippten Suchtext. */
+  protected readonly freiText = signal('');
   /**
    * Lage des Panels. Anders als der Nachrichtenwaehler haengt der Typwaehler
    * nicht in der Kopfzone, sondern irgendwo in der Detailspalte — steht unter
@@ -71,11 +74,21 @@ export class DatentypPicker {
 
   private readonly sucheFeld = viewChild<ElementRef<HTMLInputElement>>('suche');
   private readonly freiFeld = viewChild<ElementRef<HTMLInputElement>>('frei');
+  /** Die gerenderten Listeneintraege, in derselben Reihenfolge wie `flach()`. */
+  private readonly eintragEls = viewChildren<ElementRef<HTMLElement>>('eintrag');
 
   protected readonly katalog = computed(() => datentypGruppen(this.state.idx()));
   protected readonly gruppen = computed(() => filterGruppen(this.katalog(), this.filter()));
   /** Die sichtbaren Eintraege am Stueck — die Tastatur kennt keine Gruppen. */
   protected readonly flach = computed(() => this.gruppen().flatMap((g) => g.eintraege));
+
+  /**
+   * Kein einziger Typ passt — die Meldung darf sich nicht an der Gruppenzahl
+   * festmachen, weil „Sonstiger…" jeden Filter ueberlebt.
+   */
+  protected readonly keineTreffer = computed(() =>
+    this.gruppen().every((g) => g.eintraege.every((e) => e.art !== 'typ')),
+  );
 
   protected readonly anzeige = computed(() => datentypAnzeige(this.wert()));
   protected readonly unbekannt = computed(() => datentypUnbekannt(this.wert(), this.katalog()));
@@ -95,6 +108,13 @@ export class DatentypPicker {
     });
     effect(() => {
       if (this.freiModus()) this.freiFeld()?.nativeElement.focus();
+    });
+    // ↑/↓ waehlen aus ~700 Eintraegen; ohne Nachfuehren waere der hot-Eintrag
+    // nach wenigen Tastendruecken ausserhalb des Panels.
+    effect(() => {
+      const i = this.hot();
+      if (!this.offen()) return;
+      this.eintragEls()[i]?.nativeElement.scrollIntoView({ block: 'nearest' });
     });
   }
 
@@ -169,7 +189,9 @@ export class DatentypPicker {
 
   protected waehle(e: DatentypEintrag): void {
     if (e.art === 'frei') {
-      // Erst der eingetippte Name macht die Wahl vollstaendig.
+      // Erst der eingetippte Name macht die Wahl vollstaendig. Der Suchtext
+      // wandert mit — wer den Namen schon getippt hat, tippt ihn nicht erneut.
+      this.freiText.set(this.filter().trim());
       this.freiModus.set(true);
       return;
     }
@@ -182,7 +204,27 @@ export class DatentypPicker {
   }
 
   protected onFrei(ev: Event): void {
-    const v = (ev.target as HTMLInputElement).value.trim();
+    this.uebernimmFrei((ev.target as HTMLInputElement).value);
+  }
+
+  /**
+   * Tastatur im Freitextfeld. Escape schliesst **nur** den Waehler: ohne
+   * `preventDefault` schloesse es im `<dialog>` des Anlege-Dialogs den ganzen
+   * Dialog samt eingetragenem Elementnamen.
+   */
+  protected onFreiKeydown(ev: KeyboardEvent): void {
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      ev.stopPropagation();
+      this.schliesse();
+    } else if (ev.key === 'Enter') {
+      ev.preventDefault();
+      this.uebernimmFrei((ev.target as HTMLInputElement).value);
+    }
+  }
+
+  private uebernimmFrei(roh: string): void {
+    const v = roh.trim();
     if (!v) return;
     this.schliesse();
     this.gewaehlt.emit({ datentyp: v, datentypQuelle: 'frei' });

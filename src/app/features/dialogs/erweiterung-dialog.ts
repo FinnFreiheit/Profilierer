@@ -10,9 +10,9 @@ import {
 } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { ErweiterungDialogService } from '../../core/services/erweiterung-dialog.service';
-import { ERW_NAME_MUSTER, ERW_TYP_VORGABE } from '../../core/profile-defaults';
+import { ERW_NAME_MUSTER } from '../../core/profile-defaults';
 import { DatentypPicker } from '../datentyp-picker/datentyp-picker';
-import { DatentypWahl } from '../../core/util/datentyp.util';
+import { DatentypWahl, erwTypVorgabe } from '../../core/util/datentyp.util';
 
 /**
  * Formular-Dialog zum Anlegen einer Schema-Erweiterung (US Schema-Erweiterung).
@@ -35,7 +35,7 @@ export class ErweiterungDialog {
   protected readonly eMin = signal('1');
   protected readonly eMax = signal('1');
   /** Datentyp samt Herkunft — beides kommt aus dem Typwaehler (#96). */
-  protected readonly eTyp = signal<DatentypWahl>({ ...ERW_TYP_VORGABE });
+  protected readonly eTyp = signal<DatentypWahl>(erwTypVorgabe(null));
 
   /** Blockierender Formfehler (Elementname), sonst null. */
   protected readonly nameProblem = computed<string | null>(() => {
@@ -61,7 +61,7 @@ export class ErweiterungDialog {
       this.eBeschr.set('');
       this.eMin.set('1');
       this.eMax.set('1');
-      this.eTyp.set({ ...ERW_TYP_VORGABE });
+      this.eTyp.set(erwTypVorgabe(this.state.idx()));
       this.dlg().nativeElement.showModal();
     });
   }
