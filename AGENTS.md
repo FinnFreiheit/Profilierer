@@ -1,0 +1,96 @@
+# AGENTS.md — XJustiz Profilierer
+
+Projekt-Handbuch für die Arbeit mit Codex im Terminal. Wird bei jeder Session automatisch geladen.
+
+## Was ist das
+
+Der **XJustiz Profilierer** ist ein Werkzeug zur Visualisierung von XJustiz-Nachrichten und zur Erstellung von Profilierungen (Kommunikationsszenarien) — auch für die gemeinsame Arbeit mit Nicht-Technikern. Fachliche Details zur Bedienung stehen im [README](README.md).
+
+Das Tool war ursprünglich eine einzelne HTML-Datei; es wurde zu einem **Angular-20-Projekt** migriert (standalone Components, Signals, OnPush). Die alte Single-File-Version liegt unter `legacy/Profilierer.html` als Referenz.
+
+## Sprache und Stil
+
+- Antworte immer auf **Deutsch**, außer explizit anders gewünscht.
+- Keine Emojis in Dateien oder Antworten, außer verlangt.
+- Knapp und direkt. Keine Zusammenfassungen am Ende jeder Antwort.
+- Fachterminologie des ERV/XJustiz-Umfelds ist erwünscht und muss nicht erklärt werden.
+- Datumsangaben im Format `YY.MM.DD`.
+
+## Struktur
+
+```
+xjustiz-profilierer/
+├── src/app/
+│   ├── models/                Interfaces (node, profile, codelist, diff, xsd-index)
+│   ├── core/
+│   │   ├── services/          StateService (Signals-Store), XsdParserService, TreeService,
+│   │   │                      NavService, DispositionService, ValueService, CodelistService, ExportService,
+│   │   │                      ExcelExportService, DiffService, PersistenceService, ProfileStoreService,
+│   │   │                      MigrationService, InstanceImportService, InstanceExportService,
+│   │   │                      TestmessageStoreService, TestmessageGenerationService,
+│   │   │                      TestmessageCreateService, GuidedService, BundledSchemaService,
+│   │   │                      XmlValidationService, ValidationReportService,
+│   │   │                      DownloadService, ToastService, SearchService
+│   │   ├── util/              xml.util, pretty.util, testmessage.util, pattern-sample.util
+│   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
+│   │   └── profile-defaults.ts
+│   ├── features/              Objektleiste, Werkzeugleiste, Crumbs, Search, MessagePicker, Tree (TreeCanvas +
+│   │                          rekursive TreeNode), Detail, Dialoge (Status/Meta/Diff), Legend, Print
+│   ├── shared/                Toast, FileDropDirective
+│   ├── app.ts / app.html      Shell (Komposition + Tastatur-Nav + Drop-Routing)
+│   └── styles.scss            globale Styles (aus der Single-File-Version portiert)
+├── public/schemas/           Hinterlegte XJustiz-Schemata (3.6.2, 4.0.0) + index.json (Manifest)
+├── server/                    Backend (Node/Express + SQLite): Profil-API /api, liefert prod. SPA + /xrep-api
+├── proxy.conf.json            Dev-Proxy /xrep-api → xrepository.de, /api → localhost:3001 (Backend)
+├── scripts/test-headless.mjs  Headless-Testlauf (setzt CHROME_BIN via puppeteer)
+├── scripts/gen-schema-manifest.mjs  Erzeugt public/schemas/index.json aus den Versionsordnern
+├── legacy/                    Profilierer.html + xrep-proxy.py (Referenz)
+├── README.md, AGENTS.md
+```
+
+Zentrale Idee der Architektur: `StateService` ist ein **Signals-Store** (ersetzt das alte globale `S`/`S.profile`). Die imperativen Render-Funktionen (`renderBox`/`renderDetail`/`redrawLines`) sind deklarative Komponenten; die SVG-Verbindungslinien werden im `TreeCanvas` aus DOM-Messungen berechnet.
+
+## Dokumentation
+
+Ausführliche Entwickler-/Architekturdokumentation liegt unter [`docs/`](docs/README.md) — Einstieg ist die **Map of Content** ([docs/README.md](docs/README.md)). Von dort zu Architektur (inkl. Mermaid-Diagrammen), Service-/Modell-/Komponenten-Referenz, Glossar, Tests, Deployment und den [Architektur-Entscheidungen (ADRs)](docs/adr/README.md). Bei Fragen zum „Warum" zuerst dort nachsehen.
+
+## Starten / Entwickeln
+
+Node ≥ 22.12 nötig (Angular 20). Die Anforderung steht in `.nvmrc` (24) und im `engines`-Feld der `package.json` — der nvm-Standard ist auf 24 gesetzt, jede neue Shell bekommt die richtige Version ohne Zutun. Falls eine Shell doch auf einer älteren Version steht: `nvm use` im Projektordner (liest `.nvmrc`, kein Versionsargument nötig).
+
+- **Dev-Server:** `npm start` (`ng serve`, Port 4200) — inkl. Dev-Proxy für XRepository (`/xrep-api/…`) und Profil-API (`/api` → Backend). Backend separat: `npm run server` (Port 3001) oder beides parallel: `npm run dev`. Einmalig `cd server && npm install`.
+- **Backend/DB:** Profilierungen liegen in SQLite (`server/`, Node/Express); der Store spricht `/api` per fetch an. Produktiv `npm run start:prod` (Server liefert SPA + `/api` + `/xrep-api` same-origin). Env `XJP_PORT`/`XJP_DB`. Siehe [ADR 0007](docs/adr/0007-datenbank-backend.md).
+- **Build:** `npm run build` (Ausgabe nach `dist/`).
+- **Unit-Tests (headless):** `npm run test:ci` — nutzt das per puppeteer installierte Chrome-for-Testing (kein System-Chrome nötig). Einmalig: `npx puppeteer browsers install chrome`. Backend-Tests separat: `npm run test:server` (node --test, In-Memory-SQLite).
+- **Prüfkette vor dem Commit:** `npm run check` — Lint, Formatprüfung, Frontend-Tests, Backend-Tests, Build. Genau das fährt auch CI (`.github/workflows/ci.yml`, bei Push auf `main` und bei jedem PR). Einzeln: `npm run lint`, `npm run lint:fix`, `npm run format`, `npm run format:check`.
+- **Lint/Format:** ESLint 9 Flat Config (`eslint.config.mjs`, angular-eslint 20), Formatierung ausschließlich Prettier. Die drei Barrierefreiheits-Regeln für Templates stehen bewusst auf `warn` — 68 Altlast-Treffer im Bestand, siehe [ADR 0011](docs/adr/0011-lint-format-ci.md). Neue Warnungen dort nicht vermehren.
+- **E2E-Prüfung:** Puppeteer-Skript, das XSDs per Drag&Drop-Event lädt (`uploadFile` befüllt `webkitdirectory`-Inputs nicht).
+- **Hinterlegte Schemata:** 3.6.2 und 4.0.0 liegen unter `public/schemas/<version>/`; die App lädt 3.6.2 automatisch beim Start (`BundledSchemaService`, Umschalter im Datenbasis-Menü der Werkzeugleiste, Diff-Vergleich per Klick) — Ordner-Upload nur noch für Fremdschemata. Nach dem Ändern der XSDs `npm run schemas:manifest` ausführen. **Aktualisieren aus der Quelle:** `npm run schemas:fetch` holt die veröffentlichten ZIPs von xjustiz.de, entpackt sie nach `public/schemas/` und baut das Manifest neu (`-- --dry` zeigt nur den Abgleich). Zur Laufzeit macht „Laden → Schemata: xjustiz.de" dasselbe im Browser (`RemoteSchemaService`, Proxy `/xjustiz-api`) — die abgerufenen Versionen ersetzen die hinterlegten Einträge.
+- Testdaten (Quellen der hinterlegten Kopien): `/Users/finnfreiheit/code/XJustiz_3_6_2_XSD` (3.6.2) und `/Users/finnfreiheit/code/XJustiz_4.0.0_Schemata` (4.0.0, Vergleichsversion für den Diff).
+
+## Konventionen
+
+- **Idiomatisches Angular 20:** standalone Components, `input()`/`output()`/`signal()`/`computed()`, `@if`/`@for`, `ChangeDetectionStrategy.OnPush`. Kein NgModule.
+- **Deutschsprachige Bezeichner und Kommentare** beibehalten. Zeilenverweise in Kommentaren beziehen sich auf `legacy/Profilierer.html`.
+- Store-Mutationen der pfad-indizierten Maps (`elemente`/`auspraegungen`) müssen neue Referenzen erzeugen; kaskadierende Operationen (`removeAusp`) sind im `StateService` gebündelt und unit-getestet.
+- **Keine ungefragten Refactors** über den Auftrag hinaus.
+- Bei Änderungen an der XRepository-Logik `proxy.conf.json` und den Pfad `/xrep-api/` beachten (`CodelistService`).
+- Hinterlegte Schemata in `public/schemas/` nicht von Hand im Manifest pflegen — nach XSD-Änderungen `npm run schemas:manifest` laufen lassen (`scripts/gen-schema-manifest.mjs`).
+
+## Agent skills
+
+### Issue-Tracker
+
+Issues und Specs leben in den GitHub Issues des Repos (gh-CLI). Siehe `docs/agents/issue-tracker.md`.
+
+### Domain-Docs
+
+Single-Context: `CONTEXT.md` an der Wurzel (entsteht lazy), ADRs unter `docs/adr/`. Siehe `docs/agents/domain.md`.
+
+### AFK-Queue
+
+`ready-for-agent`-Tickets werden unbeaufsichtigt abgearbeitet: `./scripts/afk-once.sh` (ein Ticket) bzw. `./scripts/afk-loop.sh <n>`; Checkpoint ist der Pull Request. Leitplanken: Git-Hook + Branch-Protection — `main` ändert sich nur über grüne PRs, Commits landen auf `ticket/<n>`-Branches. Siehe `docs/agents/afk.md`.
+
+## Git
+
+Repository mit `git init` angelegt. Commits knapp und auf Deutsch. Remote `origin` zeigt auf `github.com:FinnFreiheit/Profilierer` (push nach Absprache).
