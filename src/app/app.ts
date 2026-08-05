@@ -14,6 +14,7 @@ import { Toast } from './shared/toast/toast';
 import { FileDropDirective } from './shared/file-drop.directive';
 import { Dashboard } from './features/dashboard/dashboard';
 import { Testdaten } from './features/testdaten/testdaten';
+import { Howto } from './features/howto/howto';
 import { PersistenceService } from './core/services/persistence.service';
 import { CodelistService } from './core/services/codelist.service';
 import { ExportService } from './core/services/export.service';
@@ -67,6 +68,7 @@ function istZweigWahl(el: HTMLElement): boolean {
     FileDropDirective,
     Dashboard,
     Testdaten,
+    Howto,
     ValidationDialog,
     ProfilDiffDialog,
     XmlDiffDialog,

@@ -252,8 +252,11 @@ export class StateService {
   }
 
   // ── Ansicht / Bibliothek ────────────────────────────────────────────
-  /** Dashboard (Bibliothek) vs. Baum-Editor vs. Testdaten-Speicher. Startseite ist das Dashboard. */
-  readonly view = signal<'dashboard' | 'editor' | 'testdaten'>('dashboard');
+  /**
+   * Dashboard (Bibliothek) vs. Baum-Editor vs. Testdaten-Speicher vs. Anleitung.
+   * Startseite ist das Dashboard.
+   */
+  readonly view = signal<'dashboard' | 'editor' | 'testdaten' | 'howto'>('dashboard');
   /** id des aktuell bearbeiteten Bibliothekseintrags (Ziel des Autosave). */
   readonly activeProfileId = signal<string | null>(null);
   /**

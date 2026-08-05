@@ -177,6 +177,11 @@ export class Dashboard {
     this.state.view.set('testdaten');
   }
 
+  /** Zur bebilderten Anleitung wechseln. */
+  protected goHowto(): void {
+    this.state.view.set('howto');
+  }
+
   /** US "Schema ansehen": reine Schema-Ansicht ohne Profilierung oeffnen. */
   protected schemaAnsehen(): void {
     this.nav.openSchemaView();

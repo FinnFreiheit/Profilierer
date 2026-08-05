@@ -4,6 +4,10 @@ Werkzeug zur Visualisierung von XJustiz-Nachrichten und zur Erstellung von Profi
 
 **Starten:** Angular-Projekt — Node ≥ 22.12 nötig (`.nvmrc` liegt bei, notfalls `nvm use`), dann `npm install` und `npm start` (öffnet `http://localhost:4200`, inkl. XRepository-Dev-Proxy). Die frühere Single-File-Version liegt zur Referenz unter `legacy/Profilierer.html`.
 
+## Anleitung im Werkzeug
+
+Der Umschalter oben links führt neben „Profile" und „Testdaten" auf **„Anleitung"** — eine bebilderte Schritt-für-Schritt-Strecke durch die beiden Kernabläufe: eine Profilierung anlegen (Nachricht wählen, geführt entscheiden, Ausprägungen, Exporte) und daraus eine Testnachricht erstellen (Herkunft, Fassung binden, Durchlauf, Werte, Speichern). Die Bildschirmfotos liegen als WebP unter `public/howto/`; werden sie neu aufgenommen, bleiben die Dateinamen gleich, sodass an der Seite nichts nachzuziehen ist.
+
 ## Grundidee
 
 Die Nachricht wird als **Kasten-Baum von links nach rechts** dargestellt, mit Verbindungslinien zwischen Eltern und Kindern. Jeder Ast lässt sich unabhängig auf- und zuklappen (+/− am Kasten) — mehrere Äste können gleichzeitig offen sein, „Alles ausklappen"/„Zuklappen" wirken auf den ganzen Baum. Wert-Elemente (weiß, grüner „Wert:"-Chip mit Wertart) sind von Elternelementen (grau hinterlegt) auf einen Blick unterscheidbar. Kardinalitäten stehen als Klartext an den Kästen; technische Namen und Typen sind über den Schalter „Technik" zuschaltbar.

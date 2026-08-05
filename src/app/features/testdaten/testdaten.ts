@@ -174,6 +174,11 @@ export class Testdaten {
     this.state.view.set('dashboard');
   }
 
+  /** Zur bebilderten Anleitung wechseln. */
+  protected goHowto(): void {
+    this.state.view.set('howto');
+  }
+
   // ── Neu erstellen (gefuehrt aus Schema oder Profilierung) ───────────
 
   /**
