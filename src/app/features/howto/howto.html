@@ -1,0 +1,117 @@
+<div id="dash">
+  <div class="dashHead">
+    <div class="dashTop">
+      <div class="viewToggle">
+        <button (click)="goDashboard()">Profile</button>
+        <button (click)="goTestdaten()">Testdaten</button>
+        <button class="active" disabled>Anleitung</button>
+      </div>
+      <app-rolle-badge></app-rolle-badge>
+    </div>
+    <h1><span>Anleitung</span> — Schritt für Schritt</h1>
+    <p class="dashSub">
+      Zwei Wege durch das Werkzeug: eine Profilierung anlegen und daraus eine Testnachricht
+      erstellen. Die Bilder zeigen die App im Zustand des jeweiligen Schritts.
+    </p>
+  </div>
+
+  <div id="howto">
+    <!-- Inhaltsübersicht: springt über die Anker in den Fließtext. -->
+    <nav class="htToc" aria-label="Inhalt">
+      @for (k of kapitel(); track k.id) {
+        <div class="htTocTeil">
+          <div class="htTocTitel">{{ k.titel }}</div>
+          <ol>
+            @for (s of k.schritte; track s.anker) {
+              <li>
+                <a [href]="'#' + s.anker">{{ s.titel }}</a>
+              </li>
+            }
+          </ol>
+        </div>
+      }
+    </nav>
+
+    @for (t of teile; track t.id) {
+      <section class="htTeil" [id]="t.id">
+        <h2>{{ t.titel }}</h2>
+        <p class="htLead">{{ t.einleitung }}</p>
+
+        @for (s of t.schritte; track s.nr) {
+          <article class="htSchritt" [id]="anker(t, s)">
+            <h3>
+              <span class="htNr">{{ s.nr }}</span>
+              {{ s.titel }}
+            </h3>
+            @for (p of s.text; track $index) {
+              <p>{{ p }}</p>
+            }
+            @if (s.merke) {
+              <p class="htMerke">{{ s.merke }}</p>
+            }
+            <figure class="htFigur">
+              <!-- Knopf statt blossem Bild: so ist die Grossansicht auch mit
+                   Tastatur erreichbar (Fokus + Enter). -->
+              <button
+                type="button"
+                class="htZoom"
+                title="Zum Vergrößern anklicken"
+                (click)="lupe.set(bildPfad(s.bild))"
+              >
+                <img
+                  [src]="bildPfad(s.bild)"
+                  [alt]="s.titel + ' — Bildschirmfoto'"
+                  loading="lazy"
+                />
+              </button>
+              <figcaption>{{ s.bildText }}</figcaption>
+            </figure>
+          </article>
+        }
+      </section>
+    }
+
+    <section class="htTeil">
+      <h2>Tastatur</h2>
+      <table class="htTastatur">
+        <tbody>
+          <tr>
+            <th scope="row">Profilierung</th>
+            <td>
+              <kbd>z</kbd> zwingend · <kbd>o</kbd> anzugeben, wenn vorhanden · <kbd>n</kbd> nicht
+              verwendet · <kbd>k</kbd> zu klären · <kbd>←</kbd> <kbd>→</kbd> vorheriger / nächster
+              offener Punkt
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Testnachricht</th>
+            <td>
+              <kbd>↓</kbd> nächste Station (Pflichtangaben halten fest) · <kbd>↑</kbd> zurück ·
+              <kbd>←</kbd> Teilbaum angeben und betreten · <kbd>→</kbd> wieder heraus
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Baum</th>
+            <td>
+              Pfeiltasten navigieren (Eltern, Kind, Geschwister) · <kbd>Esc</kbd> Auswahl aufheben ·
+              <kbd>+</kbd> <kbd>−</kbd> am Kasten klappt den Ast auf und zu
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  @if (lupe(); as bild) {
+    <!-- Großansicht: Klick oder Esc/Enter schließt wieder. -->
+    <button
+      type="button"
+      class="htLupe"
+      title="Schließen"
+      (click)="lupe.set(null)"
+      (keydown.escape)="lupe.set(null)"
+    >
+      <img [src]="bild" alt="Bildschirmfoto in Großansicht" />
+    </button>
+  }
+</div>

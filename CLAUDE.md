@@ -35,7 +35,8 @@ xjustiz-profilierer/
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
 │   │   └── profile-defaults.ts
 │   ├── features/              Objektleiste, Werkzeugleiste, Crumbs, Search, MessagePicker, Tree (TreeCanvas +
-│   │                          rekursive TreeNode), Detail, Dialoge (Status/Meta/Diff), Legend, Print
+│   │                          rekursive TreeNode), Detail, Dialoge (Status/Meta/Diff), Legend, Print,
+│   │                          Dashboard, Testdaten, Howto (bebilderte Anleitung, Bilder in public/howto/)
 │   ├── shared/                Toast, FileDropDirective
 │   ├── app.ts / app.html      Shell (Komposition + Tastatur-Nav + Drop-Routing)
 │   └── styles.scss            globale Styles (aus der Single-File-Version portiert)

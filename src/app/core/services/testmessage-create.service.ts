@@ -23,8 +23,10 @@ import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
 import { ValidationMarkerService } from './validation-marker.service';
 import { ValueService } from './value.service';
+import { CodelistService } from './codelist.service';
 import { SitzungsAbgleichService } from './konformitaet.service';
 import { speicherUrteil } from '../util/speicher-urteil';
+import { bezeichnungenAus } from '../util/ausp-bezeichnung.util';
 import { ReportEintrag } from '../../models/validation.model';
 import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../util/erweiterung-sperre';
 
@@ -54,6 +56,7 @@ export class TestmessageCreateService {
   private readonly marker = inject(ValidationMarkerService);
   /** Nur fuer die Codelisten-Deckung in `meldeWidersprueche`. */
   private readonly values = inject(ValueService);
+  private readonly codelists = inject(CodelistService);
   private readonly abgleich = inject(SitzungsAbgleichService);
 
   /**
@@ -80,8 +83,21 @@ export class TestmessageCreateService {
     });
     this.state.guided.set(true);
     this.state.view.set('editor');
+    this.codelistenBereitstellen();
     this.guided.loeseEindeutigeVerweise();
     this.guided.gotoNextOpen();
+  }
+
+  /**
+   * Codelisten des Standards still nachladen — dieselbe Best-effort-Abholung,
+   * die der Instanz-Import macht (`InstanceImportService`). Ohne sie bleibt ein
+   * belegter Code im Durchlauf ein nackter Schluessel ("252") und die
+   * Auswahlliste am Feld leer: die Bedeutung steht allein in der Codeliste.
+   * Idempotent (der Dienst merkt sich Standard und Version), Fehler blockieren
+   * nicht — dann bleibt es eben beim rohen Code.
+   */
+  private codelistenBereitstellen(): void {
+    void this.codelists.ensureUsedCodelists();
   }
 
   /**
@@ -124,6 +140,7 @@ export class TestmessageCreateService {
     });
     this.state.guided.set(true);
     this.state.view.set('editor');
+    this.codelistenBereitstellen();
     // Verweise mit genau einem zulaessigen Ziel sind ohne Zutun erledigt (#30) —
     // vor dem Sprung auf den ersten offenen Punkt, damit er sie ueberspringt.
     this.guided.loeseEindeutigeVerweise();
@@ -343,6 +360,7 @@ export class TestmessageCreateService {
     });
     this.state.guided.set(true);
     this.state.view.set('editor');
+    this.codelistenBereitstellen();
     this.guided.gotoNextOpen();
     if (vorgabe) this.meldeWidersprueche(vorgabe);
   }
@@ -446,6 +464,10 @@ export class TestmessageCreateService {
       xjustizVersion: session.xjustizVersion,
       profil: this.state.profileDoc(),
     };
+    // Zusaetzlich zum Entscheidungsstand: der gefuehrte Durchlauf ist nicht der
+    // einzige Weg zurueck in diese Nachricht — wird sie spaeter *bearbeitet*,
+    // entsteht das Modell aus dem XML, und nur diese Ablage kennt die Namen.
+    const bezeichnungen = bezeichnungenAus(this.state.alleAuspListen());
 
     if (session.entryId) {
       await this.store.updateMeta(session.entryId, {
@@ -453,6 +475,7 @@ export class TestmessageCreateService {
         entwurf,
         fortschritt: { x, y },
         entscheidungen,
+        bezeichnungen,
       });
     } else {
       const name = frageTestnachrichtName(`${session.msgName} — Testnachricht.xml`);
@@ -465,6 +488,7 @@ export class TestmessageCreateService {
         entwurf,
         fortschritt: { x, y },
         entscheidungen,
+        bezeichnungen,
         // Profil-Bindung: Herkunft und die eingefrorene Kopie der gebundenen
         // Fassung — nur beim Anlegen, danach unveraenderlich.
         profilId: session.profilId,

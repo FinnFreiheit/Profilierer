@@ -83,6 +83,18 @@ export interface GuidedMessageState {
   profil: ProfileDoc;
 }
 
+/**
+ * Bezeichnungen der benannten Vorkommen einer Testnachricht: normalisierter
+ * Listen-Schluessel -> Namen in Vorkommen-Reihenfolge (siehe
+ * `core/util/ausp-bezeichnung.util.ts`). Sie liegen **neben** dem XML, weil ein
+ * Vorkommen dort nur ein weiteres Element ist und keinen Namen tragen kann.
+ *
+ * Bewusst nicht Teil des `GuidedMessageState`: aus dessen Vorhandensein leitet
+ * der Server `gefuehrt` ab — jede bearbeitete Nachricht bekaeme sonst das Badge
+ * und die Fortsetzen-Aktion des gefuehrten Wegs.
+ */
+export type AuspBezeichnungen = Record<string, string[]>;
+
 /** Upload-Nutzlast (POST /api/testmessages). */
 export interface TestmessageInput {
   name: string;
@@ -94,6 +106,7 @@ export interface TestmessageInput {
   entwurf?: boolean;
   fortschritt?: TestmessageFortschritt;
   entscheidungen?: GuidedMessageState;
+  bezeichnungen?: AuspBezeichnungen;
   /** Herkunft der Profil-Bindung (siehe TestmessageEntry). */
   profilId?: string;
   profilName?: string;

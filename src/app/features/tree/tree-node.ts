@@ -184,12 +184,13 @@ export class TreeNode {
     const ausps = it.kind === 'el' ? this.state.auspsOf(path) : null;
 
     // Testwert (Z.1243-1257).
-    let mv: { text: string; ghost: boolean } | null = null;
+    let mv: { text: string; ghost: boolean; title: string | null } | null = null;
     let vin: {
       value: string;
       placeholder: string;
       listId: string | null;
       problem: string | null;
+      label: string | null;
     } | null = null;
     let datalist: { id: string; options: { value: string; label: string }[] } | null = null;
     if (isValueBox) {
@@ -199,7 +200,17 @@ export class TreeNode {
         typeName: n.typeName,
         codelist: n.codelist,
       });
-      mv = { text: pe.beispiel || auto, ghost: !pe.beispiel };
+      // Codes zu Klartext aufloesen — auch beim Bearbeiten. Der Code allein
+      // ("252") sagt beim Befuellen einer Testnachricht nichts; die Bedeutung
+      // stand bisher nur im Auswahl-Dropdown und im Betrachtungsmodus. Der Code
+      // bleibt vorn: er ist der Wert, der in der Nachricht steht.
+      const wertLabel = n.codelist ? this.values.labelFor(n.codelist, pe.beispiel) : null;
+      mv = {
+        text: pe.beispiel ? (wertLabel ? pe.beispiel + ' · ' + wertLabel : pe.beispiel) : auto,
+        ghost: !pe.beispiel,
+        // Im Mini-Kasten ist der Platz knapp — der volle Text steht im Tooltip.
+        title: wertLabel ? pe.beispiel + ' · ' + wertLabel : null,
+      };
       const listId = 'dl' + n.id + '_' + (it.kind === 'ausp' ? it.ausp.id : 'e');
       const werte = n.codelist ? this.values.clWerte(n.codelist) || [] : [];
       if (werte.length) {
@@ -227,6 +238,7 @@ export class TreeNode {
         placeholder: auto,
         listId: datalist ? listId : null,
         problem,
+        label: wertLabel,
       };
     }
     // Betrachtungsmodus: Wert nur anzeigen, kein editierbares Eingabefeld.
@@ -437,6 +449,15 @@ export class TreeNode {
     // Instanz gibt es keine Profilierung, sondern Angaben und Vorkommen.
     const msgMode = this.state.msgMode();
 
+    // Belegte Angaben hervorheben: beim Befuellen einer Testnachricht ist die
+    // erste Frage, wo schon etwas steht. Das Eingabefeld allein beantwortet sie
+    // nicht — ein Platzhalter sieht einem Wert zu aehnlich, und ein zugeklappter
+    // Ast zeigt gar nichts. Blatt mit eigenem Wert: Haken und Toenung;
+    // Container: Zaehler der belegten Angaben darunter.
+    const hervor = this.state.wertHervorhebung() && !isExcl && !inhExcl;
+    const belegt = hervor && this.state.hatTestwert(path);
+    const belegtSub = hervor ? this.state.belegtImAst(path) : 0;
+
     // Vorkommen anlegen/entfernen (Buttons ⧉ und ✕) — nur wo sie erscheinen,
     // wird die Kardinalitaets-Sperre ermittelt (Baumweg-Suche je Knoten).
     const zeigtDelAusp = !readOnly && !this.isRoot() && it.kind === 'ausp';
@@ -458,6 +479,8 @@ export class TreeNode {
       exclInherit: !isExcl && inhExcl,
       leafBox: isValueBox,
       parentBox: !isValueBox,
+      belegt,
+      belegtSub: belegtSub || null,
       // Im Durchlauf gewinnt die Farbe der Station: sie sagt, was die Nachricht
       // verlangt — und bleibt anders als die Tags auch im Mini-Kasten sichtbar.
       // Sonst wie bisher die Farbe der gesetzten Statusstufe.

@@ -218,6 +218,13 @@ export function openDb(path) {
     // Fach-Hash der eingefrorenen Kopie — Vergleichsbasis fuer das Kennzeichen
     // "Profil weiterentwickelt" ohne Deserialisieren der (grossen) Kopie.
     if (!cols.has('vorgabe_hash')) db.exec('ALTER TABLE testmessages ADD COLUMN vorgabe_hash TEXT');
+    // Bezeichnungen benannter Vorkommen (JSON: Listen-Schluessel -> Namen in
+    // Vorkommen-Reihenfolge). Sie haben im XJustiz-XML keine Entsprechung und
+    // gingen beim Bearbeiten sonst verloren. Bewusst NICHT in `entscheidungen`:
+    // aus dessen Vorhandensein leitet TM_COLS `gefuehrt` ab — jede bearbeitete
+    // Nachricht truege sonst Badge und Fortsetzen-Aktion des gefuehrten Wegs.
+    if (!cols.has('bezeichnungen'))
+      db.exec('ALTER TABLE testmessages ADD COLUMN bezeichnungen TEXT');
   }
 
   // Migration: Urheber-Merkmal am Hinweis (Issue #42). Wer einen Hinweis ohne
@@ -425,22 +432,25 @@ export function openDb(path) {
     ),
     tmGetXml: db.prepare('SELECT xml FROM testmessages WHERE id = ?'),
     tmGetEntscheidungen: db.prepare('SELECT entscheidungen FROM testmessages WHERE id = ?'),
+    tmGetBezeichnungen: db.prepare('SELECT bezeichnungen FROM testmessages WHERE id = ?'),
     tmGetVorgabe: db.prepare('SELECT vorgabe FROM testmessages WHERE id = ?'),
     tmGet: db.prepare(`SELECT ${TM_COLS} ${TM_FROM} WHERE t.id = ?`),
     tmGetRow: db.prepare('SELECT * FROM testmessages WHERE id = ?'),
     tmInsert: db.prepare(
       `INSERT INTO testmessages
          (id, xml, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
-          entwurf, fortschritt, entscheidungen, profil_id, profil_name, fassung, vorgabe, vorgabe_hash)
+          entwurf, fortschritt, entscheidungen, bezeichnungen,
+          profil_id, profil_name, fassung, vorgabe, vorgabe_hash)
        VALUES
          (@id, @xml, @name, @nachricht, @fachmodul, @xjustizVersion, @groesse, @notiz, @ts, @ts,
-          @entwurf, @fortschritt, @entscheidungen, @profilId, @profilName, @fassung, @vorgabe, @vorgabeHash)`,
+          @entwurf, @fortschritt, @entscheidungen, @bezeichnungen,
+          @profilId, @profilName, @fassung, @vorgabe, @vorgabeHash)`,
     ),
     tmUpdate: db.prepare(
       `UPDATE testmessages SET
          xml = @xml, notiz = @notiz, name = @name, groesse = @groesse,
          entwurf = @entwurf, fortschritt = @fortschritt, entscheidungen = @entscheidungen,
-         aktualisiert = @aktualisiert
+         bezeichnungen = @bezeichnungen, aktualisiert = @aktualisiert
        WHERE id = @id`,
     ),
     tmDel: db.prepare('DELETE FROM testmessages WHERE id = ?'),
@@ -1085,6 +1095,21 @@ export function openDb(path) {
     },
 
     /**
+     * Bezeichnungen der benannten Vorkommen (JSON) oder null. Sie liegen neben
+     * dem XML, weil die Namen dort keine Entsprechung haben — ohne sie hiesse
+     * jedes Vorkommen nach dem naechsten Oeffnen wieder "Vorkommen N".
+     */
+    tmLoadBezeichnungen(id) {
+      const row = stmt.tmGetBezeichnungen.get(id);
+      if (!row || !row.bezeichnungen) return null;
+      try {
+        return JSON.parse(row.bezeichnungen);
+      } catch {
+        return null;
+      }
+    },
+
+    /**
      * Eingefrorene Kopie der gebundenen Profilfassung (JSON) oder null. Sie ist
      * vom Profil-Bestand unabhaengig und bleibt lesbar, wenn die Profilierung
      * geaendert oder geloescht wurde.
@@ -1124,6 +1149,7 @@ export function openDb(path) {
         entwurf,
         fortschritt,
         entscheidungen,
+        bezeichnungen,
         profilId,
         profilName,
         fassung,
@@ -1145,6 +1171,7 @@ export function openDb(path) {
         entwurf: entwurf ? 1 : null,
         fortschritt: fortschritt ? JSON.stringify(fortschritt) : null,
         entscheidungen: entscheidungen ? JSON.stringify(entscheidungen) : null,
+        bezeichnungen: bezeichnungen ? JSON.stringify(bezeichnungen) : null,
         profilId: profilId ?? null,
         profilName: profilName ?? null,
         fassung: fassung ?? null,
@@ -1161,7 +1188,7 @@ export function openDb(path) {
      * Herkunft und eingefrorene Kopie der Profil-Bindung sind bewusst nicht
      * änderbar — die gebundene Fassung ist unveränderliche Vorgabe.
      */
-    tmUpdate(id, { notiz, name, xml, entwurf, fortschritt, entscheidungen }, ts) {
+    tmUpdate(id, { notiz, name, xml, entwurf, fortschritt, entscheidungen, bezeichnungen }, ts) {
       const row = stmt.tmGetRow.get(id);
       if (!row) return null;
       const nextXml = xml !== undefined ? String(xml) : row.xml;
@@ -1183,6 +1210,12 @@ export function openDb(path) {
               ? JSON.stringify(entscheidungen)
               : null
             : row.entscheidungen,
+        bezeichnungen:
+          bezeichnungen !== undefined
+            ? bezeichnungen && Object.keys(bezeichnungen).length
+              ? JSON.stringify(bezeichnungen)
+              : null
+            : row.bezeichnungen,
         aktualisiert: ts ?? Date.now(),
       };
       stmt.tmUpdate.run({ id, ...next });

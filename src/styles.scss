@@ -688,6 +688,55 @@ label.menuItem:has(input:disabled) {
 .box.mini.sel {
   opacity: 1;
 }
+/* Belegte Angaben im Nachrichten-Modus (StateService.wertHervorhebung):
+   Blatt mit eigenem Testwert getönt und gerahmt, Container mit Zähler. Steht
+   bewusst NACH .leafBox/.parentBox — gleiche Spezifität, die spätere Regel
+   gewinnt. .sel bleibt darüber (eigener 2.5px-Rahmen in der Akzentfarbe). */
+.box.belegt {
+  background: #f0f9f2;
+}
+.box.belegt:not(.sel) {
+  border-color: #6fb98a;
+}
+.box.belegt:not(.sel):hover {
+  border-color: #4f9f6d;
+}
+.box.belegtSub:not(.belegt):not(.sel) {
+  border-color: #c3ddcb;
+}
+/* Der Haken gehört zum Namen und steht direkt dahinter; der Zähler ist ein
+   Badge und sitzt rechts. Im Mini-Kasten schiebt der Testwert (.mv, margin-left:
+   auto) beide nach rechts. */
+.wmark {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #1e7d3e;
+}
+.wsub {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  color: #2f7d51;
+  background: #e6f4ea;
+  border: 1px solid #c3ddcb;
+  border-radius: 999px;
+  padding: 2px 6px;
+}
+.mv + .wsub,
+.wmark + .wsub {
+  margin-left: 0;
+}
+/* Steht der Zähler davor, hat der schon rechtsbündig geschoben — sonst teilten
+   sich zwei `margin-left: auto` den freien Raum und das Badge rutschte in die
+   Mitte. */
+.wsub ~ .togBtn {
+  margin-left: 6px;
+}
 .bname {
   min-width: 0;
   overflow: hidden;
@@ -764,6 +813,23 @@ label.menuItem:has(input:disabled) {
   color: #c62828;
   font-size: 11.5px;
   margin-top: 3px;
+}
+/* Klartext hinter einem belegten Code — im Kasten (.vlabel) und im
+   Detailbereich (.wertLabel). Der Code bleibt im Feld stehen: er ist der Wert,
+   der in der Nachricht landet; der Klartext sagt nur, was er bedeutet. */
+.vlabel,
+.wertLabel {
+  color: var(--muted);
+  font-size: 11.5px;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vlabel::before,
+.wertLabel::before {
+  content: '↳ ';
+  color: #9aa7b4;
 }
 .box.excluded .vrow,
 .box.exclInherit .vrow {
@@ -2404,4 +2470,167 @@ app-tree-context-menu {
     padding: 1px 6px;
     border-radius: 3px;
   }
+}
+
+/* ------------------------------------------------------------------
+   Anleitung (How-To, #howto): Lesestrecke aus Text und Bildschirmfotos.
+   Bewusst schmale Spalte fuer die Textabsaetze, Bilder duerfen breiter
+   werden — die Screenshots sind Vollfenster-Aufnahmen.
+   ------------------------------------------------------------------ */
+#howto {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-bottom: 60px;
+}
+#howto p {
+  max-width: 78ch;
+}
+
+/* Inhaltsuebersicht */
+.htToc {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 28px;
+}
+.htTocTitel {
+  font-weight: 650;
+  margin-bottom: 6px;
+}
+.htToc ol {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+.htToc li {
+  margin: 2px 0;
+  font-size: 13px;
+}
+.htToc a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.htToc a:hover {
+  text-decoration: underline;
+}
+
+.htTeil {
+  margin-bottom: 12px;
+  /* Sprungmarken landen sonst unter dem Seitenkopf. */
+  scroll-margin-top: 16px;
+}
+.htTeil h2 {
+  font-size: 17px;
+  font-weight: 650;
+  margin: 34px 0 6px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--accent-soft);
+}
+.htLead {
+  color: var(--muted);
+  margin-top: 0;
+}
+.htSchritt {
+  margin: 26px 0 0;
+  scroll-margin-top: 16px;
+}
+.htSchritt h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 650;
+  margin: 0 0 8px;
+}
+.htNr {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.htMerke {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 6px 6px 0;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.htFigur {
+  margin: 14px 0 0;
+}
+.htZoom {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  cursor: zoom-in;
+  overflow: hidden;
+}
+.htZoom img {
+  display: block;
+  width: 100%;
+}
+.htFigur figcaption {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin-top: 6px;
+  max-width: 78ch;
+}
+
+/* Grossansicht ueber der Seite */
+.htLupe {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  border: none;
+  background: rgba(20, 28, 38, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  cursor: zoom-out;
+}
+.htLupe img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+}
+
+.htTastatur {
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.htTastatur th,
+.htTastatur td {
+  text-align: left;
+  vertical-align: top;
+  padding: 7px 14px 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.htTastatur th {
+  white-space: nowrap;
+  color: var(--muted);
+  font-weight: 600;
+}
+.htTastatur kbd {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
 }
