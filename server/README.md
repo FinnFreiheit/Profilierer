@@ -75,8 +75,17 @@ Index ohne XML; `?profil=<id>` grenzt auf eine Profilierung ein) ·
 `GET /api/testmessages/:id/xml` ·
 `GET /api/testmessages/:id/entscheidungen` (Stand der geführten Erstellung) ·
 `GET /api/testmessages/:id/vorgabe` (eingefrorene Kopie der gebundenen
-Profilfassung, 404 ohne Bindung) · `POST /api/testmessages` ·
+Profilfassung, 404 ohne Bindung) ·
+`GET /api/testmessages/:id/bezeichnungen` (Namen der benannten Vorkommen,
+404 ohne Ablage) · `POST /api/testmessages` ·
 `PATCH /api/testmessages/:id` · `DELETE /api/testmessages/:id`.
+Die **Bezeichnungen** (`bezeichnungen`, JSON: Listen-Schlüssel → Namen in
+Vorkommen-Reihenfolge) liegen neben dem XML, weil ein Vorkommen dort nur ein
+weiteres Element ist und keinen Namen tragen kann — ohne sie hieße jedes
+Vorkommen nach dem nächsten Öffnen wieder „Vorkommen N". Bewusst eine **eigene**
+Spalte und nicht Teil von `entscheidungen`: daraus leitet der Index `gefuehrt`
+ab, jede bearbeitete Nachricht trüge sonst Badge und Fortsetzen-Aktion des
+geführten Wegs.
 Die Profil-Bindung (`profil_id`, `profil_name`, `fassung`, `vorgabe`) entsteht
 **nur beim Anlegen**; `PATCH` lässt sie unberührt — die gebundene Fassung ist
 unveränderliche Vorgabe. Herkunft (id/Name/Fassung) trägt der Index mit, damit

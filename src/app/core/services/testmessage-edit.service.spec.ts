@@ -11,7 +11,11 @@ import { ValidationReportService } from './validation-report.service';
 import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
 import { XsdDoc } from '../../models/xsd-index.model';
-import { TestmessageEntry, TestmessageInput } from '../../models/testmessage.model';
+import {
+  AuspBezeichnungen,
+  TestmessageEntry,
+  TestmessageInput,
+} from '../../models/testmessage.model';
 import { ProfileDoc } from '../../models/profile.model';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
@@ -21,6 +25,9 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
     <xs:element name="nachrichtenkopf" type="Type.Test.Kopf"/>
     <xs:element name="vorname" type="xs:string"/>
     <xs:element name="spitzname" type="xs:string" minOccurs="0"/>
+    <xs:element name="beteiligter" minOccurs="0" maxOccurs="unbounded"><xs:complexType><xs:sequence>
+      <xs:element name="rolle" type="xs:string"/>
+    </xs:sequence></xs:complexType></xs:element>
   </xs:sequence></xs:complexType>
   <xs:complexType name="Type.Test.Kopf"><xs:sequence>
     <xs:element name="erstellungszeitpunkt" type="xs:dateTime"/>
@@ -37,6 +44,8 @@ const INSTANCE = `<?xml version="1.0" encoding="UTF-8"?>
     <absender><eigeneNachrichtenID>ALT-ID-123</eigeneNachrichtenID></absender>
   </nachrichtenkopf>
   <vorname>Max</vorname>
+  <beteiligter><rolle>Antragsteller</rolle></beteiligter>
+  <beteiligter><rolle>Antragsgegner</rolle></beteiligter>
 </nachricht.test.0001>`;
 
 const M = 'nachricht.test.0001';
@@ -70,6 +79,8 @@ describe('TestmessageEditService', () => {
   let xmlAntwort: string | null;
   /** Antwort auf loadVorgabe (null = keine Profil-Bindung). */
   let vorgabeAntwort: ProfileDoc | null;
+  /** Antwort auf loadBezeichnungen (null = keine gespeicherten Namen). */
+  let bezAntwort: AuspBezeichnungen | null;
   /** ids, fuer die die Bindung geloest wurde. */
   let geloest: string[];
 
@@ -81,6 +92,7 @@ describe('TestmessageEditService', () => {
     agAktiv = false;
     xmlAntwort = INSTANCE;
     vorgabeAntwort = null;
+    bezAntwort = null;
     geloest = [];
     TestBed.configureTestingModule({
       providers: [
@@ -97,6 +109,7 @@ describe('TestmessageEditService', () => {
               patched.push({ id, patch });
             },
             loadVorgabe: async () => vorgabeAntwort,
+            loadBezeichnungen: async () => bezAntwort,
             loeseBindung: async (id: string) => {
               geloest.push(id);
             },
@@ -265,6 +278,68 @@ describe('TestmessageEditService', () => {
       expect(await svc.speichern()).toBeFalse();
       expect(confirmSpy).toHaveBeenCalled();
       expect(patched.length).toBe(0);
+    });
+  });
+
+  // Der Name eines Vorkommens hat im XJustiz-XML keine Entsprechung. Ohne die
+  // Ablage neben der Nachricht hiesse jedes Vorkommen nach dem Oeffnen wieder
+  // "Vorkommen N" — die Bezeichnungen des Bearbeiters waeren verloren.
+  describe('Bezeichnungen benannter Vorkommen', () => {
+    const LISTE = `${M}/beteiligter`;
+
+    it('Import benennt generisch, solange nichts gespeichert ist', async () => {
+      await svc.oeffnen(eintrag(), 'bearbeiten');
+      expect(state.auspsOf(LISTE)!.map((a) => a.name)).toEqual(['Vorkommen 1', 'Vorkommen 2']);
+    });
+
+    it('speichern legt die vergebenen Namen mit ab', async () => {
+      await svc.oeffnen(eintrag(), 'bearbeiten');
+      const [a1, a2] = state.auspsOf(LISTE)!;
+      state.renameAusp(LISTE, a1!.id, 'Kläger');
+      state.renameAusp(LISTE, a2!.id, 'Beklagter');
+
+      expect(await svc.speichern()).toBeTrue();
+      expect(patched[0]!.patch['bezeichnungen']).toEqual({ [LISTE]: ['Kläger', 'Beklagter'] });
+    });
+
+    it('oeffnen stellt die gespeicherten Namen wieder her', async () => {
+      bezAntwort = { [LISTE]: ['Kläger', 'Beklagter'] };
+      await svc.oeffnen(eintrag(), 'bearbeiten');
+      expect(state.auspsOf(LISTE)!.map((a) => a.name)).toEqual(['Kläger', 'Beklagter']);
+    });
+
+    it('Rundlauf: speichern, neu oeffnen — die Namen stehen wieder', async () => {
+      await svc.oeffnen(eintrag(), 'bearbeiten');
+      state.renameAusp(LISTE, state.auspsOf(LISTE)![0]!.id, 'Kläger');
+      await svc.speichern();
+
+      // Naechste Sitzung: XML und Bezeichnungen aus dem Speicher-Patch.
+      xmlAntwort = patched[0]!.patch['xml'] as string;
+      bezAntwort = patched[0]!.patch['bezeichnungen'] as AuspBezeichnungen;
+      await svc.oeffnen(eintrag(), 'bearbeiten');
+
+      expect(state.auspsOf(LISTE)!.map((a) => a.name)).toEqual(['Kläger', 'Vorkommen 2']);
+    });
+
+    it('fehlende Ablage laesst die generischen Namen stehen (Altbestand/Upload)', async () => {
+      bezAntwort = null;
+      await svc.oeffnen(eintrag(), 'bearbeiten');
+      expect(state.auspsOf(LISTE)!.map((a) => a.name)).toEqual(['Vorkommen 1', 'Vorkommen 2']);
+    });
+
+    it('ueberzaehlige Namen stoeren nicht (Vorkommen inzwischen geloescht)', async () => {
+      bezAntwort = { [LISTE]: ['Kläger', 'Beklagter', 'Streithelfer'] };
+      await svc.oeffnen(eintrag(), 'bearbeiten');
+      expect(state.auspsOf(LISTE)!.map((a) => a.name)).toEqual(['Kläger', 'Beklagter']);
+    });
+
+    it('alsNeueSpeichern nimmt die Namen mit in den neuen Eintrag', async () => {
+      await svc.oeffnen(eintrag(), 'bearbeiten');
+      state.renameAusp(LISTE, state.auspsOf(LISTE)![0]!.id, 'Kläger');
+      spyOn(window, 'prompt').and.returnValue('Kopie.xml');
+
+      expect(await svc.alsNeueSpeichern()).toBeTrue();
+      expect(created[0]!.bezeichnungen).toEqual({ [LISTE]: ['Kläger', 'Vorkommen 2'] });
     });
   });
 

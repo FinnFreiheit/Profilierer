@@ -688,6 +688,55 @@ label.menuItem:has(input:disabled) {
 .box.mini.sel {
   opacity: 1;
 }
+/* Belegte Angaben im Nachrichten-Modus (StateService.wertHervorhebung):
+   Blatt mit eigenem Testwert getönt und gerahmt, Container mit Zähler. Steht
+   bewusst NACH .leafBox/.parentBox — gleiche Spezifität, die spätere Regel
+   gewinnt. .sel bleibt darüber (eigener 2.5px-Rahmen in der Akzentfarbe). */
+.box.belegt {
+  background: #f0f9f2;
+}
+.box.belegt:not(.sel) {
+  border-color: #6fb98a;
+}
+.box.belegt:not(.sel):hover {
+  border-color: #4f9f6d;
+}
+.box.belegtSub:not(.belegt):not(.sel) {
+  border-color: #c3ddcb;
+}
+/* Der Haken gehört zum Namen und steht direkt dahinter; der Zähler ist ein
+   Badge und sitzt rechts. Im Mini-Kasten schiebt der Testwert (.mv, margin-left:
+   auto) beide nach rechts. */
+.wmark {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #1e7d3e;
+}
+.wsub {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  color: #2f7d51;
+  background: #e6f4ea;
+  border: 1px solid #c3ddcb;
+  border-radius: 999px;
+  padding: 2px 6px;
+}
+.mv + .wsub,
+.wmark + .wsub {
+  margin-left: 0;
+}
+/* Steht der Zähler davor, hat der schon rechtsbündig geschoben — sonst teilten
+   sich zwei `margin-left: auto` den freien Raum und das Badge rutschte in die
+   Mitte. */
+.wsub ~ .togBtn {
+  margin-left: 6px;
+}
 .bname {
   min-width: 0;
   overflow: hidden;
@@ -764,6 +813,23 @@ label.menuItem:has(input:disabled) {
   color: #c62828;
   font-size: 11.5px;
   margin-top: 3px;
+}
+/* Klartext hinter einem belegten Code — im Kasten (.vlabel) und im
+   Detailbereich (.wertLabel). Der Code bleibt im Feld stehen: er ist der Wert,
+   der in der Nachricht landet; der Klartext sagt nur, was er bedeutet. */
+.vlabel,
+.wertLabel {
+  color: var(--muted);
+  font-size: 11.5px;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vlabel::before,
+.wertLabel::before {
+  content: '↳ ';
+  color: #9aa7b4;
 }
 .box.excluded .vrow,
 .box.exclInherit .vrow {

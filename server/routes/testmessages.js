@@ -49,6 +49,15 @@ export function testmessagesRouter(db, auth) {
     res.json(stand);
   });
 
+  // Bezeichnungen der benannten Vorkommen (JSON) — Beiwerk zum XML, das die
+  // Nachricht selbst nicht tragen kann. Fehlen sie, greifen beim Oeffnen die
+  // generischen Namen aus dem Import; 404 ist daher der Normalfall.
+  r.get('/testmessages/:id/bezeichnungen', (req, res) => {
+    const bez = db.tmLoadBezeichnungen(req.params.id);
+    if (bez == null) return res.status(404).json({ error: 'keine Bezeichnungen' });
+    res.json(bez);
+  });
+
   // Eingefrorene Kopie der gebundenen Profilfassung (Vorgabe des Durchlaufs).
   r.get('/testmessages/:id/vorgabe', (req, res) => {
     const vorgabe = db.tmLoadVorgabe(req.params.id);
@@ -73,11 +82,13 @@ export function testmessagesRouter(db, auth) {
     res.status(201).json(db.tmCreate(b));
   });
 
-  // Felder ändern (Notiz/Name; gefuehrte Erstellung zusätzlich XML,
-  // Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand). Profil-Bindung und
-  // eingefrorene Kopie bleiben unberuehrt — sie entstehen nur beim Anlegen.
+  // Felder ändern (Notiz/Name; beim Bearbeiten zusätzlich XML,
+  // Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand, Bezeichnungen).
+  // Profil-Bindung und eingefrorene Kopie bleiben unberuehrt — sie entstehen
+  // nur beim Anlegen.
   r.patch('/testmessages/:id', schutz, (req, res) => {
-    const { notiz, name, xml, entwurf, fortschritt, entscheidungen } = req.body ?? {};
+    const { notiz, name, xml, entwurf, fortschritt, entscheidungen, bezeichnungen } =
+      req.body ?? {};
     if (xml !== undefined && (typeof xml !== 'string' || !xml.trim()))
       return res.status(400).json({ error: 'kein XML' });
     const entry = db.tmUpdate(req.params.id, {
@@ -87,6 +98,7 @@ export function testmessagesRouter(db, auth) {
       entwurf,
       fortschritt,
       entscheidungen,
+      bezeichnungen,
     });
     if (!entry) return res.status(404).json({ error: 'nicht gefunden' });
     res.json({ entry });

@@ -8,6 +8,8 @@
   [class.exclInherit]="v.exclInherit"
   [class.leafBox]="v.leafBox"
   [class.parentBox]="v.parentBox"
+  [class.belegt]="v.belegt"
+  [class.belegtSub]="!!v.belegtSub"
   [class.dfR]="v.dfR"
   [class.dfA]="v.dfA"
   [class.valErr]="v.valErr"
@@ -25,7 +27,19 @@
   <div class="bt">
     <span class="bname">{{ v.title }}</span>
     @if (v.mv; as mv) {
-      <span class="mv" [class.ghost]="mv.ghost">{{ mv.text }}</span>
+      <span class="mv" [class.ghost]="mv.ghost" [attr.title]="mv.title">{{ mv.text }}</span>
+    }
+    @if (v.belegt) {
+      <span class="wmark" title="Angabe ist belegt — der Wert steht in der Nachricht">✓</span>
+    }
+    @if (v.belegtSub; as n) {
+      <span
+        class="wsub"
+        [title]="
+          (n === 1 ? '1 belegte Angabe' : n + ' belegte Angaben') + ' in untergeordneten Elementen'
+        "
+        >{{ n }}</span
+      >
     }
     @if (hasNext()) {
       <button
@@ -67,6 +81,9 @@
         (keydown)="onValueKeydown($event)"
         (change)="onValue($event)"
       />
+      @if (vin.label; as lbl) {
+        <div class="vlabel" [title]="'Bedeutung des Codes ' + vin.value">{{ lbl }}</div>
+      }
     </div>
   }
 

@@ -147,6 +147,41 @@ test('tmLoadEntscheidungen: null ohne Stand (hochgeladene Nachricht)', () => {
   db.close();
 });
 
+test('Bezeichnungen: Roundtrip, ohne die Nachricht als gefuehrt zu markieren', () => {
+  const db = openDb(':memory:');
+  const bez = { 'nachricht.dabag.antrag.2900001/beteiligter': ['Kläger', 'Beklagter'] };
+  const { id, entry } = db.tmCreate(input({ bezeichnungen: bez }));
+  assert.deepEqual(db.tmLoadBezeichnungen(id), bez);
+  // Entscheidend: `gefuehrt` haengt am Entscheidungsstand, nicht hieran.
+  assert.equal(entry.gefuehrt, undefined);
+  assert.equal(db.tmList()[0].gefuehrt, undefined);
+  db.close();
+});
+
+test('tmUpdate: Bezeichnungen selektiv, leere Ablage raeumt auf', () => {
+  const db = openDb(':memory:');
+  const bez = { 'a/beteiligter': ['Kläger', 'Beklagter'] };
+  const { id } = db.tmCreate(input({ bezeichnungen: bez }));
+  // Nur XML ändern: die Namen bleiben stehen.
+  db.tmUpdate(id, { xml: '<neu/>' });
+  assert.deepEqual(db.tmLoadBezeichnungen(id), bez);
+  // Neuer Stand ersetzt den alten.
+  db.tmUpdate(id, { bezeichnungen: { 'a/beteiligter': ['Kläger'] } });
+  assert.deepEqual(db.tmLoadBezeichnungen(id), { 'a/beteiligter': ['Kläger'] });
+  // Letztes Vorkommen entfernt: kein verwaister Rest.
+  db.tmUpdate(id, { bezeichnungen: {} });
+  assert.equal(db.tmLoadBezeichnungen(id), null);
+  db.close();
+});
+
+test('tmLoadBezeichnungen: null ohne Ablage (Upload/Altbestand)', () => {
+  const db = openDb(':memory:');
+  const { id } = db.tmCreate(input());
+  assert.equal(db.tmLoadBezeichnungen(id), null);
+  assert.equal(db.tmLoadBezeichnungen('gibtsnicht'), null);
+  db.close();
+});
+
 test('Profil-Bindung: Herkunft im Index, eingefrorene Kopie separat lesbar', () => {
   const db = openDb(':memory:');
   const vorgabe = {

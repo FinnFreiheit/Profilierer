@@ -504,6 +504,43 @@ export class StateService {
     return set;
   });
 
+  // ── Belegte Angaben hervorheben (Nachrichten-Modus) ─────────────────
+
+  /**
+   * Vorfahren-Aggregat der belegten Angaben: Pfad -> Anzahl der Elemente mit
+   * eigenem Testwert **darunter** (der Pfad selbst zaehlt nicht mit). Muster
+   * `valAnc`/`HinweisStoreService.anc`, nur als computed — die Quelle ist
+   * `elemente`. Zaehlt an den Grenzen '/' und '@', ein Vorkommen-Kasten und
+   * sein Traegerknoten bekommen die Zahl also beide.
+   */
+  private readonly belegtAnc = computed<ReadonlyMap<string, number>>(() => {
+    const m = new Map<string, number>();
+    for (const [pfad, p] of Object.entries(this.elemente())) {
+      if (!p?.beispiel) continue;
+      for (const a of vorfahren(pfad)) m.set(a, (m.get(a) ?? 0) + 1);
+    }
+    return m;
+  });
+
+  /** Traegt der Pfad selbst einen Testwert? */
+  hatTestwert(pfad: string): boolean {
+    return !!this.elemente()[pfad]?.beispiel;
+  }
+
+  /** Belegte Angaben im Teilbaum unter `pfad` (0 = keine). */
+  belegtImAst(pfad: string): number {
+    return this.belegtAnc().get(pfad) ?? 0;
+  }
+
+  /**
+   * Sollen belegte Angaben im Baum hervorgehoben werden? Nur im
+   * Nachrichten-Modus — in der Profilierung ist der Beispielwert Beiwerk, nicht
+   * der Gegenstand der Arbeit. Und nur, solange nicht ohnehin auf Belegtes
+   * gefiltert wird: "nur Werte" zeigt bereits ausschliesslich belegte Aeste,
+   * jede zusaetzliche Einfaerbung waere dort Farbflut ohne Unterscheidungswert.
+   */
+  readonly wertHervorhebung = computed(() => this.msgMode() && !this.onlyValues());
+
   /** "nur Profil" blendet Ausgeschlossenes aus (renderBox Z.1211), "nur Werte" alles Wertlose. */
   boxHidden(path: string): boolean {
     if (this.onlyValues() && !this.valuePaths().has(path)) return true;

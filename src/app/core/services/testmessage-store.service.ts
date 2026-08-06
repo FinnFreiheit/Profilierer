@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import {
+  AuspBezeichnungen,
   GuidedMessageState,
   TestmessageEntry,
   TestmessageFortschritt,
@@ -17,6 +18,7 @@ export interface TestmessagePatch {
   entwurf?: boolean;
   fortschritt?: TestmessageFortschritt;
   entscheidungen?: GuidedMessageState;
+  bezeichnungen?: AuspBezeichnungen;
 }
 
 /**
@@ -91,6 +93,19 @@ export class TestmessageStoreService {
     if (!r.ok)
       throw new Error(`Testdaten-Backend: GET /testmessages/${id}/entscheidungen → ${r.status}`);
     return (await r.json()) as GuidedMessageState;
+  }
+
+  /**
+   * Bezeichnungen der benannten Vorkommen; 404 → null. Das ist der Normalfall
+   * (Upload, Altbestand, Nachricht ohne Vorkommen) — dann bleiben die
+   * generischen Namen aus dem Import stehen.
+   */
+  async loadBezeichnungen(id: string): Promise<AuspBezeichnungen | null> {
+    const r = await fetch(`${API_BASE}/testmessages/${encodeURIComponent(id)}/bezeichnungen`);
+    if (r.status === 404) return null;
+    if (!r.ok)
+      throw new Error(`Testdaten-Backend: GET /testmessages/${id}/bezeichnungen → ${r.status}`);
+    return (await r.json()) as AuspBezeichnungen;
   }
 
   /**

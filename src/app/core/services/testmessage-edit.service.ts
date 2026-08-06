@@ -17,6 +17,7 @@ import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
 import { SitzungsAbgleichService } from './konformitaet.service';
 import { speicherUrteil } from '../util/speicher-urteil';
+import { bezeichnungenAnwenden, bezeichnungenAus } from '../util/ausp-bezeichnung.util';
 import { ReportEintrag } from '../../models/validation.model';
 
 /**
@@ -74,6 +75,14 @@ export class TestmessageEditService {
       this.state.setVorgabe(vorgabe);
       this.state.guided.set(true);
     }
+
+    // Vergebene Namen der Vorkommen zurueckholen. Erst hier, nach `setVorgabe`:
+    // mit Bindung liefert `alleAuspListen` die Sicht der gebundenen Fassung —
+    // dieselbe Grundlage, aus der `speichern` die Namen wieder einsammelt.
+    const bez = await this.store.loadBezeichnungen(entry.id).catch(() => null);
+    if (bez)
+      for (const u of bezeichnungenAnwenden(this.state.alleAuspListen(), bez))
+        this.state.renameAusp(u.pfad, u.id, u.name);
 
     // Immer explizit setzen, also auch loesen: der Schutz haengt an der zuletzt
     // geoeffneten Nachricht, nicht an einem Profil (activeProfileId ist null).
@@ -140,8 +149,13 @@ export class TestmessageEditService {
 
     const urteil = speicherUrteil({ verstoesse, schemaEintraege });
     // entwurf immer mitsenden: eine reparierte Nachricht verliert so ihr
-    // Entwurfs-Kennzeichen wieder.
-    await this.store.updateMeta(session.entryId, { xml, entwurf: urteil.entwurf });
+    // Entwurfs-Kennzeichen wieder. bezeichnungen ebenso — sonst ueberlebte ein
+    // geloeschtes Vorkommen als verwaister Name den naechsten Speichervorgang.
+    await this.store.updateMeta(session.entryId, {
+      xml,
+      entwurf: urteil.entwurf,
+      bezeichnungen: bezeichnungenAus(this.state.alleAuspListen()),
+    });
     const m = urteil.meldung;
     if (m) {
       this.toast.show(m.toast);
@@ -205,7 +219,10 @@ export class TestmessageEditService {
       );
       return false;
     }
-    await this.store.create(testmessageInput(name, xml, meta));
+    await this.store.create({
+      ...testmessageInput(name, xml, meta),
+      bezeichnungen: bezeichnungenAus(this.state.alleAuspListen()),
+    });
     this.toast.show('Als neue Testnachricht gespeichert.');
     this.state.view.set('testdaten');
     return true;

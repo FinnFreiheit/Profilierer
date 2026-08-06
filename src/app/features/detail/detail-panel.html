@@ -685,6 +685,11 @@
                     }
                   </div>
                 }
+                @if (v.beispielLabel; as lbl) {
+                  <div class="wertLabel" [title]="'Bedeutung des Codes ' + v.beispiel">
+                    {{ lbl }}
+                  </div>
+                }
                 @if (v.beispielProblem) {
                   <div class="feldProblem">{{ v.beispielProblem }}</div>
                 }
