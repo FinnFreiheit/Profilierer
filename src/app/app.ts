@@ -36,6 +36,7 @@ import { ValidationDialog } from './features/dialogs/validation-dialog';
 import { ProfilDiffDialog } from './features/dialogs/profil-diff-dialog';
 import { XmlDiffDialog } from './features/dialogs/xml-diff-dialog';
 import { VergleichService } from './core/services/vergleich.service';
+import { TeilenService } from './core/services/teilen.service';
 import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
 
 /**
@@ -96,6 +97,7 @@ export class App implements OnInit {
   private readonly logger = inject(LoggerService);
   private readonly download = inject(DownloadService);
   private readonly vergleich = inject(VergleichService);
+  private readonly teilen = inject(TeilenService);
 
   protected readonly hasRoot = this.state.hasRoot;
   /** Dashboard (Bibliothek) vs. Baum-Editor. */
@@ -123,11 +125,18 @@ export class App implements OnInit {
    * Standardversion (3.6.2) automatisch aktivieren — kein XSD-Ordner-Upload
    * mehr noetig. Ist bereits ein Schema geladen (z. B. durch einen sehr
    * frueh geladenen Autosave), wird nicht ueberschrieben.
+   *
+   * Danach ein etwaiger Teilen-Link (`?profil=<id>`): erst nach dem Schema,
+   * damit `openFromLibrary` die Nachricht sofort aufbauen kann (eine
+   * abweichende XJustiz-Version des Profils laedt es selbst nach).
    */
   async ngOnInit(): Promise<void> {
     // Einmalige Migration der frueher im localStorage gehaltenen Profil-Bibliothek
     // ins DB-Backend (idempotent, nur bei leerem Backend).
     await this.migration.runOnce();
+    // Vor dem Schema-Laden auslesen: der Parameter soll auch dann aus der
+    // Adresszeile verschwinden, wenn das Manifest scheitert.
+    const geteiltesProfil = this.teilen.startProfilId();
     try {
       const versions = await this.bundled.manifest();
       this.state.bundledVersions.set(versions);
@@ -141,6 +150,13 @@ export class App implements OnInit {
           (e instanceof Error ? e.message : e),
       );
     }
+    if (geteiltesProfil) await this.persistence.openFromLibrary(geteiltesProfil);
+  }
+
+  /** „Link zum Teilen kopieren" aus der Objektleiste (offene Profilierung). */
+  protected teileAktivesProfil(): void {
+    const id = this.state.activeProfileId();
+    if (id) void this.teilen.kopiereProfilLink(id);
   }
 
   /**
