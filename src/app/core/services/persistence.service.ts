@@ -9,6 +9,7 @@ import { LoggerService } from './logger.service';
 import { ProfileStoreService } from './profile-store.service';
 import { DownloadService } from './download.service';
 import { BundledSchemaService } from './bundled-schema.service';
+import { BundledVersion } from '../../models/schema-bundle.model';
 import { RolleService } from './rolle.service';
 import { HinweisStoreService } from './hinweis-store.service';
 import { GuidedService } from './guided.service';
@@ -218,6 +219,25 @@ export class PersistenceService {
       }
     }
     return docs.length;
+  }
+
+  /**
+   * Ein Schema-Paket (hinterlegt oder von xjustiz.de) als Datenbasis setzen —
+   * der gemeinsame Weg fuer Versions-Umschalter, Versions-Angleich beim
+   * Profil-Oeffnen und Testnachrichten.
+   *
+   * Die **Paketversion ist fuehrend** gegenueber der aus dem Grunddatensatz
+   * gelesenen: seit 4.1.0 liefert xjustiz.de Pakete, in denen
+   * `xjustiz_0000_grunddatensatz_4_0.xsd` unveraendert `version="4.0.0"`
+   * traegt (gestiegen sind nur Fachmodule, z. B. straf_4_1). Ohne diese
+   * Korrektur hiesse die aktive Datenbasis ueberall 4.0.0 — im Umschalter, im
+   * Profil-Meta (`xjustizVersion`) und damit beim spaeteren Oeffnen.
+   */
+  async loadBundle(v: BundledVersion): Promise<number> {
+    const n = await this.loadXsdFiles(await this.bundled.files(v));
+    if (v.id) this.state.version.set(v.id);
+    this.state.activeBundle.set(v.dir);
+    return n;
   }
 
   /**
@@ -434,8 +454,7 @@ export class PersistenceService {
       const bundle = versions.find((v) => v.id === ver);
       if (bundle) {
         try {
-          await this.loadXsdFiles(await this.bundled.files(bundle));
-          this.state.activeBundle.set(bundle.dir);
+          await this.loadBundle(bundle);
           this.toast.show(`XJustiz ${bundle.label} geladen (Version des Profils).`);
         } catch {
           // Bundle nicht ladbar: mit dem aktuellen Index fortfahren (Hinweis unten).

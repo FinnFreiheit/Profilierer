@@ -18,6 +18,18 @@ const CORS_PROXIES: Array<(u: string) => string> = [
   (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
 ];
 
+/** Ergebnis des Seiten-Parsers. */
+export interface Versionsseite {
+  /** Vollstaendige XSD-Pakete, neueste zuerst. */
+  versionen: BundledVersion[];
+  /**
+   * Versionen, zu denen die Seite (nur) eine **Nachlieferung** anbietet —
+   * ein Teilpaket mit den geaenderten Fachmodulen, kein Ersatz fuer das
+   * vollstaendige Schema. Wird nicht geladen, sondern gemeldet.
+   */
+  nachlieferungen: string[];
+}
+
 /**
  * Laedt XJustiz-Schemaversionen direkt von xjustiz.de — analog zum
  * Codelisten-Abruf aus dem XRepository (CodelistService). Zweck: den jeweils
@@ -34,7 +46,7 @@ export class RemoteSchemaService {
   private readonly log = inject(LoggerService);
 
   /** Versionsliste der letzten Abfrage (pro Sitzung, per `versionen(true)` verworfen). */
-  private listeCache: Promise<BundledVersion[]> | null = null;
+  private listeCache: Promise<Versionsseite> | null = null;
   /** Entpackte ZIPs je Pfad — Dateiinhalte, aus denen `File`-Objekte erzeugt werden. */
   private readonly zipCache = new Map<string, Promise<{ name: string; text: string }[]>>();
 
@@ -42,7 +54,7 @@ export class RemoteSchemaService {
    * Verfuegbare Versionen von der Uebersichtsseite. `neu = true` verwirft den
    * Sitzungs-Cache (Aktualisieren nach einer Nachlieferung).
    */
-  versionen(neu = false): Promise<BundledVersion[]> {
+  versionen(neu = false): Promise<Versionsseite> {
     if (neu) {
       this.listeCache = null;
       this.zipCache.clear();
@@ -56,12 +68,12 @@ export class RemoteSchemaService {
     return this.listeCache;
   }
 
-  private async holeVersionen(): Promise<BundledVersion[]> {
+  private async holeVersionen(): Promise<Versionsseite> {
     const resp = await this.hole(VERSIONSSEITE);
-    const versionen = this.parseVersionsseite(await resp.text());
-    if (!versionen.length)
+    const seite = this.parseVersionsseite(await resp.text());
+    if (!seite.versionen.length)
       throw new Error('Auf der Versionsseite von xjustiz.de wurden keine Schema-ZIPs gefunden');
-    return versionen;
+    return seite;
   }
 
   /**
@@ -69,10 +81,16 @@ export class RemoteSchemaService {
    * ueber ein Muster statt fester URLs: die Dateinamen sind uneinheitlich
    * (`XJustiz_3_6_2_XSD.zip` vs. `XJustiz-4_0_0-XSD.zip`). Schematron-Pakete
    * (`..._SCH.zip`, `...-Schematron.zip`) werden ausgeschlossen.
+   *
+   * **Nachlieferungen** (`XJustiz_3_6_2_Nachlieferung:ZVSTR_08_2026_XSD.zip`)
+   * zaehlen nicht als Version: sie enthalten nur die geaenderten Fachmodule
+   * und wuerden, als Paket geladen, das vollstaendige Schema derselben Version
+   * durch ein Bruchstueck ersetzen. Sie werden getrennt gemeldet.
    */
-  parseVersionsseite(html: string): BundledVersion[] {
+  parseVersionsseite(html: string): Versionsseite {
     const dom = new DOMParser().parseFromString(html, 'text/html');
     const gefunden = new Map<string, BundledVersion>();
+    const nachlieferungen = new Set<string>();
     for (const a of Array.from(dom.querySelectorAll('a[href]'))) {
       const href = a.getAttribute('href') || '';
       if (!/\.zip($|\?)/i.test(href)) continue;
@@ -82,6 +100,10 @@ export class RemoteSchemaService {
       const m = datei.match(/(\d+)[._-](\d+)(?:[._-](\d+))?/);
       if (!m) continue;
       const version = [m[1], m[2], m[3] ?? '0'].join('.');
+      if (/nachlieferung/i.test(datei)) {
+        nachlieferungen.add(version);
+        continue;
+      }
       if (gefunden.has(version)) continue;
       gefunden.set(version, {
         id: version,
@@ -92,10 +114,15 @@ export class RemoteSchemaService {
         hinweis: (a.textContent ?? '').trim() || datei,
       });
     }
-    // Neueste Version zuerst.
-    return Array.from(gefunden.values()).sort((a, b) =>
-      b.id.localeCompare(a.id, undefined, { numeric: true }),
-    );
+    return {
+      // Neueste Version zuerst.
+      versionen: Array.from(gefunden.values()).sort((a, b) =>
+        b.id.localeCompare(a.id, undefined, { numeric: true }),
+      ),
+      nachlieferungen: Array.from(nachlieferungen).sort((a, b) =>
+        b.localeCompare(a, undefined, { numeric: true }),
+      ),
+    };
   }
 
   /** Relative Links der Versionsseite (`../system/zip/…`) auf einen Serverpfad bringen. */

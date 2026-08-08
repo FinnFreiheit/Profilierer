@@ -89,7 +89,7 @@ export class DiffDialog {
   protected async pickBundled(v: BundledVersion): Promise<void> {
     try {
       const files = await this.bundled.files(v);
-      const ok = await this.diff.loadXsdB(files);
+      const ok = await this.diff.loadXsdB(files, v.id);
       if (ok) this.open();
     } catch (e) {
       this.toast.show(

@@ -116,8 +116,14 @@ export class DiffService {
     this.state.diffAnc.set(anc);
   }
 
-  /** loadXsdB (Z.2313-2331): Vergleichs-Schemaordner laden und Diff aktivieren. */
-  async loadXsdB(files: FileList | File[]): Promise<boolean> {
+  /**
+   * loadXsdB (Z.2313-2331): Vergleichs-Schemaordner laden und Diff aktivieren.
+   * `version` benennt das gewaehlte Paket und geht der aus dem Grunddatensatz
+   * gelesenen Version vor (dieselbe Korrektur wie in
+   * `PersistenceService.loadBundle` — 4.1.0 traegt dort noch 4.0.0). Beim
+   * Fremdordner-Upload bleibt es bei der gelesenen Version.
+   */
+  async loadXsdB(files: FileList | File[], version?: string): Promise<boolean> {
     const xsds = Array.from(files).filter((f) => f.name.toLowerCase().endsWith('.xsd'));
     if (!xsds.length) {
       this.toast.show('Keine .xsd-Dateien im gewählten Ordner gefunden.');
@@ -130,6 +136,7 @@ export class DiffService {
       if (!dom.getElementsByTagName('parsererror').length) docs.push({ file: f.name, dom });
     }
     const { idx } = this.parser.buildIndexFrom(docs);
+    if (version) idx.version = version;
     this.state.idxB.set(idx);
     this.state.showDiff.set(true);
     this.computeDiffMap();

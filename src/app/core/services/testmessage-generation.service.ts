@@ -68,9 +68,7 @@ export class TestmessageGenerationService {
     if (!version || this.state.version() === version) return;
     const v = this.state.bundledVersions().find((x) => x.id === version);
     if (!v) return;
-    const files = await this.bundled.files(v);
-    await this.persistence.loadXsdFiles(files);
-    this.state.activeBundle.set(v.dir);
+    await this.persistence.loadBundle(v);
   }
 
   private snapshot(): EditorStand {

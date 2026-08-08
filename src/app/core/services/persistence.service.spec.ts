@@ -42,6 +42,46 @@ describe('PersistenceService.loadXsdFiles', () => {
   });
 });
 
+describe('PersistenceService.loadBundle', () => {
+  // Das 4.1.0-Paket von xjustiz.de: der Grunddatensatz traegt unveraendert
+  // version="4.0.0" (nur Fachmodule sind gestiegen). Ohne Vorrang der
+  // Paketversion hiesse die aktive Datenbasis 4.0.0.
+  const BUNDLE_410 = { id: '4.1.0', label: '4.1.0', dir: 'xjustiz.de/4.1.0', files: [] };
+
+  const setup = (): { svc: PersistenceService; state: StateService } => {
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: BundledSchemaService,
+          useValue: {
+            files: async () => [
+              new File([XSD_GDS_400], 'xjustiz_0000_grunddatensatz_4_0.xsd', {
+                type: 'application/xml',
+              }),
+            ],
+          },
+        },
+      ],
+    });
+    return { svc: TestBed.inject(PersistenceService), state: TestBed.inject(StateService) };
+  };
+
+  const XSD_GDS_400 = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="4.0.0">
+  <xs:element name="nachricht.test.0001" type="Type.Test.Root"/>
+  <xs:complexType name="Type.Test.Root"><xs:sequence>
+    <xs:element name="datum" type="xs:date"/>
+  </xs:sequence></xs:complexType>
+</xs:schema>`;
+
+  it('setzt die Paketversion, nicht die aus dem Grunddatensatz gelesene', async () => {
+    const { svc, state } = setup();
+    await svc.loadBundle(BUNDLE_410);
+    expect(state.version()).toBe('4.1.0');
+    expect(state.activeBundle()).toBe('xjustiz.de/4.1.0');
+  });
+});
+
 describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
   const XSD_400 = `<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="4.0.0">

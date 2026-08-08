@@ -155,14 +155,12 @@ export class App implements OnInit {
     const quelle = v.zipUrl ? ' von xjustiz.de' : '';
     try {
       if (v.zipUrl) this.toast.show(`Lade XJustiz ${v.label} von xjustiz.de…`);
-      const files = await this.bundled.files(v);
-      await this.persistence.loadXsdFiles(files);
-      this.state.activeBundle.set(dir);
+      const n = await this.persistence.loadBundle(v);
       if (prevMsg) {
         if (this.state.idx()?.el[prevMsg]) this.nav.loadMessage(prevMsg, true);
         else this.toast.show(`Nachricht ${prevMsg} ist in XJustiz ${v.label} nicht enthalten.`);
       }
-      this.toast.show(`XJustiz ${v.label}${quelle} geladen (${files.length} Schemata).`);
+      this.toast.show(`XJustiz ${v.label}${quelle} geladen (${n} Schemata).`);
     } catch (e) {
       this.toast.show(
         `XJustiz ${v.label}${quelle} konnte nicht geladen werden: ` +
@@ -177,14 +175,19 @@ export class App implements OnInit {
    * Eintraege gleicher Versionsnummer — keine Doppelauswahl im Umschalter,
    * xjustiz.de ist die fuehrende Quelle. Nur dort neu erschienene Versionen
    * kommen hinzu. Der Abruf ist bewusst manuell; ein erneuter Aufruf verwirft
-   * den Sitzungs-Cache und holt den aktuellen Stand, womit auch
-   * Nachlieferungen an einer bestehenden Version (z. B. 3.6.2) ankommen.
-   * Die gerade aktive Version wird direkt neu geladen.
+   * den Sitzungs-Cache und holt den aktuellen Stand — so kommt auch eine neu
+   * veroeffentlichte Voll-ZIP einer bestehenden Version an. Die gerade aktive
+   * Version wird direkt neu geladen.
+   *
+   * **Nachlieferungen** (Teilpakete zu einer Version) werden nur gemeldet:
+   * sie enthalten allein die geaenderten Fachmodule und wuerden das
+   * vollstaendige Schema durch ein Bruchstueck ersetzen — das Einspielen bleibt
+   * ein bewusster Schritt ueber „Eigener XSD-Ordner…".
    */
   async loadRemoteVersions(): Promise<void> {
     this.toast.show('Rufe die Schema-Versionen von xjustiz.de ab…');
     try {
-      const remote = await this.remoteSchemas.versionen(true);
+      const { versionen: remote, nachlieferungen } = await this.remoteSchemas.versionen(true);
       const nachId = new Map(remote.map((r) => [r.id, r]));
       const bisher = this.state.bundledVersions();
       // Hinterlegte Eintraege an Ort und Stelle ersetzen (dir/label/default
@@ -204,6 +207,12 @@ export class App implements OnInit {
         `Schemata von xjustiz.de übernommen: ${remote.map((v) => v.label).join(', ')}` +
           (neu.length ? ` (davon neu: ${neu.map((v) => v.label).join(', ')})` : ''),
       );
+      if (nachlieferungen.length)
+        this.toast.show(
+          `Hinweis: zu XJustiz ${nachlieferungen.join(', ')} liegt auf xjustiz.de eine ` +
+            'Nachlieferung (Teilpaket). Sie ersetzt das Schema nicht und wird nicht geladen — ' +
+            'bei Bedarf über „Eigener XSD-Ordner…" einspielen.',
+        );
       // Aktive Version stammt jetzt aus einer anderen Quelle — neu einlesen,
       // sonst zeigt der Umschalter den neuen Stand, der Baum aber den alten.
       if (aktivErsetzt) await this.loadBundled(aktivErsetzt.dir);
