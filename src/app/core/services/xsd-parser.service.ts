@@ -1,7 +1,13 @@
 import { Injectable } from '@angular/core';
 import { CodelistInfo, EnumWert } from '../../models/codelist.model';
 import { TreeNode } from '../../models/node.model';
-import { MessageRef, ParticleModel, XsdDoc, XsdIndex } from '../../models/xsd-index.model';
+import {
+  MessageRef,
+  ParticleModel,
+  XsdAttribut,
+  XsdDoc,
+  XsdIndex,
+} from '../../models/xsd-index.model';
 import { XS, appinfoOf, docOf, kid, kids, local } from '../util/xml.util';
 
 /**
@@ -123,6 +129,61 @@ export class XsdParserService {
       return this.enumsOfST(bst, idx, seen);
     }
     return null;
+  }
+
+  /**
+   * Alle Attribute eines Knotens aus seinem complexType — die eigenen und die
+   * ueber eine `complexContent`/`simpleContent`-`extension` geerbten. Beim
+   * ersten Vorkommen eines Namens bleibt es: eine `restriction` wiederholt die
+   * Attribute ihrer Basis, sie darf sie nicht doppelt liefern.
+   *
+   * Die XJustiz-Schemata kennen weder `attributeGroup` noch `xs:attribute ref=`
+   * noch `anyAttribute` (in 3.6.2 wie 4.0.0 geprueft) — der direkte Durchlauf
+   * ueber die Deklarationen reicht daher aus.
+   *
+   * Eine Quelle fuer beide Konsumenten: die Baumansicht zeigt die Attribute an,
+   * der Beispiel-XML-Generator schreibt die Pflicht-Attribute daraus.
+   */
+  attributeOf(n: Pick<TreeNode, 'typeName' | 'xsdEl'>, idx: XsdIndex): XsdAttribut[] {
+    let ct: Element | null =
+      (n.typeName ? idx.ct[n.typeName] : null) ?? (n.xsdEl ? kid(n.xsdEl, 'complexType') : null);
+    const out: XsdAttribut[] = [];
+    const namen = new Set<string>();
+    const basen = new Set<string>();
+    while (ct) {
+      const holders: Element[] = [ct];
+      let base: Element | null = null;
+      const content = kid(ct, 'complexContent') || kid(ct, 'simpleContent');
+      if (content) {
+        const ext = kid(content, 'extension');
+        const h = ext || kid(content, 'restriction');
+        if (h) {
+          holders.push(h);
+          const b = local(h.getAttribute('base'));
+          // Nur bei extension erben Attribute der Basis; restriction wiederholt sie.
+          if (ext && b && idx.ct[b] && !basen.has(b)) {
+            basen.add(b);
+            base = idx.ct[b]!;
+          }
+        }
+      }
+      for (const holder of holders) {
+        for (const a of kids(holder, 'attribute')) {
+          const name = a.getAttribute('name');
+          if (!name || namen.has(name)) continue;
+          namen.add(name);
+          out.push({
+            name,
+            typ: local(a.getAttribute('type')),
+            pflicht: a.getAttribute('use') === 'required',
+            fixed: a.getAttribute('fixed'),
+            doc: docOf(a),
+          });
+        }
+      }
+      ct = base;
+    }
+    return out;
   }
 
   /** codelistOf (Z.435-457): Codelisten-Info aus einem Code.*-Typ. */

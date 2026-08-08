@@ -91,6 +91,21 @@
     <div class="tech">{{ v.techText }}</div>
   }
 
+  @if (attribute(); as attrs) {
+    @if (attrs.length) {
+      <div class="attrs" title="XSD-Attribute dieses Elements">
+        @for (a of attrs; track a.name) {
+          <span class="attr" [class.attrPflicht]="a.pflicht" [title]="a.title">
+            <span class="attrName">{{ a.name }}</span>
+            @if (a.wert) {
+              <span class="attrWert">{{ a.wert }}</span>
+            }
+          </span>
+        }
+      </div>
+    }
+  }
+
   <div class="kard" [style.color]="v.kardColor">
     {{ v.statusName ? v.statusName + ' · ' : '' }}{{ v.kardText }}
     @if (v.standardHint; as sh) {

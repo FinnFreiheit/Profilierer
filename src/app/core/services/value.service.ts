@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { CodelistInfo, EnumWert } from '../../models/codelist.model';
+import { XsdAttribut } from '../../models/xsd-index.model';
 import { kid, kids, local } from '../util/xml.util';
+import { pflichtAttrWert } from '../util/xsd-attribut.util';
 import { compileXsdPattern, konformerBeispielwert } from '../util/pattern-sample.util';
 import { letztesVorkommenPfad } from '../util/pfad.util';
 import { StateService } from './state.service';
@@ -362,6 +364,35 @@ export class ValueService {
     if (cl.version) return cl.version;
     const x = this.state.codelists()[cl.kennung];
     return x ? (x.version ?? null) : null;
+  }
+
+  /**
+   * Der Wert eines XSD-Attributs in der erzeugten Nachricht — **eine Wahrheit**
+   * fuer Generator und Baumanzeige.
+   *
+   * Reihenfolge: der vom Schema erzwungene `fixed`-Wert bzw. die Schemaversion
+   * (`pflichtAttrWert`), sonst — nur bei `use="required"` — ein typkonformer
+   * Platzhalter. Der Platzhalter ist kein Raten aus Bequemlichkeit: Attribute
+   * sind im Baum nicht erfassbar, ein Pflicht-Attribut ohne Wert macht die
+   * Nachricht also **dauerhaft** schema-invalide (z. B. `id` an den
+   * DABAG-Grundbuchobjekten, `listURI`/`listVersionID` an Code.*.Typ4). Ein
+   * fachlich zu pruefender Platzhalter ist dieselbe Zusage, die Blaetter im
+   * Beispiel-XML ohnehin tragen.
+   *
+   * Optionale Attribute bleiben leer — dort ist Weglassen die richtige Aussage.
+   */
+  attributWert(a: XsdAttribut, n: Pick<PlaceholderNode, 'path'>): string | null {
+    const fest = pflichtAttrWert(a, this.state.version());
+    if (fest != null) return fest;
+    if (!a.pflicht) return null;
+    return this.dummyFor({
+      name: a.name,
+      // Eigener Pfad-Zweig: `elemente[...]` fuehrt Blattwerte, keine Attribute —
+      // ohne ihn erbte das Attribut den Beispielwert seines Elements.
+      path: `${n.path}/@${a.name}`,
+      typeName: a.typ,
+      codelist: null,
+    });
   }
 
   /** placeholderFor (Z.2001-2040): Beispielwert bzw. typgerechter Platzhalter. */

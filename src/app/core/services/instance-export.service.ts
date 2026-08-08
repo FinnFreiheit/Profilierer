@@ -5,6 +5,7 @@ import { MessageEditSession } from '../../models/testmessage.model';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { ValueService } from './value.service';
+import { XsdParserService } from './xsd-parser.service';
 import { byName, esc, leafValue } from '../util/xml.util';
 
 /** Durchgereichter Einfüge-Cursor: das zuletzt in Schema-Reihenfolge platzierte
@@ -31,6 +32,7 @@ export class InstanceExportService {
   private readonly state = inject(StateService);
   private readonly tree = inject(TreeService);
   private readonly values = inject(ValueService);
+  private readonly parser = inject(XsdParserService);
 
   /** Ziel-Dokument (Klon der Quelle) sowie Präfix/Namespace für neue Elemente. */
   private outDoc!: Document;
@@ -234,6 +236,7 @@ export class InstanceExportService {
   /** Erzeugt ein DOM-Element für `node` inkl. Pflicht-/belegter Kinder. */
   private generate(node: TreeNode, depth: number): Element {
     const el = this.createEl(node.name);
+    this.setzePflichtAttribute(node, el);
     if (this.tree.isLeaf(node)) {
       const v = this.values.placeholderFor({
         name: node.name,
@@ -258,6 +261,24 @@ export class InstanceExportService {
     const cursor: Cursor = { last: null };
     this.generateChildren(node, el, cursor, depth);
     return el;
+  }
+
+  /**
+   * Pflicht-Attribute (`use="required"`) eines neu erzeugten Elements setzen —
+   * dieselbe Quelle wie im Beispiel-XML (`ValueService.attributWert`). Ohne sie
+   * bliebe die ergänzte Angabe schema-invalide; Attribute aus der Quelle bleiben
+   * unberührt, hier entsteht das Element ja gerade erst.
+   */
+  private setzePflichtAttribute(node: TreeNode, el: Element): void {
+    const idx = this.state.idx();
+    if (!idx) return;
+    for (const a of this.parser.attributeOf(node, idx)) {
+      if (!a.pflicht) continue;
+      // Codelisten-Attribute setzt der Blatt-Zweig aus den Codelisten-Angaben.
+      if (node.codelist && (a.name === 'listURI' || a.name === 'listVersionID')) continue;
+      const wert = this.values.attributWert(a, node);
+      if (wert != null) el.setAttribute(a.name, wert);
+    }
   }
 
   private generateChildren(node: TreeNode, el: Element, cursor: Cursor, depth: number): void {

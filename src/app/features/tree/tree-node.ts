@@ -145,6 +145,50 @@ export class TreeNode {
     return out;
   });
 
+  /**
+   * Die XSD-Attribute des Knotens als Anzeigezeile. Attribute sind kein Teil
+   * des Element-Baums (`TreeNode` entsteht ausschliesslich aus `xs:element`) —
+   * sie gehoeren zum Kasten ihres Elements und stehen deshalb *in* ihm, nicht
+   * als eigene Kaesten darunter. Das traegt auch fuer Blaetter, die gar keinen
+   * aufklappbaren Unterbau haben (Code.*-Elemente mit listURI/listVersionID).
+   *
+   * Am Container eines Elements mit Vorkommen bleibt die Zeile weg: dort
+   * stehen die Attribute an den Vorkommen selbst, sonst staende dasselbe
+   * Attribut n+1 Mal untereinander.
+   */
+  protected readonly attribute = computed<
+    { name: string; pflicht: boolean; wert: string | null; title: string }[]
+  >(() => {
+    const idx = this.state.idx();
+    const it = this.item();
+    if (!idx) return [];
+    if (it.kind === 'el' && this.tree.vorkommenKinder(it.node)) return [];
+    const n = this.node();
+    return this.parser.attributeOf(n, idx).map((a) => {
+      // Codelisten-Attribute schreibt der Generator aus den Codelisten-Angaben,
+      // nicht aus `fixed` (die hinterlegte Fassung kann neuer sein) — der Baum
+      // zeigt denselben Wert, den die Nachricht bekaeme.
+      const clWert =
+        n.codelist && a.name === 'listURI'
+          ? n.codelist.kennung || null
+          : n.codelist && a.name === 'listVersionID'
+            ? this.values.clVersion(n.codelist)
+            : null;
+      const wert = clWert ?? this.values.attributWert(a, n);
+      // Der Wert gehoert in den Titel: die Zeile kuerzt lange Codelisten-
+      // Kennungen ab, sonst waere er nirgends vollstaendig zu lesen.
+      const teile = [
+        `Attribut ${a.name}`,
+        wert ? `Wert: ${wert}` : null,
+        a.typ ? `Typ: ${a.typ}` : null,
+        a.pflicht ? 'Pflicht' : 'optional',
+        a.fixed != null ? `fester Wert: ${a.fixed}` : null,
+        a.doc || null,
+      ].filter(Boolean);
+      return { name: a.name, pflicht: a.pflicht, wert, title: teile.join(' · ') };
+    });
+  });
+
   /** Das komplette Anzeige-Viewmodel des Kastens (renderBox). */
   protected readonly vm = computed(() => {
     const it = this.item();
