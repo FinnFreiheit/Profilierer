@@ -26,6 +26,17 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
+  <xs:complexType name="Type.Test.MitAttr">
+    <xs:sequence><xs:element name="name" type="xs:string"/></xs:sequence>
+    <xs:attribute name="id" type="xs:token" use="required"/>
+    <xs:attribute name="note" type="xs:string" use="optional" fixed="fix"/>
+  </xs:complexType>
+  <xs:complexType name="Type.Test.Eng">
+    <xs:complexContent><xs:restriction base="Type.Test.MitAttr">
+      <xs:sequence><xs:element name="name" type="xs:string"/></xs:sequence>
+      <xs:attribute name="id" type="xs:token" use="required"/>
+    </xs:restriction></xs:complexContent>
+  </xs:complexType>
   <xs:complexType name="Code.Test">
     <xs:annotation><xs:appinfo>
       <codeliste><nameLang>Testliste</nameLang><kennung>urn:test:cl</kennung><beschreibung>desc</beschreibung></codeliste>
@@ -123,6 +134,24 @@ describe('XsdParserService', () => {
 
   it('codelistOf ignoriert Nicht-Code-Typen', () => {
     expect(parser.codelistOf('Type.Test.Bet', idx)).toBeNull();
+  });
+
+  it('attributeOf liefert Name, Typ, Verbindlichkeit und festen Wert', () => {
+    expect(parser.attributeOf(node('Type.Test.MitAttr'), idx)).toEqual([
+      { name: 'id', typ: 'token', pflicht: true, fixed: null, doc: '' },
+      { name: 'note', typ: 'string', pflicht: false, fixed: 'fix', doc: '' },
+    ]);
+  });
+
+  // Eine restriction wiederholt die Attribute ihrer Basis — sie duerfen nicht
+  // doppelt erscheinen und die Basis wird nicht zusaetzlich abgelaufen.
+  it('attributeOf verdoppelt die Attribute einer restriction nicht', () => {
+    expect(parser.attributeOf(node('Type.Test.Eng'), idx).map((a) => a.name)).toEqual(['id']);
+  });
+
+  it('attributeOf ohne complexType liefert nichts', () => {
+    expect(parser.attributeOf(node('Test.CodeVals'), idx)).toEqual([]);
+    expect(parser.attributeOf(node(null), idx)).toEqual([]);
   });
 
   it('valueKind bildet Basistypen ab', () => {

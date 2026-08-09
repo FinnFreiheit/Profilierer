@@ -147,6 +147,15 @@
       >
         Nachricht laden…
       </button>
+      @if (state.activeProfileId()) {
+        <button
+          class="menuItem"
+          title="Link in die Zwischenablage legen — er öffnet diese Profilierung direkt (aktueller Stand)"
+          (click)="weiteres.close(); teilenClick.emit()"
+        >
+          Link zum Teilen kopieren
+        </button>
+      }
       @if (!state.readOnly()) {
         <div class="menuSep"></div>
         <button

@@ -71,6 +71,12 @@ Alle XML-Nachrichten werden **gegen das XJustiz-Schema validiert** (direkt im Br
 
 Der Arbeitsstand wird bei jeder Änderung automatisch im Browser gesichert (Anzeige „automatisch gesichert HH:MM" in der Werkzeugleiste). Nach dem nächsten Laden des XSD-Ordners bietet das Tool die Wiederherstellung an — Schutz gegen versehentliches Schließen oder Abstürze. Das ersetzt nicht das bewusste „Speichern" als Profil-Datei (JSON), die weitergegeben und archiviert werden kann.
 
+## Profilierung teilen
+
+Über **„Link zum Teilen kopieren"** — im ⋯-Menü der Kachel auf der Übersichtsseite und im „Weiteres"-Menü einer geöffneten Profilierung — landet ein Link der Form `…/profilierer/?profil=<id>` in der Zwischenablage. Wer ihn öffnet, landet direkt in dieser Profilierung, so als hätte er ihre Kachel angeklickt: Schema und Nachricht werden geladen, gearbeitet wird am **aktuellen Stand** derselben Ablage — der Link ist eine Abkürzung zum Öffnen, keine Kopie und kein eingefrorener Auszug. Wer einen unveränderlichen Stand weitergeben will, nutzt eine **Version** bzw. die **Abnahme** oder exportiert die Profilierung als Datei.
+
+Voraussetzung ist, dass der Empfänger dieselbe Instanz erreicht (im Betrieb `xjw.freiheits.de/profilierer`). Nach dem Öffnen verschwindet der Parameter aus der Adresszeile, damit ein späteres Neuladen den dann gewählten Stand zeigt.
+
 ## Versionsvergleich (Diff)
 
 Über **„Version vergleichen…"** wird ein zweiter XSD-Ordner (z. B. XJustiz 4.0.0) geladen. Der Diff-Viewer zeigt für die aktuell geladene Nachricht alle Unterschiede der aufgelösten Struktur: **neu** (grün), **entfernt** (rot), **geändert** (gelb, mit Detail wie „Kardinalität 0..1 → 1" oder Typ-/Codelistenwechsel). Änderungen, die von der aktuellen Profilierung betroffen sind, tragen die Markierung **„profiliert"** und lassen sich separat filtern — so sieht man sofort, welche Festlegungen beim Versionswechsel nachgezogen werden müssen. Die Liste führt jeden Unterschied mit dem **exakten Spezifikations-Namen** (technischer Elementname in Monospace, Typ, vollständiger Pfad); der Klartextname steht nur ergänzend daneben. Der ⎘-Knopf kopiert Name, Typ, Pfad und Änderung in die Zwischenablage — direkt verwendbar in CRs und Abstimmungsunterlagen. Klick auf einen Eintrag springt zum Element im Baum. Zusätzlich ein Überblick, welche Nachrichten in der neuen Version hinzugekommen oder entfallen sind.

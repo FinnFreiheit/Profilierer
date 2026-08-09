@@ -26,7 +26,7 @@ describe('RemoteSchemaService', () => {
   });
 
   it('parseVersionsseite: XSD-Pakete je Version, neueste zuerst', () => {
-    const vs = svc.parseVersionsseite(SEITE);
+    const vs = svc.parseVersionsseite(SEITE).versionen;
     expect(vs.map((v) => v.id)).toEqual(['4.0.0', '3.6.2']);
     expect(vs[0]?.zipUrl).toBe('/system/zip/XJustiz-4_0_0-XSD.zip');
     expect(vs[1]?.zipUrl).toBe('/system/zip/XJustiz_3_6_2_XSD.zip');
@@ -35,12 +35,26 @@ describe('RemoteSchemaService', () => {
   });
 
   it('parseVersionsseite: Schematron- und PDF-Links werden ignoriert', () => {
-    const vs = svc.parseVersionsseite(SEITE);
+    const vs = svc.parseVersionsseite(SEITE).versionen;
     expect(vs.length).toBe(2);
     expect(vs.some((v) => /sch/i.test(v.zipUrl ?? ''))).toBeFalse();
   });
 
   it('parseVersionsseite: ohne Schema-Links leere Liste', () => {
-    expect(svc.parseVersionsseite('<html><body><a href="/a.pdf">x</a></body></html>')).toEqual([]);
+    const seite = svc.parseVersionsseite('<html><body><a href="/a.pdf">x</a></body></html>');
+    expect(seite.versionen).toEqual([]);
+    expect(seite.nachlieferungen).toEqual([]);
+  });
+
+  // Stand 26.08: fuer 3.6.2 bietet die Seite nur noch die Nachlieferung an.
+  // Wuerde sie als Version durchgehen, ersetzte ein Teilpaket (Fachmodul ZVSTR)
+  // das vollstaendige hinterlegte 3.6.2 — der Link ist zudem tot (HTTP 404).
+  it('parseVersionsseite: Nachlieferungen sind keine Version, werden aber gemeldet', () => {
+    const seite = svc.parseVersionsseite(`<!doctype html><html><body>
+      <a href="../system/zip/XJustiz_3_6_2_Nachlieferung:ZVSTR_08_2026_XSD.zip">Nachlieferung</a>
+      <a href="../system/zip/XJustiz-4_1_0-XSD.zip">Schemata 4.1.0</a>
+    </body></html>`);
+    expect(seite.versionen.map((v) => v.id)).toEqual(['4.1.0']);
+    expect(seite.nachlieferungen).toEqual(['3.6.2']);
   });
 });

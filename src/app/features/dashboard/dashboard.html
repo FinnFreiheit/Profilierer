@@ -121,6 +121,13 @@
                 <button class="menuItem" (click)="werkzeuge.close(); exportEntry(e.id, $event)">
                   Als Datei exportieren
                 </button>
+                <button
+                  class="menuItem"
+                  title="Link in die Zwischenablage legen — er öffnet diese Profilierung direkt (aktueller Stand)"
+                  (click)="werkzeuge.close(); teilen(e.id, $event)"
+                >
+                  Link zum Teilen kopieren
+                </button>
                 <div class="menuSep"></div>
                 <button
                   class="menuItem del"

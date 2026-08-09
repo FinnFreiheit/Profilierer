@@ -27,6 +27,18 @@ export interface XsdIndex {
   kennung?: string;
 }
 
+/**
+ * Ein XSD-Attribut eines complexType, aufbereitet fuer Anzeige und Export.
+ * `fixed` ist der vom Schema erzwungene Wert (null = keiner).
+ */
+export interface XsdAttribut {
+  name: string;
+  typ: string | null;
+  pflicht: boolean;
+  fixed: string | null;
+  doc: string;
+}
+
 /** Ergebnis von particlesOfCT (Z.385-386): Partikel eines complexType. */
 export interface ParticleModel {
   model: 'sequence' | 'choice' | 'all';

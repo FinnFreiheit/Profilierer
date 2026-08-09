@@ -36,6 +36,7 @@ import { ValidationDialog } from './features/dialogs/validation-dialog';
 import { ProfilDiffDialog } from './features/dialogs/profil-diff-dialog';
 import { XmlDiffDialog } from './features/dialogs/xml-diff-dialog';
 import { VergleichService } from './core/services/vergleich.service';
+import { TeilenService } from './core/services/teilen.service';
 import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
 
 /**
@@ -96,6 +97,7 @@ export class App implements OnInit {
   private readonly logger = inject(LoggerService);
   private readonly download = inject(DownloadService);
   private readonly vergleich = inject(VergleichService);
+  private readonly teilen = inject(TeilenService);
 
   protected readonly hasRoot = this.state.hasRoot;
   /** Dashboard (Bibliothek) vs. Baum-Editor. */
@@ -123,11 +125,18 @@ export class App implements OnInit {
    * Standardversion (3.6.2) automatisch aktivieren — kein XSD-Ordner-Upload
    * mehr noetig. Ist bereits ein Schema geladen (z. B. durch einen sehr
    * frueh geladenen Autosave), wird nicht ueberschrieben.
+   *
+   * Danach ein etwaiger Teilen-Link (`?profil=<id>`): erst nach dem Schema,
+   * damit `openFromLibrary` die Nachricht sofort aufbauen kann (eine
+   * abweichende XJustiz-Version des Profils laedt es selbst nach).
    */
   async ngOnInit(): Promise<void> {
     // Einmalige Migration der frueher im localStorage gehaltenen Profil-Bibliothek
     // ins DB-Backend (idempotent, nur bei leerem Backend).
     await this.migration.runOnce();
+    // Vor dem Schema-Laden auslesen: der Parameter soll auch dann aus der
+    // Adresszeile verschwinden, wenn das Manifest scheitert.
+    const geteiltesProfil = this.teilen.startProfilId();
     try {
       const versions = await this.bundled.manifest();
       this.state.bundledVersions.set(versions);
@@ -141,6 +150,13 @@ export class App implements OnInit {
           (e instanceof Error ? e.message : e),
       );
     }
+    if (geteiltesProfil) await this.persistence.openFromLibrary(geteiltesProfil);
+  }
+
+  /** „Link zum Teilen kopieren" aus der Objektleiste (offene Profilierung). */
+  protected teileAktivesProfil(): void {
+    const id = this.state.activeProfileId();
+    if (id) void this.teilen.kopiereProfilLink(id);
   }
 
   /**
@@ -155,14 +171,12 @@ export class App implements OnInit {
     const quelle = v.zipUrl ? ' von xjustiz.de' : '';
     try {
       if (v.zipUrl) this.toast.show(`Lade XJustiz ${v.label} von xjustiz.de…`);
-      const files = await this.bundled.files(v);
-      await this.persistence.loadXsdFiles(files);
-      this.state.activeBundle.set(dir);
+      const n = await this.persistence.loadBundle(v);
       if (prevMsg) {
         if (this.state.idx()?.el[prevMsg]) this.nav.loadMessage(prevMsg, true);
         else this.toast.show(`Nachricht ${prevMsg} ist in XJustiz ${v.label} nicht enthalten.`);
       }
-      this.toast.show(`XJustiz ${v.label}${quelle} geladen (${files.length} Schemata).`);
+      this.toast.show(`XJustiz ${v.label}${quelle} geladen (${n} Schemata).`);
     } catch (e) {
       this.toast.show(
         `XJustiz ${v.label}${quelle} konnte nicht geladen werden: ` +
@@ -177,14 +191,19 @@ export class App implements OnInit {
    * Eintraege gleicher Versionsnummer — keine Doppelauswahl im Umschalter,
    * xjustiz.de ist die fuehrende Quelle. Nur dort neu erschienene Versionen
    * kommen hinzu. Der Abruf ist bewusst manuell; ein erneuter Aufruf verwirft
-   * den Sitzungs-Cache und holt den aktuellen Stand, womit auch
-   * Nachlieferungen an einer bestehenden Version (z. B. 3.6.2) ankommen.
-   * Die gerade aktive Version wird direkt neu geladen.
+   * den Sitzungs-Cache und holt den aktuellen Stand — so kommt auch eine neu
+   * veroeffentlichte Voll-ZIP einer bestehenden Version an. Die gerade aktive
+   * Version wird direkt neu geladen.
+   *
+   * **Nachlieferungen** (Teilpakete zu einer Version) werden nur gemeldet:
+   * sie enthalten allein die geaenderten Fachmodule und wuerden das
+   * vollstaendige Schema durch ein Bruchstueck ersetzen — das Einspielen bleibt
+   * ein bewusster Schritt ueber „Eigener XSD-Ordner…".
    */
   async loadRemoteVersions(): Promise<void> {
     this.toast.show('Rufe die Schema-Versionen von xjustiz.de ab…');
     try {
-      const remote = await this.remoteSchemas.versionen(true);
+      const { versionen: remote, nachlieferungen } = await this.remoteSchemas.versionen(true);
       const nachId = new Map(remote.map((r) => [r.id, r]));
       const bisher = this.state.bundledVersions();
       // Hinterlegte Eintraege an Ort und Stelle ersetzen (dir/label/default
@@ -204,6 +223,12 @@ export class App implements OnInit {
         `Schemata von xjustiz.de übernommen: ${remote.map((v) => v.label).join(', ')}` +
           (neu.length ? ` (davon neu: ${neu.map((v) => v.label).join(', ')})` : ''),
       );
+      if (nachlieferungen.length)
+        this.toast.show(
+          `Hinweis: zu XJustiz ${nachlieferungen.join(', ')} liegt auf xjustiz.de eine ` +
+            'Nachlieferung (Teilpaket). Sie ersetzt das Schema nicht und wird nicht geladen — ' +
+            'bei Bedarf über „Eigener XSD-Ordner…" einspielen.',
+        );
       // Aktive Version stammt jetzt aus einer anderen Quelle — neu einlesen,
       // sonst zeigt der Umschalter den neuen Stand, der Baum aber den alten.
       if (aktivErsetzt) await this.loadBundled(aktivErsetzt.dir);

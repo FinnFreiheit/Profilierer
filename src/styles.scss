@@ -952,6 +952,47 @@ label.menuItem:has(input:disabled) {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* XSD-Attribute des Elements — im Kasten, nicht als eigene Knoten (Attribute
+   sind kein Teil des Element-Baums). Pflicht-Attribute stehen kraeftiger. */
+.box .attrs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+/* Eine Zeile, notfalls gekuerzt: Codelisten-Kennungen sind lang genug, um
+   sonst jeden Code-Kasten doppelt so hoch zu machen. Der volle Wert steht im
+   title. */
+.attr {
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+  color: var(--muted);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.attr::before {
+  content: '@';
+  opacity: 0.6;
+}
+.attr.attrPflicht {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.attr .attrWert {
+  color: var(--text);
+}
+.attr .attrWert::before {
+  content: '=';
+  opacity: 0.6;
+  margin: 0 1px;
+}
+
 .box .tags {
   display: flex;
   gap: 5px;

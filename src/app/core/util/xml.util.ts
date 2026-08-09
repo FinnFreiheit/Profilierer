@@ -4,6 +4,8 @@
  */
 export const XS = 'http://www.w3.org/2001/XMLSchema';
 export const XJNS = 'http://www.xjustiz.de';
+/** Instanz-Namespace fuer `xsi:schemaLocation` am Wurzelelement einer Nachricht. */
+export const XSI_NS = 'http://www.w3.org/2001/XMLSchema-instance';
 
 /** Alle direkten XS-Kinder mit lokalem Namen `ln` (kids, Z.338). */
 export function kids(el: Element, ln: string): Element[] {

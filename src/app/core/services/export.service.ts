@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { TreeNode } from '../../models/node.model';
+import { XsdParserService } from './xsd-parser.service';
 import { ERW_SPERRE_GRUND, erweiterungsWarnung } from '../util/erweiterung-sperre';
 import { Auspraegung } from '../../models/profile.model';
 import { StateService } from './state.service';
@@ -12,7 +13,7 @@ import { ToastService } from './toast.service';
 import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
 import { ValidationMarkerService } from './validation-marker.service';
-import { esc, kid, kids, local, XJNS } from '../util/xml.util';
+import { esc, XJNS, XSI_NS } from '../util/xml.util';
 import { kardText, pretty } from '../util/pretty.util';
 
 interface WalkItem {
@@ -59,6 +60,7 @@ export interface PrintRow {
 export class ExportService {
   private readonly state = inject(StateService);
   private readonly tree = inject(TreeService);
+  private readonly parser = inject(XsdParserService);
   private readonly values = inject(ValueService);
   private readonly nav = inject(NavService);
   private readonly guided = inject(GuidedService);
@@ -499,7 +501,11 @@ export class ExportService {
       }
       push(`${pad}</${name}>`, n.path);
     };
-    push(`<${msgName} xmlns="${XJNS}"${this.fixedRequiredAttrs(root)}>`, root.path);
+    push(
+      `<${msgName} xmlns="${XJNS}"${this.schemaLocationAttrs(msgName)}` +
+        `${this.fixedRequiredAttrs(root)}>`,
+      root.path,
+    );
     for (const c of this.tree.kinder(root)) {
       if (c.synthetic) {
         emit(c, 1);
@@ -512,51 +518,39 @@ export class ExportService {
   }
 
   /**
-   * Pflicht-Attribute mit fixem Wert aus dem complexType des Knotens als
-   * Attribut-String (z. B. ` xjustizVersion="3.6.2"` am nachrichtenkopf) —
-   * das Schema erzwingt genau diese Werte (use="required" fixed="…").
+   * Pflicht-Attribute (use="required") aus dem complexType des Knotens als
+   * Attribut-String (z. B. ` xjustizVersion="4.1.0"` am nachrichtenkopf).
+   * Den Wert liefert `ValueService.attributWert` — dieselbe Quelle, aus der die
+   * Baumansicht ihre Attributzeile speist.
    */
   private fixedRequiredAttrs(n: TreeNode): string {
     const idx = this.state.idx();
     if (!idx) return '';
-    let ct: Element | null =
-      (n.typeName ? idx.ct[n.typeName] : null) ?? (n.xsdEl ? kid(n.xsdEl, 'complexType') : null);
     let out = '';
-    const seen = new Set<string>();
-    while (ct) {
-      const holders: Element[] = [ct];
-      let base: Element | null = null;
-      const content = kid(ct, 'complexContent') || kid(ct, 'simpleContent');
-      if (content) {
-        const ext = kid(content, 'extension');
-        const h = ext || kid(content, 'restriction');
-        if (h) {
-          holders.push(h);
-          const b = local(h.getAttribute('base'));
-          // Nur bei extension erben Attribute der Basis; restriction wiederholt sie.
-          if (ext && b && idx.ct[b] && !seen.has(b)) {
-            seen.add(b);
-            base = idx.ct[b]!;
-          }
-        }
-      }
-      for (const holder of holders) {
-        for (const a of kids(holder, 'attribute')) {
-          const fixed = a.getAttribute('fixed');
-          const name = a.getAttribute('name');
-          if (
-            name &&
-            fixed != null &&
-            a.getAttribute('use') === 'required' &&
-            !out.includes(` ${name}="`)
-          ) {
-            out += ` ${name}="${esc(fixed)}"`;
-          }
-        }
-      }
-      ct = base;
+    for (const a of this.parser.attributeOf(n, idx)) {
+      if (!a.pflicht) continue;
+      const wert = this.values.attributWert(a, n);
+      if (wert != null) out += ` ${a.name}="${esc(wert)}"`;
     }
     return out;
+  }
+
+  /**
+   * Schema-Zuordnung des Wurzelelements: `xsi:schemaLocation` auf die
+   * Schemadatei, die den Nachrichtentyp deklariert (`xjustiz_0005_nachrichten_4_0.xsd`
+   * fuer GDS-Nachrichten, `xjustiz_2900_dabag_3_2.xsd` fuer DABAG …) — genau die
+   * Angabe, die veroeffentlichte XJustiz-Nachrichten tragen.
+   *
+   * Ohne sie ist die Nachricht zwar schema-valide (die Zuordnung ist ein
+   * Hinweis, keine Pflicht), aber kein fremdes Pruefwerkzeug findet das Schema
+   * von selbst — die eigene Pruefung bekommt es uebergeben und merkte den
+   * Mangel darum nie. Fuer eine Testnachricht, die den Profilierer verlaesst,
+   * ist das der Unterschied zwischen „pruefbar" und „erst konfigurieren".
+   */
+  private schemaLocationAttrs(msgName: string): string {
+    const datei = this.state.idx()?.messages.find((m) => m.name === msgName)?.file;
+    if (!datei) return '';
+    return ` xmlns:xsi="${XSI_NS}" xsi:schemaLocation="${XJNS} ${esc(datei)}"`;
   }
 
   // ── Druckzeilen (doPrint, Z.2334-2362) ──────────────────────────────

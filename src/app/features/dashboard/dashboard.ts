@@ -16,6 +16,7 @@ import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
 import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
+import { TeilenService } from '../../core/services/teilen.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { LibraryEntry } from '../../models/profile.model';
@@ -58,6 +59,7 @@ export class Dashboard {
   private readonly vergleich = inject(VergleichService);
   private readonly hinweise = inject(HinweisStoreService);
   private readonly testnachrichtStart = inject(TestnachrichtStartService);
+  private readonly teilenService = inject(TeilenService);
   private readonly renameDlg = viewChild.required<ElementRef<HTMLDialogElement>>('renameDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
 
@@ -300,6 +302,15 @@ export class Dashboard {
     } catch {
       this.toast.show('Export fehlgeschlagen — Backend nicht erreichbar.');
     }
+  }
+
+  /**
+   * Link auf diese Profilierung kopieren. Geteilt wird der Bibliothekseintrag,
+   * nicht eine Kopie — der Empfaenger sieht den jeweils aktuellen Stand.
+   */
+  protected teilen(id: string, e: Event): void {
+    e.stopPropagation();
+    void this.teilenService.kopiereProfilLink(id);
   }
 
   protected openRename(id: string, e: Event): void {

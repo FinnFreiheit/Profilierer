@@ -49,16 +49,17 @@ describe('TestmessageGenerationService', () => {
           useValue: {
             flushAutosave: () => Promise.resolve(),
             loadXsdFiles: () => Promise.resolve(),
+            loadBundle: (v: BundledVersion) => {
+              geladen.push(v.id);
+              return Promise.resolve(0);
+            },
           },
         },
         {
           provide: BundledSchemaService,
-          useValue: {
-            files: (v: BundledVersion) => {
-              geladen.push(v.id);
-              return Promise.resolve([] as XsdDoc[]);
-            },
-          },
+          // Das Laden selbst laeuft ueber PersistenceService.loadBundle (oben
+          // beobachtet); hier reicht eine leere Dateiliste.
+          useValue: { files: () => Promise.resolve([] as XsdDoc[]) },
         },
         {
           provide: DownloadService,

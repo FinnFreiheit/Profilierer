@@ -19,6 +19,7 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
     <xs:element name="az" type="xs:string" minOccurs="0"/>
     <xs:element name="farbe" type="Code.Test.Farbe" minOccurs="0"/>
     <xs:element name="versionskopf" type="Type.Test.Kopf" minOccurs="0"/>
+    <xs:element name="neuerKopf" type="Type.Test.Kopf40" minOccurs="0"/>
     <xs:choice>
       <xs:element name="email" type="xs:string"/>
       <xs:element name="telefon" type="xs:string"/>
@@ -41,7 +42,19 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
   <xs:complexType name="Type.Test.Kopf">
     <xs:sequence><xs:element name="titel" type="xs:string"/></xs:sequence>
     <xs:attribute name="xjustizVersion" type="xs:string" use="required" fixed="3.6.2"/>
+    <xs:attribute name="optionales" type="xs:string" use="optional"/>
   </xs:complexType>
+  <!-- Wie ab XJustiz 4.0.0: Pflicht-Attribut ohne fixed, Wert per Typ/Pattern. -->
+  <xs:complexType name="Type.Test.Kopf40">
+    <xs:sequence><xs:element name="titel" type="xs:string"/></xs:sequence>
+    <xs:attribute name="xjustizVersion" type="Type.Test.XJustizVersion" use="required"/>
+    <xs:attribute name="sonstiges" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:simpleType name="Type.Test.XJustizVersion">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="4\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)"/>
+    </xs:restriction>
+  </xs:simpleType>
 </xs:schema>`;
 
 const M = 'nachricht.test.0001';
@@ -193,6 +206,37 @@ describe('ExportService (Schematron)', () => {
       state.setElementProfile(`${M}/versionskopf`, { status: 's1' });
       const xml = svc.buildBeispielXml()!;
       expect(xml).toContain('<versionskopf xjustizVersion="3.6.2">');
+    });
+
+    // Ab 4.0.0 traegt xjustizVersion kein fixed mehr; ohne diesen Zweig fehlte
+    // das Pflicht-Attribut und jede erzeugte 4.x-Nachricht waere invalide.
+    it('setzt xjustizVersion ohne fixed aus der geladenen Schemaversion (ab 4.0.0)', () => {
+      state.version.set('4.0.0');
+      state.setElementProfile(`${M}/neuerKopf`, { status: 's1' });
+      const xml = svc.buildBeispielXml()!;
+      expect(xml).toContain('<neuerKopf xjustizVersion="4.0.0"');
+    });
+
+    // Pflicht-Attribute sind im Baum nicht erfassbar: ohne Wert bliebe die
+    // Nachricht dauerhaft schema-invalide. Darum ein typkonformer Platzhalter —
+    // dieselbe Zusage wie bei den Blattwerten des Beispiel-XML.
+    it('belegt Pflicht-Attribute ohne ableitbaren Wert typkonform', () => {
+      state.version.set('4.0.0');
+      state.setElementProfile(`${M}/neuerKopf`, { status: 's1' });
+      expect(svc.buildBeispielXml()!).toContain('sonstiges="Beispieltext"');
+    });
+
+    it('laesst optionale Attribute weg', () => {
+      state.setElementProfile(`${M}/versionskopf`, { status: 's1' });
+      expect(svc.buildBeispielXml()!).not.toContain('optionales=');
+    });
+
+    // Die Zuordnung, die veroeffentlichte XJustiz-Nachrichten tragen: ohne sie
+    // findet ein fremdes Pruefwerkzeug das Schema nicht.
+    it('schreibt xsi:schemaLocation auf die Schemadatei des Nachrichtentyps', () => {
+      const xml = svc.buildBeispielXml()!;
+      expect(xml).toContain('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
+      expect(xml).toContain('xsi:schemaLocation="http://www.xjustiz.de xjustiz_0000_test.xsd"');
     });
 
     it('genBeispielXml blockiert invalide Nachrichten mit Bericht (Export-Tor)', async () => {
