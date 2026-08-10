@@ -1,7 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { TestmessageEditService } from './testmessage-edit.service';
 import { TestmessageStoreService } from './testmessage-store.service';
-import { TestmessageGenerationService } from './testmessage-generation.service';
 import { PersistenceService } from './persistence.service';
 import { RolleService } from './rolle.service';
 import { ToastService } from './toast.service';
@@ -115,8 +114,10 @@ describe('TestmessageEditService', () => {
             },
           },
         },
-        { provide: TestmessageGenerationService, useValue: { ensureSchema: async () => {} } },
-        { provide: PersistenceService, useValue: { flushAutosave: async () => {} } },
+        {
+          provide: PersistenceService,
+          useValue: { flushAutosave: async () => {}, ensureSchema: async () => {} },
+        },
         { provide: RolleService, useValue: { agAktiv: () => agAktiv } },
         { provide: ToastService, useValue: { show: () => {} } },
         { provide: CodelistService, useValue: { ensureUsedCodelists: () => Promise.resolve() } },

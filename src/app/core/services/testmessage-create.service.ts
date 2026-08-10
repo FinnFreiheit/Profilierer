@@ -15,7 +15,6 @@ import { NavService } from './nav.service';
 import { GuidedService } from './guided.service';
 import { ExportService } from './export.service';
 import { TestmessageStoreService } from './testmessage-store.service';
-import { TestmessageGenerationService } from './testmessage-generation.service';
 import { ProfileStoreService } from './profile-store.service';
 import { PersistenceService } from './persistence.service';
 import { ToastService } from './toast.service';
@@ -48,7 +47,6 @@ export class TestmessageCreateService {
   private readonly exporter = inject(ExportService);
   private readonly store = inject(TestmessageStoreService);
   private readonly profiles = inject(ProfileStoreService);
-  private readonly generator = inject(TestmessageGenerationService);
   private readonly persistence = inject(PersistenceService);
   private readonly toast = inject(ToastService);
   private readonly validator = inject(XmlValidationService);
@@ -70,7 +68,7 @@ export class TestmessageCreateService {
     // Schutz einer zuvor geoeffneten abgenommenen Nachricht loesen: er haengt
     // nicht am Profil (activeProfileId ist hier null) und bliebe sonst stehen.
     this.state.abnahmeSchreibschutz.set(false);
-    await this.generator.ensureSchema(version);
+    await this.persistence.ensureSchema(version);
     if (!this.state.idx()?.el[msgName])
       throw new Error('Nachricht nicht im geladenen Schema gefunden: ' + msgName);
     this.nav.loadMessage(msgName); // setzt Profil zurueck, leert die Sessions
@@ -121,7 +119,7 @@ export class TestmessageCreateService {
     await this.persistence.flushAutosave();
     this.state.activeProfileId.set(null);
     this.state.abnahmeSchreibschutz.set(false); // siehe neuErstellen
-    await this.generator.ensureSchema(doc.meta?.xjustizVersion ?? profil.xjustizVersion);
+    await this.persistence.ensureSchema(doc.meta?.xjustizVersion ?? profil.xjustizVersion);
     if (!this.state.idx()?.el[msgName])
       throw new Error('Nachricht nicht im geladenen Schema gefunden: ' + msgName);
 
@@ -343,7 +341,7 @@ export class TestmessageCreateService {
     await this.persistence.flushAutosave();
     this.state.activeProfileId.set(null);
     this.state.abnahmeSchreibschutz.set(false); // siehe neuErstellen
-    await this.generator.ensureSchema(stand.xjustizVersion ?? entry.xjustizVersion);
+    await this.persistence.ensureSchema(stand.xjustizVersion ?? entry.xjustizVersion);
     if (!this.state.idx()?.el[stand.msgName])
       throw new Error('Nachricht nicht im geladenen Schema gefunden: ' + stand.msgName);
     this.state.loadProfile(stand.profil); // leert Sessions, readOnly aus, Vorgabe raus

@@ -9,7 +9,6 @@ import { StateService } from './state.service';
 import { InstanceImportService } from './instance-import.service';
 import { InstanceExportService } from './instance-export.service';
 import { TestmessageStoreService } from './testmessage-store.service';
-import { TestmessageGenerationService } from './testmessage-generation.service';
 import { PersistenceService } from './persistence.service';
 import { RolleService } from './rolle.service';
 import { ToastService } from './toast.service';
@@ -37,7 +36,6 @@ export class TestmessageEditService {
   private readonly instanceImport = inject(InstanceImportService);
   private readonly instanceExport = inject(InstanceExportService);
   private readonly store = inject(TestmessageStoreService);
-  private readonly generator = inject(TestmessageGenerationService);
   private readonly persistence = inject(PersistenceService);
   private readonly rolle = inject(RolleService);
   private readonly toast = inject(ToastService);
@@ -57,7 +55,7 @@ export class TestmessageEditService {
     await this.persistence.flushAutosave();
     const xml = await this.store.loadXml(entry.id);
     if (xml == null) throw new Error('Nachricht nicht gefunden.');
-    await this.generator.ensureSchema(entry.xjustizVersion);
+    await this.persistence.ensureSchema(entry.xjustizVersion);
     // Kein Bibliothekseintrag: die Bearbeitung einer Nachricht darf nicht per
     // Autosave in ein (evtl. offenes) Profil geschrieben werden.
     this.state.activeProfileId.set(null);

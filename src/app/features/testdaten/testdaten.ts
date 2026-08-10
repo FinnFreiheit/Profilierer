@@ -13,7 +13,6 @@ import { StateService } from '../../core/services/state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { PersistenceService } from '../../core/services/persistence.service';
-import { TestmessageGenerationService } from '../../core/services/testmessage-generation.service';
 import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
 import { TestmessageCreateService } from '../../core/services/testmessage-create.service';
 import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
@@ -59,7 +58,6 @@ export class Testdaten {
   private readonly toast = inject(ToastService);
   private readonly profiles = inject(ProfileStoreService);
   private readonly persistence = inject(PersistenceService);
-  private readonly generator = inject(TestmessageGenerationService);
   private readonly start = inject(TestnachrichtStartService);
   private readonly creator = inject(TestmessageCreateService);
   private readonly edit = inject(TestmessageEditService);
@@ -324,7 +322,7 @@ export class Testdaten {
     if (this.createLoading()) return;
     this.createLoading.set(true);
     try {
-      await this.generator.ensureSchema(id);
+      await this.persistence.ensureSchema(id);
       this.createVersion.set(id);
     } catch {
       this.toast.show('Schema konnte nicht geladen werden.');

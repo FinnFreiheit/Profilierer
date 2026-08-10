@@ -27,8 +27,7 @@ xjustiz-profilierer/
 │   │   │                      NavService, DispositionService, ValueService, CodelistService, ExportService,
 │   │   │                      ExcelExportService, DiffService, PersistenceService, ProfileStoreService,
 │   │   │                      MigrationService, InstanceImportService, InstanceExportService,
-│   │   │                      TestmessageStoreService, TestmessageGenerationService,
-│   │   │                      TestmessageCreateService, GuidedService, BundledSchemaService,
+│   │   │                      TestmessageStoreService, TestmessageCreateService,, GuidedService, BundledSchemaService,
 │   │   │                      XmlValidationService, ValidationReportService,
 │   │   │                      DownloadService, ToastService, SearchService, TeilenService
 │   │   ├── util/              xml.util, pretty.util, testmessage.util, pattern-sample.util

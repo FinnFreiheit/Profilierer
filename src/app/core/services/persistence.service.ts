@@ -241,6 +241,22 @@ export class PersistenceService {
   }
 
   /**
+   * Die zu einer Testnachricht bzw. Profilierung passende hinterlegte
+   * XJustiz-Version aktivieren, falls eine andere geladen ist.
+   *
+   * Best effort: ohne Angabe bzw. ohne hinterlegte Version bleibt das aktuelle
+   * Schema — der `idx.el`-Check des Aufrufers faengt den Fehlerfall ab.
+   * Genutzt von jedem Weg in eine Testnachricht (anlegen, fortsetzen,
+   * betrachten, im Baum oeffnen).
+   */
+  async ensureSchema(version?: string): Promise<void> {
+    if (!version || this.state.version() === version) return;
+    const v = this.state.bundledVersions().find((x) => x.id === version);
+    if (!v) return;
+    await this.loadBundle(v);
+  }
+
+  /**
    * Haengenden Autosave sofort ausfuehren und laufende Upserts abwarten.
    * Noetig vor einem temporaeren State-Swap (Testnachricht-Generierung) und
    * vor Versions-Operationen: wird `activeProfileId` genullt, waehrend der

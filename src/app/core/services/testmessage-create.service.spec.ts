@@ -1,7 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { TestmessageCreateService } from './testmessage-create.service';
 import { TestmessageStoreService } from './testmessage-store.service';
-import { TestmessageGenerationService } from './testmessage-generation.service';
 import { ProfileStoreService, VersionMitDoc } from './profile-store.service';
 import { PersistenceService } from './persistence.service';
 import { ToastService } from './toast.service';
@@ -112,8 +111,10 @@ describe('TestmessageCreateService', () => {
             loadVersion: async () => version,
           },
         },
-        { provide: TestmessageGenerationService, useValue: { ensureSchema: async () => {} } },
-        { provide: PersistenceService, useValue: { flushAutosave: async () => {} } },
+        {
+          provide: PersistenceService,
+          useValue: { flushAutosave: async () => {}, ensureSchema: async () => {} },
+        },
         { provide: ToastService, useValue: { show: (t: string) => toasts.push(t) } },
         { provide: XmlValidationService, useValue: { validiere: async () => pruefung } },
       ],
