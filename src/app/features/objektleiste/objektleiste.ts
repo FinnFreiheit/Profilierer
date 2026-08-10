@@ -8,6 +8,7 @@ import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { Menu } from '../../shared/menu/menu';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
 /**
  * Zeile 1 der Kopfzone: das Dokument (Issue #80). Feste Zonen, wechselnder
@@ -20,7 +21,7 @@ import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
 @Component({
   selector: 'app-objektleiste',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Menu, RolleBadge],
+  imports: [Menu, RolleBadge, KeinAutofillDirective],
   templateUrl: './objektleiste.html',
 })
 export class Objektleiste {

@@ -22,25 +22,45 @@
   }
 </span>
 
-<dialog #dlg id="rolleDlg">
-  <h3 style="margin-top: 0">Anmeldung BLK-AG</h3>
-  <p class="dashSub" style="margin-top: 0">
-    Die AG-Rolle nutzt einen gemeinsamen Schlüssel (keine Konten). Angemeldet können Profilierungen
-    und Testnachrichten abgenommen sowie abgenommene Objekte bearbeitet werden.
-  </p>
-  <input
-    type="password"
-    style="width: 100%; box-sizing: border-box"
-    placeholder="Gemeinsamer AG-Schlüssel"
-    [value]="key()"
-    (input)="key.set($any($event.target).value)"
-    (keydown.enter)="anmelden()"
-  />
-  @if (fehler()) {
-    <p class="rolleFehler">{{ fehler() }}</p>
-  }
-  <div style="text-align: right; margin-top: 12px">
-    <button (click)="dlg.close()">Abbrechen</button>
-    <button class="primary" [disabled]="busy()" (click)="anmelden()">Anmelden</button>
-  </div>
-</dialog>
+<!--
+  Der Dialog steht bewusst nur im DOM, solange er offen ist: Passwortverwalter
+  (Browser wie Erweiterungen) haengen einen MutationObserver an jede Seite mit
+  einem `type="password"`-Feld und pruefen bei jeder DOM-Aenderung alle Eingaben
+  auf Kennung/Passwort. Im Baum-Editor einer Testnachricht aendert jeder
+  Tastendruck das DOM und es stehen hunderte Wertfelder — das Tippen wurde davon
+  spuerbar traege. Ohne Passwortfeld gibt es fuer sie nichts zu beobachten.
+-->
+@if (offen()) {
+  <dialog #dlg id="rolleDlg" (close)="offen.set(false)">
+    <h3 style="margin-top: 0">Anmeldung BLK-AG</h3>
+    <p class="dashSub" style="margin-top: 0">
+      Die AG-Rolle nutzt einen gemeinsamen Schlüssel (keine Konten). Angemeldet können
+      Profilierungen und Testnachrichten abgenommen sowie abgenommene Objekte bearbeitet werden.
+    </p>
+    <!--
+      Ergaenzend die Absage an das Ausfuellen selbst: Der AG-Schluessel ist ein
+      gemeinsames Geheimnis, kein Konto-Passwort — er gehoert nicht in die
+      Passwortverwaltung. Siehe kein-autofill.directive.ts.
+    -->
+    <input
+      type="password"
+      autocomplete="one-time-code"
+      data-1p-ignore
+      data-lpignore="true"
+      data-bwignore="true"
+      data-form-type="other"
+      style="width: 100%; box-sizing: border-box"
+      placeholder="Gemeinsamer AG-Schlüssel"
+      [value]="key()"
+      (input)="key.set($any($event.target).value)"
+      (keydown.enter)="anmelden()"
+    />
+    @if (fehler()) {
+      <p class="rolleFehler">{{ fehler() }}</p>
+    }
+    <div style="text-align: right; margin-top: 12px">
+      <button (click)="dlg.close()">Abbrechen</button>
+      <button class="primary" [disabled]="busy()" (click)="anmelden()">Anmelden</button>
+    </div>
+  </dialog>
+}

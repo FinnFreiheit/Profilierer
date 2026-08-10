@@ -7,6 +7,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
 /**
  * Profil-Details (metaDlg, Profilierer.html Z.286-295, btnMeta/mOk Z.2417-2432).
@@ -15,6 +16,7 @@ import { StateService } from '../../core/services/state.service';
   selector: 'app-meta-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './meta-dialog.html',
+  imports: [KeinAutofillDirective],
 })
 export class MetaDialog {
   private readonly state = inject(StateService);

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, inject, viewChild } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { FARBEN, WIRKUNGEN } from '../../core/profile-defaults';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { Wirkung } from '../../models/profile.model';
 
 /**
@@ -11,6 +12,7 @@ import { Wirkung } from '../../models/profile.model';
   selector: 'app-status-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './status-dialog.html',
+  imports: [KeinAutofillDirective],
 })
 export class StatusDialog {
   protected readonly state = inject(StateService);

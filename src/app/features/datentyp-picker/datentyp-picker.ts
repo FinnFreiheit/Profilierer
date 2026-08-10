@@ -12,6 +12,7 @@ import {
   viewChildren,
 } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import {
   DatentypEintrag,
   DatentypWahl,
@@ -35,6 +36,7 @@ import {
   selector: 'app-datentyp-picker',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './datentyp-picker.html',
+  imports: [KeinAutofillDirective],
   host: { '(document:click)': 'aufAussenklick($event)' },
 })
 export class DatentypPicker {

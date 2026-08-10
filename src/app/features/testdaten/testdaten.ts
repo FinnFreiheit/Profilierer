@@ -30,6 +30,7 @@ import { parseTestmessage } from '../../core/util/testmessage.util';
 import { nachrichtTeile } from '../../core/util/pretty.util';
 import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiterung-sperre';
 import { firstLine } from '../../core/util/pretty.util';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
 /** Eine Fachmodul-Gruppe fuer die Kachel-Ansicht. */
 interface Gruppe {
@@ -48,7 +49,7 @@ interface Gruppe {
 @Component({
   selector: 'app-testdaten',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu],
+  imports: [RolleBadge, Menu, KeinAutofillDirective],
   templateUrl: './testdaten.html',
 })
 export class Testdaten {

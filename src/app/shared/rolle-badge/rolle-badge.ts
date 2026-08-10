@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  effect,
   inject,
   signal,
   viewChild,
@@ -21,16 +22,30 @@ import { RolleService } from '../../core/services/rolle.service';
 })
 export class RolleBadge {
   protected readonly rolle = inject(RolleService);
-  private readonly dlg = viewChild.required<ElementRef<HTMLDialogElement>>('dlg');
+  private readonly dlg = viewChild<ElementRef<HTMLDialogElement>>('dlg');
 
   protected readonly key = signal('');
   protected readonly fehler = signal('');
   protected readonly busy = signal(false);
+  /**
+   * Steuert, ob der Dialog im DOM steht — nicht nur, ob er sichtbar ist. Das
+   * Passwortfeld darf beim Arbeiten am Baum nicht auf der Seite liegen
+   * (Begruendung im Template).
+   */
+  protected readonly offen = signal(false);
+
+  constructor() {
+    // `showModal()` erst, wenn Angular das Dialog-Element gerendert hat.
+    effect(() => {
+      const el = this.dlg()?.nativeElement;
+      if (el && !el.open) el.showModal();
+    });
+  }
 
   protected openDlg(): void {
     this.key.set('');
     this.fehler.set('');
-    this.dlg().nativeElement.showModal();
+    this.offen.set(true);
   }
 
   protected async anmelden(): Promise<void> {
@@ -38,7 +53,7 @@ export class RolleBadge {
     this.busy.set(true);
     try {
       const out = await this.rolle.anmelden(this.key());
-      if (out === 'ok') this.dlg().nativeElement.close();
+      if (out === 'ok') this.dlg()?.nativeElement.close();
       else if (out === 'falsch') this.fehler.set('Schlüssel nicht korrekt — bitte Eingabe prüfen.');
       else
         this.fehler.set(

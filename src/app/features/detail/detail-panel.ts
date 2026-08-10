@@ -29,6 +29,7 @@ import { erwLoeschFrage, erwTypwechselFrage } from '../../core/util/erweiterung.
 import { Hinweis } from '../../models/profile.model';
 import { ERW_NAME_MUSTER } from '../../core/profile-defaults';
 import { DatentypWahl } from '../../core/util/datentyp.util';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { DatentypPicker } from '../datentyp-picker/datentyp-picker';
 
 /**
@@ -39,7 +40,7 @@ import { DatentypPicker } from '../datentyp-picker/datentyp-picker';
   selector: 'app-detail-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './detail-panel.html',
-  imports: [DatentypPicker],
+  imports: [DatentypPicker, KeinAutofillDirective],
 })
 export class DetailPanel {
   private readonly state = inject(StateService);

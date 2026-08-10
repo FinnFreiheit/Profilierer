@@ -9,6 +9,7 @@ import { ValueService } from '../../core/services/value.service';
 import { ToastService } from '../../core/services/toast.service';
 import { BaumkastenAnsicht, Kennzeichen } from '../../core/ansicht/baumkasten-ansicht';
 import { erwLoeschFrage } from '../../core/util/erweiterung.util';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { TreeContextMenu } from './tree-context-menu';
 
 /**
@@ -23,7 +24,7 @@ import { TreeContextMenu } from './tree-context-menu';
   selector: 'app-tree-node',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'ntree' },
-  imports: [TreeNode, TreeContextMenu],
+  imports: [TreeNode, TreeContextMenu, KeinAutofillDirective],
   templateUrl: './tree-node.html',
 })
 export class TreeNode {

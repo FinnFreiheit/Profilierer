@@ -14,6 +14,7 @@ import { XmlDiffService } from '../../core/services/xml-diff.service';
 import { VergleichService } from '../../core/services/vergleich.service';
 import { XmlDiffEintrag, XmlDiffResult } from '../../models/xml-diff.model';
 import { DIFF_FARBEN, DIFF_SYM } from '../../core/util/diff-anzeige.util';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
 /** Zeilen-Deckel wie in den anderen Vergleichsansichten. */
 const MAX_ZEILEN = 800;
@@ -30,6 +31,7 @@ const MAX_ZEILEN = 800;
   selector: 'app-xml-diff-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './xml-diff-dialog.html',
+  imports: [KeinAutofillDirective],
 })
 export class XmlDiffDialog {
   private readonly store = inject(TestmessageStoreService);

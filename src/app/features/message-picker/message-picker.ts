@@ -4,6 +4,7 @@ import { NavService } from '../../core/services/nav.service';
 import { MessageRef } from '../../models/xsd-index.model';
 import { firstLine } from '../../core/util/pretty.util';
 import { nachFachmodul } from '../../core/util/fachmodul.util';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
 interface MsgGroup {
   /** Fachmodul-Kuerzel; leer = Sammelgruppe fuer abweichende Namen. */
@@ -21,6 +22,7 @@ interface MsgGroup {
   selector: 'app-message-picker',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './message-picker.html',
+  imports: [KeinAutofillDirective],
 })
 export class MessagePicker {
   private readonly state = inject(StateService);

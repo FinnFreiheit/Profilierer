@@ -13,6 +13,7 @@ import { ErweiterungDialogService } from '../../core/services/erweiterung-dialog
 import { ERW_NAME_MUSTER } from '../../core/profile-defaults';
 import { DatentypPicker } from '../datentyp-picker/datentyp-picker';
 import { DatentypWahl, erwTypVorgabe } from '../../core/util/datentyp.util';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
 /**
  * Formular-Dialog zum Anlegen einer Schema-Erweiterung (US Schema-Erweiterung).
@@ -23,7 +24,7 @@ import { DatentypWahl, erwTypVorgabe } from '../../core/util/datentyp.util';
   selector: 'app-erweiterung-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './erweiterung-dialog.html',
-  imports: [DatentypPicker],
+  imports: [DatentypPicker, KeinAutofillDirective],
 })
 export class ErweiterungDialog {
   private readonly state = inject(StateService);
