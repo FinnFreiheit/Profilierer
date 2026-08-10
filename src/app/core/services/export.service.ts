@@ -14,7 +14,7 @@ import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
 import { ValidationMarkerService } from './validation-marker.service';
 import { esc, XJNS, XSI_NS } from '../util/xml.util';
-import { kardText, pretty } from '../util/pretty.util';
+import { pretty } from '../util/pretty.util';
 
 interface WalkItem {
   kind: 'el' | 'ausp';
@@ -561,13 +561,10 @@ export class ExportService {
       const p = this.state.elemente()[x.path] ?? {};
       const st = this.state.statusOf(x.path);
       const inh = this.state.inheritedExcluded(x.path);
-      const excl = st?.wirkung === 'ausgeschlossen' || inh;
+      const excl = this.state.entfaellt(x.path);
       if (onlyProfile && excl) return;
       const name = x.kind === 'ausp' ? '» ' + x.ausp!.name : pretty(x.node.name);
-      const kt =
-        x.kind === 'ausp'
-          ? kardText(p.min || '1', p.max || '1')
-          : kardText(this.state.effKard(x.node).min, this.state.effKard(x.node).max);
+      const kt = this.state.kardAnzeige(x).text;
       rows.push({
         excl,
         erweiterung: x.kind === 'el' && !!x.node.erweiterung,

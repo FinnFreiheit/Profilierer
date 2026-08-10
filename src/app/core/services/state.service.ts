@@ -18,7 +18,7 @@ import { XsdDoc, XsdIndex } from '../../models/xsd-index.model';
 import { BundledVersion } from '../../models/schema-bundle.model';
 import { MessageCreateSession, MessageEditSession } from '../../models/testmessage.model';
 import { newProfile } from '../profile-defaults';
-import { pretty } from '../util/pretty.util';
+import { kardText, pretty } from '../util/pretty.util';
 import { REF_TARGETS } from '../refs';
 import { HinweisStoreService } from './hinweis-store.service';
 
@@ -440,6 +440,44 @@ export class StateService {
   }
 
   /**
+   * „Entfaellt" — die Aussage, die Baum, Druck, Excel und der „nur Profil"-
+   * Filter gleichermassen treffen: das Element ist selbst ausgeschlossen oder
+   * ein Vorfahr schliesst es aus. Beides zusammen ist die Aussage; wer nur
+   * `statusOf(path)?.wirkung` liest, uebersieht das Erbe.
+   *
+   * Die Regel stand vorher viermal ausformuliert (Baum-Kasten, Druckzeilen,
+   * Excel-Blatt, `boxHidden`) und konnte auseinanderlaufen. Wo die **Herkunft**
+   * des Ausschlusses zaehlt — der Kasten faerbt eigenen und geerbten
+   * unterschiedlich —, bleibt der Blick auf `statusOf`/`inheritedExcluded`
+   * einzeln richtig.
+   */
+  entfaellt(path: string): boolean {
+    return this.statusOf(path)?.wirkung === 'ausgeschlossen' || this.inheritedExcluded(path);
+  }
+
+  /**
+   * Die Kardinalitaet, wie sie am Kasten steht — eine Lesart fuer Baum, Druck
+   * und Excel. Ein **Vorkommen** traegt immer `1..1` (es ist der eine Fall,
+   * seine Grenzen stehen am Traeger); ein Element die effektive Kardinalitaet
+   * aus Schema und Profilierung. `standard` nennt die Schema-Vorgabe, wo die
+   * Profilierung sie enger gefasst hat — sonst `null`.
+   */
+  kardAnzeige(it: { kind: 'el' | 'ausp'; node: TreeNode; path: string }): {
+    text: string;
+    standard: string | null;
+  } {
+    if (it.kind === 'ausp') {
+      const p = this.elemente()[it.path] ?? {};
+      return { text: kardText(p.min || '1', p.max || '1'), standard: null };
+    }
+    const k = this.effKard(it.node);
+    return {
+      text: kardText(k.min, k.max),
+      standard: k.changed ? kardText(it.node.min, it.node.max) : null,
+    };
+  }
+
+  /**
    * Freigegebene Codelisten-Werte — Entscheidung, sonst Vorgabe. Ein leeres
    * Array ist eine explizite Einschraenkung („keine Werte zugelassen", siehe
    * isEmptyProfile) und faellt daher nicht auf die Vorgabe zurueck; nur ein
@@ -552,8 +590,7 @@ export class StateService {
     // sonst verschwaende der Klick auf "weglassen" den gerade bearbeiteten Ast.
     if (this.hatVorgabe()) return this.vorgabeGesperrt(path) && !this.onlyProfile();
     if (!this.onlyProfile()) return false;
-    const st = this.statusOf(path);
-    return st?.wirkung === 'ausgeschlossen' || this.inheritedExcluded(path);
+    return this.entfaellt(path);
   }
 
   /**

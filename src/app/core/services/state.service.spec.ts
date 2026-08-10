@@ -90,6 +90,38 @@ describe('StateService', () => {
       expect(s.inheritedExcluded('m/andere@a1/name')).toBeFalse();
     });
 
+    // Die Aussage „entfaellt" stand vorher viermal ausformuliert (Baum-Kasten,
+    // Druckzeilen, Excel-Blatt, boxHidden) — hier ist sie einmal geprueft.
+    it('entfaellt gilt fuer eigenen wie geerbten Ausschluss', () => {
+      s.setElementProfile('m/a', { status: 's3' }); // ausgeschlossen
+      expect(s.entfaellt('m/a')).toBeTrue();
+      expect(s.entfaellt('m/a/b')).toBeTrue();
+      expect(s.entfaellt('m/x')).toBeFalse();
+    });
+
+    it('kardAnzeige: Vorkommen tragen 1..1, Elemente die effektive Kardinalitaet', () => {
+      const n = node('m/a', { min: '0', max: 'unbounded' });
+
+      expect(s.kardAnzeige({ kind: 'el', node: n, path: 'm/a' })).toEqual({
+        text: 'beliebig viele',
+        standard: null,
+      });
+      expect(s.kardAnzeige({ kind: 'ausp', node: n, path: 'm/a@a1' })).toEqual({
+        text: 'genau 1',
+        standard: null,
+      });
+    });
+
+    it('kardAnzeige nennt die Schema-Vorgabe, wo die Profilierung enger fasst', () => {
+      const n = node('m/a', { min: '0', max: 'unbounded' });
+      s.setElementProfile('m/a', { max: '1' });
+
+      expect(s.kardAnzeige({ kind: 'el', node: n, path: 'm/a' })).toEqual({
+        text: '0 oder 1',
+        standard: 'beliebig viele',
+      });
+    });
+
     it('effKard beruecksichtigt Overrides', () => {
       const n = node('m/a', { min: '0', max: 'unbounded' });
       expect(s.effKard(n)).toEqual({

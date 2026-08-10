@@ -10,7 +10,7 @@ import { ValueService } from '../../core/services/value.service';
 import { XsdParserService } from '../../core/services/xsd-parser.service';
 import { ToastService } from '../../core/services/toast.service';
 import { HinweisStoreService } from '../../core/services/hinweis-store.service';
-import { pretty, kardText } from '../../core/util/pretty.util';
+import { pretty } from '../../core/util/pretty.util';
 import { datentypAnzeige } from '../../core/util/datentyp.util';
 import { erwLoeschFrage, erwTypFehltText } from '../../core/util/erweiterung.util';
 import { REF_LABELS, refKindOf } from '../../core/refs';
@@ -299,16 +299,12 @@ export class TreeNode {
         };
     }
 
-    // Kardinalitaet (Z.1263-1266).
-    let kt: string;
-    let standardHint: string | null = null;
-    if (it.kind === 'el') {
-      const k = this.state.effKard(n);
-      kt = kardText(k.min, k.max);
-      if (k.changed) standardHint = kardText(n.min, n.max);
-    } else {
-      kt = kardText(pe.min || '1', pe.max || '1');
-    }
+    // Kardinalitaet (Z.1263-1266) — dieselbe Lesart wie Druck und Excel.
+    const { text: kt, standard: standardHint } = this.state.kardAnzeige({
+      kind: it.kind,
+      node: n,
+      path,
+    });
     const kardColor: string = st ? st.farbe : 'var(--muted)';
 
     // Tags (Z.1270-1313, ohne Diff — P7).
@@ -498,7 +494,7 @@ export class TreeNode {
     // nicht — ein Platzhalter sieht einem Wert zu aehnlich, und ein zugeklappter
     // Ast zeigt gar nichts. Blatt mit eigenem Wert: Haken und Toenung;
     // Container: Zaehler der belegten Angaben darunter.
-    const hervor = this.state.wertHervorhebung() && !isExcl && !inhExcl;
+    const hervor = this.state.wertHervorhebung() && !this.state.entfaellt(path);
     const belegt = hervor && this.state.hatTestwert(path);
     const belegtSub = hervor ? this.state.belegtImAst(path) : 0;
 
