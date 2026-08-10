@@ -26,7 +26,7 @@ export function hinweisHerkunft(h: Pick<Hinweis, 'autor' | 'rolle' | 'zeit'>): s
 
 /**
  * Nutzertext zu einem gescheiterten Hinweis-Schreibvorgang. Der Status wird
- * bewusst per Duck-Typing gelesen (`HinweisFehler` traegt ihn), damit dieses
+ * bewusst per Duck-Typing gelesen (`BackendFehler` traegt ihn), damit dieses
  * Util nicht auf den Store zurueckzeigt.
  *
  * 403 ist kein Ausfall, sondern der Abnahme-Schutz: an einer abgenommenen

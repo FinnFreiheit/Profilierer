@@ -1,14 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { LibraryEntry, ProfileDoc, ProfilVersion } from '../../models/profile.model';
 import { LoggerService } from './logger.service';
-import { RolleService } from './rolle.service';
-
-/**
- * Basis-URL der Profil-API (same-origin; im Dev via Proxy auf das Backend).
- * Relativ, loest gegen <base href> auf: Dev/Root -> /api, Unterpfad-Deployment
- * (xjw.freiheits.de/profilierer) -> /profilierer/api (nginx strippt den Praefix).
- */
-const API_BASE = 'api';
+import { BackendClient } from './backend-client.service';
+import { mitEintrag, neuesteZuerst, ohneEintrag } from '../util/eintragsliste.util';
 
 /** Eine Version samt eingefrorenem Dokument (Vergleichs-Endpunkte). */
 export interface VersionMitDoc extends ProfilVersion {
@@ -33,7 +27,7 @@ export interface VersionMitDoc extends ProfilVersion {
 @Injectable({ providedIn: 'root' })
 export class ProfileStoreService {
   private readonly log = inject(LoggerService);
-  private readonly rolle = inject(RolleService);
+  private readonly http = inject(BackendClient).fuer('Profil-Backend');
 
   /** Bibliotheks-Index, nach letzter Schreibung absteigend. */
   readonly entries = signal<LibraryEntry[]>([]);
@@ -46,44 +40,23 @@ export class ProfileStoreService {
     );
   }
 
-  // ── HTTP-Helfer ─────────────────────────────────────────────────────
-
-  private async req<T>(path: string, init?: RequestInit): Promise<T> {
-    // AG-Schluessel immer mitschicken (Schutz abgenommener Objekte liegt am Server).
-    const r = await fetch(API_BASE + path, {
-      ...init,
-      headers: {
-        ...(init?.body ? { 'content-type': 'application/json' } : {}),
-        ...this.rolle.authHeaders(),
-        ...init?.headers,
-      },
-    });
-    if (!r.ok) throw new Error(`Profil-Backend: ${init?.method ?? 'GET'} ${path} → ${r.status}`);
-    if (r.status === 204) return undefined as T;
-    return (await r.json()) as T;
-  }
-
   // ── Lesen ───────────────────────────────────────────────────────────
 
   /** Bibliotheks-Index vom Server neu laden (Start + Fehler-Resync). */
   async refresh(): Promise<void> {
-    const list = await this.req<LibraryEntry[]>('/profiles');
-    this.entries.set([...list].sort((a, b) => b.aktualisiert - a.aktualisiert));
+    this.entries.set(neuesteZuerst(await this.http.json<LibraryEntry[]>('/profiles')));
   }
 
   /** Das komplette Profil-Dokument zu einer id (404 → null). */
   async load(id: string): Promise<ProfileDoc | null> {
-    const r = await fetch(`${API_BASE}/profiles/${encodeURIComponent(id)}`);
-    if (r.status === 404) return null;
-    if (!r.ok) throw new Error(`Profil-Backend: GET /profiles/${id} → ${r.status}`);
-    return (await r.json()) as ProfileDoc;
+    return this.http.jsonOderNull<ProfileDoc>(`/profiles/${encodeURIComponent(id)}`);
   }
 
   // ── Schreiben ───────────────────────────────────────────────────────
 
   /** Dokument unter fester id schreiben; Index-Eintrag aktualisieren. */
   async upsert(id: string, doc: ProfileDoc): Promise<void> {
-    const { entry } = await this.req<{ entry: LibraryEntry }>(
+    const { entry } = await this.http.json<{ entry: LibraryEntry }>(
       `/profiles/${encodeURIComponent(id)}`,
       { method: 'PUT', body: JSON.stringify(doc) },
     );
@@ -92,7 +65,7 @@ export class ProfileStoreService {
 
   /** Neues Profil anlegen; gibt die (serverseitig vergebene) id zurueck. */
   async create(doc: ProfileDoc): Promise<string> {
-    const { id, entry } = await this.req<{ id: string; entry: LibraryEntry }>('/profiles', {
+    const { id, entry } = await this.http.json<{ id: string; entry: LibraryEntry }>('/profiles', {
       method: 'POST',
       body: JSON.stringify(doc),
     });
@@ -102,20 +75,18 @@ export class ProfileStoreService {
 
   /** Profil als Kopie anlegen (neue id, Name "… (Kopie)"). */
   async duplicate(id: string): Promise<string | null> {
-    const r = await fetch(`${API_BASE}/profiles/${encodeURIComponent(id)}/duplicate`, {
-      method: 'POST',
-      headers: this.rolle.authHeaders(),
-    });
-    if (r.status === 404) return null;
-    if (!r.ok) throw new Error(`Profil-Backend: POST /profiles/${id}/duplicate → ${r.status}`);
-    const { id: newId, entry } = (await r.json()) as { id: string; entry: LibraryEntry };
-    this.putEntry(entry);
-    return newId;
+    const out = await this.http.jsonOderNull<{ id: string; entry: LibraryEntry }>(
+      `/profiles/${encodeURIComponent(id)}/duplicate`,
+      { method: 'POST' },
+    );
+    if (!out) return null;
+    this.putEntry(out.entry);
+    return out.id;
   }
 
   /** Nur den Namen aendern (Umbenennen im Dashboard ohne Oeffnen). */
   async rename(id: string, name: string): Promise<void> {
-    const { entry } = await this.req<{ entry: LibraryEntry }>(
+    const { entry } = await this.http.json<{ entry: LibraryEntry }>(
       `/profiles/${encodeURIComponent(id)}`,
       { method: 'PATCH', body: JSON.stringify({ name }) },
     );
@@ -124,8 +95,8 @@ export class ProfileStoreService {
 
   /** Profil aus der Bibliothek entfernen. */
   async delete(id: string): Promise<void> {
-    await this.req<void>(`/profiles/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    this.entries.update((list) => list.filter((e) => e.id !== id));
+    await this.http.json<void>(`/profiles/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    this.entries.update((list) => ohneEintrag(list, id));
   }
 
   /**
@@ -136,7 +107,7 @@ export class ProfileStoreService {
   async importAll(
     items: { id: string; doc: ProfileDoc; aktualisiert?: number; gespeichert?: string }[],
   ): Promise<number> {
-    const { imported } = await this.req<{ imported: number }>('/import', {
+    const { imported } = await this.http.json<{ imported: number }>('/import', {
       method: 'POST',
       body: JSON.stringify(items),
     });
@@ -147,7 +118,7 @@ export class ProfileStoreService {
 
   /** Versionsliste eines Profils (ohne doc), absteigend nach Nummer. */
   async listVersions(id: string): Promise<ProfilVersion[]> {
-    return this.req<ProfilVersion[]>(`/profiles/${encodeURIComponent(id)}/versions`);
+    return this.http.json<ProfilVersion[]>(`/profiles/${encodeURIComponent(id)}/versions`);
   }
 
   /**
@@ -169,10 +140,7 @@ export class ProfileStoreService {
 
   /** Gemeinsamer Lesepfad der beiden Vergleichs-Endpunkte (404 ist kein Fehler). */
   private async ladeVersion(pfad: string): Promise<VersionMitDoc | null> {
-    const r = await fetch(API_BASE + pfad);
-    if (r.status === 404) return null;
-    if (!r.ok) throw new Error(`Profil-Backend: GET ${pfad} → ${r.status}`);
-    return (await r.json()) as VersionMitDoc;
+    return this.http.jsonOderNull<VersionMitDoc>(pfad);
   }
 
   /**
@@ -184,10 +152,14 @@ export class ProfileStoreService {
     id: string,
     opts?: { kommentar?: string; automatisch?: boolean },
   ): Promise<{ version?: ProfilVersion; skipped?: boolean }> {
-    const out = await this.req<{ version?: ProfilVersion; skipped?: boolean; entry: LibraryEntry }>(
-      `/profiles/${encodeURIComponent(id)}/versions`,
-      { method: 'POST', body: JSON.stringify(opts ?? {}) },
-    );
+    const out = await this.http.json<{
+      version?: ProfilVersion;
+      skipped?: boolean;
+      entry: LibraryEntry;
+    }>(`/profiles/${encodeURIComponent(id)}/versions`, {
+      method: 'POST',
+      body: JSON.stringify(opts ?? {}),
+    });
     this.putEntry(out.entry);
     return { version: out.version, skipped: out.skipped };
   }
@@ -197,7 +169,7 @@ export class ProfileStoreService {
    * vorher als Sicherheits-Version). Gibt das wiederhergestellte Dokument.
    */
   async restoreVersion(id: string, versionId: string): Promise<ProfileDoc> {
-    const out = await this.req<{ entry: LibraryEntry; doc: ProfileDoc }>(
+    const out = await this.http.json<{ entry: LibraryEntry; doc: ProfileDoc }>(
       `/profiles/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/restore`,
       { method: 'POST' },
     );
@@ -207,7 +179,7 @@ export class ProfileStoreService {
 
   /** Version loeschen. */
   async deleteVersion(id: string, versionId: string): Promise<void> {
-    await this.req<void>(
+    await this.http.json<void>(
       `/profiles/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}`,
       { method: 'DELETE' },
     );
@@ -220,7 +192,7 @@ export class ProfileStoreService {
    * ein (der Aufrufer flusht vorher den Autosave) und setzt das Kennzeichen.
    */
   async abnehmen(id: string, kommentar?: string): Promise<ProfilVersion> {
-    const out = await this.req<{ version: ProfilVersion; entry: LibraryEntry }>(
+    const out = await this.http.json<{ version: ProfilVersion; entry: LibraryEntry }>(
       `/profiles/${encodeURIComponent(id)}/abnahme`,
       { method: 'POST', body: JSON.stringify({ kommentar }) },
     );
@@ -230,7 +202,7 @@ export class ProfileStoreService {
 
   /** Abnahme-Kennzeichen entfernen (die Abnahme-Version bleibt erhalten). */
   async abnahmeEntfernen(id: string): Promise<void> {
-    const { entry } = await this.req<{ entry: LibraryEntry }>(
+    const { entry } = await this.http.json<{ entry: LibraryEntry }>(
       `/profiles/${encodeURIComponent(id)}/abnahme`,
       { method: 'DELETE' },
     );
@@ -250,10 +222,6 @@ export class ProfileStoreService {
 
   /** Eintrag ersetzen/voranstellen und nach aktualisiert absteigend sortieren. */
   private putEntry(entry: LibraryEntry): void {
-    this.entries.update((list) => {
-      const rest = list.filter((e) => e.id !== entry.id);
-      rest.unshift(entry);
-      return rest.sort((a, b) => b.aktualisiert - a.aktualisiert);
-    });
+    this.entries.update((list) => mitEintrag(list, entry));
   }
 }

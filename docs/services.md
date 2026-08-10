@@ -4,43 +4,44 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 
 ## Überblick
 
-| Service                        | Verantwortung                                                                                                         |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `StateService`                 | Signals-Store: gesamter Zustand + Profil-Mutationen (Kern)                                                            |
-| `XsdParserService`             | XSD parsen/indexieren, Codelisten-/Typ-Auflösung                                                                      |
-| `TreeService`                  | Element-Baum lazy aufbauen, Ausprägungs-Kontexte, profilbewusster Abstieg (walkProfil)                                |
-| `NavService`                   | Nachricht laden, Auf-/Zuklappen, Auswahl, Pfeiltasten, Sprünge                                                        |
-| `DispositionService`           | Zentrale Statusänderung mit kaskadierender Pflicht-Vorbelegung                                                        |
-| `ValueService`                 | Codelisten-Werte + typgerechte Beispiel-/Platzhalterwerte                                                             |
-| `CodelistService`              | Genericode-Parsing, ZIP-/Datei-Import, XRepository, Cache                                                             |
-| `ExportService`                | Schematron-, Beispiel-XML-Export, Druckzeilen (+ Guard für offene Entscheidungen)                                     |
-| `ExcelExportService`           | Excel-Export im NGem-Abstimmungslayout (ExcelJS, dynamisch geladen)                                                   |
-| `GuidedService`                | Geführter Modus: offene Entscheidungspunkte, Fortschritt, Sprung zum nächsten Punkt                                   |
-| `KonformitaetService`          | Zustandsloser Abgleich Testnachricht ↔ eingefrorene Profilkopie (Verstoßliste)                                        |
-| `VorgabeSicht` (pur)           | Die eine Lesart der eingefrorenen Profilkopie (Quellpfad, Erben, kein Mischen)                                        |
-| `DiffService`                  | Versionsvergleich (flach), Diff-Karte, Vergleichsordner laden                                                         |
-| `ProfilDiffService`            | Feldgenauer Vergleich zweier Profil-Dokumente (Arbeitsstand ↔ Version/Abnahme)                                        |
-| `XmlDiffService`               | Struktureller Vergleich zweier XJustiz-Instanzen (Testnachricht ↔ Abnahme-Fassung)                                    |
-| `VergleichService`             | Zustand der beiden Vergleichsdialoge (Ziel: Profil+Version bzw. Testnachricht)                                        |
-| `BundledSchemaService`         | Im Projekt hinterlegte Schemaversionen (public/schemas/) per fetch laden                                              |
-| `RemoteSchemaService`          | Veröffentlichte Schemaversionen von xjustiz.de abrufen (Versionsseite + XSD-ZIP)                                      |
-| `InstanceImportService`        | Bestehende XJustiz-Nachricht (XML) zurück ins Profil-Modell binden                                                    |
-| `InstanceExportService`        | Bearbeitete Nachricht getreu re-exportieren (Original-DOM + Modell-Änderungen)                                        |
-| `TestmessageStoreService`      | Testdaten-Speicher: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal                                            |
-| `TestmessageCreateService`     | Testnachricht geführt aus einem Schema erstellen (Session, Entwurf speichern/fortsetzen)                              |
-| `TestmessageEditService`       | Gespeicherte Testnachricht öffnen und bearbeiten; zurückschreiben oder als neue ablegen                               |
-| `XmlValidationService`         | XSD-Validierung von Instanzen im Browser (xmllint-wasm, lazy; Schemaquelle: geladener Stand oder hinterlegte Version) |
-| `ValidationReportService`      | Zustand des Validierungsbericht-Dialogs (blockierte Exporte/Uploads mit Fehlerliste)                                  |
-| `ValidationMarkerService`      | Fehlerzeilen → Baumpfade auflösen, Baum-Marker setzen, Erweiterungs-Fehler klassifizieren                             |
-| `ErweiterungDialogService`     | Zustand des Erweiterungs-Dialogs (Anlage einer Schema-Erweiterung aus Baum/Detailpanel)                               |
-| `PersistenceService`           | XSD laden, Autosave (async, Race-Schutz), Profil öffnen/anlegen, Datei-Import/-Export                                 |
-| `ProfileStoreService`          | Profil-Bibliothek: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal                                             |
-| `HinweisStoreService`          | Hinweise am Element: eigene Ressource neben der Profilierung (HTTP-CRUD, `hinweise`-Signal + Sichten)                 |
-| `MigrationService`             | Einmalige Übernahme der localStorage-Bibliothek ins Backend                                                           |
-| `DownloadService`              | Blob-Download + Profil-Dateinamen                                                                                     |
-| `TeilenService`                | Link auf eine Profilierung (`?profil=<id>`) bauen, kopieren und beim Start auswerten                                  |
-| `SearchService`                | Baum-Suchindex + Ranking                                                                                              |
-| `ToastService`                 | Kurzmeldungen (Signal), `showError`/`fail`-Fehlerhelfer                                                               |
+| Service                    | Verantwortung                                                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `StateService`             | Signals-Store: gesamter Zustand + Profil-Mutationen (Kern)                                                            |
+| `XsdParserService`         | XSD parsen/indexieren, Codelisten-/Typ-Auflösung                                                                      |
+| `TreeService`              | Element-Baum lazy aufbauen, Ausprägungs-Kontexte, profilbewusster Abstieg (walkProfil)                                |
+| `NavService`               | Nachricht laden, Auf-/Zuklappen, Auswahl, Pfeiltasten, Sprünge                                                        |
+| `DispositionService`       | Zentrale Statusänderung mit kaskadierender Pflicht-Vorbelegung                                                        |
+| `ValueService`             | Codelisten-Werte + typgerechte Beispiel-/Platzhalterwerte                                                             |
+| `CodelistService`          | Genericode-Parsing, ZIP-/Datei-Import, XRepository, Cache                                                             |
+| `ExportService`            | Schematron-, Beispiel-XML-Export, Druckzeilen (+ Guard für offene Entscheidungen)                                     |
+| `ExcelExportService`       | Excel-Export im NGem-Abstimmungslayout (ExcelJS, dynamisch geladen)                                                   |
+| `GuidedService`            | Geführter Modus: offene Entscheidungspunkte, Fortschritt, Sprung zum nächsten Punkt                                   |
+| `KonformitaetService`      | Zustandsloser Abgleich Testnachricht ↔ eingefrorene Profilkopie (Verstoßliste)                                        |
+| `VorgabeSicht` (pur)       | Die eine Lesart der eingefrorenen Profilkopie (Quellpfad, Erben, kein Mischen)                                        |
+| `DiffService`              | Versionsvergleich (flach), Diff-Karte, Vergleichsordner laden                                                         |
+| `ProfilDiffService`        | Feldgenauer Vergleich zweier Profil-Dokumente (Arbeitsstand ↔ Version/Abnahme)                                        |
+| `XmlDiffService`           | Struktureller Vergleich zweier XJustiz-Instanzen (Testnachricht ↔ Abnahme-Fassung)                                    |
+| `VergleichService`         | Zustand der beiden Vergleichsdialoge (Ziel: Profil+Version bzw. Testnachricht)                                        |
+| `BundledSchemaService`     | Im Projekt hinterlegte Schemaversionen (public/schemas/) per fetch laden                                              |
+| `RemoteSchemaService`      | Veröffentlichte Schemaversionen von xjustiz.de abrufen (Versionsseite + XSD-ZIP)                                      |
+| `InstanceImportService`    | Bestehende XJustiz-Nachricht (XML) zurück ins Profil-Modell binden                                                    |
+| `InstanceExportService`    | Bearbeitete Nachricht getreu re-exportieren (Original-DOM + Modell-Änderungen)                                        |
+| `TestmessageStoreService`  | Testdaten-Speicher: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal                                            |
+| `TestmessageCreateService` | Testnachricht geführt aus einem Schema erstellen (Session, Entwurf speichern/fortsetzen)                              |
+| `TestmessageEditService`   | Gespeicherte Testnachricht öffnen und bearbeiten; zurückschreiben oder als neue ablegen                               |
+| `XmlValidationService`     | XSD-Validierung von Instanzen im Browser (xmllint-wasm, lazy; Schemaquelle: geladener Stand oder hinterlegte Version) |
+| `ValidationReportService`  | Zustand des Validierungsbericht-Dialogs (blockierte Exporte/Uploads mit Fehlerliste)                                  |
+| `ValidationMarkerService`  | Fehlerzeilen → Baumpfade auflösen, Baum-Marker setzen, Erweiterungs-Fehler klassifizieren                             |
+| `ErweiterungDialogService` | Zustand des Erweiterungs-Dialogs (Anlage einer Schema-Erweiterung aus Baum/Detailpanel)                               |
+| `PersistenceService`       | XSD laden, Autosave (async, Race-Schutz), Profil öffnen/anlegen, Datei-Import/-Export                                 |
+| `BackendClient`            | Der eine Weg ans Backend: Basis-URL, AG-Schlüssel, Statuscodes, `BackendFehler`                                       |
+| `ProfileStoreService`      | Profil-Bibliothek: HTTP-CRUD gegen das Backend (`/api`), `entries`-Signal                                             |
+| `HinweisStoreService`      | Hinweise am Element: eigene Ressource neben der Profilierung (HTTP-CRUD, `hinweise`-Signal + Sichten)                 |
+| `MigrationService`         | Einmalige Übernahme der localStorage-Bibliothek ins Backend                                                           |
+| `DownloadService`          | Blob-Download + Profil-Dateinamen                                                                                     |
+| `TeilenService`            | Link auf eine Profilierung (`?profil=<id>`) bauen, kopieren und beim Start auswerten                                  |
+| `SearchService`            | Baum-Suchindex + Ranking                                                                                              |
+| `ToastService`             | Kurzmeldungen (Signal), `showError`/`fail`-Fehlerhelfer                                                               |
 
 ## StateService — der Kern
 
@@ -291,9 +292,15 @@ Blatt-Wissen steht im Schema, nicht in den beiden Dokumenten — es kommt als re
 
 **Versionen** ([US Profilierung versionieren](user-stories/profilierung-versionieren.md)): `flushAutosave` wartet auch auf laufende Upserts (sonst fröre „Version anlegen" einen veralteten Stand ein); `openFromLibrary` flusht zuerst, legt fire-and-forget einen serverseitig entprellten Öffnen-Snapshot an und übergibt an den privaten Helfer `uebernehmeDoc` (Versions-Angleich + Nachricht aufbauen); `restoreVersion(versionId)` stellt eine Version des aktiven Profils in-place wieder her (Server sichert den Arbeitsstand vorher als Sicherheits-Version) — bewusst nicht über `openFromLibrary`, damit kein weiterer Öffnen-Snapshot entsteht.
 
+## BackendClient
+
+Der eine Weg ans Backend ([ADR 0007](adr/0007-datenbank-backend.md)). `fuer(quelle)` liefert einen gebundenen `BackendZugriff` mit drei Methoden: `json` (Request mit JSON-Antwort, 204 → `undefined`), `jsonOderNull` und `textOderNull` (404 ist eine Aussage, kein Fehler — Profil gelöscht, Nachricht ohne Profilbindung, Version nicht vorhanden). Fehler kommen als `BackendFehler` mit HTTP-Status.
+
+Hinter dem Seam liegen Basis-URL (relativ, gegen `<base href>` — Unterpfad-Deployment), Content-Type, Statusbehandlung und der **AG-Schlüssel**: er geht an jeden Request. Vorher hatte jeder der drei Stores einen wortgleichen `req`-Helfer und daneben nackte `fetch`-Aufrufe für die 404-toleranten Lesepfade — sieben Stellen, an denen die Rolle aus [ADR 0012](adr/0012-abnahme-rollenkonzept.md) nicht ankam. Die Listen-Regel der beiden Index-Signale (`neuesteZuerst`/`mitEintrag`/`ohneEintrag`) liegt aus demselben Grund in `core/util/eintragsliste.util.ts`.
+
 ## ProfileStoreService
 
-Einzige Persistenz-Kapsel der Profil-Bibliothek — spricht das Backend per nativem `fetch` an ([ADR 0007](adr/0007-datenbank-backend.md)). `entries` (Signal, reaktive Index-Fassade fürs Dashboard), `refresh` (GET `/api/profiles`), `load` (GET, 404→null), `upsert`/`create`/`duplicate`/`rename`/`delete` (async, pflegen `entries` mit dem vom Server gelieferten `LibraryEntry`), `importAll` (Migration), dazu die Versions-API `listVersions`/`createVersion`/`restoreVersion`/`deleteVersion` (`/api/profiles/:id/versions…`; Schreib-Calls pflegen `entries`, der Entry trägt `nVersionen`/`letzteVersionNr`/`geaendert` fürs Kennzeichen „geändert seit vX"). Getestet mit gemocktem `fetch` (`profile-store.service.spec.ts`).
+Einzige Persistenz-Kapsel der Profil-Bibliothek — spricht das Backend über den `BackendClient` an ([ADR 0007](adr/0007-datenbank-backend.md)). `entries` (Signal, reaktive Index-Fassade fürs Dashboard), `refresh` (GET `/api/profiles`), `load` (GET, 404→null), `upsert`/`create`/`duplicate`/`rename`/`delete` (async, pflegen `entries` mit dem vom Server gelieferten `LibraryEntry`), `importAll` (Migration), dazu die Versions-API `listVersions`/`createVersion`/`restoreVersion`/`deleteVersion` (`/api/profiles/:id/versions…`; Schreib-Calls pflegen `entries`, der Entry trägt `nVersionen`/`letzteVersionNr`/`geaendert` fürs Kennzeichen „geändert seit vX"). Getestet mit gemocktem `fetch` (`profile-store.service.spec.ts`).
 
 ## HinweisStoreService
 
@@ -305,7 +312,7 @@ Ablage der Hinweise am Element — eine **eigene Ressource** neben der Profilier
 
 **Rechte an abgenommenen Profilierungen** (Issue #42, Fortschreibung von [ADR 0012](adr/0012-abnahme-rollenkonzept.md)): Anlegen ist dort für **jeden** frei — genau an diesen Ständen entsteht der Rückmeldebedarf, und das Profil-Dokument bleibt unberührt (kein „geändert seit Abnahme"). Ändern, Löschen und Erledigt-Setzen sind der AG vorbehalten; einzige Ausnahme ist der **selbst angelegte** Eintrag derselben Sitzung. Er weist sich über ein Geheimnis aus, das der Server beim Anlegen einmalig zurückgibt (`token`, Header `x-hinweis-token`) und das nie in der Liste steht — die id allein taugt nicht als Nachweis, weil die Liste für alle lesbar ist. Der Client merkt sie nur im Speicher (`istEigener`), mit dem Tab endet die Sitzung. Der Volltausch (`PUT`) bleibt gesperrt, er räumte fremde Hinweise weg.
 
-Schreibfehler werden über `HinweisFehler` (mit HTTP-Status) gemeldet; `hinweisFehlerText` in `core/util/hinweis.util.ts` macht daraus den Nutzertext. 403 ist dort kein Ausfall, sondern der Abnahme-Schutz — „Backend nicht erreichbar" schickte den Nutzer sonst auf die Suche nach einem Serverproblem, das es nicht gibt. Scheitert das Abhaken, setzen Detail-Panel und Übersicht die Checkbox zurück: der Store hat sich nicht geändert, das Häkchen behielte sonst einen Zustand, den niemand gespeichert hat.
+Schreibfehler werden über `BackendFehler` (mit HTTP-Status, aus dem `BackendClient`) gemeldet; `hinweisFehlerText` in `core/util/hinweis.util.ts` macht daraus den Nutzertext. 403 ist dort kein Ausfall, sondern der Abnahme-Schutz — „Backend nicht erreichbar" schickte den Nutzer sonst auf die Suche nach einem Serverproblem, das es nicht gibt. Scheitert das Abhaken, setzen Detail-Panel und Übersicht die Checkbox zurück: der Store hat sich nicht geändert, das Häkchen behielte sonst einen Zustand, den niemand gespeichert hat.
 
 Abgeleitete Sichten (alle `computed`): `eintraege` (offene vor erledigten, dann Pfad und Zeit — die Reihenfolge der Übersicht), `nOffen` (Toolbar-Zähler), `jePfad`/`offeneJePfad` (Detail-Panel bzw. Baum-Marker und Excel-Zelle), `anc` (Vorfahren-Aggregat für zugeklappte Äste, Präfix-Logik wie `valAnc`). Getestet mit gemocktem `fetch` (`hinweis-store.service.spec.ts`).
 

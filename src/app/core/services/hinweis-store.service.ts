@@ -1,35 +1,17 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Hinweis, LibraryEntry } from '../../models/profile.model';
 import { LoggerService } from './logger.service';
-import { RolleService } from './rolle.service';
+import { BackendClient } from './backend-client.service';
 import { Injector } from '@angular/core';
 import { ProfileStoreService } from './profile-store.service';
 import { HinweisEingabe } from '../util/hinweis.util';
 import { unterPfad, vorfahren } from '../util/pfad.util';
-
-/** Basis-URL der Profil-API (wie im ProfileStoreService: relativ, gegen <base href>). */
-const API_BASE = 'api';
 
 /**
  * Browser-Ablage des Autornamens (Issue #40) — Selbstauskunft, einmal
  * hinterlegt und danach vorbelegt, analog zum gemerkten AG-Schluessel.
  */
 export const AUTOR_STORAGE = 'xjp.hinweisAutor';
-
-/**
- * Fehler eines Hinweis-Requests, mit HTTP-Status. Der Status entscheidet die
- * Meldung an den Nutzer: 403 ist kein Ausfall, sondern der Abnahme-Schutz —
- * "Backend nicht erreichbar" waere dort eine falsche Ursache.
- */
-export class HinweisFehler extends Error {
-  constructor(
-    readonly status: number,
-    nachricht: string,
-  ) {
-    super(nachricht);
-    this.name = 'HinweisFehler';
-  }
-}
 
 /**
  * Ablage der Hinweise (Rueckmeldungen am Element) — eine eigene Ressource neben
@@ -46,7 +28,7 @@ export class HinweisFehler extends Error {
 @Injectable({ providedIn: 'root' })
 export class HinweisStoreService {
   private readonly log = inject(LoggerService);
-  private readonly rolle = inject(RolleService);
+  private readonly http = inject(BackendClient).fuer('Hinweise');
   /**
    * Nur, um den vom Server mitgelieferten Index-Eintrag durchzureichen: die
    * Zaehler der Dashboard-Karte sollen ohne Neuladen stimmen (Issue #43). Der
@@ -152,21 +134,6 @@ export class HinweisStoreService {
 
   // ── HTTP ────────────────────────────────────────────────────────────
 
-  private async req<T>(path: string, init?: RequestInit): Promise<T> {
-    const r = await fetch(API_BASE + path, {
-      ...init,
-      headers: {
-        ...(init?.body ? { 'content-type': 'application/json' } : {}),
-        ...this.rolle.authHeaders(),
-        ...init?.headers,
-      },
-    });
-    if (!r.ok)
-      throw new HinweisFehler(r.status, `Hinweise: ${init?.method ?? 'GET'} ${path} → ${r.status}`);
-    if (r.status === 204) return undefined as T;
-    return (await r.json()) as T;
-  }
-
   private pfad(profilId: string, rest = ''): string {
     return `/profiles/${encodeURIComponent(profilId)}/hinweise${rest}`;
   }
@@ -183,7 +150,7 @@ export class HinweisStoreService {
       return;
     }
     try {
-      const liste = await this.req<Hinweis[]>(this.pfad(profilId));
+      const liste = await this.http.json<Hinweis[]>(this.pfad(profilId));
       // Zwischenzeitlicher Profilwechsel: veraltete Antwort verwerfen.
       if (this.profilId() === profilId) this.hinweise.set(liste);
     } catch (e) {
@@ -197,7 +164,7 @@ export class HinweisStoreService {
    * fuer den Export einer nicht geoeffneten Profilierung aus dem Dashboard.
    */
   async hole(profilId: string): Promise<Hinweis[]> {
-    return this.req<Hinweis[]>(this.pfad(profilId));
+    return this.http.json<Hinweis[]>(this.pfad(profilId));
   }
 
   /**
@@ -209,7 +176,7 @@ export class HinweisStoreService {
     const id = this.profilId();
     if (!id || !text.trim()) return null;
     const autor = this.autor().trim();
-    const { hinweis, entry } = await this.req<{
+    const { hinweis, entry } = await this.http.json<{
       hinweis: Hinweis & { token?: string };
       entry?: LibraryEntry;
     }>(this.pfad(id), {
@@ -231,7 +198,7 @@ export class HinweisStoreService {
   async aendern(hinweisId: string, patch: { text?: string; erledigt?: boolean }): Promise<void> {
     const id = this.profilId();
     if (!id) return;
-    const { hinweis, entry } = await this.req<{ hinweis: Hinweis; entry?: LibraryEntry }>(
+    const { hinweis, entry } = await this.http.json<{ hinweis: Hinweis; entry?: LibraryEntry }>(
       this.pfad(id, `/${encodeURIComponent(hinweisId)}`),
       { method: 'PATCH', body: JSON.stringify(patch), headers: this.urheberHeader(hinweisId) },
     );
@@ -243,7 +210,7 @@ export class HinweisStoreService {
   async loeschen(hinweisId: string): Promise<void> {
     const id = this.profilId();
     if (!id) return;
-    const antwort = await this.req<{ entry?: LibraryEntry } | undefined>(
+    const antwort = await this.http.json<{ entry?: LibraryEntry } | undefined>(
       this.pfad(id, `/${encodeURIComponent(hinweisId)}`),
       { method: 'DELETE', headers: this.urheberHeader(hinweisId) },
     );
@@ -277,7 +244,7 @@ export class HinweisStoreService {
     // Nichts zu tun, wenn der Teilbaum keinen Hinweis traegt — der haeufige Fall,
     // und er spart den Request beim Aufraeumen ganzer Aeste.
     if (!this.hinweise().some((h) => unterPfad(h.pfad, pfad))) return;
-    await this.req<void>(this.pfad(id, `?praefix=${encodeURIComponent(pfad)}`), {
+    await this.http.json<void>(this.pfad(id, `?praefix=${encodeURIComponent(pfad)}`), {
       method: 'DELETE',
     });
     this.hinweise.update((l) => l.filter((h) => !unterPfad(h.pfad, pfad)));
@@ -289,7 +256,7 @@ export class HinweisStoreService {
    * auch auf ein nicht geoeffnetes Profil (Import legt es gerade erst an).
    */
   async ersetzeAlle(profilId: string, liste: HinweisEingabe[]): Promise<void> {
-    const neu = await this.req<Hinweis[]>(this.pfad(profilId), {
+    const neu = await this.http.json<Hinweis[]>(this.pfad(profilId), {
       method: 'PUT',
       body: JSON.stringify(liste),
     });
