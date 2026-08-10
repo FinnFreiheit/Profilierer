@@ -12,8 +12,15 @@ describe('BackendClient', () => {
   let gesendet: { url: string; init?: RequestInit }[];
   let antwort: () => Response;
 
-  const kopf = (i: number, name: string): string | undefined =>
-    new Headers(gesendet[i]!.init?.headers).get(name) ?? undefined;
+  /**
+   * Nach Pfad statt nach Position: die Stores frischen ihren Index im
+   * Konstruktor auf, ein solcher Aufruf aus einer anderen Suite kann noch in
+   * der Warteschlange stehen und die Zaehlung verschieben.
+   */
+  const kopf = (pfad: string, name: string): string | undefined => {
+    const treffer = gesendet.find((g) => g.url === 'api' + pfad);
+    return treffer ? (new Headers(treffer.init?.headers).get(name) ?? undefined) : undefined;
+  };
 
   beforeEach(() => {
     gesendet = [];
@@ -32,7 +39,7 @@ describe('BackendClient', () => {
 
   it('loest den Pfad relativ gegen die API-Basis auf', async () => {
     await http.json('/profiles');
-    expect(gesendet[0]!.url).toBe('api/profiles');
+    expect(gesendet.map((g) => g.url)).toContain('api/profiles');
   });
 
   // Der eigentliche Befund: der Schluessel muss an *jeden* Request, sonst
@@ -43,17 +50,17 @@ describe('BackendClient', () => {
     await http.jsonOderNull('/profiles/x');
     await http.textOderNull('/testmessages/x/xml');
 
-    expect(kopf(0, 'x-ag-key')).toBe('geheim');
-    expect(kopf(1, 'x-ag-key')).toBe('geheim');
-    expect(kopf(2, 'x-ag-key')).toBe('geheim');
+    expect(kopf('/profiles', 'x-ag-key')).toBe('geheim');
+    expect(kopf('/profiles/x', 'x-ag-key')).toBe('geheim');
+    expect(kopf('/testmessages/x/xml', 'x-ag-key')).toBe('geheim');
   });
 
   it('setzt content-type nur, wenn ein Body mitgeht', async () => {
     await http.json('/profiles', { method: 'POST', body: '{}' });
     await http.json('/profiles/x', { method: 'DELETE' });
 
-    expect(kopf(0, 'content-type')).toBe('application/json');
-    expect(kopf(1, 'content-type')).toBeUndefined();
+    expect(kopf('/profiles', 'content-type')).toBe('application/json');
+    expect(kopf('/profiles/x', 'content-type')).toBeUndefined();
   });
 
   it('204 liefert undefined statt eines Parse-Fehlers', async () => {

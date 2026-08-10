@@ -292,6 +292,16 @@ Blatt-Wissen steht im Schema, nicht in den beiden Dokumenten — es kommt als re
 
 **Versionen** ([US Profilierung versionieren](user-stories/profilierung-versionieren.md)): `flushAutosave` wartet auch auf laufende Upserts (sonst fröre „Version anlegen" einen veralteten Stand ein); `openFromLibrary` flusht zuerst, legt fire-and-forget einen serverseitig entprellten Öffnen-Snapshot an und übergibt an den privaten Helfer `uebernehmeDoc` (Versions-Angleich + Nachricht aufbauen); `restoreVersion(versionId)` stellt eine Version des aktiven Profils in-place wieder her (Server sichert den Arbeitsstand vorher als Sicherheits-Version) — bewusst nicht über `openFromLibrary`, damit kein weiterer Öffnen-Snapshot entsteht.
 
+## Ansicht (`core/ansicht/`)
+
+Die Anzeige-Ableitungen der beiden großen Sichten. Sie lagen als `computed` in den Komponenten (`TreeNode.vm` 385 Zeilen, `DetailPanel.vm` 178) und waren damit nur über DOM-Selektoren prüfbar — vom Kennzeichen-Katalog des Kastens mit rund 20 Einträgen waren drei getestet. Die Aussage ist fachlich, die Darstellung nicht: der Seam liegt zwischen beidem.
+
+- `BaumkastenAnsicht`: `kasten(item)` (das komplette Anzeige-Modell, `Kastenansicht`), `kinder(item)` (sichtbare Kind-Items), `attribute(item)`, `phantome(item)`, `zeigtVorkommenHinzu`/`vorkommenHinzuSperre`/`zeigtErweiterungHinzu`, `sperrGrund(pfad)`. Bewusst mehrere Methoden statt eines Objekts: die Komponente hält je ein `computed` darauf, damit ein Tastendruck im Wertfeld nicht auch Kinderliste und Kennzeichen neu ableitet.
+- `DetailAnsicht`: `punkt()` — das Anzeige-Modell des ausgewählten Items bzw. `null` im Ruhezustand.
+- `core/ansicht/sperrgrund.ts`: `sperrGrundText(eigen, statusName, anmerkung)` — **eine** Formulierung für die Sperre der gebundenen Fassung. Baum und Detailbereich formulierten sie vorher unterschiedlich; der Anwender las im Kasten etwas anderes als daneben, und nur die eine Fassung nannte die Statusstufe.
+
+Kardinalitäts-Anzeige und „entfällt" liegen bewusst **nicht** hier, sondern als `kardAnzeige`/`entfaellt` im `StateService`: sie speisen auch Druck und Excel.
+
 ## BackendClient
 
 Der eine Weg ans Backend ([ADR 0007](adr/0007-datenbank-backend.md)). `fuer(quelle)` liefert einen gebundenen `BackendZugriff` mit drei Methoden: `json` (Request mit JSON-Antwort, 204 → `undefined`), `jsonOderNull` und `textOderNull` (404 ist eine Aussage, kein Fehler — Profil gelöscht, Nachricht ohne Profilbindung, Version nicht vorhanden). Fehler kommen als `BackendFehler` mit HTTP-Status.

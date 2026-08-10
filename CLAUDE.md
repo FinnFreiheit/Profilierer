@@ -31,6 +31,7 @@ xjustiz-profilierer/
 │   │   │                      XmlValidationService, ValidationReportService,
 │   │   │                      DownloadService, ToastService, SearchService, TeilenService,
 │   │   │                      BackendClient (der eine Weg ans Backend)
+│   │   ├── ansicht/           Anzeige-Ableitungen (BaumkastenAnsicht, DetailAnsicht, sperrgrund)
 │   │   ├── util/              xml.util, pretty.util, testmessage.util, pattern-sample.util,
 │   │   │                      eintragsliste.util
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
