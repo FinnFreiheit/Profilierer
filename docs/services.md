@@ -54,6 +54,8 @@ Ersetzt das globale `S`/`S.profile` (Z.327-335). Jedes Feld ein Signal, Ableitun
 
 `removeAusp`, `removeErweiterung`, `bereinigeUnter` und `pruneP` sind der heikelste Teil und **unit-getestet** (`state.service.spec.ts`).
 
+**Die Kaskade ist eine Operation** (private `kaskadiere(prefix, inklusive)`): Sie räumt einen Teilbaum aus allen Trägern — `elemente`, `auspraegungen`, `erweiterungen`, Hinweise, Auswahl, Öffnungszustände. `inklusive` entscheidet über den Knoten selbst (Entfernen: fällt mit; Typwechsel über `bereinigeUnter`: überlebt samt Notiz); Erweiterungen fallen immer mit, weil sie am _Eltern_-Pfad indiziert sind. Die drei Aufrufer beschreiben nur noch ihre eigene Listen-Mutation. Der Zusammenlegung ging ein Befund voraus: `removeErweiterung` räumte Auswahl und Öffnungszustände mit nacktem `startsWith` auf und traf beim Löschen von `~x1` auch `~x11` — die Präfix-Grenzen kommen jetzt ausnahmslos aus `unterPfad` ([Pfad-Grammatik](../CONTEXT.md)).
+
 `inheritedExcluded(path)` läuft über `vorfahrenPfade`, also an den Grenzen `/` **und** `@`: der Trägerknoten einer Ausprägung steht in keinem `/`-Präfix seiner Vorkommen (`…/beteiligung` fehlt in `…/beteiligung@a1/name`), sein Ausschluss bliebe dort sonst ohne Wirkung — die Sperre (`vorgabeGesperrt`) zählt bereits über `@`, die Ausgrauung (`.box.excluded`/`.exclInherit`, Excel-/Druck-Spalte „entfällt") hing bis dahin an der `/`-Kette und fehlte an der Vorkommen-Grenze. Das bis dahin öffentliche `ancestorPaths` (reine `/`-Kette) hatte danach keinen Aufrufer mehr und ist entfallen — `vorfahrenPfade` ist die eine Präfix-Regel.
 
 ### Vorgabe-Schicht

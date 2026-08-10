@@ -211,6 +211,31 @@ describe('StateService', () => {
       expect(s.isOpen(pfad)).toBeFalse();
     });
 
+    // Regression: die Aufraeumseite (Auswahl, Oeffnungszustaende) lief frueher
+    // ueber nacktes `startsWith` statt ueber die Pfad-Grammatik — `~x1` traf
+    // damit auch `~x11`. Die ids sind fortlaufend (`x<ts>1` … `x<ts>11`), die
+    // Kollision also im Betrieb erreichbar.
+    it('removeErweiterung trifft nicht das Geschwister mit laengerer id', () => {
+      s.erweiterungen.update((m) => ({
+        ...m,
+        'm/a': [
+          { id: 'x1', name: 'eins', min: '1', max: '1' },
+          { id: 'x11', name: 'elf', min: '1', max: '1' },
+        ],
+      }));
+      const lang = 'm/a/~x11';
+      s.setElementProfile(lang, { beispiel: 'bleibt' });
+      s.setOpen(lang, true);
+      s.selItem.set({ kind: 'el', node: node(lang) } as TreeItem);
+
+      s.removeErweiterung('m/a', 'x1');
+
+      expect(s.erweiterungenOf('m/a')!.map((e) => e.id)).toEqual(['x11']);
+      expect(s.elemente()[lang]?.beispiel).toBe('bleibt');
+      expect(s.isOpen(lang)).toBeTrue();
+      expect(s.selItem()).not.toBeNull();
+    });
+
     it('removeErweiterung laesst Geschwister stehen', () => {
       const a = s.addErweiterung('m/a', { name: 'eins', min: '1', max: '1' });
       const b = s.addErweiterung('m/a', { name: 'zwei', min: '1', max: '1' });

@@ -734,42 +734,60 @@ export class StateService {
       const next = { ...m };
       const rest = this.materialisiere(next[path], vorgabeListe).filter((a) => a.id !== id);
       this.setzeListe(next, path, rest, vorgabeListe);
-      // Unter-Ausprägungen der entfernten Auspraegung wegraeumen.
-      for (const k of Object.keys(next)) {
-        if (unterPfad(k, prefix)) delete next[k];
-      }
       return next;
     });
 
-    this.elemente.update((m) => {
+    this.kaskadiere(prefix, true);
+  }
+
+  /**
+   * Alles unter `prefix` aus **allen** Traegern raeumen — die eine Kaskade
+   * hinter `removeAusp`, `removeErweiterung` und `bereinigeUnter`.
+   *
+   * `inklusive` entscheidet ueber den Knoten selbst: beim Entfernen eines
+   * Vorkommens oder einer Erweiterung faellt er mit; beim Typwechsel
+   * (`bereinigeUnter`) ueberlebt er samt seiner Notiz und nur der Unterbau
+   * geht. Erweiterungen sind davon ausgenommen und fallen immer mit: sie sind
+   * am **Eltern**pfad indiziert, die Liste am Pfad selbst haengt also bereits
+   * unter dem Knoten.
+   *
+   * Hinweise liegen in eigener Ablage, fallen aber mit dem Element ([ADR
+   * 0014]): sonst zaehlen sie weiter, stehen in der Uebersicht und erzeugen
+   * einen Sammel-Marker, dessen Sprung ins Leere geht. Der Aufruf gehoert
+   * hierher und nicht an die Bedienstellen — die Invariante haengt an der
+   * Kaskade, nicht am Knopf.
+   *
+   * Die Praefix-Grenzen kommen ausnahmslos aus `unterPfad` (Pfad-Grammatik).
+   * Das war der Grund fuer diese Zusammenlegung: `removeErweiterung` raeumte
+   * Auswahl und Oeffnungszustaende mit nacktem `startsWith` auf und traf beim
+   * Loeschen von `~x1` auch `~x12`.
+   */
+  private kaskadiere(prefix: string, inklusive: boolean): void {
+    const betroffen = (k: string): boolean => (inklusive || k !== prefix) && unterPfad(k, prefix);
+    const raeume = <T>(m: Record<string, T>, passt: (k: string) => boolean): Record<string, T> => {
       const next = { ...m };
-      for (const k of Object.keys(next)) {
-        if (unterPfad(k, prefix)) delete next[k];
-      }
+      for (const k of Object.keys(next)) if (passt(k)) delete next[k];
       return next;
-    });
+    };
 
-    this.erweiterungen.update((m) => {
-      const next = { ...m };
-      for (const k of Object.keys(next)) {
-        if (unterPfad(k, prefix)) delete next[k];
-      }
-      return next;
-    });
+    this.elemente.update((m) => raeume(m, betroffen));
+    this.auspraegungen.update((m) => raeume(m, betroffen));
+    this.erweiterungen.update((m) => raeume(m, (k) => unterPfad(k, prefix)));
 
-    // Hinweise liegen in eigener Ablage, fallen aber mit dem Element: sonst
-    // zaehlen sie weiter, stehen in der Uebersicht und erzeugen einen
-    // Sammel-Marker, dessen Sprung ins Leere geht. Der Aufruf gehoert hierher
-    // und nicht an die Bedienstellen — die Invariante haengt an der Kaskade,
-    // nicht am Knopf.
-    void this.hinweisStore.loescheUnter(prefix);
+    // Inklusiv deckt `loescheUnter` den Fall in einem Aufruf ab; exklusiv
+    // schluesse es den Pfad selbst mit ein (`unterPfad` ist inklusiv), darum
+    // dort einzeln.
+    if (inklusive) void this.hinweisStore.loescheUnter(prefix);
+    else
+      for (const h of this.hinweisStore.hinweise().filter((h) => betroffen(h.pfad)))
+        void this.hinweisStore.loeschen(h.id);
 
     const sel = this.selItem();
-    if (sel && unterPfad(itemPath(sel), prefix)) this.selItem.set(null);
+    if (sel && betroffen(itemPath(sel))) this.selItem.set(null);
 
     this.open.update((s) => {
       const next = new Set(s);
-      for (const p of s) if (unterPfad(p, prefix)) next.delete(p);
+      for (const p of s) if (betroffen(p)) next.delete(p);
       return next;
     });
   }
@@ -831,40 +849,16 @@ export class StateService {
     // bleibt unberuehrt.
     if (!this.erweiterungen()[parentPath]?.some((e) => e.id === id)) return;
     const prefix = parentPath + '/~' + id;
-    const betroffen = (k: string): boolean => unterPfad(k, prefix);
     const vorgabeListe = this.vorgabe()?.erweiterungen[parentPath];
 
     this.erweiterungen.update((m) => {
       const next = { ...m };
       const rest = this.materialisiere(next[parentPath], vorgabeListe).filter((e) => e.id !== id);
       this.setzeListe(next, parentPath, rest, vorgabeListe);
-      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
       return next;
     });
 
-    this.elemente.update((m) => {
-      const next = { ...m };
-      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
-      return next;
-    });
-
-    this.auspraegungen.update((m) => {
-      const next = { ...m };
-      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
-      return next;
-    });
-
-    // Wie in removeAusp: die Hinweise des Teilbaums fallen mit.
-    void this.hinweisStore.loescheUnter(prefix);
-
-    const sel = this.selItem();
-    if (sel && itemPath(sel).startsWith(prefix)) this.selItem.set(null);
-
-    this.open.update((s) => {
-      const next = new Set(s);
-      for (const p of s) if (p.startsWith(prefix)) next.delete(p);
-      return next;
-    });
+    this.kaskadiere(prefix, true);
   }
 
   /**
@@ -898,41 +892,7 @@ export class StateService {
    * Festlegungen darunter zeigen ins Leere (#97).
    */
   bereinigeUnter(prefix: string): void {
-    const betroffen = (k: string): boolean => k !== prefix && unterPfad(k, prefix);
-    const raeume = <T>(m: Record<string, T[]>): Record<string, T[]> => {
-      const next = { ...m };
-      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
-      return next;
-    };
-    this.elemente.update((m) => {
-      const next = { ...m };
-      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
-      return next;
-    });
-    this.auspraegungen.update(raeume);
-    // Erweiterungen sind am Elternpfad indiziert: die Liste **am** Pfad selbst
-    // haengt unter dem Knoten und faellt mit.
-    this.erweiterungen.update((m) => {
-      const next = { ...m };
-      for (const k of Object.keys(next)) if (unterPfad(k, prefix)) delete next[k];
-      return next;
-    });
-
-    // Wie in removeErweiterung fallen die Hinweise des Teilbaums mit — aber
-    // **nur** die darunter: `loescheUnter` schliesst den Pfad selbst ein
-    // (`unterPfad` ist inklusiv), und der Knoten ueberlebt den Typwechsel
-    // samt seiner Notiz. Darum einzeln statt per Praefix.
-    for (const h of this.hinweisStore.hinweise().filter((h) => betroffen(h.pfad)))
-      void this.hinweisStore.loeschen(h.id);
-
-    const sel = this.selItem();
-    if (sel && betroffen(itemPath(sel))) this.selItem.set(null);
-
-    this.open.update((s) => {
-      const next = new Set(s);
-      for (const p of s) if (betroffen(p)) next.delete(p);
-      return next;
-    });
+    this.kaskadiere(prefix, false);
   }
 
   // ── Oeffnungszustaende ──────────────────────────────────────────────
