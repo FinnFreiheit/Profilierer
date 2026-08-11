@@ -396,6 +396,25 @@ describe('ExportService (Schematron)', () => {
       expect(xml).not.toContain('<titel>'); // Teilbaum entfaellt mit
       expect(xml).toContain('<kopf>');
     });
+
+    it('die Mindestanzahl der gebundenen Fassung bringt ein optionales Element ins XML', () => {
+      // Vorher las `include` die Kardinalitaet roh (eigene Schicht + Schema)
+      // statt ueber `effKard`: eine Untergrenze der Profilierung blieb beim
+      // Schreiben unbeachtet, der Abgleich zaehlte das Element aber als
+      // vorhanden — die gespeicherte Nachricht verletzte die Vorgabe und galt
+      // als konform. Seit `core/enthalten.ts` lesen beide dieselbe Regel.
+      expect(instanz()).not.toContain('<az>');
+
+      state.setVorgabe({
+        meta: {},
+        statuses: [],
+        elemente: { [`${M}/az`]: { min: '1' } }, // eingegrenzt, ohne Statusstufe
+        auspraegungen: {},
+        erweiterungen: {},
+      });
+
+      expect(instanz()).toContain('<az></az>');
+    });
   });
 
   // ── Schema-Erweiterungen (US Schema-Erweiterung) ──────────────────────

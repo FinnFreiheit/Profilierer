@@ -1,18 +1,15 @@
-import { Injectable, inject } from '@angular/core';
-import { TreeNode } from '../../models/node.model';
+import { EnvironmentInjector, Injectable, inject } from '@angular/core';
+import { XsdIndex } from '../../models/xsd-index.model';
 import { StateService } from './state.service';
-import { TreeService } from './tree.service';
+import { TreeService, baumOhneProfil } from './tree.service';
 import { NavService } from './nav.service';
 import { ToastService } from './toast.service';
 import { CodelistService } from './codelist.service';
 import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
-import { byName, leafValue } from '../util/xml.util';
-import { REF_TARGETS, SGO_KENNUNG, refKindEff, refKindOf, refTraeger } from '../refs';
-
-/** Elementarten, die Verweisziel sein koennen — die Werte aus `REF_TARGETS`. */
-const ZIEL_NAMEN = new Set(Object.values(REF_TARGETS).flat());
-const [SGO_ELTERN, SGO_BLATT] = SGO_KENNUNG.split('/') as [string, string];
+import { RohVerweis, extrahiereInstanz } from '../instanz-extrakt';
+import { InstanzModell } from '../vorgabe-sicht';
+import { refKindEff } from '../refs';
 
 /**
  * Importiert eine bestehende XJustiz-Nachricht (XML-Instanz) und bildet sie
@@ -21,11 +18,13 @@ const [SGO_ELTERN, SGO_BLATT] = SGO_KENNUNG.split('/') as [string, string];
  * Hand gebaute Testnachricht (Blatt-Testwerte, Codelisten-Werte, Ausprägungen
  * für mehrfach vorkommende Elemente).
  *
- * Regeln (mit dem Nutzer abgestimmt):
- * - Das passende XSD muss geladen sein (Root-Element bestimmt die `nachricht.*`).
- * - Genau 1 Vorkommen eines wiederholbaren Elements → Werte direkt gefüllt.
- * - Ab 2 Vorkommen → je eine Auspraegung „Vorkommen N".
- * - Kein Status wird gesetzt; nur Testwerte und Ausprägungen.
+ * Der **Walk** selbst liegt zustandslos in `core/instanz-extrakt.ts`; dieser
+ * Dienst ist der Teil, der dabei Zustand anfasst: er baut den Baum, überträgt
+ * das Ergebnis in den Store, öffnet die Nachricht im Editor und löst die
+ * Verweise auf. `modellAus` geht denselben Weg **ohne** Store — für
+ * Auswertungen, die den geöffneten Editor nicht anfassen dürfen.
+ *
+ * Regeln (mit dem Nutzer abgestimmt) stehen beim Walk.
  */
 @Injectable({ providedIn: 'root' })
 export class InstanceImportService {
@@ -36,31 +35,7 @@ export class InstanceImportService {
   private readonly codelists = inject(CodelistService);
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
-
-  /**
-   * Waehrend eines Imports gefuellte Zuordnung Modell-Pfad -> Quell-Element.
-   * Transient (importXml laeuft synchron); wird am Ende in die Bearbeitungs-
-   * Session uebergeben und dort fuer den treuen Re-Export gehalten.
-   */
-  private quelle: Map<string, Element> | null = null;
-
-  /**
-   * Waehrend eines Imports gefuellte Zuordnung Auspraegungs-Pfad -> Index des
-   * Quell-Vorkommens. Transient wie `quelle`; wandert in die Bearbeitungs-Session
-   * und haelt dort die Vorkommen stabil, auch wenn welche geloescht werden.
-   */
-  private vorkommen: Map<string, number> | null = null;
-
-  /**
-   * Waehrend eines Imports gesammelte Verweise: der Traeger und der Wert, der
-   * am `ref.*`-Blatt darunter steht. Erst nach dem vollstaendigen Durchlauf
-   * aufloesbar — das Ziel kann in der Nachricht hinter dem Verweis stehen und
-   * seine Vorkommen entstehen dann erst spaeter.
-   */
-  private verweise: { traeger: TreeNode; wert: string }[] | null = null;
-
-  /** Werte der `ref.*`-Blaetter der laufenden Quelle (siehe `verwieseneWerte`). */
-  private refWerte = new Set<string>();
+  private readonly injector = inject(EnvironmentInjector);
 
   /** Prüft, ob ein XML-Text eine XJustiz-Nachricht (kein Genericode o. ä.) ist. */
   static rootMessageName(xmlText: string): string | null {
@@ -71,16 +46,42 @@ export class InstanceImportService {
   }
 
   /**
-   * Importiert die XML-Instanz und lädt sie als aktuelles Profil. `quellName`
-   * (Dateiname/Testnachrichten-Name) fliesst in die Bearbeitungs-Session als
-   * Vorschlag fuer das spaetere „als neue Nachricht speichern".
+   * Das Instanz-Modell einer Nachricht gegen einen Schema-Index — **ohne**
+   * Store, ohne Baumwechsel im Editor, ohne Sitzung. Der Weg für Auswertungen
+   * (Konformitäts-Abgleich einer hochgeladenen Nachricht): sie laufen über
+   * einen eigenen Baum (`baumOhneProfil`), weil `buildRoot` Index und Caches
+   * seiner Instanz austauscht.
+   *
+   * Wirft, wenn das XML nicht lesbar ist oder der Index die Nachricht nicht
+   * kennt — dieselben Vorbedingungen wie `importXml`, nur ohne Nebenwirkung.
    */
-  importXml(xmlText: string, quellName?: string): void {
+  modellAus(xmlText: string, idx: XsdIndex): { msgName: string; modell: InstanzModell } {
+    const rootEl = this.wurzel(xmlText);
+    const msgName = rootEl.localName;
+    if (!idx.el[msgName]) throw new Error(`Kein passendes Schema für <${msgName}>.`);
+    const baum = baumOhneProfil(this.injector);
+    const extrakt = extrahiereInstanz(baum, baum.buildRoot(msgName, idx), rootEl);
+    return { msgName, modell: extrakt.modell };
+  }
+
+  /** Wurzelelement einer XJustiz-Instanz; wirft mit sprechendem Grund. */
+  private wurzel(xmlText: string): Element {
     const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
     if (doc.getElementsByTagName('parsererror').length)
       throw new Error('XML nicht lesbar (Parserfehler).');
     const rootEl = doc.documentElement;
     if (!rootEl) throw new Error('Leeres XML.');
+    return rootEl;
+  }
+
+  /**
+   * Importiert die XML-Instanz und lädt sie als aktuelles Profil. `quellName`
+   * (Dateiname/Testnachrichten-Name) fliesst in die Bearbeitungs-Session als
+   * Vorschlag fuer das spaetere „als neue Nachricht speichern".
+   */
+  importXml(xmlText: string, quellName?: string): void {
+    const rootEl = this.wurzel(xmlText);
+    const doc = rootEl.ownerDocument;
     const msgName = rootEl.localName;
     const idx = this.state.idx();
     if (!idx) throw new Error('Bitte zuerst den passenden XSD-Ordner laden.');
@@ -91,16 +92,16 @@ export class InstanceImportService {
     // Autosave in ein (evtl. offenes) Profil geschrieben werden.
     this.state.activeProfileId.set(null);
     const root = this.state.root()!;
-    const opened = new Set<string>([root.path]);
-    this.quelle = new Map<string, Element>();
-    this.vorkommen = new Map<string, number>();
-    this.verweise = [];
-    this.refWerte = this.verwieseneWerte(rootEl);
-    this.bindChildren(root, rootEl, opened, 0);
-    this.verweiseAufloesen();
-    this.verweise = null;
-    this.refWerte = new Set();
-    this.state.open.set(opened);
+    // Derselbe Walk wie im zustandslosen Weg — aber über den Baum **des
+    // Editors**, damit die gesammelten Verweis-Träger dieselben Knoten sind,
+    // gegen die `zielMitKennung` gleich auflöst.
+    const extrakt = extrahiereInstanz(this.tree, root, rootEl);
+    // Die Maps am Stück setzen: der Walk führt die Ausprägungs-ids selbst, und
+    // `addAusp` vergäbe eigene. Neue Referenzen — Vertrag des Stores.
+    this.state.elemente.set(extrakt.modell.elemente);
+    this.state.auspraegungen.set(extrakt.modell.auspraegungen);
+    this.verweiseAufloesen(extrakt.verweise);
+    this.state.open.set(extrakt.offen);
     this.state.selItem.set({ kind: 'el', node: root });
     // Bearbeitungs-Session merken: Quell-DOM + Pfad-Zuordnung fuer den treuen
     // Re-Export. Nach loadMessage setzen (das leert messageEdit).
@@ -112,11 +113,9 @@ export class InstanceImportService {
       // Testspeicher nicht — die id setzt der TestmessageEditService nach.
       entryId: null,
       sourceDoc: doc,
-      quelle: this.quelle,
-      vorkommenIndex: this.vorkommen,
+      quelle: extrakt.quelle,
+      vorkommenIndex: extrakt.vorkommenIndex,
     });
-    this.quelle = null;
-    this.vorkommen = null;
     // Nachricht inspizieren: gesperrte Ansicht, die sofort nur den belegten
     // Inhalt zeigt. Nach dem Reset in loadMessage setzen, damit die Flags stehen.
     this.state.readOnly.set(true);
@@ -142,109 +141,6 @@ export class InstanceImportService {
     return vom(rootEl) ?? vom(rootEl.getElementsByTagNameNS('*', 'nachrichtenkopf')[0]);
   }
 
-  /** Bindet die Schema-Kinder von `node` an die XML-Kinder von `xmlEl`. */
-  private bindChildren(node: TreeNode, xmlEl: Element, opened: Set<string>, depth: number): void {
-    if (depth > 40) return;
-    this.tree.expandNode(node);
-    const done = new Set<string>();
-    for (const child of node.children ?? []) {
-      if (child.synthetic) {
-        // choice/sequence-Gruppe: ihre Element-Kinder liegen direkt unter xmlEl
-        opened.add(child.path);
-        this.bindChildren(child, xmlEl, opened, depth + 1);
-        continue;
-      }
-      if (done.has(child.name)) continue; // gleicher Basisname nur einmal
-      done.add(child.name);
-      const matches = byName(xmlEl, child.name);
-      if (!matches.length) continue;
-      this.bindElement(child, matches, opened, depth);
-    }
-  }
-
-  private bindElement(
-    child: TreeNode,
-    matches: Element[],
-    opened: Set<string>,
-    depth: number,
-  ): void {
-    // Ein einzelnes Vorkommen bleibt in der Regel ohne Auspraegung — es sei
-    // denn, ein Verweis der Nachricht zeigt darauf: ein Verweisziel *ist* ein
-    // Vorkommen, ohne Auspraegung gaebe es nichts, worauf `refZiel` zeigen
-    // koennte, und die Zielangabe ginge beim Oeffnen verloren.
-    if (
-      this.tree.isRepeatable(child) &&
-      (matches.length >= 2 || this.istVerwiesen(child.name, matches[0]!))
-    ) {
-      opened.add(child.path);
-      matches.forEach((m, i) => {
-        const auspId = this.state.addAusp(child.path, 'Vorkommen ' + (i + 1));
-        const cn = this.tree.ctxNode(child, auspId);
-        this.vorkommen?.set(cn.path, i);
-        opened.add(cn.path);
-        this.bindNode(cn, m, opened, depth + 1);
-      });
-    } else {
-      // genau 1 Vorkommen (oder ungültig mehrfach bei nicht-wiederholbar → erstes)
-      this.bindNode(child, matches[0]!, opened, depth);
-    }
-  }
-
-  private bindNode(node: TreeNode, xmlEl: Element, opened: Set<string>, depth: number): void {
-    if (node.recursive) return;
-    // Quell-Element fuer den treuen Re-Export merken (auch Container, damit
-    // unveraenderte Teilbaeume 1:1 uebernommen werden koennen).
-    this.quelle?.set(node.path, xmlEl);
-    if (this.tree.isLeaf(node)) {
-      const val = leafValue(xmlEl, !!node.codelist);
-      if (val) {
-        this.state.setElementProfile(node.path, { beispiel: val });
-        // Der Verweis haengt am Traeger, nicht am Nummern-Blatt darunter —
-        // dieselbe Ableitung wie im Detailbereich (#30). Ohne Traeger (Typ per
-        // xs:extension) traegt das Blatt die Zielangabe selbst.
-        const traeger = refTraeger(node) ?? (refKindOf(node) ? node : null);
-        if (traeger) this.verweise?.push({ traeger, wert: val });
-      }
-      return;
-    }
-    opened.add(node.path);
-    this.bindChildren(node, xmlEl, opened, depth + 1);
-  }
-
-  /**
-   * Alle Werte, auf die in der Quelle verwiesen wird — der Inhalt jedes
-   * `ref.*`-Blatts. Einmal vorab erhoben, weil beim Binden eines moeglichen
-   * Ziels feststehen muss, ob es ein Vorkommen braucht; der zugehoerige Verweis
-   * kann in der Nachricht weit dahinter stehen.
-   */
-  private verwieseneWerte(rootEl: Element): Set<string> {
-    const out = new Set<string>();
-    for (const el of Array.from(rootEl.getElementsByTagName('*'))) {
-      if (!/^ref\./.test(el.localName)) continue;
-      const t = el.textContent?.trim();
-      if (t) out.add(t);
-    }
-    return out;
-  }
-
-  /**
-   * Zeigt ein Verweis der Nachricht auf dieses Vorkommen? Gefragt wird nur bei
-   * Elementarten, die ueberhaupt Verweisziel sein koennen (`REF_TARGETS`), und
-   * beantwortet ueber die Kennung darunter: die laufende Nummer oder die
-   * Identifikation eines Schriftgutobjekts. Traegt sie einen Wert, auf den
-   * verwiesen wird, ist dieses Vorkommen gemeint.
-   */
-  private istVerwiesen(elName: string, xmlEl: Element): boolean {
-    if (!ZIEL_NAMEN.has(elName) || !this.refWerte.size) return false;
-    for (const k of Array.from(xmlEl.getElementsByTagName('*'))) {
-      const t = k.textContent?.trim();
-      if (!t || !this.refWerte.has(t)) continue;
-      if (k.localName === 'rollennummer' || k.localName === 'beteiligtennummer') return true;
-      if (k.localName === SGO_BLATT && k.parentElement?.localName === SGO_ELTERN) return true;
-    }
-    return false;
-  }
-
   /**
    * Die Verweise der geladenen Nachricht auf ihre Ziele zurueckfuehren. Im XML
    * steht nur der Wert (Rollennummer, UUID eines Schriftgutobjekts); welches
@@ -258,8 +154,8 @@ export class InstanceImportService {
    * in der Nachricht steht — oder wenn es nur einmal vorkommt und darum keine
    * Auspraegung traegt, auf die verwiesen werden koennte.
    */
-  private verweiseAufloesen(): void {
-    for (const { traeger, wert } of this.verweise ?? []) {
+  private verweiseAufloesen(verweise: RohVerweis[]): void {
+    for (const { traeger, wert } of verweise) {
       const kind = refKindEff(traeger);
       if (!kind) continue;
       const ziel = this.state.zielMitKennung(kind, wert);

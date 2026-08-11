@@ -12,6 +12,7 @@ import { TreeItem, TreeNode, itemPath } from '../../models/node.model';
 import { auspTeile, blattName, unterPfad, vorfahren } from '../util/pfad.util';
 import { sperrtPruefartefakte } from '../util/erweiterung-sperre';
 import { VorgabeSicht } from '../vorgabe-sicht';
+import { EnthaltenLage, istEnthalten } from '../enthalten';
 import { Codelist } from '../../models/codelist.model';
 import { DiffAnc, DiffEntry } from '../../models/diff.model';
 import { XsdDoc, XsdIndex } from '../../models/xsd-index.model';
@@ -641,6 +642,48 @@ export class StateService {
       minProfil,
       maxProfil,
     };
+  }
+
+  // ── „Ist enthalten" (die eine Regel, core/enthalten.ts) ─────────────
+
+  /**
+   * Liegt **unter** diesem Pfad Inhalt — ein Element-Eintrag oder eine
+   * Vorkommensliste? Grenzen sind '/' und '@' (`unterPfad`); die Liste am Pfad
+   * selbst zaehlt mit, denn benannte Vorkommen sind Inhalt des Traegers.
+   *
+   * Stand vorher als Closure `hasProfilBelow` im `ExportService` und war damit
+   * nur ueber erzeugtes XML pruefbar.
+   */
+  inhaltDarunter(path: string): boolean {
+    for (const k of Object.keys(this.elemente())) if (k !== path && unterPfad(k, path)) return true;
+    for (const k of Object.keys(this.auspraegungen())) if (unterPfad(k, path)) return true;
+    return false;
+  }
+
+  /**
+   * Die Lage eines Knotens fuer `istEnthalten` — **hier** und nur hier werden
+   * die vier Angaben aufgeloest. Genau diese Aufloesung ist zwischen
+   * Serialisierung und Abgleich auseinandergelaufen (siehe `core/enthalten.ts`):
+   *
+   * - Wirkung: eigene Entscheidung (pfadgenau, `wirkungOf`), sonst die Vorgabe
+   *   **mit Vorkommen-Erbe** (`profilWirkungGeerbt`) — nicht nur pfadgenau.
+   * - Mindestanzahl: ueber `effKard`, also inklusive Vorgabe — nicht roh.
+   * - Inhalt: allein aus der Entscheidungsschicht. Ein Beispielwert der Vorgabe
+   *   wird angeboten, nicht gesetzt (#29) und ist darum kein Inhalt.
+   */
+  enthaltenLage(node: TreeNode): EnthaltenLage {
+    const p = this.elemente()[node.path] ?? {};
+    return {
+      wirkung: this.wirkungOf(node.path) ?? this.profilWirkungGeerbt(node.path),
+      min: parseInt(this.effKard(node).min, 10) || 0,
+      eigenerInhalt: !!(p.beispiel || p.werte?.length),
+      inhaltDarunter: this.inhaltDarunter(node.path),
+    };
+  }
+
+  /** Traegt die Nachricht dieses Element? Der Sitzungs-Zugang zur einen Regel. */
+  enthaelt(node: TreeNode): boolean {
+    return istEnthalten(this.enthaltenLage(node));
   }
 
   // ── Profil-Mutationen ───────────────────────────────────────────────
