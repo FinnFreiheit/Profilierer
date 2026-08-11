@@ -23,6 +23,8 @@ export interface PruefberichtKopf {
   /** Bezeichnung der geprüften Fassung („Arbeitsstand", „v3", „v4 (Abnahme)"). */
   fassung: string;
   xjustizVersion?: string;
+  /** ms-Timestamp der Prüfung — ein Nachweis ohne Datum ist keiner. */
+  zeitpunkt: number;
   schema: SchemaUrteil;
   /** Meldungen der Schemavalidierung (leer bei „valide"). */
   schemaFehler: string[];
@@ -39,6 +41,12 @@ export interface PruefberichtKopf {
    * sagt mehr über die Belastbarkeit des Lücken-Teils als gar nichts.
    */
   festlegungen: number;
+  /**
+   * Befunde an nachbeauftragten Elementen (Schema-Erweiterungen). Sie stehen im
+   * Bericht, zählen aber nicht gegen die Nachricht: das Element gibt es im
+   * Schema nicht (#98).
+   */
+  nErweiterung: number;
   /**
    * Die benannten Vorkommen der Profilierung ließen sich **nicht** zuordnen:
    * ein XJustiz-XML kann keine Vorkommen-Namen tragen. Dann wird nur die

@@ -35,6 +35,9 @@
     }
   </div>
   <div style="text-align: right; margin-top: 12px">
+    @if (report.ausleitung(); as a) {
+      <button (click)="a.starte()">{{ a.label }}</button>
+    }
     <button class="primary" (click)="report.schliesse()">Schließen</button>
   </div>
 </dialog>

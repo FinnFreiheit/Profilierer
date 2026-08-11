@@ -20,6 +20,7 @@ import { DownloadService } from '../../core/services/download.service';
 import { XmlValidationService } from '../../core/services/xml-validation.service';
 import { ValidationReportService } from '../../core/services/validation-report.service';
 import { ProfilPruefungService } from '../../core/services/profil-pruefung.service';
+import { PruefberichtExcelService } from '../../core/services/pruefbericht-excel.service';
 import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
 import { TeilenService } from '../../core/services/teilen.service';
@@ -76,6 +77,7 @@ export class Testdaten {
   private readonly vergleich = inject(VergleichService);
   private readonly teilenService = inject(TeilenService);
   private readonly pruefung = inject(ProfilPruefungService);
+  private readonly excel = inject(PruefberichtExcelService);
 
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
@@ -583,6 +585,13 @@ export class Testdaten {
       berichtEintraege(bericht),
       berichtKopfzeile(bericht.kopf),
       (pfad) => void this.oeffneBefund(eintrag, profil, wahl, pfad),
+      {
+        label: 'Als Excel herunterladen',
+        starte: () =>
+          void this.excel
+            .exportiere(bericht)
+            .catch(this.toast.fail('Excel-Export fehlgeschlagen.')),
+      },
     );
   }
 
