@@ -22,7 +22,7 @@ import { refKindEff } from '../refs';
 export interface InstanzAuswertung extends KonformitaetsUmgebung {
   msgName: string;
   modell: InstanzModell;
-  istEnthalten: (pfad: string) => boolean;
+  istEnthalten: (pfad: string) => boolean | null;
   istBlatt: (pfad: string) => boolean;
 }
 
@@ -104,7 +104,25 @@ export class InstanceImportService {
       // Additiv: die Nachricht trägt genau, was der Walk gebunden hat. Anders
       // als im geführten Durchlauf gibt es hier nichts zu erschließen — was
       // nicht im XML steht, existiert nicht (ADR 0016/0018).
-      istEnthalten: (pfad) => extrakt.quelle.has(pfad),
+      //
+      // Der **Trägerpfad** benannter Vorkommen muss dabei mitzählen: ab zwei
+      // Vorkommen bindet der Walk die Quell-Elemente unter `…@v1`/`…@v2` und
+      // legt für den Träger selbst keinen Eintrag in `quelle` an. Allein danach
+      // gefragt, galt ein Element mit **zwei** Vorkommen als nicht enthalten —
+      // eine Nachricht mit zwei `ersuchenSachentscheidung` bekam „die
+      // Profilierung setzt das Element zwingend, die Nachricht enthält es
+      // nicht". Bei genau einem Vorkommen fiel es nicht auf, weil dort der
+      // generische Pfad gebunden wird.
+      istEnthalten: (pfad) => {
+        if (extrakt.quelle.has(pfad)) return true;
+        if (extrakt.modell.auspraegungen[pfad]?.length) return true;
+        // Synthetische Gruppen und Auswahlen sind **keine** Elemente der
+        // Nachricht (ihre Kinder liegen direkt unter dem Elternelement) — ueber
+        // ihre Anwesenheit gibt es nichts zu sagen. „Nein" waere hier falsch:
+        // die Vorfahren-Regel des Abgleichs wuerde damit jeden Befund unter
+        // einer Gruppe unterdruecken.
+        return knoten(pfad)?.synthetic ? null : false;
+      },
       istBlatt: (pfad) => {
         const node = knoten(pfad);
         return node ? baum.isLeaf(node) : false;
