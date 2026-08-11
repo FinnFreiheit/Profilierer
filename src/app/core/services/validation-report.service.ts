@@ -31,12 +31,28 @@ export class ValidationReportService {
     );
   }
 
-  zeigeMitPfaden(titel: string, eintraege: ReportEintrag[], untertitel?: string): void {
+  zeigeMitPfaden(
+    titel: string,
+    eintraege: ReportEintrag[],
+    untertitel?: string,
+    oeffne?: (pfad: string) => void,
+  ): void {
     this._titel.set(titel);
     this._untertitel.set(untertitel ?? null);
     this._eintraege.set(eintraege);
+    this._oeffne.set(oeffne ?? null);
     this._offen.set(true);
   }
+
+  /**
+   * Wie ein Befund geoeffnet wird. Standard (null) ist der Sprung im **bereits
+   * geladenen** Baum — das trifft jeden Bericht, der aus der laufenden Sitzung
+   * entsteht. Ein Bericht ueber eine Nachricht, die gar nicht offen ist
+   * (Profil-Pruefung, #107), setzt hier seinen eigenen Weg: erst laden, dann
+   * springen.
+   */
+  private readonly _oeffne = signal<((pfad: string) => void) | null>(null);
+  readonly oeffne = this._oeffne.asReadonly();
 
   schliesse(): void {
     this._offen.set(false);

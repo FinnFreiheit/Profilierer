@@ -474,6 +474,18 @@ label.menuItem:has(input:disabled) {
   border-left: 3px solid #7f77dd;
   background: #f7f6fd;
 }
+/* Zwischenueberschrift im Pruefbericht (#107): trennt Verstoesse der Nachricht
+   von Luecken der Profilierung — die Zurechnung ist der Zweck der Trennung. */
+.vfAbschnitt {
+  padding: 8px 10px 4px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel, #f6f6f6);
+  font-family: var(--sans, inherit);
+  font-weight: 600;
+  font-size: 12px;
+  position: sticky;
+  top: 0;
+}
 /* Hinweis-Uebersicht (hinweiseDlg): Liste mit Erledigt-Checkbox. */
 .hinweisListe .hwItem {
   display: flex;

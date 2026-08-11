@@ -6,6 +6,7 @@ import {
   testmessageInput,
 } from '../util/testmessage.util';
 import { StateService } from './state.service';
+import { NavService } from './nav.service';
 import { InstanceImportService } from './instance-import.service';
 import { InstanceExportService } from './instance-export.service';
 import { TestmessageStoreService } from './testmessage-store.service';
@@ -20,6 +21,7 @@ import { SitzungsAbgleichService } from './konformitaet.service';
 import { speicherUrteil } from '../util/speicher-urteil';
 import { bezeichnungenAnwenden, bezeichnungenAus } from '../util/ausp-bezeichnung.util';
 import { ReportEintrag } from '../../models/validation.model';
+import { ProfileDoc } from '../../models/profile.model';
 
 /**
  * Eine gespeicherte Testnachricht oeffnen und bearbeiten (US "Testnachricht
@@ -45,6 +47,7 @@ export class TestmessageEditService {
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
   private readonly abgleich = inject(SitzungsAbgleichService);
+  private readonly nav = inject(NavService);
   private readonly create = inject(TestmessageCreateService);
 
   /**
@@ -86,7 +89,11 @@ export class TestmessageEditService {
    * `loadProfile` und setzt dabei Sessions und Ansichts-Flags zurueck. Alles,
    * was die Bearbeitung ausmacht, wird deshalb erst danach gesetzt.
    */
-  async oeffnen(entry: TestmessageEntry, modus: 'betrachten' | 'bearbeiten'): Promise<void> {
+  async oeffnen(
+    entry: TestmessageEntry,
+    modus: 'betrachten' | 'bearbeiten',
+    opts: { schemaHinweis?: boolean } = {},
+  ): Promise<void> {
     // Haengende Aenderungen der zuvor offenen Nachricht erst sichern — sonst
     // liefe die Entprellung gegen den alten Eintrag ins Leere (#105).
     await this.autosave.flush();
@@ -98,7 +105,7 @@ export class TestmessageEditService {
     // Kein Bibliothekseintrag: die Bearbeitung einer Nachricht darf nicht per
     // Autosave in ein (evtl. offenes) Profil geschrieben werden.
     this.state.activeProfileId.set(null);
-    this.instanceImport.importXml(xml, entry.name);
+    this.instanceImport.importXml(xml, entry.name, opts.schemaHinweis ?? true);
     this.state.messageEdit.update((s) => (s ? { ...s, entryId: entry.id } : s));
 
     // Profil-Bindung ueberlebt das Bearbeiten (#32): die eingefrorene Kopie
@@ -130,6 +137,32 @@ export class TestmessageEditService {
     // Ohne diese Marke schriebe der Autosave die Nachricht sofort nach dem
     // Oeffnen unveraendert zurueck und schoebe sie in der Uebersicht nach oben.
     this.autosave.sitzungBeginnt();
+  }
+
+  /**
+   * Die Nachricht zu einem Befund des Profil-Pruefberichts oeffnen (#107) und
+   * zum betroffenen Element springen.
+   *
+   * Gebunden wird die **geprueefte** Fassung, nicht die Bindung des Eintrags:
+   * der Bericht handelt von jener Fassung, und der Baum soll ihre Sperren und
+   * Marker zeigen. Eine hochgeladene Nachricht hat ueberhaupt keine Bindung —
+   * ohne dieses Setzen stuende der Befund im Bericht, im Baum aber nichts.
+   *
+   * `oeffnen` sichert vorher haengende Aenderungen (Autosave-Flush), darum ist
+   * der Wechsel kein Verlust: es ist derselbe Weg, den jedes Oeffnen aus dem
+   * Testdaten-Speicher geht.
+   */
+  async oeffneFuerBefund(
+    entry: TestmessageEntry,
+    vorgabe: ProfileDoc,
+    pfad: string,
+  ): Promise<void> {
+    // Ohne den Schema-Hinweis: er wuerde den Pruefbericht im gemeinsamen
+    // Berichts-Store ersetzen, und sein Inhalt steht dort schon.
+    await this.oeffnen(entry, 'betrachten', { schemaHinweis: false });
+    this.state.setVorgabe(vorgabe);
+    this.state.guided.set(true);
+    this.nav.jumpTo(pfad, true);
   }
 
   /**

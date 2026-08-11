@@ -209,7 +209,7 @@ export class VorgabeSicht {
    * Phantompfade (`m/bet/adr@x/ort` statt `m/bet@a1/adr@x/ort`), auf die der
    * Bericht zeigte, obwohl sie niemand rendert (Deep-Review-Befund).
    */
-  instanzPfade(pfad: string): string[] {
+  instanzPfade(pfad: string, zuordenbar?: (listPfad: string) => boolean): string[] {
     const segs = pfad.split('/');
     let front: string[] = [segs[0]!];
     for (let i = 1; i < segs.length; i++) {
@@ -219,11 +219,79 @@ export class VorgabeSicht {
         // Das Zielelement selbst wird nicht aufgefaechert — seine eigenen
         // Vorkommen sind die Zaehlgroesse (`vorkommenAnzahl`), kein Pfadraum.
         const liste = i < segs.length - 1 ? this.auspsEffektiv(el) : null;
-        if (liste?.length) for (const a of liste) naechste.push(`${el}@${a.id}`);
-        else naechste.push(el);
+        if (liste?.length && this.faechernErlaubt(el, zuordenbar)) {
+          for (const a of liste) naechste.push(`${el}@${a.id}`);
+        } else {
+          naechste.push(el);
+        }
       }
       front = naechste;
     }
     return front;
+  }
+
+  /**
+   * Darf ueber die Vorkommen dieser Liste aufgefaechert werden?
+   *
+   * Eigene Vorkommen des Durchlaufs: immer — sie sind der Pfadraum, in dem
+   * seine Werte liegen. Die Liste der **Vorgabe** dagegen nur, wenn ihre
+   * Vorkommen zuordenbar sind. Eine aus XML gewonnene Nachricht kann sie nicht
+   * zuordnen (ein Vorkommen traegt dort keinen Namen), und wo sie selbst keine
+   * Liste fuehrt — bei genau **einem** Vorkommen legt der Bind-Walk keine an —
+   * liegen ihre Werte am generischen Pfad. Ueber die ids der Vorgabe
+   * aufgefaechert entstuenden Pfade, die die Nachricht nie tragen kann: der
+   * Abgleich meldete sie als fehlend und der Sprung im Bericht landete auf der
+   * Wurzel, weil der Baum sie nicht kennt.
+   *
+   * Ohne `zuordenbar` (gefuehrter Durchlauf) gilt das Erbe unveraendert: dort
+   * materialisiert der Durchlauf die Vorkommen der Vorgabe unter deren ids.
+   */
+  private faechernErlaubt(listPfad: string, zuordenbar?: (listPfad: string) => boolean): boolean {
+    if (this.instanz.auspraegungen[listPfad]) return true;
+    return !zuordenbar || zuordenbar(listPfad);
+  }
+
+  /**
+   * Kann die Nachricht diesen Pfad ueberhaupt tragen? Jedes `@id`-Segment muss
+   * zu einem Vorkommen gehoeren, das sie kennt — aus ihrer **eigenen** Liste
+   * (per id oder `vonId`) oder aus einer Liste der Vorgabe, deren Vorkommen
+   * zuordenbar sind.
+   *
+   * Der Anlass ist nicht die Auffaecherung, sondern die Vorgabe selbst: eine
+   * Profilierung trifft ihre Festlegungen oft **direkt an Vorkommen-Pfaden**
+   * (`…/dokument@ams5s52kf35/identifikation/id`). Eine aus XML gewonnene
+   * Nachricht liegt in einem anderen id-Raum und kann dort nichts tragen; ohne
+   * diesen Filter meldete der Abgleich jede solche Festlegung als „fehlt" — bei
+   * einer realen Profilierung 97 Mal, und der Sprung im Bericht landete auf der
+   * Wurzel, weil der Baum die Pfade nicht kennt.
+   *
+   * Uebergangen wird nur, statt zu raten: welches der benannten Vorkommen mit
+   * dem einen anonymen der Nachricht gemeint ist, sagt niemand. Der Bericht
+   * nennt die Grenze im Kopf.
+   *
+   * Ohne `zuordenbar` (gefuehrter Durchlauf) traegt jeder Pfad: dort
+   * materialisiert der Durchlauf die Vorkommen der Vorgabe unter deren ids.
+   */
+  imPfadraum(pfad: string, zuordenbar?: (listPfad: string) => boolean): boolean {
+    if (!pfad.includes('@')) return true;
+    let eigen = '';
+    for (const seg of pfad.split('/')) {
+      const at = seg.lastIndexOf('@');
+      const name = at < 0 ? seg : seg.slice(0, at);
+      const listPfad = eigen ? eigen + '/' + name : name;
+      if (at < 0) {
+        eigen = listPfad;
+        continue;
+      }
+      const id = seg.slice(at + 1);
+      const eigeneListe = this.instanz.auspraegungen[listPfad];
+      if (eigeneListe) {
+        if (!eigeneListe.some((a) => a.id === id || a.vonId === id)) return false;
+      } else if (zuordenbar && !zuordenbar(listPfad)) {
+        return false;
+      }
+      eigen = listPfad + '@' + id;
+    }
+    return true;
   }
 }

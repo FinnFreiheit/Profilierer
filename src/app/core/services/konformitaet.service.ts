@@ -13,7 +13,8 @@ import { TreeService } from './tree.service';
 export type { InstanzModell } from '../vorgabe-sicht';
 
 /** Art eines Verstosses — je Art eine eigene Meldung und ein eigener Test. */
-export type VerstossArt = 'ausgeschlossen' | 'kardinalitaet' | 'wert' | 'vorkommen' | 'pflichtwert';
+export type VerstossArt =
+  'ausgeschlossen' | 'kardinalitaet' | 'wert' | 'vorkommen' | 'pflichtwert' | 'fehlt';
 
 /** Ein einzelner Verstoss gegen die gebundene Profilfassung. */
 export interface Verstoss {
@@ -22,6 +23,31 @@ export interface Verstoss {
   art: VerstossArt;
   /** Nutzertext: was gilt, was die Nachricht tut. */
   text: string;
+}
+
+/**
+ * Ein belegtes Element, ueber das die Profilierung **nie entschieden** hat.
+ * Der Anspruch ist eine vollstaendige Profilierung: zu jedem Element eine
+ * Aussage. Wo sie fehlt, liegt der Mangel bei der **Profilierung**, nicht bei
+ * der Nachricht — darum ein eigener Typ neben `Verstoss` und keine weitere
+ * Verstossart. Wer beides in eine Liste wirft, schiebt dem Absender die eigene
+ * Unvollstaendigkeit zu.
+ */
+export interface Luecke {
+  pfad: string;
+  /** Der belegte Wert — er macht die Luecke im Bericht greifbar. */
+  wert: string;
+  text: string;
+}
+
+/**
+ * Beide Befunde eines Abgleichs, getrennt gehalten. Der Speicher-Weg liest
+ * ausschliesslich `verstoesse`: eine unvollstaendige Profilierung darf keine
+ * gefuehrt erstellte Nachricht zum Entwurf machen (`speicherUrteil`).
+ */
+export interface Pruefbefunde {
+  verstoesse: Verstoss[];
+  luecken: Luecke[];
 }
 
 /**
@@ -45,6 +71,20 @@ export interface KonformitaetsUmgebung {
    * aber nicht falsch begruendet.
    */
   istEnthalten?: (pfad: string) => boolean | null;
+  /**
+   * Lassen sich die benannten Vorkommen dieser Liste ueberhaupt zuordnen?
+   *
+   * Ein XJustiz-XML kann keine Vorkommen-Namen tragen (siehe
+   * `AuspBezeichnungen` im Testnachrichten-Modell) — eine aus XML gewonnene
+   * Liste traegt frische ids ohne Herkunft, und dann trifft **keine** id der
+   * Vorgabe zu. Ohne diese Frage meldete der Abgleich jedes zwingende benannte
+   * Vorkommen als fehlend, bei jeder hochgeladenen Nachricht, garantiert
+   * falsch-positiv.
+   *
+   * Fehlt die Funktion, wird geprueft (der gefuehrte Durchlauf fuehrt die ids
+   * selbst und ist damit immer zuordenbar).
+   */
+  vorkommenZuordenbar?: (listPfad: string) => boolean;
 }
 
 /**
@@ -78,14 +118,57 @@ export class KonformitaetService {
     vorgabe: ProfileDoc,
     instanz: InstanzModell,
     umgebung: KonformitaetsUmgebung = {},
-  ): Verstoss[] {
+  ): Pruefbefunde {
     const v = new VorgabeSicht(vorgabe, instanz);
     const out: Verstoss[] = [];
     this.pruefeAusgeschlossen(v, instanz, out);
     this.pruefeWerte(v, instanz, out);
-    this.pruefeVorkommen(v, instanz, out);
+    this.pruefeVorkommen(v, instanz, out, umgebung);
     this.pruefeKardinalitaet(v, out, umgebung);
-    this.pruefePflichtwerte(v, instanz, out, umgebung);
+    this.pruefeZwingende(v, instanz, out, umgebung);
+    return {
+      verstoesse: out.sort((a, b) => a.pfad.localeCompare(b.pfad)),
+      luecken: this.sammleLuecken(v, instanz),
+    };
+  }
+
+  /**
+   * Belegte Elemente, zu denen die Profilierung **keine durchsetzbare Aussage**
+   * trifft: keine Statusstufe (feldweise geerbt) und auch keine der Grenzen, die
+   * dieser Abgleich prueft — Werteliste, Mindest- oder Hoechstanzahl.
+   *
+   * Warum nicht allein „keine Statusstufe": eine Werteliste ohne Stufe ist eine
+   * Aussage, und der Wert-Test setzt sie durch. Ein Element deswegen zugleich
+   * als Verstoss **und** als Luecke zu melden, waere widerspruechlich — der
+   * Bericht saegte, die Profilierung habe nichts gesagt, und im selben Atemzug,
+   * die Nachricht halte sich nicht daran. Anmerkung und Beispielwert zaehlen
+   * dagegen **nicht** als Aussage: sie erlaeutern und schlagen vor, sie legen
+   * nichts fest.
+   *
+   * Erhoben werden die Pfade, die das Modell mit Wert fuehrt — die belegten
+   * Blaetter. Ein Container traegt im Modell nichts und erscheint daher nicht;
+   * das ist keine Auslassung, sondern die Grenze dessen, was eine Instanz ueber
+   * sich sagt.
+   *
+   * Was ein Vorfahr ausschliesst, ist bereits ein **Verstoss** und wird hier
+   * nicht noch einmal gemeldet: dort hat die Profilierung entschieden, die
+   * Nachricht haelt sich nur nicht daran.
+   */
+  private sammleLuecken(v: VorgabeSicht, instanz: InstanzModell): Luecke[] {
+    const out: Luecke[] = [];
+    for (const [pfad, p] of Object.entries(instanz.elemente)) {
+      const wert = p.beispiel?.trim();
+      if (!wert) continue;
+      if (v.wirkungGeerbt(pfad)) continue;
+      const eintrag = v.eintragGeerbt(pfad);
+      if (eintrag?.werte?.length || eintrag?.min || eintrag?.max) continue;
+      if (v.ausschlussQuelle(pfad)) continue;
+      out.push({
+        pfad,
+        wert,
+        text: `${kurz(pfad)} (${pfad}): belegt mit „${wert}" — die Profilierung trifft zu diesem Element keine Festlegung.`,
+      });
+    }
     return out.sort((a, b) => a.pfad.localeCompare(b.pfad));
   }
 
@@ -129,10 +212,18 @@ export class KonformitaetService {
   }
 
   /** Zwingend gesetzte Vorkommen, die in der Nachricht fehlen. */
-  private pruefeVorkommen(v: VorgabeSicht, instanz: InstanzModell, out: Verstoss[]): void {
+  private pruefeVorkommen(
+    v: VorgabeSicht,
+    instanz: InstanzModell,
+    out: Verstoss[],
+    umgebung: KonformitaetsUmgebung,
+  ): void {
     for (const [listPfad, liste] of Object.entries(v.doc.auspraegungen)) {
       const eigene = instanz.auspraegungen[listPfad];
       if (!eigene) continue; // keine eigene Liste = die der Vorgabe gilt unveraendert
+      // Ohne Zuordenbarkeit sagt der Vergleich nichts (siehe Umgebung): die
+      // Anzahl prueft `pruefeKardinalitaet` weiterhin.
+      if (umgebung.vorkommenZuordenbar && !umgebung.vorkommenZuordenbar(listPfad)) continue;
       for (const a of liste) {
         // **Pfadgenau**, nicht geerbt — dieselbe Entscheidung wie
         // `GuidedService.auspSperreEntfernen` (#28): dass das Traegerelement
@@ -173,13 +264,16 @@ export class KonformitaetService {
       // zugleich verlangt" ist ein Mangel der Profilierung, nicht der
       // Nachricht (er wird beim Start des Durchlaufs gemeldet).
       if (v.ausschlussQuelle(pfad)) continue;
-      for (const ziel of v.instanzPfade(pfad)) ziele.add(ziel);
+      for (const ziel of v.instanzPfade(pfad, umgebung.vorkommenZuordenbar)) ziele.add(ziel);
     }
     for (const ziel of ziele) {
       // Auch am Ziel: in einem ausgeschlossenen Vorkommen materialisiert der
       // Durchlauf nichts — dort zu zaehlen meldete Verstoesse in gesperrten
       // Teilbaeumen (Deep-Review-Befund).
       if (v.ausschlussQuelle(ziel)) continue;
+      // Pfade im id-Raum der Vorgabe, die die Nachricht nicht tragen kann,
+      // sind unbeantwortbar — nicht "null Vorkommen" (siehe `imPfadraum`).
+      if (!v.imPfadraum(ziel, umgebung.vorkommenZuordenbar)) continue;
       const g = v.eintragGeerbt(ziel);
       const min = parseInt(g?.min ?? '', 10) || 0;
       const max = g?.max === 'unbounded' ? Infinity : parseInt(g?.max ?? '', 10) || Infinity;
@@ -203,27 +297,49 @@ export class KonformitaetService {
   }
 
   /**
-   * Zwingend gesetzte **Blaetter** ohne Wert. Nur mit Blatt-Wissen aus der
-   * Umgebung: ob ein Pfad einen eigenen Wert traegt, steht im Schema, nicht in
-   * den beiden Dokumenten. Ohne `istBlatt` entfaellt die Pruefung, statt zu
-   * raten (ein zwingender Container ohne Wert ist voellig in Ordnung).
+   * Zwingend gesetzte Elemente: **fehlen** sie ganz, oder traegt ein zwingendes
+   * **Blatt** keinen Wert? Zwei Befunde am selben Anlass, jeder mit eigener
+   * Voraussetzung aus der Umgebung:
+   *
+   * - `fehlt` braucht `istEnthalten`. Es gilt fuer Blaetter **und** Container:
+   *   ein zwingender Container ohne Wert ist voellig in Ordnung — einer, den
+   *   die Nachricht gar nicht enthaelt, nicht. Vor der einen Enthaltensein-
+   *   Regel (ADR 0018) liess sich das nicht unterscheiden, und der haeufigste
+   *   reale Verstoss — „der Pflichtblock fehlt komplett" — blieb stumm.
+   * - `pflichtwert` braucht `istBlatt`: ob ein Pfad einen eigenen Wert traegt,
+   *   steht im Schema, nicht in den beiden Dokumenten.
+   *
+   * Fehlt die jeweilige Auskunft, entfaellt der zugehoerige Befund, statt zu
+   * raten.
    */
-  private pruefePflichtwerte(
+  private pruefeZwingende(
     v: VorgabeSicht,
     instanz: InstanzModell,
     out: Verstoss[],
     umgebung: KonformitaetsUmgebung,
   ): void {
-    const istBlatt = umgebung.istBlatt;
-    if (!istBlatt) return;
+    const { istBlatt, istEnthalten } = umgebung;
+    if (!istBlatt && !istEnthalten) return;
     for (const [pfad, p] of Object.entries(v.doc.elemente)) {
       if (!p.status || v.wirkungGeerbt(pfad) !== 'pflicht') continue;
       if (v.ausschlussQuelle(pfad)) continue;
       // Ein zwingendes Element in einem Vorkommen-Pfadraum wird ueber die
       // Vorkommen der Nachricht geprueft, nicht am generischen Pfad.
-      for (const ziel of v.instanzPfade(pfad)) {
+      for (const ziel of v.instanzPfade(pfad, umgebung.vorkommenZuordenbar)) {
         if (v.ausschlussQuelle(ziel)) continue; // gesperrtes Vorkommen: nichts verlangt
-        if (!istBlatt(ziel)) continue;
+        if (!v.imPfadraum(ziel, umgebung.vorkommenZuordenbar)) continue;
+        // Wo die Profilierung zusaetzlich eine Mindestanzahl fuehrt, meldet die
+        // Kardinalitaets-Pruefung denselben Sachverhalt mit der genaueren Zahl.
+        const auskunft = v.eintragGeerbt(ziel)?.min ? null : istEnthalten?.(ziel);
+        if (auskunft === false) {
+          out.push({
+            pfad: ziel,
+            art: 'fehlt',
+            text: `${kurz(ziel)} (${ziel}): Die Profilierung setzt das Element zwingend, die Nachricht enthält es nicht.`,
+          });
+          continue; // fehlt ganz — die Frage nach dem Wert stellt sich nicht
+        }
+        if (!istBlatt?.(ziel)) continue;
         if (instanz.elemente[ziel]?.beispiel?.trim()) continue;
         out.push({
           pfad: ziel,
@@ -249,7 +365,15 @@ export class SitzungsAbgleichService {
   private readonly tree = inject(TreeService);
   private readonly konformitaet = inject(KonformitaetService);
 
-  /** Verstoesse der aktuellen Sitzung — leer ohne gebundene Fassung. */
+  /**
+   * Verstoesse der aktuellen Sitzung — leer ohne gebundene Fassung.
+   *
+   * Bewusst **nur** die Verstoesse: die Luecken der Profilierung gehen den
+   * Speicher-Weg nichts an. Wuerde er sie mitlesen, machte eine noch
+   * unvollstaendige Profilierung jede gefuehrt erstellte Nachricht zum Entwurf
+   * (`speicherUrteil`) — ein Mangel der Vorgabe, der der Nachricht angelastet
+   * wuerde.
+   */
   pruefe(): Verstoss[] {
     const vorgabe = this.state.vorgabe();
     if (!vorgabe) return [];
@@ -272,7 +396,7 @@ export class SitzungsAbgleichService {
           return node ? this.state.enthaelt(node) : null;
         },
       },
-    );
+    ).verstoesse;
   }
 
   /** Der Baumknoten zu einem Pfad — null, wo der Baum ihn nicht kennt. */
