@@ -114,6 +114,13 @@
                 >
                   Prüfbericht
                 </button>
+                <button
+                  class="menuItem"
+                  title="Gegen eine Profilierung prüfen: hält die Nachricht die Festlegungen ein?"
+                  (click)="werkzeuge.close(); openPruefung(e, $event)"
+                >
+                  Gegen Profilierung prüfen…
+                </button>
                 <button class="menuItem" (click)="werkzeuge.close(); download(e, $event)">
                   XML herunterladen
                 </button>
@@ -473,4 +480,83 @@
     <button (click)="editDlg.close()">Abbrechen</button>
     <button class="primary" (click)="submitEdit()">Übernehmen</button>
   </div>
+</dialog>
+
+<!-- Gegen eine Profilierung prüfen (#107): Profil wählen, Fassung wählen. -->
+<dialog #pruefDlg id="pruefDlg">
+  <h3 style="margin-top: 0">„{{ pruefEintrag()?.name }}" gegen eine Profilierung prüfen</h3>
+  @if (!pruefProfil()) {
+    <p class="dashSub" style="margin-top: 0">
+      Schritt 1 von 2: Profilierung wählen. Angeboten werden nur Profilierungen zu
+      <b>{{ pruefEintrag()?.nachricht }}</b> in derselben XJustiz-Version — gegen einen anderen
+      Nachrichtentyp geprüft, teilten beide keinen einzigen Pfad und der Bericht bliebe leer.
+    </p>
+    @if (pruefKandidaten().length) {
+      <div style="max-height: 50vh; overflow: auto">
+        @for (p of pruefKandidaten(); track p.id) {
+          <button
+            style="display: block; width: 100%; text-align: left; margin-bottom: 6px"
+            [disabled]="pruefLaeuft()"
+            (click)="waehlePruefProfil(p)"
+          >
+            <b>{{ p.name || '(ohne Namen)' }}</b>
+            @if (p.xjustizVersion) {
+              <span class="pill">XJustiz {{ p.xjustizVersion }}</span>
+            }
+            @if (p.abgenommen) {
+              <span class="pill pillAbn">✔ BLK-AG abgenommen</span>
+            }
+            @if (p.nErw) {
+              <span class="pill pillExt">{{ p.nErw }} Schema-Erweiterungen</span>
+            }
+          </button>
+        }
+      </div>
+    } @else {
+      <p>
+        Keine passende Profilierung vorhanden — es gibt keine zu
+        <b>{{ pruefEintrag()?.nachricht }}</b>
+        @if (pruefEintrag()?.xjustizVersion) {
+          in XJustiz {{ pruefEintrag()?.xjustizVersion }}
+        }
+        .
+      </p>
+    }
+    <div style="text-align: right; margin-top: 8px">
+      <button (click)="pruefDlg.close()">Abbrechen</button>
+    </div>
+  } @else {
+    <p class="dashSub" style="margin-top: 0">
+      Schritt 2 von 2: Fassung von „{{ pruefProfil()!.name }}" wählen. Der Bericht nennt sie — eine
+      Prüfung gegen den Arbeitsstand ist kein Nachweis, weil er sich morgen ändern kann.
+    </p>
+    <label class="gZweig">
+      <input
+        type="radio"
+        name="pruefFassung"
+        [checked]="pruefFassungWahl() === ''"
+        (change)="pruefFassungWahl.set('')"
+      />
+      Arbeitsstand (aktueller Stand der Profilierung)
+    </label>
+    @for (f of pruefFassungen(); track f.id) {
+      <label class="gZweig">
+        <input
+          type="radio"
+          name="pruefFassung"
+          [checked]="pruefFassungWahl() === f.id"
+          (change)="pruefFassungWahl.set(f.id)"
+        />
+        {{ fassungLabel(f) }}
+      </label>
+    }
+    <div style="margin-top: 12px; text-align: right">
+      <button [disabled]="pruefLaeuft()" (click)="pruefProfil.set(null)">
+        ‹ andere Profilierung
+      </button>
+      <button class="primary" [disabled]="pruefLaeuft()" (click)="starteProfilPruefung()">
+        {{ pruefLaeuft() ? 'Prüft…' : 'Prüfen' }}
+      </button>
+    </div>
+  }
 </dialog>

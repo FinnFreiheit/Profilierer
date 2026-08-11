@@ -19,6 +19,7 @@ import { TestmessageEditService } from '../../core/services/testmessage-edit.ser
 import { DownloadService } from '../../core/services/download.service';
 import { XmlValidationService } from '../../core/services/xml-validation.service';
 import { ValidationReportService } from '../../core/services/validation-report.service';
+import { ProfilPruefungService } from '../../core/services/profil-pruefung.service';
 import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
 import { TeilenService } from '../../core/services/teilen.service';
@@ -26,6 +27,12 @@ import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { LibraryEntry, ProfilVersion } from '../../models/profile.model';
+import { Pruefbericht } from '../../models/pruefbericht.model';
+import {
+  berichtEintraege,
+  berichtKopfzeile,
+  berichtTitel,
+} from '../../core/util/pruefbericht.util';
 import { MessageRef } from '../../models/xsd-index.model';
 import { parseTestmessage } from '../../core/util/testmessage.util';
 import { nachrichtTeile } from '../../core/util/pretty.util';
@@ -68,11 +75,13 @@ export class Testdaten {
   private readonly report = inject(ValidationReportService);
   private readonly vergleich = inject(VergleichService);
   private readonly teilenService = inject(TeilenService);
+  private readonly pruefung = inject(ProfilPruefungService);
 
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
   private readonly editDlg = viewChild.required<ElementRef<HTMLDialogElement>>('editDlg');
   private readonly createDlg = viewChild.required<ElementRef<HTMLDialogElement>>('createDlg');
+  private readonly pruefDlg = viewChild.required<ElementRef<HTMLDialogElement>>('pruefDlg');
 
   constructor() {
     // Index beim Betreten der Ansicht auffrischen: das Kennzeichen "Profil
@@ -475,6 +484,124 @@ export class Testdaten {
       }
     } catch (err) {
       this.toast.showError(err, 'Prüfung fehlgeschlagen.');
+    }
+  }
+
+  // ── Gegen eine Profilierung prüfen (#107) ───────────────────────────
+
+  /**
+   * Die zu prüfende Nachricht — gesetzt, solange der Prüf-Dialog offen ist.
+   * Getrennt von `createProfil` & Co.: es ist ein anderer Vorgang, und beide
+   * Dialoge dürfen sich nicht gegenseitig den Zustand wegräumen.
+   */
+  protected readonly pruefEintrag = signal<TestmessageEntry | null>(null);
+  protected readonly pruefProfil = signal<LibraryEntry | null>(null);
+  protected readonly pruefFassungen = signal<ProfilVersion[]>([]);
+  /** Gewählte Fassung: '' = Arbeitsstand, sonst die id der Version. */
+  protected readonly pruefFassungWahl = signal('');
+  protected readonly pruefLaeuft = signal(false);
+
+  /**
+   * Profilierungen, gegen die sich **diese** Nachricht prüfen lässt:
+   * gleicher Nachrichtentyp, gleiche XJustiz-Version (fehlende Angabe passt zu
+   * allem). Die Regel liegt im Prüfdienst — der Picker zeigt sie nur an.
+   */
+  protected readonly pruefKandidaten = computed<LibraryEntry[]>(() => {
+    const e = this.pruefEintrag();
+    if (!e) return [];
+    return this.profiles.entries().filter((p) => this.pruefung.passt(e, p));
+  });
+
+  protected openPruefung(e: TestmessageEntry, ev: Event): void {
+    ev.stopPropagation();
+    this.pruefEintrag.set(e);
+    this.pruefProfil.set(null);
+    this.pruefFassungen.set([]);
+    this.pruefFassungWahl.set('');
+    void this.profiles
+      .refresh()
+      .catch(this.toast.fail('Profile konnten nicht geladen werden — Backend nicht erreichbar.'));
+    this.pruefDlg().nativeElement.showModal();
+  }
+
+  /**
+   * Schritt 1: Profilierung wählen und ihre Fassungen laden. Vorbelegt ist die
+   * **Abnahme-Fassung**, wo es eine gibt: ein Bericht gegen einen Stand, der
+   * sich morgen ändert, taugt nicht als Nachweis.
+   */
+  protected async waehlePruefProfil(p: LibraryEntry): Promise<void> {
+    if (this.pruefLaeuft()) return;
+    this.pruefLaeuft.set(true);
+    try {
+      const list = await this.profiles.listVersions(p.id);
+      this.pruefFassungen.set(list);
+      const abnahme = p.abgenommen ? list.find((v) => v.abnahme) : null;
+      this.pruefFassungWahl.set(abnahme?.id ?? '');
+    } catch {
+      this.pruefFassungen.set([]);
+      this.pruefFassungWahl.set('');
+      this.toast.show('Fassungen nicht ladbar — es steht nur der Arbeitsstand zur Wahl.');
+    } finally {
+      this.pruefLaeuft.set(false);
+      this.pruefProfil.set(p);
+    }
+  }
+
+  /** Schritt 2: prüfen und den Bericht zeigen. */
+  protected async starteProfilPruefung(): Promise<void> {
+    const eintrag = this.pruefEintrag();
+    const profil = this.pruefProfil();
+    if (!eintrag || !profil || this.pruefLaeuft()) return;
+    this.pruefLaeuft.set(true);
+    try {
+      const bericht = await this.pruefung.pruefe(eintrag, profil, this.pruefFassungWahl() || null);
+      this.pruefDlg().nativeElement.close();
+      // Die Fassungswahl festhalten: der Dialog wird gleich zurückgesetzt, der
+      // Bericht muss sie aber noch kennen (Klick auf einen Befund bindet sie).
+      this.zeigeBericht(bericht, eintrag, profil, this.pruefFassungWahl());
+    } catch (err) {
+      this.toast.showError(err, 'Prüfung fehlgeschlagen.');
+    } finally {
+      this.pruefLaeuft.set(false);
+    }
+  }
+
+  /**
+   * Den Bericht in den Validierungs-Dialog geben. Ein Klick auf einen Befund
+   * **öffnet** die Nachricht im Editor, bindet die geprüfte Fassung als Vorgabe
+   * und springt zum Element — der Sprung allein trüge nicht, weil die Nachricht
+   * gar nicht geladen ist.
+   */
+  private zeigeBericht(
+    bericht: Pruefbericht,
+    eintrag: TestmessageEntry,
+    profil: LibraryEntry,
+    wahl: string,
+  ): void {
+    this.report.zeigeMitPfaden(
+      berichtTitel(eintrag.name, bericht),
+      berichtEintraege(bericht),
+      berichtKopfzeile(bericht.kopf),
+      (pfad) => void this.oeffneBefund(eintrag, profil, wahl, pfad),
+    );
+  }
+
+  /**
+   * Vom Befund zum Element: die Nachricht laden (mit Bindung an die geprüfte
+   * Fassung) und dorthin springen. Es ist ein Kontextwechsel — offene,
+   * ungespeicherte Arbeit im Editor wird darum vorher erfragt.
+   */
+  private async oeffneBefund(
+    eintrag: TestmessageEntry,
+    profil: LibraryEntry,
+    wahl: string,
+    pfad: string,
+  ): Promise<void> {
+    try {
+      const { doc } = await this.pruefung.ladeFassung(profil, wahl || null);
+      await this.edit.oeffneFuerBefund(eintrag, doc, pfad);
+    } catch (err) {
+      this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
     }
   }
 

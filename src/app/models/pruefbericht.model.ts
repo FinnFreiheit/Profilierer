@@ -27,11 +27,18 @@ export interface PruefberichtKopf {
   /** Meldungen der Schemavalidierung (leer bei „valide"). */
   schemaFehler: string[];
   /**
-   * Entscheidungsstand der Profilierung („x von y"). Fehlt bei Altbestand und
-   * bei Import ohne Schema — dann bleibt die Belastbarkeit des Lücken-Teils
-   * offen und der Bericht sagt das.
+   * Entscheidungsstand der Profilierung („x von y"). Fehlt bei Altbestand, bei
+   * Import ohne Schema — und bei **jeder eingefrorenen Version**, denn der
+   * Snapshot führt das Feld nicht mit. Dann bleibt `festlegungen` als
+   * schwächere, aber immer verfügbare Angabe.
    */
   fortschritt?: { x: number; y: number };
+  /**
+   * Elemente der geprüften Fassung mit Statusstufe. Aus dem Dokument selbst
+   * zählbar und darum immer da — der Nenner fehlt, aber „236 Festlegungen"
+   * sagt mehr über die Belastbarkeit des Lücken-Teils als gar nichts.
+   */
+  festlegungen: number;
   /**
    * Die benannten Vorkommen der Profilierung ließen sich **nicht** zuordnen:
    * ein XJustiz-XML kann keine Vorkommen-Namen tragen. Dann wird nur die

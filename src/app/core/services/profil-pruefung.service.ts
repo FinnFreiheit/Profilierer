@@ -86,6 +86,7 @@ export class ProfilPruefungService {
         schema: schemaPruefung.status as SchemaUrteil,
         schemaFehler: schemaPruefung.status === 'valide' ? [] : schemaPruefung.fehler,
         fortschritt: doc.fortschritt,
+        festlegungen: Object.values(doc.elemente).filter((e) => e.status).length,
         // Nur melden, wo die Profilierung überhaupt benannte Vorkommen führt:
         // sonst stünde der Hinweis an jeder Nachricht, ohne etwas zu sagen.
         vorkommenUnzuordenbar: Object.keys(doc.auspraegungen).some((p) => !zuordenbar(p)),
@@ -111,8 +112,12 @@ export class ProfilPruefungService {
     return profil.xjustizVersion === eintrag.xjustizVersion;
   }
 
-  /** Die zu prüfende Fassung samt Bezeichnung (wie beim Erstellen, #25). */
-  private async ladeFassung(
+  /**
+   * Die zu prüfende Fassung samt Bezeichnung (wie beim Erstellen, #25).
+   * Öffentlich, weil ein Klick im Bericht sie erneut braucht: die Nachricht
+   * wird dann an **genau diese** Fassung gebunden geöffnet.
+   */
+  async ladeFassung(
     profil: LibraryEntry,
     wahl: FassungsWahl,
   ): Promise<{ doc: ProfileDoc; fassung: string }> {

@@ -44,10 +44,17 @@ export class ValidationDialog {
     });
   }
 
-  /** Sprung zum betroffenen Knoten — der modale Dialog muss vorher zu. */
+  /**
+   * Sprung zum betroffenen Knoten — der modale Dialog muss vorher zu. Welcher
+   * Weg dorthin fuehrt, sagt der Bericht: im Regelfall ist die Nachricht
+   * geladen und es genuegt der Sprung; ein Bericht ueber eine **nicht**
+   * geoeffnete Nachricht bringt seinen eigenen Weg mit.
+   */
   protected springe(e: ReportEintrag): void {
-    if (!e.pfad) return;
+    if (!e.pfad || e.abschnitt) return;
     this.report.schliesse();
-    this.nav.jumpTo(e.pfad, true);
+    const oeffne = this.report.oeffne();
+    if (oeffne) oeffne(e.pfad);
+    else this.nav.jumpTo(e.pfad, true);
   }
 }

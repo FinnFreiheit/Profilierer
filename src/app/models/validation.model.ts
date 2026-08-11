@@ -22,4 +22,12 @@ export interface ReportEintrag {
    * hinzugefuegtes Nicht-Schema-Element zurueck und blockiert allein nicht.
    */
   erweiterung?: boolean;
+  /**
+   * Zwischenueberschrift statt Befund. Der Profilierungs-Pruefbericht (#107)
+   * fuehrt zwei Arten von Befund, die **getrennt** bleiben muessen — was die
+   * Nachricht nicht einhaelt, und worueber die Profilierung nie entschieden
+   * hat. Ohne Gliederung stuenden sie als eine Liste da und die Zurechnung
+   * ginge verloren.
+   */
+  abschnitt?: boolean;
 }
