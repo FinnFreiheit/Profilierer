@@ -142,7 +142,7 @@ describe('InstanceImportService', () => {
     expect(idx.get(`${M}/beteiligung@${ausps[1]!.id}`)).toBe(1);
   });
 
-  describe('modellAus (zustandslos)', () => {
+  describe('auswerten (zustandslos)', () => {
     it('liefert dasselbe Modell wie der Import — ohne den Store anzufassen', () => {
       const idx = state.idx()!;
 
@@ -151,7 +151,7 @@ describe('InstanceImportService', () => {
       state.setElementProfile('etwas.anderes/feld', { beispiel: 'unberuehrt' });
       const rootVorher = state.root();
 
-      const { msgName, modell } = svc.modellAus(INSTANCE, idx);
+      const { msgName, modell } = svc.auswerten(INSTANCE, idx);
 
       expect(msgName).toBe(M);
       expect(state.msgName()).toBe('etwas.anderes');
@@ -167,6 +167,28 @@ describe('InstanceImportService', () => {
       expect(namenJeListe(modell.auspraegungen)).toEqual(namenJeListe(state.auspraegungen()));
     });
 
+    it('istEnthalten ist additiv: nur was im XML steht — auch in Vorkommen', () => {
+      const a = svc.auswerten(INSTANCE, state.idx()!);
+      const bet = a.modell.auspraegungen[`${M}/beteiligung`]!;
+
+      expect(a.istEnthalten(`${M}/vorname`)).toBeTrue();
+      expect(a.istEnthalten(`${M}/beteiligung@${bet[0]!.id}/name`)).toBeTrue();
+      // Ein Element, das die Nachricht nicht trägt, ist nicht enthalten —
+      // anders als im geführten Durchlauf, wo "kein Eintrag" auf ein Vorkommen
+      // zurückfällt (ADR 0018).
+      expect(a.istEnthalten(`${M}/gibtsNicht`)).toBeFalse();
+    });
+
+    it('istBlatt beantwortet auch Pfade in Vorkommen (Überlagerung der Prüfung)', () => {
+      const a = svc.auswerten(INSTANCE, state.idx()!);
+      const bet = a.modell.auspraegungen[`${M}/beteiligung`]!;
+
+      expect(a.istBlatt(`${M}/vorname`)).toBeTrue();
+      expect(a.istBlatt(`${M}/beteiligung@${bet[1]!.id}/name`)).toBeTrue();
+      expect(a.istBlatt(`${M}/beteiligung@${bet[1]!.id}`)).toBeFalse(); // Container
+      expect(a.istBlatt(`${M}/gibtsNicht`)).toBeFalse(); // unbekannt
+    });
+
     it('wirft, wenn der Index die Nachricht nicht kennt', () => {
       const parser = TestBed.inject(XsdParserService);
       const leer = parser.buildIndexFrom([
@@ -178,7 +200,7 @@ describe('InstanceImportService', () => {
           ),
         },
       ]).idx;
-      expect(() => svc.modellAus(INSTANCE, leer)).toThrowError(/Kein passendes Schema/);
+      expect(() => svc.auswerten(INSTANCE, leer)).toThrowError(/Kein passendes Schema/);
     });
 
     it('laeuft ueber einen eigenen Baum — der Editor-Baum behaelt sein Schema', () => {
@@ -197,7 +219,7 @@ describe('InstanceImportService', () => {
           dom: new DOMParser().parseFromString(REF_XSD, 'application/xml'),
         },
       ]).idx;
-      svc.modellAus(REF_INSTANCE, refIdx);
+      svc.auswerten(REF_INSTANCE, refIdx);
 
       tree.expandNode(editorRoot);
       expect(editorRoot.children?.map((c) => c.name)).toEqual(['vorname', 'beteiligung', 'art']);

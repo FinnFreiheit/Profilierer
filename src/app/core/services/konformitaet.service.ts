@@ -25,6 +25,31 @@ export interface Verstoss {
 }
 
 /**
+ * Ein belegtes Element, ueber das die Profilierung **nie entschieden** hat.
+ * Der Anspruch ist eine vollstaendige Profilierung: zu jedem Element eine
+ * Aussage. Wo sie fehlt, liegt der Mangel bei der **Profilierung**, nicht bei
+ * der Nachricht — darum eine eigene Art von Befund und keine sechste
+ * Verstossart. Wer beides in eine Liste wirft, schiebt dem Absender die eigene
+ * Unvollstaendigkeit zu.
+ */
+export interface Luecke {
+  pfad: string;
+  /** Der belegte Wert — er macht die Luecke im Bericht greifbar. */
+  wert: string;
+  text: string;
+}
+
+/**
+ * Beide Befunde eines Abgleichs, getrennt gehalten. Der Speicher-Weg liest
+ * ausschliesslich `verstoesse`: eine unvollstaendige Profilierung darf keine
+ * gefuehrt erstellte Nachricht zum Entwurf machen (`speicherUrteil`).
+ */
+export interface Pruefbefunde {
+  verstoesse: Verstoss[];
+  luecken: Luecke[];
+}
+
+/**
  * Umgebungswissen, das nicht in den beiden Dokumenten steht. Bewusst als reine
  * Funktionen hereingereicht, damit der Abgleich **zustandslos** bleibt und ohne
  * laufende Sitzung aufrufbar ist (Spec #31): der Aufrufer im Werkzeug reicht
@@ -45,6 +70,20 @@ export interface KonformitaetsUmgebung {
    * aber nicht falsch begruendet.
    */
   istEnthalten?: (pfad: string) => boolean | null;
+  /**
+   * Lassen sich die benannten Vorkommen dieser Liste ueberhaupt zuordnen?
+   *
+   * Ein XJustiz-XML kann keine Vorkommen-Namen tragen (siehe
+   * `AuspBezeichnungen` im Testnachrichten-Modell) — eine aus XML gewonnene
+   * Liste traegt frische ids ohne Herkunft, und dann trifft **keine** id der
+   * Vorgabe zu. Ohne diese Frage meldete der Abgleich jedes zwingende benannte
+   * Vorkommen als fehlend, bei jeder hochgeladenen Nachricht, garantiert
+   * falsch-positiv.
+   *
+   * Fehlt die Funktion, wird geprueft (der gefuehrte Durchlauf fuehrt die ids
+   * selbst und ist damit immer zuordenbar).
+   */
+  vorkommenZuordenbar?: (listPfad: string) => boolean;
 }
 
 /**
@@ -78,14 +117,57 @@ export class KonformitaetService {
     vorgabe: ProfileDoc,
     instanz: InstanzModell,
     umgebung: KonformitaetsUmgebung = {},
-  ): Verstoss[] {
+  ): Pruefbefunde {
     const v = new VorgabeSicht(vorgabe, instanz);
     const out: Verstoss[] = [];
     this.pruefeAusgeschlossen(v, instanz, out);
     this.pruefeWerte(v, instanz, out);
-    this.pruefeVorkommen(v, instanz, out);
+    this.pruefeVorkommen(v, instanz, out, umgebung);
     this.pruefeKardinalitaet(v, out, umgebung);
     this.pruefePflichtwerte(v, instanz, out, umgebung);
+    return {
+      verstoesse: out.sort((a, b) => a.pfad.localeCompare(b.pfad)),
+      luecken: this.sammleLuecken(v, instanz),
+    };
+  }
+
+  /**
+   * Belegte Elemente, zu denen die Profilierung **keine durchsetzbare Aussage**
+   * trifft: keine Statusstufe (feldweise geerbt) und auch keine der Grenzen, die
+   * dieser Abgleich prueft — Werteliste, Mindest- oder Hoechstanzahl.
+   *
+   * Warum nicht allein „keine Statusstufe": eine Werteliste ohne Stufe ist eine
+   * Aussage, und der Wert-Test setzt sie durch. Ein Element deswegen zugleich
+   * als Verstoss **und** als Luecke zu melden, waere widerspruechlich — der
+   * Bericht saegte, die Profilierung habe nichts gesagt, und im selben Atemzug,
+   * die Nachricht halte sich nicht daran. Anmerkung und Beispielwert zaehlen
+   * dagegen **nicht** als Aussage: sie erlaeutern und schlagen vor, sie legen
+   * nichts fest.
+   *
+   * Erhoben werden die Pfade, die das Modell mit Wert fuehrt — die belegten
+   * Blaetter. Ein Container traegt im Modell nichts und erscheint daher nicht;
+   * das ist keine Auslassung, sondern die Grenze dessen, was eine Instanz ueber
+   * sich sagt.
+   *
+   * Was ein Vorfahr ausschliesst, ist bereits ein **Verstoss** und wird hier
+   * nicht noch einmal gemeldet: dort hat die Profilierung entschieden, die
+   * Nachricht haelt sich nur nicht daran.
+   */
+  private sammleLuecken(v: VorgabeSicht, instanz: InstanzModell): Luecke[] {
+    const out: Luecke[] = [];
+    for (const [pfad, p] of Object.entries(instanz.elemente)) {
+      const wert = p.beispiel?.trim();
+      if (!wert) continue;
+      if (v.wirkungGeerbt(pfad)) continue;
+      const eintrag = v.eintragGeerbt(pfad);
+      if (eintrag?.werte?.length || eintrag?.min || eintrag?.max) continue;
+      if (v.ausschlussQuelle(pfad)) continue;
+      out.push({
+        pfad,
+        wert,
+        text: `${kurz(pfad)} (${pfad}): belegt mit „${wert}" — die Profilierung trifft zu diesem Element keine Festlegung.`,
+      });
+    }
     return out.sort((a, b) => a.pfad.localeCompare(b.pfad));
   }
 
@@ -129,10 +211,18 @@ export class KonformitaetService {
   }
 
   /** Zwingend gesetzte Vorkommen, die in der Nachricht fehlen. */
-  private pruefeVorkommen(v: VorgabeSicht, instanz: InstanzModell, out: Verstoss[]): void {
+  private pruefeVorkommen(
+    v: VorgabeSicht,
+    instanz: InstanzModell,
+    out: Verstoss[],
+    umgebung: KonformitaetsUmgebung,
+  ): void {
     for (const [listPfad, liste] of Object.entries(v.doc.auspraegungen)) {
       const eigene = instanz.auspraegungen[listPfad];
       if (!eigene) continue; // keine eigene Liste = die der Vorgabe gilt unveraendert
+      // Ohne Zuordenbarkeit sagt der Vergleich nichts (siehe Umgebung): die
+      // Anzahl prueft `pruefeKardinalitaet` weiterhin.
+      if (umgebung.vorkommenZuordenbar && !umgebung.vorkommenZuordenbar(listPfad)) continue;
       for (const a of liste) {
         // **Pfadgenau**, nicht geerbt — dieselbe Entscheidung wie
         // `GuidedService.auspSperreEntfernen` (#28): dass das Traegerelement
@@ -249,7 +339,15 @@ export class SitzungsAbgleichService {
   private readonly tree = inject(TreeService);
   private readonly konformitaet = inject(KonformitaetService);
 
-  /** Verstoesse der aktuellen Sitzung — leer ohne gebundene Fassung. */
+  /**
+   * Verstoesse der aktuellen Sitzung — leer ohne gebundene Fassung.
+   *
+   * Bewusst **nur** die Verstoesse: die Luecken der Profilierung gehen den
+   * Speicher-Weg nichts an. Wuerde er sie mitlesen, machte eine noch
+   * unvollstaendige Profilierung jede gefuehrt erstellte Nachricht zum Entwurf
+   * (`speicherUrteil`) — ein Mangel der Vorgabe, der der Nachricht angelastet
+   * wuerde.
+   */
   pruefe(): Verstoss[] {
     const vorgabe = this.state.vorgabe();
     if (!vorgabe) return [];
@@ -272,7 +370,7 @@ export class SitzungsAbgleichService {
           return node ? this.state.enthaelt(node) : null;
         },
       },
-    );
+    ).verstoesse;
   }
 
   /** Der Baumknoten zu einem Pfad — null, wo der Baum ihn nicht kennt. */

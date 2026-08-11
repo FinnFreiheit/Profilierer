@@ -5,9 +5,10 @@ import {
   createEnvironmentInjector,
   inject,
 } from '@angular/core';
-import { TreeItem, TreeNode } from '../../models/node.model';
+import { TreeItem, TreeNode, itemPath } from '../../models/node.model';
 import { Auspraegung, Erweiterung } from '../../models/profile.model';
 import { ParticleModel, XsdIndex } from '../../models/xsd-index.model';
+import { unterPfad } from '../util/pfad.util';
 import { datentypQuelleOf } from '../util/datentyp.util';
 import { docOf, kid, local } from '../util/xml.util';
 import { XS } from '../util/xml.util';
@@ -345,6 +346,25 @@ export class TreeService {
   }
 
   /**
+   * Das Item zu einem Pfad, ab einer **gegebenen** Wurzel — der Abstieg selbst,
+   * ohne Annahme darueber, welcher Baum gemeint ist. `NavService.findItemByPath`
+   * ist der Sitzungs-Zugang (Wurzel aus der Ueberlagerung); eine Auswertung
+   * ohne Sitzung reicht ihre eigene Wurzel herein.
+   */
+  itemByPath(root: TreeItem, path: string): TreeItem | null {
+    if (itemPath(root) === path) return root;
+    let it = root;
+    let guard = 0;
+    while (guard++ < 80) {
+      const next = this.childItems(it).find((k) => unterPfad(path, itemPath(k)));
+      if (!next) return null;
+      if (itemPath(next) === path) return next;
+      it = next;
+    }
+    return null;
+  }
+
+  /**
    * **Die Ersetzungsregel des gerenderten Baums** — an genau einer Stelle:
    * traegt ein Element benannte Vorkommen (`auspsOf`), ersetzen deren
    * Kontext-Knoten (`ctxNode`) die generischen Kinder. null, wo die Regel
@@ -567,17 +587,24 @@ export class TreeService {
 
 /**
  * Ein **zweiter** Baum ueber einem beliebigen Schema-Index: eigene Caches,
- * eigener aktiver Index, ohne Profil-Ueberlagerung. Fuer Auswertungen, die den
+ * eigener aktiver Index, eigene Ueberlagerung. Fuer Auswertungen, die den
  * Editor-Baum nicht anfassen duerfen — eine hochgeladene Nachricht wird gegen
  * ihr eigenes Schema ausgewertet, waehrend im Editor eine andere Nachricht
  * (womoeglich einer anderen XJustiz-Version) offen bleibt.
  *
  * Ohne diese Trennung liefe die Auswertung ueber die Instanz des Editors und
  * `buildRoot` wuerde dort Index und Caches austauschen.
+ *
+ * Die Ueberlagerung ist standardmaessig leer. Wer die Vorkommen der
+ * ausgewerteten Nachricht sichtbar machen will (damit `childItems` und
+ * `itemByPath` die `@id`-Pfade finden), reicht eine eigene herein.
  */
-export function baumOhneProfil(parent: EnvironmentInjector): TreeService {
+export function eigenerBaum(
+  parent: EnvironmentInjector,
+  ueberlagerung: ProfilUeberlagerung = OHNE_UEBERLAGERUNG,
+): TreeService {
   return createEnvironmentInjector(
-    [{ provide: PROFIL_UEBERLAGERUNG, useValue: OHNE_UEBERLAGERUNG }, TreeService],
+    [{ provide: PROFIL_UEBERLAGERUNG, useValue: ueberlagerung }, TreeService],
     parent,
   ).get(TreeService);
 }

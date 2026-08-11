@@ -1,7 +1,8 @@
 import { EnvironmentInjector, Injectable, inject } from '@angular/core';
 import { XsdIndex } from '../../models/xsd-index.model';
+import { TreeNode } from '../../models/node.model';
 import { StateService } from './state.service';
-import { TreeService, baumOhneProfil } from './tree.service';
+import { TreeService, eigenerBaum } from './tree.service';
 import { NavService } from './nav.service';
 import { ToastService } from './toast.service';
 import { CodelistService } from './codelist.service';
@@ -9,7 +10,21 @@ import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
 import { RohVerweis, extrahiereInstanz } from '../instanz-extrakt';
 import { InstanzModell } from '../vorgabe-sicht';
+import { KonformitaetsUmgebung } from './konformitaet.service';
 import { refKindEff } from '../refs';
+
+/**
+ * Eine ausgewertete Instanz: das Modell plus die Antworten, die der
+ * Konformitäts-Abgleich aus seiner Umgebung braucht. Sie **ist** die
+ * `KonformitaetsUmgebung` — Anwesenheit und Blatt-Eigenschaft stehen im
+ * Schema, nicht in den beiden Dokumenten.
+ */
+export interface InstanzAuswertung extends KonformitaetsUmgebung {
+  msgName: string;
+  modell: InstanzModell;
+  istEnthalten: (pfad: string) => boolean;
+  istBlatt: (pfad: string) => boolean;
+}
 
 /**
  * Importiert eine bestehende XJustiz-Nachricht (XML-Instanz) und bildet sie
@@ -46,22 +61,55 @@ export class InstanceImportService {
   }
 
   /**
-   * Das Instanz-Modell einer Nachricht gegen einen Schema-Index — **ohne**
-   * Store, ohne Baumwechsel im Editor, ohne Sitzung. Der Weg für Auswertungen
-   * (Konformitäts-Abgleich einer hochgeladenen Nachricht): sie laufen über
-   * einen eigenen Baum (`baumOhneProfil`), weil `buildRoot` Index und Caches
-   * seiner Instanz austauscht.
+   * Wertet eine Nachricht gegen einen Schema-Index aus — **ohne** Store, ohne
+   * Baumwechsel im Editor, ohne Sitzung. Der Weg für den Konformitäts-Abgleich
+   * einer hochgeladenen Nachricht: er läuft über einen eigenen Baum
+   * (`eigenerBaum`), weil `buildRoot` Index und Caches seiner Instanz
+   * austauscht.
+   *
+   * Zurück kommt nicht nur das Modell, sondern die vollständige
+   * **Prüf-Umgebung**: Anwesenheit und Blatt-Eigenschaft sind Fragen ans
+   * Schema, und nur hier steht der Baum, der sie beantworten kann.
    *
    * Wirft, wenn das XML nicht lesbar ist oder der Index die Nachricht nicht
    * kennt — dieselben Vorbedingungen wie `importXml`, nur ohne Nebenwirkung.
    */
-  modellAus(xmlText: string, idx: XsdIndex): { msgName: string; modell: InstanzModell } {
+  auswerten(xmlText: string, idx: XsdIndex): InstanzAuswertung {
     const rootEl = this.wurzel(xmlText);
     const msgName = rootEl.localName;
     if (!idx.el[msgName]) throw new Error(`Kein passendes Schema für <${msgName}>.`);
-    const baum = baumOhneProfil(this.injector);
-    const extrakt = extrahiereInstanz(baum, baum.buildRoot(msgName, idx), rootEl);
-    return { msgName, modell: extrakt.modell };
+
+    // Die Überlagerung zeigt auf die Vorkommen, die der Walk gleich anlegt —
+    // sie existieren beim Bauen des Baums noch nicht, werden vom Walk selbst
+    // aber auch nicht gelesen (er erzeugt seine Kontext-Knoten direkt). Erst
+    // die Pfadsuche danach braucht sie, damit `@id`-Pfade auffindbar sind.
+    let modell: InstanzModell = { elemente: {}, auspraegungen: {} };
+    const baum = eigenerBaum(this.injector, {
+      auspsOf: (pfad) => modell.auspraegungen[pfad] ?? null,
+      erweiterungenOf: () => null,
+      root: () => root,
+    });
+    const root = baum.buildRoot(msgName, idx);
+    const extrakt = extrahiereInstanz(baum, root, rootEl);
+    modell = extrakt.modell;
+
+    const knoten = (pfad: string): TreeNode | null => {
+      const it = baum.itemByPath({ kind: 'el', node: root }, pfad);
+      if (!it) return null;
+      return it.kind === 'el' ? it.node : baum.ctxNode(it.parentNode, it.ausp.id);
+    };
+    return {
+      msgName,
+      modell,
+      // Additiv: die Nachricht trägt genau, was der Walk gebunden hat. Anders
+      // als im geführten Durchlauf gibt es hier nichts zu erschließen — was
+      // nicht im XML steht, existiert nicht (ADR 0016/0018).
+      istEnthalten: (pfad) => extrakt.quelle.has(pfad),
+      istBlatt: (pfad) => {
+        const node = knoten(pfad);
+        return node ? baum.isLeaf(node) : false;
+      },
+    };
   }
 
   /** Wurzelelement einer XJustiz-Instanz; wirft mit sprechendem Grund. */

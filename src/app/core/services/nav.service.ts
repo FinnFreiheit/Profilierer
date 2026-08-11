@@ -121,21 +121,10 @@ export class NavService {
     this.state.open.set(new Set(root ? [root.path] : []));
   }
 
-  /** findItemByPath (Z.651-663). */
+  /** findItemByPath (Z.651-663): der Abstieg liegt im Baum, hier nur die Wurzel. */
   findItemByPath(path: string): TreeItem | null {
     const root = this.tree.rootItem();
-    if (!root) return null;
-    if (itemPath(root) === path) return root;
-    let it = root;
-    let guard = 0;
-    while (guard++ < 80) {
-      const kids = this.tree.childItems(it);
-      const next = kids.find((k) => unterPfad(path, itemPath(k)));
-      if (!next) return null;
-      if (itemPath(next) === path) return next;
-      it = next;
-    }
-    return null;
+    return root ? this.tree.itemByPath(root, path) : null;
   }
 
   /** findChainByPath (Z.752-766): Kette Wurzel -> Ziel. */
