@@ -27,11 +27,13 @@ xjustiz-profilierer/
 │   │   │                      NavService, DispositionService, ValueService, CodelistService, ExportService,
 │   │   │                      ExcelExportService, DiffService, PersistenceService, ProfileStoreService,
 │   │   │                      MigrationService, InstanceImportService, InstanceExportService,
-│   │   │                      TestmessageStoreService, TestmessageGenerationService,
-│   │   │                      TestmessageCreateService, GuidedService, BundledSchemaService,
+│   │   │                      TestmessageStoreService, TestmessageCreateService, GuidedService, BundledSchemaService,
 │   │   │                      XmlValidationService, ValidationReportService,
-│   │   │                      DownloadService, ToastService, SearchService, TeilenService
-│   │   ├── util/              xml.util, pretty.util, testmessage.util, pattern-sample.util
+│   │   │                      DownloadService, ToastService, SearchService, TeilenService,
+│   │   │                      BackendClient (der eine Weg ans Backend)
+│   │   ├── ansicht/           Anzeige-Ableitungen (BaumkastenAnsicht, DetailAnsicht, sperrgrund)
+│   │   ├── util/              xml.util, pretty.util, testmessage.util, pattern-sample.util,
+│   │   │                      eintragsliste.util
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
 │   │   └── profile-defaults.ts
 │   ├── features/              Objektleiste, Werkzeugleiste, Crumbs, Search, MessagePicker, Tree (TreeCanvas +

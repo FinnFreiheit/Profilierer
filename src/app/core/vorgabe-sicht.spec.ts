@@ -164,6 +164,63 @@ describe('VorgabeSicht', () => {
       expect(s.vorkommenAnzahl(`${M}/kopf`)).toBe(1);
       expect(s.vorkommenAnzahl(`${M}/az`)).toBe(0);
     });
+
+    it('die Umgebungs-Auskunft schlaegt den Rueckfall — sie kennt das Schema', () => {
+      // Der Rueckfall zaehlt „kein Eintrag" als ein Vorkommen; ob der Export
+      // das Element wirklich schreibt, weiss nur die eine Regel
+      // (`core/enthalten.ts`), und die braucht das Schema.
+      const s = new VorgabeSicht(doc(), instanz());
+      expect(s.vorkommenAnzahl(`${M}/az`)).toBe(1);
+      expect(s.vorkommenAnzahl(`${M}/az`, () => false)).toBe(0);
+      expect(s.vorkommenAnzahl(`${M}/az`, () => true)).toBe(1);
+    });
+
+    it('„keine Auskunft" (null) faellt auf die Zaehlkonvention zurueck', () => {
+      // Was der Baum nicht kennt — etwa ein Pfad aus einer alten Fassung —
+      // soll keinen Verstoss erfinden.
+      const s = new VorgabeSicht(doc(), instanz());
+      expect(s.vorkommenAnzahl(`${M}/az`, () => null)).toBe(1);
+    });
+
+    it('benannte Vorkommen gehen der Auskunft vor', () => {
+      const s = new VorgabeSicht(
+        doc(),
+        instanz({ auspraegungen: { [`${M}/bet`]: [{ id: 'a1', name: '1' }] } }),
+      );
+      expect(s.vorkommenAnzahl(`${M}/bet`, () => false)).toBe(1);
+    });
+  });
+
+  describe('imPfadraum', () => {
+    it('uebergeht Festlegungen im id-Raum der Vorgabe, die die Nachricht nicht tragen kann', () => {
+      // Am echten Bestand gefunden: die Profilierung setzt ihre Festlegungen
+      // direkt an Vorkommen-Pfaden (`…/dok@n1/id`). Eine aus XML gewonnene
+      // Nachricht liegt in einem anderen id-Raum — ohne diesen Filter wurden
+      // 97 solche Festlegungen als „fehlt" gemeldet, und der Sprung im Bericht
+      // landete auf der Wurzel.
+      const s = new VorgabeSicht(
+        doc({ auspraegungen: { [`${M}/dok`]: [{ id: 'n1', name: 'Antrag' }] } }),
+        instanz(),
+      );
+      // Ohne Auskunft (gefuehrter Durchlauf) traegt jeder Pfad.
+      expect(s.imPfadraum(`${M}/dok@n1/id`)).toBeTrue();
+      // Unzuordenbar: der Pfad ist unbeantwortbar, nicht „nicht enthalten".
+      expect(s.imPfadraum(`${M}/dok@n1/id`, () => false)).toBeFalse();
+      // Pfade ohne Vorkommen sind nie betroffen.
+      expect(s.imPfadraum(`${M}/kopf`, () => false)).toBeTrue();
+    });
+
+    it('eigene Vorkommen tragen — per id und ueber die Herkunft einer Kopie', () => {
+      const s = new VorgabeSicht(
+        doc({ auspraegungen: { [`${M}/dok`]: [{ id: 'n1', name: 'Antrag' }] } }),
+        instanz({
+          auspraegungen: { [`${M}/dok`]: [{ id: 'v1', name: 'Antrag', vonId: 'n1' }] },
+        }),
+      );
+      expect(s.imPfadraum(`${M}/dok@v1/id`, () => false)).toBeTrue(); // eigene id
+      expect(s.imPfadraum(`${M}/dok@n1/id`, () => false)).toBeTrue(); // ueber vonId
+      expect(s.imPfadraum(`${M}/dok@fremd/id`, () => false)).toBeFalse();
+    });
   });
 
   describe('instanzPfade', () => {
@@ -188,6 +245,35 @@ describe('VorgabeSicht', () => {
       expect(s.instanzPfade(`${M}/bet/name`)).toEqual([`${M}/bet@n1/name`]);
       // Ohne Vorkommen bleibt der Pfad, wie er ist.
       expect(s.instanzPfade(`${M}/kopf`)).toEqual([`${M}/kopf`]);
+    });
+
+    it('faechert nicht ueber unzuordenbare Vorgabe-Vorkommen auf', () => {
+      // Am echten Bestand gefunden: die Vorgabe fuehrt benannte Vorkommen, die
+      // hochgeladene Nachricht traegt dort nur **eines** und darum keine eigene
+      // Liste — `auspsEffektiv` fiel auf die Vorgabe zurueck und der Abgleich
+      // fragte nach `…/dokument@<vorgabeId>/id`. Pfade, die die Nachricht nie
+      // tragen kann: 97 Verstoesse „fehlt", und der Sprung im Bericht landete
+      // auf der Wurzel, weil der Baum sie nicht kennt.
+      const s = new VorgabeSicht(
+        doc({ auspraegungen: { [`${M}/dok`]: [{ id: 'n1', name: 'Antrag' }] } }),
+        instanz(),
+      );
+      // Ohne Auskunft (gefuehrter Durchlauf): das Erbe gilt, es wird aufgefaechert.
+      expect(s.instanzPfade(`${M}/dok/id`)).toEqual([`${M}/dok@n1/id`]);
+      // Unzuordenbar (hochgeladene Nachricht): der generische Pfad, dort liegen
+      // ihre Werte.
+      expect(s.instanzPfade(`${M}/dok/id`, () => false)).toEqual([`${M}/dok/id`]);
+    });
+
+    it('faechert ueber **eigene** Vorkommen immer auf — auch als unzuordenbar gemeldet', () => {
+      // Fuehrt die Nachricht selbst eine Liste, ist sie ihr Pfadraum; ob sich
+      // ihre Vorkommen den benannten der Vorgabe zuordnen lassen, aendert daran
+      // nichts.
+      const s = new VorgabeSicht(
+        doc({ auspraegungen: { [`${M}/dok`]: [{ id: 'n1', name: 'Antrag' }] } }),
+        instanz({ auspraegungen: { [`${M}/dok`]: [{ id: 'v1', name: 'Vorkommen 1' }] } }),
+      );
+      expect(s.instanzPfade(`${M}/dok/id`, () => false)).toEqual([`${M}/dok@v1/id`]);
     });
 
     it('faechert jede Vorfahren-Liste auf — keine Phantompfade bei Schachtelung', () => {

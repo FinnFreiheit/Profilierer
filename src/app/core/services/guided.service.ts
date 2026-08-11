@@ -1,7 +1,7 @@
 import { Injectable, Signal, computed, inject } from '@angular/core';
 import { Auspraegung } from '../../models/profile.model';
 import { TreeNode, itemPath } from '../../models/node.model';
-import { refKindEff, refTraeger } from '../refs';
+import { RefSchluessel, istSgoKennung, refKindEff, refSchluesselArt, refTraeger } from '../refs';
 import { segmentKette, unterPfad, vorfahren } from '../util/pfad.util';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
@@ -1126,23 +1126,48 @@ export class GuidedService {
   }
 
   /**
-   * Verweisziel setzen — und die Nummer an **beiden** Enden vergeben: am
-   * Nummern-Blatt des Verweises (`ref.…`) und am Nummern-Blatt des Ziels
-   * (`rollennummer`/`beteiligtennummer`). Genau das nimmt dem Anwender die
-   * Nummernvergabe ab (Spec #30: "der Anwender waehlt das Ziel, die Nummern
-   * vergibt das Werkzeug"), und nur so tragen beide Enden der erzeugten
-   * Nachricht denselben Wert.
+   * Verweisziel setzen — und den Schluessel an **beiden** Enden vergeben: am
+   * Blatt des Verweises (`ref.…`) und am Schluessel-Blatt des Ziels. Genau das
+   * nimmt dem Anwender die Vergabe ab (Spec #30: "der Anwender waehlt das Ziel,
+   * die Nummern vergibt das Werkzeug"), und nur so tragen beide Enden der
+   * erzeugten Nachricht denselben Wert.
+   *
+   * Womit benannt wird, haengt an der Verweis-Art (`refSchluesselArt`): eine
+   * Rolle/ein Beteiligter ueber die laufende Nummer, ein Schriftgutobjekt ueber
+   * die UUID seiner `identifikation/id`. Die Vorkommen-Nummer taugt dort nicht
+   * — `Type.GDS.Ref.SGO` ist ein UUID-Typ, eine "2" ist schemawidrig.
    */
   waehleVerweisZiel(traegerPfad: string, zielPfad: string | null): void {
     this.state.setElementProfile(traegerPfad, { refZiel: zielPfad || undefined });
     if (!zielPfad) return;
-    const num = this.state.auspNumber(zielPfad);
-    if (num == null) return;
-    const wert = String(num);
+    const it = this.nav.findItemByPath(traegerPfad);
+    const art = refSchluesselArt(it?.kind === 'el' ? refKindEff(it.node) : null);
+    const gegenstueck = this.schluesselBlatt(zielPfad, art);
+    const wert = this.schluesselWert(zielPfad, art, gegenstueck);
+    if (wert == null) return;
     const blatt = this.verweisBlatt(traegerPfad);
     if (blatt) this.state.setElementProfile(blatt, { beispiel: wert });
-    const gegenstueck = this.nummernBlatt(zielPfad);
-    if (gegenstueck) this.state.setElementProfile(gegenstueck, { beispiel: wert });
+    if (gegenstueck) this.state.setElementProfile(gegenstueck.path, { beispiel: wert });
+  }
+
+  /**
+   * Der Wert, mit dem das Ziel benannt wird. Die Nummer vergibt das Werkzeug —
+   * sie folgt der Reihenfolge der Vorkommen und wird darum immer neu gesetzt.
+   * Eine UUID ist dagegen die **Identitaet** des Ziels: eine bereits vergebene
+   * bleibt stehen (sie kann anderswo schon zitiert sein), sonst entsteht am
+   * Schluessel-Blatt eine typkonforme (`dummyFor` erfuellt die UUID-Facette).
+   */
+  private schluesselWert(
+    zielPfad: string,
+    art: RefSchluessel,
+    blatt: TreeNode | null,
+  ): string | null {
+    if (art === 'nummer') {
+      const num = this.state.auspNumber(zielPfad);
+      return num == null ? null : String(num);
+    }
+    if (!blatt) return null; // ohne Kennung am Ziel bleibt der Verweis offen
+    return this.state.beispielOf(blatt.path) || this.values.dummyFor(blatt);
   }
 
   /**
@@ -1181,24 +1206,29 @@ export class GuidedService {
     const it = this.nav.findItemByPath(traegerPfad);
     if (!it || it.kind !== 'el') return null;
     if (this.tree.isLeaf(it.node)) return /^ref\./.test(it.node.name) ? it.node.path : null;
-    return this.sucheBlatt(it.node, (c) => /^ref\./.test(c.name));
+    return this.sucheBlatt(it.node, (c) => /^ref\./.test(c.name))?.path ?? null;
   }
 
   /**
-   * Das Nummern-Blatt **des Ziels** (`rollennummer`/`beteiligtennummer`) — die
-   * Gegenseite des Verweises. Gesucht wird unterhalb des Vorkommens, weil die
-   * Nummer je nach Elementart eine Ebene tiefer liegt (Vorbild: die
-   * Erzwingungs-Suche im ExportService).
+   * Das Schluessel-Blatt **des Ziels** — die Gegenseite des Verweises: das
+   * Nummern-Blatt (`rollennummer`/`beteiligtennummer`) bzw. die Kennung eines
+   * Schriftgutobjekts (`identifikation/id`). Gesucht wird unterhalb des
+   * Vorkommens, weil der Schluessel je nach Elementart eine Ebene tiefer liegt
+   * (Vorbild: die Erzwingungs-Suche im ExportService).
    */
-  private nummernBlatt(zielPfad: string): string | null {
+  private schluesselBlatt(zielPfad: string, art: RefSchluessel): TreeNode | null {
     const it = this.nav.findItemByPath(zielPfad);
     if (!it || it.kind !== 'ausp') return null;
     const cn = this.tree.ctxNode(it.parentNode, it.ausp.id);
-    return this.sucheBlatt(cn, (c) => c.name === 'rollennummer' || c.name === 'beteiligtennummer');
+    return this.sucheBlatt(cn, (c) =>
+      art === 'uuid'
+        ? istSgoKennung(c)
+        : c.name === 'rollennummer' || c.name === 'beteiligtennummer',
+    );
   }
 
   /** Breitensuche nach dem ersten passenden Blatt unterhalb des Knotens. */
-  private sucheBlatt(start: TreeNode, passt: (n: TreeNode) => boolean): string | null {
+  private sucheBlatt(start: TreeNode, passt: (n: TreeNode) => boolean): TreeNode | null {
     const q: [TreeNode, number][] = [[start, 0]];
     let schritte = 0;
     while (q.length && schritte++ < 400) {
@@ -1206,7 +1236,7 @@ export class GuidedService {
       if (tiefe > 4 || node.recursive || this.tree.isLeaf(node)) continue;
       this.tree.expandNode(node);
       for (const c of node.children ?? []) {
-        if (passt(c) && this.tree.isLeaf(c)) return c.path;
+        if (passt(c) && this.tree.isLeaf(c)) return c;
         q.push([c, tiefe + 1]);
       }
     }

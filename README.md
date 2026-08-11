@@ -71,9 +71,11 @@ Alle XML-Nachrichten werden **gegen das XJustiz-Schema validiert** (direkt im Br
 
 Der Arbeitsstand wird bei jeder Änderung automatisch im Browser gesichert (Anzeige „automatisch gesichert HH:MM" in der Werkzeugleiste). Nach dem nächsten Laden des XSD-Ordners bietet das Tool die Wiederherstellung an — Schutz gegen versehentliches Schließen oder Abstürze. Das ersetzt nicht das bewusste „Speichern" als Profil-Datei (JSON), die weitergegeben und archiviert werden kann.
 
-## Profilierung teilen
+## Profilierung oder Testnachricht teilen
 
 Über **„Link zum Teilen kopieren"** — im ⋯-Menü der Kachel auf der Übersichtsseite und im „Weiteres"-Menü einer geöffneten Profilierung — landet ein Link der Form `…/profilierer/?profil=<id>` in der Zwischenablage. Wer ihn öffnet, landet direkt in dieser Profilierung, so als hätte er ihre Kachel angeklickt: Schema und Nachricht werden geladen, gearbeitet wird am **aktuellen Stand** derselben Ablage — der Link ist eine Abkürzung zum Öffnen, keine Kopie und kein eingefrorener Auszug. Wer einen unveränderlichen Stand weitergeben will, nutzt eine **Version** bzw. die **Abnahme** oder exportiert die Profilierung als Datei.
+
+Dasselbe gibt es für eine **einzelne Testnachricht**: im ⋯-Menü ihrer Kachel im Testdatenspeicher und im „Weiteres"-Menü einer geöffneten Nachricht. Der Link hat die Form `…/profilierer/?testnachricht=<id>` und öffnet sie wie ein Klick auf ihre Kachel — geführt erstellte Nachrichten werden im geführten Durchlauf fortgesetzt, alle anderen betrachtend im Baum. Ist die Nachricht inzwischen gelöscht, bleibt der Testdatenspeicher mit einem Hinweis stehen. Wer eine unveränderliche Fassung weitergeben will, lädt das XML herunter oder nutzt die **Abnahme**.
 
 Voraussetzung ist, dass der Empfänger dieselbe Instanz erreicht (im Betrieb `xjw.freiheits.de/profilierer`). Nach dem Öffnen verschwindet der Parameter aus der Adresszeile, damit ein späteres Neuladen den dann gewählten Stand zeigt.
 

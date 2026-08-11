@@ -13,24 +13,33 @@ import { StateService } from '../../core/services/state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { PersistenceService } from '../../core/services/persistence.service';
-import { TestmessageGenerationService } from '../../core/services/testmessage-generation.service';
 import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
 import { TestmessageCreateService } from '../../core/services/testmessage-create.service';
 import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
 import { DownloadService } from '../../core/services/download.service';
 import { XmlValidationService } from '../../core/services/xml-validation.service';
 import { ValidationReportService } from '../../core/services/validation-report.service';
+import { ProfilPruefungService } from '../../core/services/profil-pruefung.service';
+import { PruefberichtExcelService } from '../../core/services/pruefbericht-excel.service';
 import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
+import { TeilenService } from '../../core/services/teilen.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { LibraryEntry, ProfilVersion } from '../../models/profile.model';
+import { Pruefbericht } from '../../models/pruefbericht.model';
+import {
+  berichtEintraege,
+  berichtKopfzeile,
+  berichtTitel,
+} from '../../core/util/pruefbericht.util';
 import { MessageRef } from '../../models/xsd-index.model';
 import { parseTestmessage } from '../../core/util/testmessage.util';
 import { nachrichtTeile } from '../../core/util/pretty.util';
 import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiterung-sperre';
 import { firstLine } from '../../core/util/pretty.util';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
 /** Eine Fachmodul-Gruppe fuer die Kachel-Ansicht. */
 interface Gruppe {
@@ -49,7 +58,7 @@ interface Gruppe {
 @Component({
   selector: 'app-testdaten',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu],
+  imports: [RolleBadge, Menu, KeinAutofillDirective],
   templateUrl: './testdaten.html',
 })
 export class Testdaten {
@@ -59,7 +68,6 @@ export class Testdaten {
   private readonly toast = inject(ToastService);
   private readonly profiles = inject(ProfileStoreService);
   private readonly persistence = inject(PersistenceService);
-  private readonly generator = inject(TestmessageGenerationService);
   private readonly start = inject(TestnachrichtStartService);
   private readonly creator = inject(TestmessageCreateService);
   private readonly edit = inject(TestmessageEditService);
@@ -67,11 +75,15 @@ export class Testdaten {
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
   private readonly vergleich = inject(VergleichService);
+  private readonly teilenService = inject(TeilenService);
+  private readonly pruefung = inject(ProfilPruefungService);
+  private readonly excel = inject(PruefberichtExcelService);
 
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
   private readonly editDlg = viewChild.required<ElementRef<HTMLDialogElement>>('editDlg');
   private readonly createDlg = viewChild.required<ElementRef<HTMLDialogElement>>('createDlg');
+  private readonly pruefDlg = viewChild.required<ElementRef<HTMLDialogElement>>('pruefDlg');
 
   constructor() {
     // Index beim Betreten der Ansicht auffrischen: das Kennzeichen "Profil
@@ -324,7 +336,7 @@ export class Testdaten {
     if (this.createLoading()) return;
     this.createLoading.set(true);
     try {
-      await this.generator.ensureSchema(id);
+      await this.persistence.ensureSchema(id);
       this.createVersion.set(id);
     } catch {
       this.toast.show('Schema konnte nicht geladen werden.');
@@ -352,29 +364,11 @@ export class Testdaten {
   /**
    * Kachel-Klick: gefuehrt erstellte Nachrichten (gespeicherter
    * Entscheidungsstand) werden gefuehrt fortgesetzt, alle anderen wie bisher
-   * zum Betrachten/Bearbeiten geoeffnet.
+   * zum Betrachten geoeffnet — beides entscheidet `edit.oeffneEintrag`,
+   * damit ein geteilter Link dieselbe Tuer nimmt.
    */
   protected async openEntry(e: TestmessageEntry): Promise<void> {
-    // Gefuehrtes Fortsetzen schreibt in den Eintrag — fuer Externe an
-    // abgenommenen Nachrichten gesperrt; sie oeffnen nur betrachtend im Baum.
-    if (e.gefuehrt && !this.gesperrt(e)) {
-      try {
-        await this.creator.fortsetzen(e);
-        return;
-      } catch {
-        // Stand nicht ladbar (Backend/Schema) — auf das normale Oeffnen zurueckfallen.
-      }
-    }
-    await this.openInTree(e);
-  }
-
-  /** Testnachricht betrachtend im Baum-Editor oeffnen (gesperrt, nur Werte). */
-  protected async openInTree(e: TestmessageEntry): Promise<void> {
-    try {
-      await this.edit.oeffnen(e, 'betrachten');
-    } catch (err) {
-      this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
-    }
+    await this.oeffne(e, 'betrachten');
   }
 
   /**
@@ -386,19 +380,25 @@ export class Testdaten {
   protected async bearbeiten(e: TestmessageEntry, ev: Event): Promise<void> {
     ev.stopPropagation();
     if (this.gesperrt(e)) return;
-    if (e.gefuehrt) {
-      try {
-        await this.creator.fortsetzen(e);
-        return;
-      } catch {
-        // Stand nicht ladbar (Backend/Schema) — als Instanz bearbeiten.
-      }
-    }
+    await this.oeffne(e, 'bearbeiten');
+  }
+
+  private async oeffne(e: TestmessageEntry, modus: 'betrachten' | 'bearbeiten'): Promise<void> {
     try {
-      await this.edit.oeffnen(e, 'bearbeiten');
+      await this.edit.oeffneEintrag(e, modus);
     } catch (err) {
       this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
     }
+  }
+
+  /**
+   * Kachel-Aktion "Link zum Teilen kopieren": der Link zeigt auf **diesen**
+   * Eintrag, nicht auf eine Kopie — wer ihn oeffnet, sieht den jeweils
+   * aktuellen Stand der Nachricht.
+   */
+  protected teilen(e: TestmessageEntry, ev: Event): void {
+    ev.stopPropagation();
+    void this.teilenService.kopiereTestnachrichtLink(e.id);
   }
 
   // ── Upload ──────────────────────────────────────────────────────────
@@ -489,6 +489,131 @@ export class Testdaten {
     }
   }
 
+  // ── Gegen eine Profilierung prüfen (#107) ───────────────────────────
+
+  /**
+   * Die zu prüfende Nachricht — gesetzt, solange der Prüf-Dialog offen ist.
+   * Getrennt von `createProfil` & Co.: es ist ein anderer Vorgang, und beide
+   * Dialoge dürfen sich nicht gegenseitig den Zustand wegräumen.
+   */
+  protected readonly pruefEintrag = signal<TestmessageEntry | null>(null);
+  protected readonly pruefProfil = signal<LibraryEntry | null>(null);
+  protected readonly pruefFassungen = signal<ProfilVersion[]>([]);
+  /** Gewählte Fassung: '' = Arbeitsstand, sonst die id der Version. */
+  protected readonly pruefFassungWahl = signal('');
+  protected readonly pruefLaeuft = signal(false);
+
+  /**
+   * Profilierungen, gegen die sich **diese** Nachricht prüfen lässt:
+   * gleicher Nachrichtentyp, gleiche XJustiz-Version (fehlende Angabe passt zu
+   * allem). Die Regel liegt im Prüfdienst — der Picker zeigt sie nur an.
+   */
+  protected readonly pruefKandidaten = computed<LibraryEntry[]>(() => {
+    const e = this.pruefEintrag();
+    if (!e) return [];
+    return this.profiles.entries().filter((p) => this.pruefung.passt(e, p));
+  });
+
+  protected openPruefung(e: TestmessageEntry, ev: Event): void {
+    ev.stopPropagation();
+    this.pruefEintrag.set(e);
+    this.pruefProfil.set(null);
+    this.pruefFassungen.set([]);
+    this.pruefFassungWahl.set('');
+    void this.profiles
+      .refresh()
+      .catch(this.toast.fail('Profile konnten nicht geladen werden — Backend nicht erreichbar.'));
+    this.pruefDlg().nativeElement.showModal();
+  }
+
+  /**
+   * Schritt 1: Profilierung wählen und ihre Fassungen laden. Vorbelegt ist die
+   * **Abnahme-Fassung**, wo es eine gibt: ein Bericht gegen einen Stand, der
+   * sich morgen ändert, taugt nicht als Nachweis.
+   */
+  protected async waehlePruefProfil(p: LibraryEntry): Promise<void> {
+    if (this.pruefLaeuft()) return;
+    this.pruefLaeuft.set(true);
+    try {
+      const list = await this.profiles.listVersions(p.id);
+      this.pruefFassungen.set(list);
+      const abnahme = p.abgenommen ? list.find((v) => v.abnahme) : null;
+      this.pruefFassungWahl.set(abnahme?.id ?? '');
+    } catch {
+      this.pruefFassungen.set([]);
+      this.pruefFassungWahl.set('');
+      this.toast.show('Fassungen nicht ladbar — es steht nur der Arbeitsstand zur Wahl.');
+    } finally {
+      this.pruefLaeuft.set(false);
+      this.pruefProfil.set(p);
+    }
+  }
+
+  /** Schritt 2: prüfen und den Bericht zeigen. */
+  protected async starteProfilPruefung(): Promise<void> {
+    const eintrag = this.pruefEintrag();
+    const profil = this.pruefProfil();
+    if (!eintrag || !profil || this.pruefLaeuft()) return;
+    this.pruefLaeuft.set(true);
+    try {
+      const bericht = await this.pruefung.pruefe(eintrag, profil, this.pruefFassungWahl() || null);
+      this.pruefDlg().nativeElement.close();
+      // Die Fassungswahl festhalten: der Dialog wird gleich zurückgesetzt, der
+      // Bericht muss sie aber noch kennen (Klick auf einen Befund bindet sie).
+      this.zeigeBericht(bericht, eintrag, profil, this.pruefFassungWahl());
+    } catch (err) {
+      this.toast.showError(err, 'Prüfung fehlgeschlagen.');
+    } finally {
+      this.pruefLaeuft.set(false);
+    }
+  }
+
+  /**
+   * Den Bericht in den Validierungs-Dialog geben. Ein Klick auf einen Befund
+   * **öffnet** die Nachricht im Editor, bindet die geprüfte Fassung als Vorgabe
+   * und springt zum Element — der Sprung allein trüge nicht, weil die Nachricht
+   * gar nicht geladen ist.
+   */
+  private zeigeBericht(
+    bericht: Pruefbericht,
+    eintrag: TestmessageEntry,
+    profil: LibraryEntry,
+    wahl: string,
+  ): void {
+    this.report.zeigeMitPfaden(
+      berichtTitel(eintrag.name, bericht),
+      berichtEintraege(bericht),
+      berichtKopfzeile(bericht.kopf),
+      (pfad) => void this.oeffneBefund(eintrag, profil, wahl, pfad),
+      {
+        label: 'Als Excel herunterladen',
+        starte: () =>
+          void this.excel
+            .exportiere(bericht)
+            .catch(this.toast.fail('Excel-Export fehlgeschlagen.')),
+      },
+    );
+  }
+
+  /**
+   * Vom Befund zum Element: die Nachricht laden (mit Bindung an die geprüfte
+   * Fassung) und dorthin springen. Es ist ein Kontextwechsel — offene,
+   * ungespeicherte Arbeit im Editor wird darum vorher erfragt.
+   */
+  private async oeffneBefund(
+    eintrag: TestmessageEntry,
+    profil: LibraryEntry,
+    wahl: string,
+    pfad: string,
+  ): Promise<void> {
+    try {
+      const { doc } = await this.pruefung.ladeFassung(profil, wahl || null);
+      await this.edit.oeffneFuerBefund(eintrag, doc, pfad);
+    } catch (err) {
+      this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
+    }
+  }
+
   // ── Umbenennen (Name + Beschreibung) ────────────────────────────────
 
   protected openEdit(e: TestmessageEntry, ev: Event): void {
@@ -527,7 +652,7 @@ export class Testdaten {
         );
         return;
       }
-      this.dl.download(e.name || (e.nachricht ?? 'testnachricht') + '.xml', xml, 'application/xml');
+      this.dl.download(this.dl.xmlFilename(e.name || (e.nachricht ?? '')), xml, 'application/xml');
     } catch {
       this.toast.show('Download fehlgeschlagen — Backend nicht erreichbar.');
     }
@@ -610,10 +735,7 @@ export class Testdaten {
         this.toast.show('Keine abgenommene Fassung vorhanden.');
         return;
       }
-      const name = (e.name || (e.nachricht ?? 'testnachricht') + '.xml').replace(
-        /\.xml$/i,
-        '.abgenommen.xml',
-      );
+      const name = this.dl.xmlFilename(e.name || (e.nachricht ?? ''), '.abgenommen');
       this.dl.download(name, xml, 'application/xml');
     } catch {
       this.toast.show('Download fehlgeschlagen — Backend nicht erreichbar.');

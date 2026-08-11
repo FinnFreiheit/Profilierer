@@ -12,14 +12,15 @@ import { TreeItem, TreeNode, itemPath } from '../../models/node.model';
 import { auspTeile, blattName, unterPfad, vorfahren } from '../util/pfad.util';
 import { sperrtPruefartefakte } from '../util/erweiterung-sperre';
 import { VorgabeSicht } from '../vorgabe-sicht';
+import { EnthaltenLage, istEnthalten } from '../enthalten';
 import { Codelist } from '../../models/codelist.model';
 import { DiffAnc, DiffEntry } from '../../models/diff.model';
 import { XsdDoc, XsdIndex } from '../../models/xsd-index.model';
 import { BundledVersion } from '../../models/schema-bundle.model';
 import { MessageCreateSession, MessageEditSession } from '../../models/testmessage.model';
 import { newProfile } from '../profile-defaults';
-import { pretty } from '../util/pretty.util';
-import { REF_TARGETS } from '../refs';
+import { kardText, pretty } from '../util/pretty.util';
+import { REF_TARGETS, RefSchluessel, SGO_KENNUNG, refSchluesselArt } from '../refs';
 import { HinweisStoreService } from './hinweis-store.service';
 
 /**
@@ -440,6 +441,44 @@ export class StateService {
   }
 
   /**
+   * „Entfaellt" — die Aussage, die Baum, Druck, Excel und der „nur Profil"-
+   * Filter gleichermassen treffen: das Element ist selbst ausgeschlossen oder
+   * ein Vorfahr schliesst es aus. Beides zusammen ist die Aussage; wer nur
+   * `statusOf(path)?.wirkung` liest, uebersieht das Erbe.
+   *
+   * Die Regel stand vorher viermal ausformuliert (Baum-Kasten, Druckzeilen,
+   * Excel-Blatt, `boxHidden`) und konnte auseinanderlaufen. Wo die **Herkunft**
+   * des Ausschlusses zaehlt — der Kasten faerbt eigenen und geerbten
+   * unterschiedlich —, bleibt der Blick auf `statusOf`/`inheritedExcluded`
+   * einzeln richtig.
+   */
+  entfaellt(path: string): boolean {
+    return this.statusOf(path)?.wirkung === 'ausgeschlossen' || this.inheritedExcluded(path);
+  }
+
+  /**
+   * Die Kardinalitaet, wie sie am Kasten steht — eine Lesart fuer Baum, Druck
+   * und Excel. Ein **Vorkommen** traegt immer `1..1` (es ist der eine Fall,
+   * seine Grenzen stehen am Traeger); ein Element die effektive Kardinalitaet
+   * aus Schema und Profilierung. `standard` nennt die Schema-Vorgabe, wo die
+   * Profilierung sie enger gefasst hat — sonst `null`.
+   */
+  kardAnzeige(it: { kind: 'el' | 'ausp'; node: TreeNode; path: string }): {
+    text: string;
+    standard: string | null;
+  } {
+    if (it.kind === 'ausp') {
+      const p = this.elemente()[it.path] ?? {};
+      return { text: kardText(p.min || '1', p.max || '1'), standard: null };
+    }
+    const k = this.effKard(it.node);
+    return {
+      text: kardText(k.min, k.max),
+      standard: k.changed ? kardText(it.node.min, it.node.max) : null,
+    };
+  }
+
+  /**
    * Freigegebene Codelisten-Werte — Entscheidung, sonst Vorgabe. Ein leeres
    * Array ist eine explizite Einschraenkung („keine Werte zugelassen", siehe
    * isEmptyProfile) und faellt daher nicht auf die Vorgabe zurueck; nur ein
@@ -552,8 +591,7 @@ export class StateService {
     // sonst verschwaende der Klick auf "weglassen" den gerade bearbeiteten Ast.
     if (this.hatVorgabe()) return this.vorgabeGesperrt(path) && !this.onlyProfile();
     if (!this.onlyProfile()) return false;
-    const st = this.statusOf(path);
-    return st?.wirkung === 'ausgeschlossen' || this.inheritedExcluded(path);
+    return this.entfaellt(path);
   }
 
   /**
@@ -604,6 +642,48 @@ export class StateService {
       minProfil,
       maxProfil,
     };
+  }
+
+  // ── „Ist enthalten" (die eine Regel, core/enthalten.ts) ─────────────
+
+  /**
+   * Liegt **unter** diesem Pfad Inhalt — ein Element-Eintrag oder eine
+   * Vorkommensliste? Grenzen sind '/' und '@' (`unterPfad`); die Liste am Pfad
+   * selbst zaehlt mit, denn benannte Vorkommen sind Inhalt des Traegers.
+   *
+   * Stand vorher als Closure `hasProfilBelow` im `ExportService` und war damit
+   * nur ueber erzeugtes XML pruefbar.
+   */
+  inhaltDarunter(path: string): boolean {
+    for (const k of Object.keys(this.elemente())) if (k !== path && unterPfad(k, path)) return true;
+    for (const k of Object.keys(this.auspraegungen())) if (unterPfad(k, path)) return true;
+    return false;
+  }
+
+  /**
+   * Die Lage eines Knotens fuer `istEnthalten` — **hier** und nur hier werden
+   * die vier Angaben aufgeloest. Genau diese Aufloesung ist zwischen
+   * Serialisierung und Abgleich auseinandergelaufen (siehe `core/enthalten.ts`):
+   *
+   * - Wirkung: eigene Entscheidung (pfadgenau, `wirkungOf`), sonst die Vorgabe
+   *   **mit Vorkommen-Erbe** (`profilWirkungGeerbt`) — nicht nur pfadgenau.
+   * - Mindestanzahl: ueber `effKard`, also inklusive Vorgabe — nicht roh.
+   * - Inhalt: allein aus der Entscheidungsschicht. Ein Beispielwert der Vorgabe
+   *   wird angeboten, nicht gesetzt (#29) und ist darum kein Inhalt.
+   */
+  enthaltenLage(node: TreeNode): EnthaltenLage {
+    const p = this.elemente()[node.path] ?? {};
+    return {
+      wirkung: this.wirkungOf(node.path) ?? this.profilWirkungGeerbt(node.path),
+      min: parseInt(this.effKard(node).min, 10) || 0,
+      eigenerInhalt: !!(p.beispiel || p.werte?.length),
+      inhaltDarunter: this.inhaltDarunter(node.path),
+    };
+  }
+
+  /** Traegt die Nachricht dieses Element? Der Sitzungs-Zugang zur einen Regel. */
+  enthaelt(node: TreeNode): boolean {
+    return istEnthalten(this.enthaltenLage(node));
   }
 
   // ── Profil-Mutationen ───────────────────────────────────────────────
@@ -734,42 +814,60 @@ export class StateService {
       const next = { ...m };
       const rest = this.materialisiere(next[path], vorgabeListe).filter((a) => a.id !== id);
       this.setzeListe(next, path, rest, vorgabeListe);
-      // Unter-Ausprägungen der entfernten Auspraegung wegraeumen.
-      for (const k of Object.keys(next)) {
-        if (unterPfad(k, prefix)) delete next[k];
-      }
       return next;
     });
 
-    this.elemente.update((m) => {
+    this.kaskadiere(prefix, true);
+  }
+
+  /**
+   * Alles unter `prefix` aus **allen** Traegern raeumen — die eine Kaskade
+   * hinter `removeAusp`, `removeErweiterung` und `bereinigeUnter`.
+   *
+   * `inklusive` entscheidet ueber den Knoten selbst: beim Entfernen eines
+   * Vorkommens oder einer Erweiterung faellt er mit; beim Typwechsel
+   * (`bereinigeUnter`) ueberlebt er samt seiner Notiz und nur der Unterbau
+   * geht. Erweiterungen sind davon ausgenommen und fallen immer mit: sie sind
+   * am **Eltern**pfad indiziert, die Liste am Pfad selbst haengt also bereits
+   * unter dem Knoten.
+   *
+   * Hinweise liegen in eigener Ablage, fallen aber mit dem Element ([ADR
+   * 0014]): sonst zaehlen sie weiter, stehen in der Uebersicht und erzeugen
+   * einen Sammel-Marker, dessen Sprung ins Leere geht. Der Aufruf gehoert
+   * hierher und nicht an die Bedienstellen — die Invariante haengt an der
+   * Kaskade, nicht am Knopf.
+   *
+   * Die Praefix-Grenzen kommen ausnahmslos aus `unterPfad` (Pfad-Grammatik).
+   * Das war der Grund fuer diese Zusammenlegung: `removeErweiterung` raeumte
+   * Auswahl und Oeffnungszustaende mit nacktem `startsWith` auf und traf beim
+   * Loeschen von `~x1` auch `~x12`.
+   */
+  private kaskadiere(prefix: string, inklusive: boolean): void {
+    const betroffen = (k: string): boolean => (inklusive || k !== prefix) && unterPfad(k, prefix);
+    const raeume = <T>(m: Record<string, T>, passt: (k: string) => boolean): Record<string, T> => {
       const next = { ...m };
-      for (const k of Object.keys(next)) {
-        if (unterPfad(k, prefix)) delete next[k];
-      }
+      for (const k of Object.keys(next)) if (passt(k)) delete next[k];
       return next;
-    });
+    };
 
-    this.erweiterungen.update((m) => {
-      const next = { ...m };
-      for (const k of Object.keys(next)) {
-        if (unterPfad(k, prefix)) delete next[k];
-      }
-      return next;
-    });
+    this.elemente.update((m) => raeume(m, betroffen));
+    this.auspraegungen.update((m) => raeume(m, betroffen));
+    this.erweiterungen.update((m) => raeume(m, (k) => unterPfad(k, prefix)));
 
-    // Hinweise liegen in eigener Ablage, fallen aber mit dem Element: sonst
-    // zaehlen sie weiter, stehen in der Uebersicht und erzeugen einen
-    // Sammel-Marker, dessen Sprung ins Leere geht. Der Aufruf gehoert hierher
-    // und nicht an die Bedienstellen — die Invariante haengt an der Kaskade,
-    // nicht am Knopf.
-    void this.hinweisStore.loescheUnter(prefix);
+    // Inklusiv deckt `loescheUnter` den Fall in einem Aufruf ab; exklusiv
+    // schluesse es den Pfad selbst mit ein (`unterPfad` ist inklusiv), darum
+    // dort einzeln.
+    if (inklusive) void this.hinweisStore.loescheUnter(prefix);
+    else
+      for (const h of this.hinweisStore.hinweise().filter((h) => betroffen(h.pfad)))
+        void this.hinweisStore.loeschen(h.id);
 
     const sel = this.selItem();
-    if (sel && unterPfad(itemPath(sel), prefix)) this.selItem.set(null);
+    if (sel && betroffen(itemPath(sel))) this.selItem.set(null);
 
     this.open.update((s) => {
       const next = new Set(s);
-      for (const p of s) if (unterPfad(p, prefix)) next.delete(p);
+      for (const p of s) if (betroffen(p)) next.delete(p);
       return next;
     });
   }
@@ -831,40 +929,16 @@ export class StateService {
     // bleibt unberuehrt.
     if (!this.erweiterungen()[parentPath]?.some((e) => e.id === id)) return;
     const prefix = parentPath + '/~' + id;
-    const betroffen = (k: string): boolean => unterPfad(k, prefix);
     const vorgabeListe = this.vorgabe()?.erweiterungen[parentPath];
 
     this.erweiterungen.update((m) => {
       const next = { ...m };
       const rest = this.materialisiere(next[parentPath], vorgabeListe).filter((e) => e.id !== id);
       this.setzeListe(next, parentPath, rest, vorgabeListe);
-      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
       return next;
     });
 
-    this.elemente.update((m) => {
-      const next = { ...m };
-      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
-      return next;
-    });
-
-    this.auspraegungen.update((m) => {
-      const next = { ...m };
-      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
-      return next;
-    });
-
-    // Wie in removeAusp: die Hinweise des Teilbaums fallen mit.
-    void this.hinweisStore.loescheUnter(prefix);
-
-    const sel = this.selItem();
-    if (sel && itemPath(sel).startsWith(prefix)) this.selItem.set(null);
-
-    this.open.update((s) => {
-      const next = new Set(s);
-      for (const p of s) if (p.startsWith(prefix)) next.delete(p);
-      return next;
-    });
+    this.kaskadiere(prefix, true);
   }
 
   /**
@@ -898,41 +972,7 @@ export class StateService {
    * Festlegungen darunter zeigen ins Leere (#97).
    */
   bereinigeUnter(prefix: string): void {
-    const betroffen = (k: string): boolean => k !== prefix && unterPfad(k, prefix);
-    const raeume = <T>(m: Record<string, T[]>): Record<string, T[]> => {
-      const next = { ...m };
-      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
-      return next;
-    };
-    this.elemente.update((m) => {
-      const next = { ...m };
-      for (const k of Object.keys(next)) if (betroffen(k)) delete next[k];
-      return next;
-    });
-    this.auspraegungen.update(raeume);
-    // Erweiterungen sind am Elternpfad indiziert: die Liste **am** Pfad selbst
-    // haengt unter dem Knoten und faellt mit.
-    this.erweiterungen.update((m) => {
-      const next = { ...m };
-      for (const k of Object.keys(next)) if (unterPfad(k, prefix)) delete next[k];
-      return next;
-    });
-
-    // Wie in removeErweiterung fallen die Hinweise des Teilbaums mit — aber
-    // **nur** die darunter: `loescheUnter` schliesst den Pfad selbst ein
-    // (`unterPfad` ist inklusiv), und der Knoten ueberlebt den Typwechsel
-    // samt seiner Notiz. Darum einzeln statt per Praefix.
-    for (const h of this.hinweisStore.hinweise().filter((h) => betroffen(h.pfad)))
-      void this.hinweisStore.loeschen(h.id);
-
-    const sel = this.selItem();
-    if (sel && betroffen(itemPath(sel))) this.selItem.set(null);
-
-    this.open.update((s) => {
-      const next = new Set(s);
-      for (const p of s) if (betroffen(p)) next.delete(p);
-      return next;
-    });
+    this.kaskadiere(prefix, false);
   }
 
   // ── Oeffnungszustaende ──────────────────────────────────────────────
@@ -1053,6 +1093,65 @@ export class StateService {
     if (!list) return null;
     const idx = list.findIndex((a) => a.id === teile.auspId);
     return idx >= 0 ? idx + 1 : null;
+  }
+
+  /**
+   * Die Kennung eines Verweisziels: die UUID, die ein Schriftgutobjekt in
+   * seiner `identifikation/id` traegt und ueber die ein `Type.GDS.Ref.SGO`
+   * darauf verweist. Gegenstueck zu `auspNumber` — dort die laufende Nummer,
+   * hier die Identitaet des Ziels.
+   *
+   * Gesucht wird ueber die Pfad-Endung, weil zwischen Vorkommen und
+   * `identifikation` synthetische Gruppen liegen koennen. Null, solange am Ziel
+   * keine Kennung steht; die vergibt die Zielwahl (`waehleVerweisZiel`).
+   */
+  sgoKennungOf(zielPfad: string): string | null {
+    const pre = zielPfad + '/';
+    const post = '/' + SGO_KENNUNG;
+    for (const [k, p] of Object.entries(this.elemente()))
+      if (p?.beispiel && k.startsWith(pre) && k.endsWith(post)) return p.beispiel;
+    return null;
+  }
+
+  /**
+   * Die **Rueckrichtung** der Zielwahl: welches Vorkommen traegt den Wert, mit
+   * dem ein Verweis benannt ist? Eine geladene Nachricht kennt nur diesen Wert
+   * — die Zielangabe daneben (`refZiel`) ist eine Zutat des Werkzeugs und steht
+   * nirgends im XML. Ohne diese Ableitung zeigte jeder Verweis einer geoeffneten
+   * Nachricht "kein Ziel festgelegt", obwohl der Wert stimmt.
+   *
+   * Gesucht wird unter den zulaessigen Zielen der Verweis-Art nach einem
+   * Kennungs-Blatt mit genau diesem Wert — der laufenden Nummer bzw. der UUID
+   * eines Schriftgutobjekts (`refSchluesselArt`). Das Blatt kann tief unter dem
+   * Vorkommen liegen: eine Beteiligung fuehrt ihre Rollen als eigene Vorkommen,
+   * die `rollennummer` sitzt dort eine Ebene tiefer.
+   *
+   * Passen mehrere Vorkommen ineinander (ein `beteiligter` innerhalb einer
+   * `beteiligung`), gewinnt das **innerste** — es ist das, was der Wert
+   * benennt. Null, wenn kein Vorkommen den Wert traegt.
+   */
+  zielMitKennung(kind: string, wert: string): string | null {
+    const w = wert.trim();
+    if (!w) return null;
+    const art = refSchluesselArt(kind);
+    const traeger: string[] = [];
+    for (const [k, p] of Object.entries(this.elemente()))
+      if (p?.beispiel?.trim() === w && this.istKennungsPfad(k, art)) traeger.push(k);
+    if (!traeger.length) return null;
+    let treffer: string | null = null;
+    for (const kand of this.refZielKandidaten(kind)) {
+      const pre = kand.path + '/';
+      if (!traeger.some((k) => k.startsWith(pre))) continue;
+      if (!treffer || kand.path.length > treffer.length) treffer = kand.path;
+    }
+    return treffer;
+  }
+
+  /** Traegt dieser Pfad die Kennung eines Verweisziels (siehe `zielMitKennung`)? */
+  private istKennungsPfad(pfad: string, art: RefSchluessel): boolean {
+    return art === 'uuid'
+      ? pfad.endsWith('/' + SGO_KENNUNG)
+      : /\/(rollennummer|beteiligtennummer)$/.test(pfad);
   }
 
   /** auspLabel (Z.634-640): "Element „Name"" fuer ein Verweisziel. */

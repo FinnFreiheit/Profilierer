@@ -311,7 +311,7 @@ export class TreeCanvas {
         }
         out.push({
           d,
-          stroke: onP ? 'var(--accent)' : imErw ? '#7f77dd' : '#c3ccd8',
+          stroke: onP ? 'var(--accent)' : imErw ? '#7f77dd' : 'var(--border-stark)',
           width: onP ? '2.2' : '1.4',
           dash: excl ? '4 4' : imErw ? '5 4' : null,
           opacity: null,

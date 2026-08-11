@@ -8,7 +8,8 @@ import {
 } from '../../models/testmessage.model';
 import { ProfileDoc } from '../../models/profile.model';
 import { LoggerService } from './logger.service';
-import { RolleService } from './rolle.service';
+import { BackendClient } from './backend-client.service';
+import { mitEintrag, neuesteZuerst, ohneEintrag } from '../util/eintragsliste.util';
 
 /** Patch fuer PATCH /api/testmessages/:id — nur gesetzte Felder werden geaendert. */
 export interface TestmessagePatch {
@@ -20,13 +21,6 @@ export interface TestmessagePatch {
   entscheidungen?: GuidedMessageState;
   bezeichnungen?: AuspBezeichnungen;
 }
-
-/**
- * Basis-URL der Testdaten-API (same-origin; im Dev via Proxy auf das Backend).
- * Relativ, loest gegen <base href> auf: Dev/Root -> /api, Unterpfad-Deployment
- * (xjw.freiheits.de/profilierer) -> /profilierer/api (nginx strippt den Praefix).
- */
-const API_BASE = 'api';
 
 /**
  * Persistenz-Layer des zentralen Testdaten-Speichers — spricht das Backend
@@ -42,7 +36,7 @@ const API_BASE = 'api';
 @Injectable({ providedIn: 'root' })
 export class TestmessageStoreService {
   private readonly log = inject(LoggerService);
-  private readonly rolle = inject(RolleService);
+  private readonly http = inject(BackendClient).fuer('Testdaten-Backend');
 
   /** Testnachrichten-Index, nach letzter Änderung absteigend. */
   readonly entries = signal<TestmessageEntry[]>([]);
@@ -53,46 +47,23 @@ export class TestmessageStoreService {
     );
   }
 
-  // ── HTTP-Helfer ─────────────────────────────────────────────────────
-
-  private async req<T>(path: string, init?: RequestInit): Promise<T> {
-    // AG-Schluessel immer mitschicken (Schutz abgenommener Objekte liegt am Server).
-    const r = await fetch(API_BASE + path, {
-      ...init,
-      headers: {
-        ...(init?.body ? { 'content-type': 'application/json' } : {}),
-        ...this.rolle.authHeaders(),
-        ...init?.headers,
-      },
-    });
-    if (!r.ok) throw new Error(`Testdaten-Backend: ${init?.method ?? 'GET'} ${path} → ${r.status}`);
-    if (r.status === 204) return undefined as T;
-    return (await r.json()) as T;
-  }
-
   // ── Lesen ───────────────────────────────────────────────────────────
 
   /** Index vom Server neu laden (Start + Fehler-Resync). */
   async refresh(): Promise<void> {
-    const list = await this.req<TestmessageEntry[]>('/testmessages');
-    this.entries.set([...list].sort((a, b) => b.aktualisiert - a.aktualisiert));
+    this.entries.set(neuesteZuerst(await this.http.json<TestmessageEntry[]>('/testmessages')));
   }
 
   /** Roh-XML einer Testnachricht (fuer Download/Vorschau); 404 → null. */
   async loadXml(id: string): Promise<string | null> {
-    const r = await fetch(`${API_BASE}/testmessages/${encodeURIComponent(id)}/xml`);
-    if (r.status === 404) return null;
-    if (!r.ok) throw new Error(`Testdaten-Backend: GET /testmessages/${id}/xml → ${r.status}`);
-    return await r.text();
+    return this.http.textOderNull(`/testmessages/${encodeURIComponent(id)}/xml`);
   }
 
   /** Entscheidungsstand einer gefuehrt erstellten Nachricht; 404 → null. */
   async loadEntscheidungen(id: string): Promise<GuidedMessageState | null> {
-    const r = await fetch(`${API_BASE}/testmessages/${encodeURIComponent(id)}/entscheidungen`);
-    if (r.status === 404) return null;
-    if (!r.ok)
-      throw new Error(`Testdaten-Backend: GET /testmessages/${id}/entscheidungen → ${r.status}`);
-    return (await r.json()) as GuidedMessageState;
+    return this.http.jsonOderNull<GuidedMessageState>(
+      `/testmessages/${encodeURIComponent(id)}/entscheidungen`,
+    );
   }
 
   /**
@@ -101,11 +72,9 @@ export class TestmessageStoreService {
    * generischen Namen aus dem Import stehen.
    */
   async loadBezeichnungen(id: string): Promise<AuspBezeichnungen | null> {
-    const r = await fetch(`${API_BASE}/testmessages/${encodeURIComponent(id)}/bezeichnungen`);
-    if (r.status === 404) return null;
-    if (!r.ok)
-      throw new Error(`Testdaten-Backend: GET /testmessages/${id}/bezeichnungen → ${r.status}`);
-    return (await r.json()) as AuspBezeichnungen;
+    return this.http.jsonOderNull<AuspBezeichnungen>(
+      `/testmessages/${encodeURIComponent(id)}/bezeichnungen`,
+    );
   }
 
   /**
@@ -113,10 +82,7 @@ export class TestmessageStoreService {
    * Durchlaufs); 404 → null (Nachricht ohne Profil-Bindung).
    */
   async loadVorgabe(id: string): Promise<ProfileDoc | null> {
-    const r = await fetch(`${API_BASE}/testmessages/${encodeURIComponent(id)}/vorgabe`);
-    if (r.status === 404) return null;
-    if (!r.ok) throw new Error(`Testdaten-Backend: GET /testmessages/${id}/vorgabe → ${r.status}`);
-    return (await r.json()) as ProfileDoc;
+    return this.http.jsonOderNull<ProfileDoc>(`/testmessages/${encodeURIComponent(id)}/vorgabe`);
   }
 
   // ── Schreiben ───────────────────────────────────────────────────────
@@ -127,7 +93,7 @@ export class TestmessageStoreService {
    * Herkunft (`profilName`/`fassung`) bleibt als Historie am Eintrag.
    */
   async loeseBindung(id: string): Promise<void> {
-    const { entry } = await this.req<{ entry: TestmessageEntry }>(
+    const { entry } = await this.http.json<{ entry: TestmessageEntry }>(
       `/testmessages/${encodeURIComponent(id)}/vorgabe`,
       { method: 'DELETE' },
     );
@@ -136,10 +102,13 @@ export class TestmessageStoreService {
 
   /** Neue Testnachricht anlegen; gibt die (serverseitig vergebene) id zurueck. */
   async create(input: TestmessageInput): Promise<string> {
-    const { id, entry } = await this.req<{ id: string; entry: TestmessageEntry }>('/testmessages', {
-      method: 'POST',
-      body: JSON.stringify(input),
-    });
+    const { id, entry } = await this.http.json<{ id: string; entry: TestmessageEntry }>(
+      '/testmessages',
+      {
+        method: 'POST',
+        body: JSON.stringify(input),
+      },
+    );
     this.putEntry(entry);
     return id;
   }
@@ -151,7 +120,7 @@ export class TestmessageStoreService {
    * unberuehrt.
    */
   async updateMeta(id: string, patch: TestmessagePatch): Promise<void> {
-    const { entry } = await this.req<{ entry: TestmessageEntry }>(
+    const { entry } = await this.http.json<{ entry: TestmessageEntry }>(
       `/testmessages/${encodeURIComponent(id)}`,
       { method: 'PATCH', body: JSON.stringify(patch) },
     );
@@ -160,15 +129,15 @@ export class TestmessageStoreService {
 
   /** Testnachricht entfernen. */
   async delete(id: string): Promise<void> {
-    await this.req<void>(`/testmessages/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    this.entries.update((list) => list.filter((e) => e.id !== id));
+    await this.http.json<void>(`/testmessages/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    this.entries.update((list) => ohneEintrag(list, id));
   }
 
   // ── Abnahme (BLK-AG) ────────────────────────────────────────────────
 
   /** Abnehmen: friert die aktuelle XML-Fassung serverseitig ein. */
   async abnehmen(id: string, kommentar?: string): Promise<void> {
-    const { entry } = await this.req<{ entry: TestmessageEntry }>(
+    const { entry } = await this.http.json<{ entry: TestmessageEntry }>(
       `/testmessages/${encodeURIComponent(id)}/abnahme`,
       { method: 'POST', body: JSON.stringify({ kommentar }) },
     );
@@ -177,7 +146,7 @@ export class TestmessageStoreService {
 
   /** Abnahme-Kennzeichen samt eingefrorener Fassung entfernen. */
   async abnahmeEntfernen(id: string): Promise<void> {
-    const { entry } = await this.req<{ entry: TestmessageEntry }>(
+    const { entry } = await this.http.json<{ entry: TestmessageEntry }>(
       `/testmessages/${encodeURIComponent(id)}/abnahme`,
       { method: 'DELETE' },
     );
@@ -186,21 +155,13 @@ export class TestmessageStoreService {
 
   /** Eingefrorene Abnahme-Fassung (Anzeige/Download); 404 → null. */
   async loadAbnahmeXml(id: string): Promise<string | null> {
-    const r = await fetch(`${API_BASE}/testmessages/${encodeURIComponent(id)}/abnahme/xml`);
-    if (r.status === 404) return null;
-    if (!r.ok)
-      throw new Error(`Testdaten-Backend: GET /testmessages/${id}/abnahme/xml → ${r.status}`);
-    return await r.text();
+    return this.http.textOderNull(`/testmessages/${encodeURIComponent(id)}/abnahme/xml`);
   }
 
   // ── Index-Signal pflegen ────────────────────────────────────────────
 
   /** Eintrag ersetzen/voranstellen und nach aktualisiert absteigend sortieren. */
   private putEntry(entry: TestmessageEntry): void {
-    this.entries.update((list) => {
-      const rest = list.filter((e) => e.id !== entry.id);
-      rest.unshift(entry);
-      return rest.sort((a, b) => b.aktualisiert - a.aktualisiert);
-    });
+    this.entries.update((list) => mitEintrag(list, entry));
   }
 }

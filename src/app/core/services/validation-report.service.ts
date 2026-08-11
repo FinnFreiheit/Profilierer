@@ -1,6 +1,13 @@
 import { Injectable, signal } from '@angular/core';
 import { ReportEintrag } from '../../models/validation.model';
 
+/** Ein Knopf, der den Bericht als Datei ausleitet. */
+export interface BerichtsAusleitung {
+  /** Beschriftung des Knopfes. */
+  label: string;
+  starte: () => void;
+}
+
 /**
  * Zustand des Validierungsbericht-Dialogs (app-validation-dialog): Services
  * und Komponenten melden hierueber blockierte Exporte/Uploads mit der
@@ -31,12 +38,39 @@ export class ValidationReportService {
     );
   }
 
-  zeigeMitPfaden(titel: string, eintraege: ReportEintrag[], untertitel?: string): void {
+  zeigeMitPfaden(
+    titel: string,
+    eintraege: ReportEintrag[],
+    untertitel?: string,
+    oeffne?: (pfad: string) => void,
+    ausleitung?: BerichtsAusleitung,
+  ): void {
     this._titel.set(titel);
     this._untertitel.set(untertitel ?? null);
     this._eintraege.set(eintraege);
+    this._oeffne.set(oeffne ?? null);
+    this._ausleitung.set(ausleitung ?? null);
     this._offen.set(true);
   }
+
+  /**
+   * Ausleitung des Berichts als Datei — null, wo es keine gibt. Die
+   * Schemavalidierungs-Berichte bieten keine an: sie entstehen als Rueckmeldung
+   * an einem blockierten Vorgang und sind kein Papier, das jemand weiterreicht.
+   * Der Profil-Pruefbericht ist genau das (#108).
+   */
+  private readonly _ausleitung = signal<BerichtsAusleitung | null>(null);
+  readonly ausleitung = this._ausleitung.asReadonly();
+
+  /**
+   * Wie ein Befund geoeffnet wird. Standard (null) ist der Sprung im **bereits
+   * geladenen** Baum — das trifft jeden Bericht, der aus der laufenden Sitzung
+   * entsteht. Ein Bericht ueber eine Nachricht, die gar nicht offen ist
+   * (Profil-Pruefung, #107), setzt hier seinen eigenen Weg: erst laden, dann
+   * springen.
+   */
+  private readonly _oeffne = signal<((pfad: string) => void) | null>(null);
+  readonly oeffne = this._oeffne.asReadonly();
 
   schliesse(): void {
     this._offen.set(false);

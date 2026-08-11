@@ -3,13 +3,37 @@
    messen die Geometrie der .box/.ntree/.nkids-Elemente; diese Klassen und die
    data-*-Attribute muessen projektweit stabil bleiben. */
 :root {
-  --bg: #f4f5f7;
-  --panel: #ffffff;
-  --border: #dce0e6;
-  --text: #1c2733;
-  --muted: #6b7684;
-  --accent: #1a5fa8;
-  --accent-soft: #e8f0fa;
+  /* Farbschema: fuenf Grundfarben, alles Weitere ist daraus abgeleitet.
+     Preussischblau traegt die Struktur (Primaeraktion, Auswahl, aktiver
+     Zustand), Orange ist das Signal (Fokus, Fortschritt, Hervorhebung) und
+     bleibt dadurch sparsam. Die fachlichen Signalfarben — gruen/gelb/rot fuer
+     Zustaende, die Diff-Farben, das Violett der Erweiterungen und die frei
+     waehlbaren Statusfarben der Profilierung — stehen bewusst ausserhalb
+     dieser Palette; sie tragen Bedeutung, keine Marke. */
+  --schwarz: #000000;
+  --preussischblau: #14213d;
+  --orange: #fca311;
+  --alabaster: #e5e5e5;
+  --weiss: #ffffff;
+
+  --bg: var(--alabaster);
+  --panel: var(--weiss);
+  --text: var(--preussischblau);
+  --text-stark: var(--schwarz);
+  --accent: var(--preussischblau);
+  /* Preussischblau aufgehellt — nur fuer :hover auf gefuellten Flaechen. */
+  --accent-hover: #223357;
+  --accent-soft: #dfe4ef;
+  --accent-soft-tief: #ccd5e8;
+  --signal: var(--orange);
+  --signal-soft: #fef1db;
+  /* Neutralstufen: Alabaster gegen Weiss bzw. Preussischblau verrechnet. */
+  --flaeche: #f1f2f5;
+  --flaeche-tief: #d6d8dd;
+  --border: #c6c8cc;
+  --border-stark: #a9adb6;
+  --muted: #5a6477;
+  --muted-schwach: #8d93a1;
   --mono: ui-monospace, 'SF Mono', Consolas, monospace;
 }
 * {
@@ -122,13 +146,13 @@ app-root {
   width: 46px;
   height: 5px;
   border-radius: 3px;
-  background: var(--accent-soft);
+  background: var(--signal-soft);
   overflow: hidden;
 }
 .fsBalkenFuell {
   display: block;
   height: 100%;
-  background: var(--accent);
+  background: var(--signal);
   transition: width 0.2s ease-out;
 }
 /* Ueberlauf-Eintraege sind erst unterhalb des schmalen Breakpoints da. */
@@ -156,15 +180,15 @@ button {
   cursor: pointer;
 }
 button:hover {
-  background: #f0f3f7;
+  background: var(--flaeche);
 }
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--weiss);
 }
 button.primary:hover {
-  background: #144d8a;
+  background: var(--accent-hover);
 }
 button:disabled {
   opacity: 0.45;
@@ -178,13 +202,23 @@ select {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 6px 8px;
-  background: #fff;
+  background: var(--panel);
   color: var(--text);
 }
+/* Der Fokus ist das eine Orange in der Kopfzone: er muss auf hellem wie auf
+   gefuelltem Grund sofort auffindbar sein, ohne die Feldbreite zu aendern. */
 input[type='text']:focus,
-textarea:focus {
-  outline: 2px solid var(--accent-soft);
+textarea:focus,
+select:focus {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
   border-color: var(--accent);
+}
+button:focus-visible,
+[role='button']:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
 }
 
 #msgBtn {
@@ -229,7 +263,7 @@ textarea:focus {
 .modusSeg button.aktiv {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--weiss);
   /* Der aktive Zustand ist der Zustand, nicht das Ziel — nicht anklickbar wirken. */
   cursor: default;
 }
@@ -325,10 +359,15 @@ textarea:focus {
   cursor: pointer;
   border-left: 3px solid transparent;
 }
-.srItem:hover,
-.srItem.hot {
+.srItem:hover {
   background: var(--accent-soft);
   border-left-color: var(--accent);
+}
+/* Der Treffer, den die Eingabetaste nimmt — als einziger orange markiert,
+   damit er sich vom bloss ueberfahrenen Eintrag unterscheidet. */
+.srItem.hot {
+  background: var(--signal-soft);
+  border-left-color: var(--signal);
 }
 .srItem .sl {
   font-size: 13px;
@@ -434,6 +473,18 @@ label.menuItem:has(input:disabled) {
 .vfItem.vfErw {
   border-left: 3px solid #7f77dd;
   background: #f7f6fd;
+}
+/* Zwischenueberschrift im Pruefbericht (#107): trennt Verstoesse der Nachricht
+   von Luecken der Profilierung — die Zurechnung ist der Zweck der Trennung. */
+.vfAbschnitt {
+  padding: 8px 10px 4px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel, #f6f6f6);
+  font-family: var(--sans, inherit);
+  font-weight: 600;
+  font-size: 12px;
+  position: sticky;
+  top: 0;
 }
 /* Hinweis-Uebersicht (hinweiseDlg): Liste mit Erledigt-Checkbox. */
 .hinweisListe .hwItem {
@@ -559,11 +610,11 @@ label.menuItem:has(input:disabled) {
   flex: none;
 }
 .crumb:hover {
-  background: #d7e5f5;
+  background: var(--accent-soft-tief);
 }
 .crumb.cur {
   background: var(--accent);
-  color: #fff;
+  color: var(--weiss);
   cursor: default;
 }
 .crumbSep {
@@ -649,17 +700,17 @@ label.menuItem:has(input:disabled) {
   margin-bottom: 7px;
 }
 .box:hover {
-  border-color: #b8c2cf;
+  border-color: var(--border-stark);
 }
 .box.sel {
   border: 2.5px solid var(--accent);
   padding: 6px 9px;
 }
 .box.parentBox {
-  background: #f2f4f8;
+  background: var(--flaeche);
 }
 .box.leafBox {
-  background: #fff;
+  background: var(--panel);
 }
 .box.mini {
   padding: 3px 9px;
@@ -755,7 +806,7 @@ label.menuItem:has(input:disabled) {
   flex: none;
 }
 .mv.ghost {
-  color: #9aa7b4;
+  color: var(--muted-schwach);
   font-style: italic;
 }
 .box:not(.mini) .mv {
@@ -829,7 +880,7 @@ label.menuItem:has(input:disabled) {
 .vlabel::before,
 .wertLabel::before {
   content: '↳ ';
-  color: #9aa7b4;
+  color: var(--muted-schwach);
 }
 .box.excluded .vrow,
 .box.exclInherit .vrow {
@@ -853,7 +904,7 @@ label.menuItem:has(input:disabled) {
   top: 5px;
   display: none;
   border: none;
-  background: #eef1f5;
+  background: var(--flaeche);
   color: var(--muted);
   border-radius: 5px;
   width: 20px;
@@ -873,7 +924,7 @@ label.menuItem:has(input:disabled) {
 }
 .hideBtn:hover,
 .dupBtn:hover {
-  background: #dfe4ea;
+  background: var(--flaeche-tief);
   color: var(--text);
 }
 /* Gesperrt (Mindestanzahl der Profilierung, kein Duplizieren an der Vorgabe):
@@ -887,7 +938,7 @@ label.menuItem:has(input:disabled) {
 }
 .hideBtn:disabled:hover,
 .dupBtn:disabled:hover {
-  background: #eef1f5;
+  background: var(--flaeche);
   color: var(--muted);
 }
 /* Auswahl-Zweig, auf den nicht umgeschaltet werden darf (Issue #50). */
@@ -913,7 +964,7 @@ label.menuItem:has(input:disabled) {
   margin-left: auto;
   flex: none;
   border: 1px solid var(--border);
-  background: #f5f7fa;
+  background: var(--flaeche);
   color: var(--muted);
   border-radius: 5px;
   width: 20px;
@@ -1069,16 +1120,16 @@ label.menuItem:has(input:disabled) {
   color: #b07018;
 }
 .tag.t-rec {
-  background: #ececec;
-  color: #777;
+  background: var(--flaeche-tief);
+  color: var(--muted);
 }
 .tag.t-ausp {
-  background: #e8f0fa;
-  color: #1a5fa8;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .tag.t-note {
-  background: #e8f0fa;
-  color: #1a5fa8;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .tag.t-hint {
   background: #dff2f0;
@@ -1113,19 +1164,19 @@ label.menuItem:has(input:disabled) {
 }
 /* Gebundener Durchlauf: die Profilierung sagt zu diesem Element nichts. */
 .tag.t-nprof {
-  background: #f4f4f2;
-  color: #7a766c;
-  border: 1px dotted #cfcbc2;
+  background: var(--flaeche);
+  color: var(--muted);
+  border: 1px dotted var(--border);
 }
 /* Gebundener Durchlauf: von der Profilierung ausgeschlossen (gesperrt). */
 .tag.t-lock {
-  background: #f0efec;
-  color: #6b675e;
-  border: 1px solid #d6d3cb;
+  background: var(--flaeche-tief);
+  color: var(--muted);
+  border: 1px solid var(--border-stark);
 }
 .box.excluded {
   opacity: 0.55;
-  background: #fafafa;
+  background: var(--flaeche);
 }
 .box.excluded .bt {
   text-decoration: line-through;
@@ -1360,6 +1411,7 @@ app-detail-panel {
   text-decoration: underline;
 }
 #detail h3 {
+  color: var(--text-stark);
   margin: 0 0 2px;
   font-size: 15px;
   word-break: break-word;
@@ -1449,7 +1501,7 @@ app-detail-panel {
 /* Marker der gebundenen Profilierung am Entscheidungspunkt. */
 .guidedSec .gKlaeren,
 .guidedSec .gNprof {
-  border-left: 3px solid #d6d3cb;
+  border-left: 3px solid var(--border-stark);
   padding-left: 6px;
 }
 .guidedSec .gKlaeren {
@@ -1511,20 +1563,20 @@ app-detail-panel {
 .statusBtns .gAuf.active {
   background: #1e7d3e;
   border-color: #1e7d3e;
-  color: #fff;
+  color: var(--weiss);
 }
 .statusBtns .gAuf:not(.active) {
   border-color: #1e7d3e66;
   color: #1e7d3e;
 }
 .statusBtns .gWeg.active {
-  background: #8a8f98;
-  border-color: #8a8f98;
-  color: #fff;
+  background: var(--muted);
+  border-color: var(--muted);
+  color: var(--weiss);
 }
 .statusBtns .gWeg:not(.active) {
-  border-color: #8a8f9866;
-  color: #6b7078;
+  border-color: #5a647766;
+  color: var(--muted);
 }
 /* Vorschlag der gebundenen Profilierung — kursiv angeboten, nicht gesetzt. */
 .wertVorschlag {
@@ -1578,7 +1630,7 @@ app-detail-panel {
   position: relative;
 }
 .statusBtns button.active {
-  color: #fff;
+  color: var(--weiss);
 }
 .kardRow {
   display: flex;
@@ -1605,7 +1657,7 @@ textarea {
   gap: 8px;
   padding: 4px 8px;
   align-items: baseline;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid var(--flaeche-tief);
   font-size: 12.5px;
 }
 .clRow:last-child {
@@ -1757,7 +1809,7 @@ textarea {
   font-size: 40px;
 }
 #empty h2 {
-  color: var(--text);
+  color: var(--text-stark);
 }
 #empty ol {
   text-align: left;
@@ -1929,13 +1981,14 @@ app-dashboard {
   width: 42px;
   height: 5px;
   border-radius: 3px;
-  background: var(--accent-soft);
+  /* Gleiche Farbgebung wie der Balken in der Kopfzone (.fsBalken). */
+  background: var(--signal-soft);
   overflow: hidden;
 }
 .kachelBalkenFuell {
   display: block;
   height: 100%;
-  background: var(--accent);
+  background: var(--signal);
 }
 .dcFoot {
   display: flex;
@@ -1965,7 +2018,7 @@ app-dashboard {
   font-size: 40px;
 }
 #dashEmpty h2 {
-  color: var(--text);
+  color: var(--text-stark);
 }
 
 /* Ansicht-Umschalter Profile ↔ Testdaten */
@@ -2230,8 +2283,8 @@ dialog::backdrop {
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: #2b3642;
-  color: #fff;
+  background: var(--preussischblau);
+  color: var(--weiss);
   padding: 8px 18px;
   border-radius: 8px;
   font-size: 13px;
@@ -2289,7 +2342,7 @@ app-tree-context-menu {
   display: flex;
   gap: 8px;
   padding: 6px 8px;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid var(--flaeche-tief);
   align-items: baseline;
 }
 .vglZeile .vglArt {
@@ -2450,14 +2503,14 @@ app-tree-context-menu {
     padding: 6mm;
   }
   body {
-    background: #fff;
+    background: var(--weiss);
   }
   #printDoc h1 {
     font-size: 18px;
     margin: 0 0 4px;
   }
   #printDoc .phead {
-    border-bottom: 2px solid #000;
+    border-bottom: 2px solid var(--schwarz);
     padding-bottom: 6px;
     margin-bottom: 12px;
     font-size: 12px;
@@ -2467,7 +2520,7 @@ app-tree-context-menu {
     gap: 8px;
     font-size: 11.5px;
     padding: 2.5px 0;
-    border-bottom: 0.5px solid #e5e5e5;
+    border-bottom: 0.5px solid var(--alabaster);
     break-inside: avoid;
   }
   .prow .pl {
@@ -2478,7 +2531,7 @@ app-tree-context-menu {
   }
   .prow .ptech {
     font-family: var(--mono);
-    color: #777;
+    color: var(--muted);
     font-size: 10px;
   }
   .prow .pext {
@@ -2497,17 +2550,17 @@ app-tree-context-menu {
   }
   .prow .pk {
     flex: none;
-    color: #555;
+    color: var(--muted);
     min-width: 80px;
   }
   .prow.pexcl {
-    color: #999;
+    color: var(--muted-schwach);
     text-decoration: line-through;
   }
   .pnote {
     font-size: 10.5px;
-    color: #333;
-    background: #f4f4f4;
+    color: var(--text);
+    background: var(--flaeche);
     padding: 1px 6px;
     border-radius: 3px;
   }
@@ -2565,6 +2618,7 @@ app-tree-context-menu {
   scroll-margin-top: 16px;
 }
 .htTeil h2 {
+  color: var(--text-stark);
   font-size: 17px;
   font-weight: 650;
   margin: 34px 0 6px;
@@ -2580,6 +2634,7 @@ app-tree-context-menu {
   scroll-margin-top: 16px;
 }
 .htSchritt h3 {
+  color: var(--text-stark);
   display: flex;
   align-items: center;
   gap: 10px;

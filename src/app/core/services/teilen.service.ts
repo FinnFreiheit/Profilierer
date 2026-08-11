@@ -4,18 +4,42 @@ import { LoggerService } from './logger.service';
 
 /** Query-Parameter des Teilen-Links (…/profilierer/?profil=<id>). */
 export const TEILEN_PARAM = 'profil';
+/** Query-Parameter des Teilen-Links auf eine Testnachricht (?testnachricht=<id>). */
+export const TEILEN_PARAM_NACHRICHT = 'testnachricht';
+
+/** Was geteilt wird: ein Bibliothekseintrag oder eine Testnachricht. */
+export type TeilenArt = 'profil' | 'testnachricht';
+
+/** Ziel eines geoeffneten Teilen-Links. */
+export interface TeilenZiel {
+  art: TeilenArt;
+  id: string;
+}
+
+/** Query-Parameter je Art — der eine Ort, an dem die Zuordnung steht. */
+const PARAM: Record<TeilenArt, string> = {
+  profil: TEILEN_PARAM,
+  testnachricht: TEILEN_PARAM_NACHRICHT,
+};
+
+/** Quittung nach dem Kopieren, je Art. */
+const QUITTUNG: Record<TeilenArt, string> = {
+  profil: 'Link zum Teilen kopiert — er öffnet diese Profilierung direkt.',
+  testnachricht: 'Link zum Teilen kopiert — er öffnet diese Testnachricht direkt.',
+};
 
 /**
- * Teilen einer Profilierung per Link. Der Link zeigt auf den Bibliothekseintrag
- * derselben Instanz (`?profil=<id>`) — geteilt wird also der **lebende Stand**,
- * nicht eine eingefrorene Fassung; wer den Link oeffnet, arbeitet danach wie
- * nach einem Klick auf die Kachel im Dashboard (Autosave inklusive).
+ * Teilen per Link — einer Profilierung (`?profil=<id>`) oder einer einzelnen
+ * Testnachricht (`?testnachricht=<id>`). Der Link zeigt jeweils auf den
+ * Eintrag derselben Instanz; geteilt wird also der **lebende Stand**, nicht
+ * eine eingefrorene Fassung. Wer den Link oeffnet, landet dort, wo ihn auch
+ * ein Klick auf die Kachel hinbraechte.
  *
  * Die App hat bewusst keinen Angular-Router (eine Shell, Ansicht per Signal,
  * siehe StateService.view). Der Deep-Link ist deshalb ein einzelner
- * Query-Parameter, den `startProfilId()` beim Start einmal ausliest und
+ * Query-Parameter, den `startZiel()` beim Start einmal ausliest und
  * anschliessend aus der Adresszeile raeumt: ein spaeterer Reload soll den
- * inzwischen gewaehlten Stand zeigen und nicht wieder ins geteilte Profil
+ * inzwischen gewaehlten Stand zeigen und nicht wieder ins geteilte Objekt
  * springen.
  */
 @Injectable({ providedIn: 'root' })
@@ -29,7 +53,26 @@ export class TeilenService {
    * (xjw.freiheits.de/profilierer/), wo alle API-Pfade relativ sind.
    */
   linkFuerProfil(id: string): string {
-    return new URL(`?${TEILEN_PARAM}=${encodeURIComponent(id)}`, document.baseURI).href;
+    return this.link('profil', id);
+  }
+
+  /** Absoluter Link auf eine Testnachricht des Testdaten-Speichers. */
+  linkFuerTestnachricht(id: string): string {
+    return this.link('testnachricht', id);
+  }
+
+  private link(art: TeilenArt, id: string): string {
+    return new URL(`?${PARAM[art]}=${encodeURIComponent(id)}`, document.baseURI).href;
+  }
+
+  /** Link auf eine Profilierung in die Zwischenablage legen. */
+  async kopiereProfilLink(id: string): Promise<void> {
+    await this.kopiereLink('profil', id);
+  }
+
+  /** Link auf eine Testnachricht in die Zwischenablage legen. */
+  async kopiereTestnachrichtLink(id: string): Promise<void> {
+    await this.kopiereLink('testnachricht', id);
   }
 
   /**
@@ -38,10 +81,10 @@ export class TeilenService {
    * erreichten Instanz greift der execCommand-Weg, und wenn auch der scheitert,
    * zeigt ein Prompt den Link zum Kopieren von Hand.
    */
-  async kopiereProfilLink(id: string): Promise<void> {
-    const link = this.linkFuerProfil(id);
+  private async kopiereLink(art: TeilenArt, id: string): Promise<void> {
+    const link = this.link(art, id);
     if (await this.kopiere(link)) {
-      this.toast.show('Link zum Teilen kopiert — er öffnet diese Profilierung direkt.');
+      this.toast.show(QUITTUNG[art]);
       return;
     }
     this.log.warn('Teilen', 'Zwischenablage nicht verfügbar — Link wird zum Kopieren angezeigt');
@@ -81,16 +124,22 @@ export class TeilenService {
   }
 
   /**
-   * id aus einem geteilten Link (einmalig beim Start). Der Parameter wird dabei
-   * aus der Adresszeile entfernt (`history.replaceState`, kein Neuladen), damit
-   * die Sitzung danach eine normale URL fuehrt.
+   * Ziel eines geteilten Links (einmalig beim Start). Die Parameter werden
+   * dabei aus der Adresszeile entfernt (`history.replaceState`, kein
+   * Neuladen), damit die Sitzung danach eine normale URL fuehrt — beide, auch
+   * wenn jemand sie von Hand kombiniert hat; geoeffnet wird dann das Profil.
    */
-  startProfilId(): string | null {
+  startZiel(): TeilenZiel | null {
     const url = new URL(window.location.href);
-    const id = url.searchParams.get(TEILEN_PARAM);
-    if (!id) return null;
-    url.searchParams.delete(TEILEN_PARAM);
+    let ziel: TeilenZiel | null = null;
+    for (const art of ['profil', 'testnachricht'] as const) {
+      const id = url.searchParams.get(PARAM[art]);
+      if (!id) continue;
+      url.searchParams.delete(PARAM[art]);
+      ziel ??= { art, id };
+    }
+    if (!ziel) return null;
     window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
-    return id;
+    return ziel;
   }
 }

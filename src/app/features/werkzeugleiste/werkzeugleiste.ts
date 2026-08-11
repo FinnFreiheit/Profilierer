@@ -3,6 +3,7 @@ import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { ToastService } from '../../core/services/toast.service';
+import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
 import { MessagePicker } from '../message-picker/message-picker';
 import { Search } from '../search/search';
 import { Crumbs } from '../crumbs/crumbs';
@@ -31,6 +32,7 @@ export class Werkzeugleiste {
   private readonly nav = inject(NavService);
   private readonly guided = inject(GuidedService);
   private readonly toast = inject(ToastService);
+  private readonly edit = inject(TestmessageEditService);
 
   readonly xsdFiles = output<FileList>();
   readonly codelistFiles = output<FileList>();
@@ -185,10 +187,12 @@ export class Werkzeugleiste {
   protected setzeModus(m: Arbeitsmodus): void {
     if (m === this.modus() || this.modusGesperrt()) return;
     if (this.isMessage()) {
-      this.state.nachrichtBearbeiten(m !== 'betrachten');
-      // nachrichtBearbeiten kann den Wechsel verweigern (Abnahme-Schreibschutz);
-      // die Fuehrung darf dann nicht trotzdem anspringen.
-      if (m !== 'betrachten' && this.state.readOnly()) return;
+      // Der Weg in die Bearbeitung laeuft ueber den TestmessageEditService: dort
+      // haengt die Rueckfrage zu gefuehrt erstellten Nachrichten (#105). Er kann
+      // den Wechsel verweigern (Schreibschutz, abgelehnte Rueckfrage) — die
+      // Fuehrung darf dann nicht trotzdem anspringen.
+      if (m === 'betrachten') this.state.nachrichtBearbeiten(false);
+      else if (!this.edit.bearbeitenAnfordern()) return;
       this.state.guided.set(m === 'gefuehrt');
       if (m === 'bearbeiten')
         this.toast.show(

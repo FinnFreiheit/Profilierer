@@ -37,19 +37,21 @@ export class Legend {
 
   /**
    * Gilt die Telemetrie dem geoeffneten Profil? Im Nachrichten- und
-   * Erzeugen-Modus nicht: dort haengt der Text des zuletzt geoeffneten Profils
-   * sonst weiter in der Fusszeile — eine neue Testnachricht meldete so
-   * "von der BLK-AG abgenommen — schreibgeschützt", waehrend frei gearbeitet
-   * wird.
+   * Erzeugen-Modus nicht: dort haengt der Versionsstand des zuletzt geoeffneten
+   * Profils sonst weiter in der Fusszeile.
    */
   private readonly profilStand = computed(
     () => !this.state.isMessageEdit() && !this.state.isMessageCreate(),
   );
 
-  /** Autosave-/Schreibschutz-Meldung des offenen Profils. */
-  protected readonly zustand = computed(() =>
-    this.profilStand() ? this.state.autosaveInfo() : '',
-  );
+  /**
+   * Autosave-/Schreibschutz-Meldung. Gilt seit #105 in **jedem** Modus: auch
+   * Testnachrichten werden fortlaufend gesichert (TestmessageAutosaveService),
+   * und ohne die Anzeige waere dem stillen Mechanismus nicht anzusehen, ob er
+   * laeuft. Dass kein Text eines fremden Modus haengen bleibt, sichern die
+   * Einstiege selbst, indem sie das Signal beim Sitzungsbeginn raeumen.
+   */
+  protected readonly zustand = this.state.autosaveInfo;
 
   /**
    * Entwurfs-Kennzeichen "geändert seit vX": der Arbeitsstand ist in keiner

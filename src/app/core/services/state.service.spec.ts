@@ -90,6 +90,38 @@ describe('StateService', () => {
       expect(s.inheritedExcluded('m/andere@a1/name')).toBeFalse();
     });
 
+    // Die Aussage „entfaellt" stand vorher viermal ausformuliert (Baum-Kasten,
+    // Druckzeilen, Excel-Blatt, boxHidden) — hier ist sie einmal geprueft.
+    it('entfaellt gilt fuer eigenen wie geerbten Ausschluss', () => {
+      s.setElementProfile('m/a', { status: 's3' }); // ausgeschlossen
+      expect(s.entfaellt('m/a')).toBeTrue();
+      expect(s.entfaellt('m/a/b')).toBeTrue();
+      expect(s.entfaellt('m/x')).toBeFalse();
+    });
+
+    it('kardAnzeige: Vorkommen tragen 1..1, Elemente die effektive Kardinalitaet', () => {
+      const n = node('m/a', { min: '0', max: 'unbounded' });
+
+      expect(s.kardAnzeige({ kind: 'el', node: n, path: 'm/a' })).toEqual({
+        text: 'beliebig viele',
+        standard: null,
+      });
+      expect(s.kardAnzeige({ kind: 'ausp', node: n, path: 'm/a@a1' })).toEqual({
+        text: 'genau 1',
+        standard: null,
+      });
+    });
+
+    it('kardAnzeige nennt die Schema-Vorgabe, wo die Profilierung enger fasst', () => {
+      const n = node('m/a', { min: '0', max: 'unbounded' });
+      s.setElementProfile('m/a', { max: '1' });
+
+      expect(s.kardAnzeige({ kind: 'el', node: n, path: 'm/a' })).toEqual({
+        text: '0 oder 1',
+        standard: 'beliebig viele',
+      });
+    });
+
     it('effKard beruecksichtigt Overrides', () => {
       const n = node('m/a', { min: '0', max: 'unbounded' });
       expect(s.effKard(n)).toEqual({
@@ -209,6 +241,31 @@ describe('StateService', () => {
       expect(s.auspraegungen()[pfad]).toBeUndefined();
       expect(s.selItem()).toBeNull();
       expect(s.isOpen(pfad)).toBeFalse();
+    });
+
+    // Regression: die Aufraeumseite (Auswahl, Oeffnungszustaende) lief frueher
+    // ueber nacktes `startsWith` statt ueber die Pfad-Grammatik — `~x1` traf
+    // damit auch `~x11`. Die ids sind fortlaufend (`x<ts>1` … `x<ts>11`), die
+    // Kollision also im Betrieb erreichbar.
+    it('removeErweiterung trifft nicht das Geschwister mit laengerer id', () => {
+      s.erweiterungen.update((m) => ({
+        ...m,
+        'm/a': [
+          { id: 'x1', name: 'eins', min: '1', max: '1' },
+          { id: 'x11', name: 'elf', min: '1', max: '1' },
+        ],
+      }));
+      const lang = 'm/a/~x11';
+      s.setElementProfile(lang, { beispiel: 'bleibt' });
+      s.setOpen(lang, true);
+      s.selItem.set({ kind: 'el', node: node(lang) } as TreeItem);
+
+      s.removeErweiterung('m/a', 'x1');
+
+      expect(s.erweiterungenOf('m/a')!.map((e) => e.id)).toEqual(['x11']);
+      expect(s.elemente()[lang]?.beispiel).toBe('bleibt');
+      expect(s.isOpen(lang)).toBeTrue();
+      expect(s.selItem()).not.toBeNull();
     });
 
     it('removeErweiterung laesst Geschwister stehen', () => {
@@ -1084,6 +1141,78 @@ describe('StateService', () => {
       s.onlyProfile.set(true);
       expect(s.boxHidden('m/a')).toBeTrue();
       expect(s.boxHidden('m/a/kind')).toBeTrue();
+    });
+  });
+
+  // ── „Ist enthalten": die Aufloesung der einen Regel ──────────────────
+
+  describe('enthaltenLage / enthaelt', () => {
+    /** Vorgabe mit eigener Stufenliste (ids bewusst anders als im Bestand). */
+    function bindeVorgabe(elemente: ProfileDoc['elemente']): void {
+      s.setVorgabe({
+        ...newProfile(),
+        statuses: [
+          { id: 'v1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' },
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+        ],
+        elemente,
+      });
+    }
+
+    it('inhaltDarunter zaehlt nur echt darunter — und die Vorkommensliste am Pfad selbst', () => {
+      s.setElementProfile('m/a', { beispiel: 'x' });
+      expect(s.inhaltDarunter('m/a')).toBeFalse(); // der Eintrag am Pfad selbst zaehlt nicht
+      s.setElementProfile('m/a/kind', { beispiel: 'y' });
+      expect(s.inhaltDarunter('m/a')).toBeTrue();
+      // Grenzzeichen: „m/anlage" liegt nicht unter „m/a" (pfad.util).
+      s.setElementProfile('m/anlage', { beispiel: 'z' });
+      expect(s.inhaltDarunter('m/an')).toBeFalse();
+      // Benannte Vorkommen sind Inhalt des Traegers.
+      s.addAusp('m/b', 'Vorkommen 1');
+      expect(s.inhaltDarunter('m/b')).toBeTrue();
+    });
+
+    it('liest die Mindestanzahl der Vorgabe — nicht nur eigene Schicht und Schema', () => {
+      // Der erreichbare Widerspruch: im Schema optional, von der Profilierung
+      // auf min = 1 eingegrenzt, ohne Statusstufe. Vorher blieb das beim
+      // Schreiben unbeachtet und die Nachricht verlor das Element.
+      const n = node('m/a', { min: '0' });
+      expect(s.enthaelt(n)).toBeFalse();
+
+      bindeVorgabe({ 'm/a': { min: '1' } });
+
+      expect(s.enthaltenLage(n).min).toBe(1);
+      expect(s.enthaelt(n)).toBeTrue();
+    });
+
+    it('die Vorgabe-Pflicht wirkt auch im Vorkommen (Erbe, #59)', () => {
+      // Generisch festgelegt; das Vorkommen traegt eine Laufzeit-id, die die
+      // Profilierung gar nicht adressieren kann. Pfadgenau gelesen blieb die
+      // Festlegung hier ohne Wirkung.
+      bindeVorgabe({ 'm/bet/rolle': { status: 'v1' } });
+      const imVorkommen = node('m/bet@a1/rolle', { min: '0' });
+
+      expect(s.enthaltenLage(imVorkommen).wirkung).toBe('pflicht');
+      expect(s.enthaelt(imVorkommen)).toBeTrue();
+    });
+
+    it('die eigene Entscheidung geht der Vorgabe vor', () => {
+      bindeVorgabe({ 'm/a': { status: 'v1' } });
+      const n = node('m/a', { min: '0' });
+      expect(s.enthaelt(n)).toBeTrue();
+
+      s.setElementProfile('m/a', { status: 's3' }); // weggelassen
+      expect(s.enthaelt(n)).toBeFalse();
+    });
+
+    it('ein Beispielwert der Vorgabe ist kein Inhalt (er wird angeboten, nicht gesetzt)', () => {
+      bindeVorgabe({ 'm/a': { beispiel: 'Vorschlag' } });
+      const n = node('m/a', { min: '0' });
+      expect(s.enthaltenLage(n).eigenerInhalt).toBeFalse();
+      expect(s.enthaelt(n)).toBeFalse();
+
+      s.setElementProfile('m/a', { beispiel: 'eingetragen' });
+      expect(s.enthaelt(n)).toBeTrue();
     });
   });
 });

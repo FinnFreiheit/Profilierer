@@ -24,6 +24,7 @@ import { NavService } from './core/services/nav.service';
 import { InstanceImportService } from './core/services/instance-import.service';
 import { TestmessageCreateService } from './core/services/testmessage-create.service';
 import { TestmessageEditService } from './core/services/testmessage-edit.service';
+import { TestmessageStoreService } from './core/services/testmessage-store.service';
 import { ToastService } from './core/services/toast.service';
 import { StateService } from './core/services/state.service';
 import { GuidedService } from './core/services/guided.service';
@@ -88,6 +89,7 @@ export class App implements OnInit {
   private readonly instanceImport = inject(InstanceImportService);
   private readonly testmessageCreate = inject(TestmessageCreateService);
   private readonly testmessageEdit = inject(TestmessageEditService);
+  private readonly testmessages = inject(TestmessageStoreService);
   private readonly toast = inject(ToastService);
   private readonly state = inject(StateService);
   private readonly guided = inject(GuidedService);
@@ -126,9 +128,10 @@ export class App implements OnInit {
    * mehr noetig. Ist bereits ein Schema geladen (z. B. durch einen sehr
    * frueh geladenen Autosave), wird nicht ueberschrieben.
    *
-   * Danach ein etwaiger Teilen-Link (`?profil=<id>`): erst nach dem Schema,
-   * damit `openFromLibrary` die Nachricht sofort aufbauen kann (eine
-   * abweichende XJustiz-Version des Profils laedt es selbst nach).
+   * Danach ein etwaiger Teilen-Link (`?profil=<id>` bzw.
+   * `?testnachricht=<id>`): erst nach dem Schema, damit die Nachricht sofort
+   * aufgebaut werden kann (eine abweichende XJustiz-Version laedt das Oeffnen
+   * selbst nach).
    */
   async ngOnInit(): Promise<void> {
     // Einmalige Migration der frueher im localStorage gehaltenen Profil-Bibliothek
@@ -136,7 +139,7 @@ export class App implements OnInit {
     await this.migration.runOnce();
     // Vor dem Schema-Laden auslesen: der Parameter soll auch dann aus der
     // Adresszeile verschwinden, wenn das Manifest scheitert.
-    const geteiltesProfil = this.teilen.startProfilId();
+    const geteilt = this.teilen.startZiel();
     try {
       const versions = await this.bundled.manifest();
       this.state.bundledVersions.set(versions);
@@ -150,13 +153,44 @@ export class App implements OnInit {
           (e instanceof Error ? e.message : e),
       );
     }
-    if (geteiltesProfil) await this.persistence.openFromLibrary(geteiltesProfil);
+    if (geteilt?.art === 'profil') await this.persistence.openFromLibrary(geteilt.id);
+    if (geteilt?.art === 'testnachricht') await this.oeffneGeteilteNachricht(geteilt.id);
+  }
+
+  /**
+   * Geteilte Testnachricht oeffnen. Der Index kommt frisch vom Server: der
+   * Start-Abruf des Speichers kann noch laufen, und der Link zeigt womoeglich
+   * auf eine Nachricht, die erst nach dem letzten Abruf entstanden ist.
+   */
+  private async oeffneGeteilteNachricht(id: string): Promise<void> {
+    try {
+      await this.testmessages.refresh();
+    } catch (e) {
+      this.logger.warn('Teilen', 'Testdaten-Index nicht ladbar', e);
+    }
+    const entry = this.testmessages.entries().find((e) => e.id === id);
+    if (!entry) {
+      this.toast.show('Geteilte Testnachricht nicht gefunden.');
+      this.state.view.set('testdaten');
+      return;
+    }
+    try {
+      await this.testmessageEdit.oeffneEintrag(entry);
+    } catch (err) {
+      this.toast.showError(err, 'Geteilte Testnachricht konnte nicht geöffnet werden.');
+    }
   }
 
   /** „Link zum Teilen kopieren" aus der Objektleiste (offene Profilierung). */
   protected teileAktivesProfil(): void {
     const id = this.state.activeProfileId();
     if (id) void this.teilen.kopiereProfilLink(id);
+  }
+
+  /** „Link zum Teilen kopieren" aus der Objektleiste (offene Testnachricht). */
+  protected teileAktiveNachricht(): void {
+    const id = this.state.messageEdit()?.entryId;
+    if (id) void this.teilen.kopiereTestnachrichtLink(id);
   }
 
   /**

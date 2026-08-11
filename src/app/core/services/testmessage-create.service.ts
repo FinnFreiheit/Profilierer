@@ -15,7 +15,7 @@ import { NavService } from './nav.service';
 import { GuidedService } from './guided.service';
 import { ExportService } from './export.service';
 import { TestmessageStoreService } from './testmessage-store.service';
-import { TestmessageGenerationService } from './testmessage-generation.service';
+import { TestmessageAutosaveService } from './testmessage-autosave.service';
 import { ProfileStoreService } from './profile-store.service';
 import { PersistenceService } from './persistence.service';
 import { ToastService } from './toast.service';
@@ -47,8 +47,8 @@ export class TestmessageCreateService {
   private readonly guided = inject(GuidedService);
   private readonly exporter = inject(ExportService);
   private readonly store = inject(TestmessageStoreService);
+  private readonly autosave = inject(TestmessageAutosaveService);
   private readonly profiles = inject(ProfileStoreService);
-  private readonly generator = inject(TestmessageGenerationService);
   private readonly persistence = inject(PersistenceService);
   private readonly toast = inject(ToastService);
   private readonly validator = inject(XmlValidationService);
@@ -65,12 +65,13 @@ export class TestmessageCreateService {
    * Fuehrung starten. Wirft Error mit Nutzertext.
    */
   async neuErstellen(version: string | undefined, msgName: string): Promise<void> {
+    await this.autosave.flush();
     await this.persistence.flushAutosave();
     this.state.activeProfileId.set(null);
     // Schutz einer zuvor geoeffneten abgenommenen Nachricht loesen: er haengt
     // nicht am Profil (activeProfileId ist hier null) und bliebe sonst stehen.
     this.state.abnahmeSchreibschutz.set(false);
-    await this.generator.ensureSchema(version);
+    await this.persistence.ensureSchema(version);
     if (!this.state.idx()?.el[msgName])
       throw new Error('Nachricht nicht im geladenen Schema gefunden: ' + msgName);
     this.nav.loadMessage(msgName); // setzt Profil zurueck, leert die Sessions
@@ -86,6 +87,9 @@ export class TestmessageCreateService {
     this.codelistenBereitstellen();
     this.guided.loeseEindeutigeVerweise();
     this.guided.gotoNextOpen();
+    // Der Durchlauf beginnt mit dem, was ohnehin im Speicher steht bzw. noch
+    // nichts enthaelt — der Autosave wird erst mit der ersten Aenderung faellig.
+    this.autosave.sitzungBeginnt();
   }
 
   /**
@@ -118,10 +122,11 @@ export class TestmessageCreateService {
     if (!msgName)
       throw new Error('Die Profilierung nennt keinen Nachrichtentyp — zuerst dort festlegen.');
 
+    await this.autosave.flush();
     await this.persistence.flushAutosave();
     this.state.activeProfileId.set(null);
     this.state.abnahmeSchreibschutz.set(false); // siehe neuErstellen
-    await this.generator.ensureSchema(doc.meta?.xjustizVersion ?? profil.xjustizVersion);
+    await this.persistence.ensureSchema(doc.meta?.xjustizVersion ?? profil.xjustizVersion);
     if (!this.state.idx()?.el[msgName])
       throw new Error('Nachricht nicht im geladenen Schema gefunden: ' + msgName);
 
@@ -145,6 +150,9 @@ export class TestmessageCreateService {
     // vor dem Sprung auf den ersten offenen Punkt, damit er sie ueberspringt.
     this.guided.loeseEindeutigeVerweise();
     this.guided.gotoNextOpen();
+    // Der Durchlauf beginnt mit dem, was ohnehin im Speicher steht bzw. noch
+    // nichts enthaelt — der Autosave wird erst mit der ersten Aenderung faellig.
+    this.autosave.sitzungBeginnt();
     this.meldeWidersprueche(doc);
   }
 
@@ -340,10 +348,11 @@ export class TestmessageCreateService {
     if (!stand)
       throw new Error('Kein Entscheidungsstand gespeichert — Nachricht wird nur geöffnet.');
     const vorgabe = entry.profilId ? await this.store.loadVorgabe(entry.id) : null;
+    await this.autosave.flush();
     await this.persistence.flushAutosave();
     this.state.activeProfileId.set(null);
     this.state.abnahmeSchreibschutz.set(false); // siehe neuErstellen
-    await this.generator.ensureSchema(stand.xjustizVersion ?? entry.xjustizVersion);
+    await this.persistence.ensureSchema(stand.xjustizVersion ?? entry.xjustizVersion);
     if (!this.state.idx()?.el[stand.msgName])
       throw new Error('Nachricht nicht im geladenen Schema gefunden: ' + stand.msgName);
     this.state.loadProfile(stand.profil); // leert Sessions, readOnly aus, Vorgabe raus
@@ -362,6 +371,9 @@ export class TestmessageCreateService {
     this.state.view.set('editor');
     this.codelistenBereitstellen();
     this.guided.gotoNextOpen();
+    // Der Durchlauf beginnt mit dem, was ohnehin im Speicher steht bzw. noch
+    // nichts enthaelt — der Autosave wird erst mit der ersten Aenderung faellig.
+    this.autosave.sitzungBeginnt();
     if (vorgabe) this.meldeWidersprueche(vorgabe);
   }
 
@@ -375,6 +387,9 @@ export class TestmessageCreateService {
    * Durchlauf leer. Wirft Error mit Nutzertext.
    */
   async weitereTestnachricht(alsKopie: boolean): Promise<void> {
+    // Die Sitzung wird gleich auf einen neuen Eintrag umgehaengt — was noch
+    // aussteht, gehoert in den alten (#105).
+    await this.autosave.flush();
     const session = this.state.messageCreate();
     if (!session?.profilId)
       throw new Error('Die laufende Sitzung ist an keine Profilierung gebunden.');
@@ -403,6 +418,9 @@ export class TestmessageCreateService {
     this.state.view.set('editor');
     this.guided.loeseEindeutigeVerweise();
     this.guided.gotoNextOpen();
+    // Der Durchlauf beginnt mit dem, was ohnehin im Speicher steht bzw. noch
+    // nichts enthaelt — der Autosave wird erst mit der ersten Aenderung faellig.
+    this.autosave.sitzungBeginnt();
   }
 
   /**
@@ -469,17 +487,27 @@ export class TestmessageCreateService {
     // entsteht das Modell aus dem XML, und nur diese Ablage kennt die Namen.
     const bezeichnungen = bezeichnungenAus(this.state.alleAuspListen());
 
+    // Die Namensabfrage haengt am **Namen**, nicht am Eintrag: seit #105 kann
+    // der Autosave den Eintrag still angelegt haben (generischer Vorschlag,
+    // `session.name` bleibt dabei null). Das erste bewusste Speichern fragt den
+    // Namen dann nach und benennt um.
+    let name = session.name;
+    if (name == null) {
+      name = frageTestnachrichtName(`${session.msgName} — Testnachricht.xml`);
+      if (name == null) return false; // abgebrochen
+    }
+
     if (session.entryId) {
       await this.store.updateMeta(session.entryId, {
+        ...(session.name == null ? { name } : {}),
         xml,
         entwurf,
         fortschritt: { x, y },
         entscheidungen,
         bezeichnungen,
       });
+      if (session.name == null) this.state.messageCreate.set({ ...session, name });
     } else {
-      const name = frageTestnachrichtName(`${session.msgName} — Testnachricht.xml`);
-      if (name == null) return false; // abgebrochen
       const id = await this.store.create({
         ...testmessageInput(name, xml, meta),
         // Session-Version gewinnt: sie traegt die tatsaechlich gewaehlte
@@ -498,6 +526,7 @@ export class TestmessageCreateService {
       });
       this.state.messageCreate.set({ ...session, entryId: id, name });
     }
+    this.autosave.explizitGespeichert();
     const marker = this.markerHinweis();
     const m = urteil.meldung;
     if (m) {

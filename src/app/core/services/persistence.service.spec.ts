@@ -80,6 +80,43 @@ describe('PersistenceService.loadBundle', () => {
     expect(state.version()).toBe('4.1.0');
     expect(state.activeBundle()).toBe('xjustiz.de/4.1.0');
   });
+
+  // ensureSchema kam aus dem geloeschten TestmessageGenerationService: dessen
+  // Interface bestand aus dieser einen Methode, der Rest war tot.
+  describe('ensureSchema', () => {
+    it('aktiviert die hinterlegte Version des Eintrags', async () => {
+      const { svc, state } = setup();
+      state.bundledVersions.set([BUNDLE_410]);
+      state.version.set('3.6.2');
+
+      await svc.ensureSchema('4.1.0');
+
+      expect(state.version()).toBe('4.1.0');
+      expect(state.activeBundle()).toBe('xjustiz.de/4.1.0');
+    });
+
+    it('laedt nicht neu, wenn die Version bereits aktiv ist', async () => {
+      const { svc, state } = setup();
+      state.bundledVersions.set([BUNDLE_410]);
+      state.version.set('4.1.0');
+
+      await svc.ensureSchema('4.1.0');
+
+      expect(state.activeBundle()).toBeNull();
+    });
+
+    it('best effort: ohne Angabe und bei unbekannter Version bleibt das Schema', async () => {
+      const { svc, state } = setup();
+      state.bundledVersions.set([BUNDLE_410]);
+      state.version.set('3.6.2');
+
+      await svc.ensureSchema(undefined);
+      await svc.ensureSchema('9.9.9');
+
+      expect(state.version()).toBe('3.6.2');
+      expect(state.activeBundle()).toBeNull();
+    });
+  });
 });
 
 describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {

@@ -13,6 +13,7 @@ import { BundledVersion } from '../../models/schema-bundle.model';
 import { RolleService } from './rolle.service';
 import { HinweisStoreService } from './hinweis-store.service';
 import { GuidedService } from './guided.service';
+import { TestmessageAutosaveService } from './testmessage-autosave.service';
 import { hinweiseAusDatei } from '../util/hinweis.util';
 import { defaultStatuses, newProfile } from '../profile-defaults';
 
@@ -47,6 +48,11 @@ export class PersistenceService {
   private readonly rolle = inject(RolleService);
   private readonly hinweise = inject(HinweisStoreService);
   private readonly guided = inject(GuidedService);
+  /**
+   * Der Autosave des Nachrichten-Modus (#105) — eigene Naht, hier nur, um
+   * beim Wechsel in ein Profil den offenen Nachrichtenstand zu sichern.
+   */
+  private readonly msgAutosave = inject(TestmessageAutosaveService);
 
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   /** Verhindert parallele Upserts (Reihenfolge/Lost-Update-Schutz). */
@@ -241,6 +247,22 @@ export class PersistenceService {
   }
 
   /**
+   * Die zu einer Testnachricht bzw. Profilierung passende hinterlegte
+   * XJustiz-Version aktivieren, falls eine andere geladen ist.
+   *
+   * Best effort: ohne Angabe bzw. ohne hinterlegte Version bleibt das aktuelle
+   * Schema — der `idx.el`-Check des Aufrufers faengt den Fehlerfall ab.
+   * Genutzt von jedem Weg in eine Testnachricht (anlegen, fortsetzen,
+   * betrachten, im Baum oeffnen).
+   */
+  async ensureSchema(version?: string): Promise<void> {
+    if (!version || this.state.version() === version) return;
+    const v = this.state.bundledVersions().find((x) => x.id === version);
+    if (!v) return;
+    await this.loadBundle(v);
+  }
+
+  /**
    * Haengenden Autosave sofort ausfuehren und laufende Upserts abwarten.
    * Noetig vor einem temporaeren State-Swap (Testnachricht-Generierung) und
    * vor Versions-Operationen: wird `activeProfileId` genullt, waehrend der
@@ -357,7 +379,9 @@ export class PersistenceService {
 
   /** Ein Bibliotheksprofil oeffnen und in den Editor wechseln. */
   async openFromLibrary(id: string): Promise<void> {
-    // Haengende Aenderungen des zuvor aktiven Profils erst sichern.
+    // Haengende Aenderungen des zuvor aktiven Profils bzw. der zuvor offenen
+    // Testnachricht erst sichern.
+    await this.msgAutosave.flush();
     await this.flushAutosave();
     let doc: ProfileDoc | null;
     try {
@@ -430,6 +454,9 @@ export class PersistenceService {
    * restoreVersion.
    */
   private async uebernehmeDoc(doc: ProfileDoc): Promise<void> {
+    // Die Fusszeile zeigt den Autosave-Stand seit #105 in jedem Modus — die
+    // Meldung der zuvor offenen Testnachricht gilt hier nicht mehr.
+    this.state.autosaveInfo.set('');
     this.state.loadProfile(doc);
     // Bestehende Profilierungen oeffnen im freien Modus; gefuehrt ist zuschaltbar
     // (Fortschritt wird dann aus den gespeicherten Entscheidungen berechnet).
@@ -486,6 +513,8 @@ export class PersistenceService {
 
   /** Neues, leeres Profil anlegen und in den Editor wechseln. */
   async createNew(): Promise<void> {
+    await this.msgAutosave.flush();
+    this.state.autosaveInfo.set('');
     let id: string;
     try {
       id = await this.store.create(newProfile());

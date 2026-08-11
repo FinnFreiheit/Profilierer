@@ -1,13 +1,44 @@
-import { Injectable, inject } from '@angular/core';
-import { TreeItem, TreeNode } from '../../models/node.model';
+import {
+  EnvironmentInjector,
+  InjectionToken,
+  Injectable,
+  createEnvironmentInjector,
+  inject,
+} from '@angular/core';
+import { TreeItem, TreeNode, itemPath } from '../../models/node.model';
 import { Auspraegung, Erweiterung } from '../../models/profile.model';
 import { ParticleModel, XsdIndex } from '../../models/xsd-index.model';
+import { unterPfad } from '../util/pfad.util';
 import { datentypQuelleOf } from '../util/datentyp.util';
 import { docOf, kid, local } from '../util/xml.util';
 import { XS } from '../util/xml.util';
 import { fmtKard } from '../util/pretty.util';
 import { XsdParserService } from './xsd-parser.service';
 import { StateService } from './state.service';
+
+/**
+ * Der Profil-Anteil, den der Baum ueber das Schema legt: benannte Vorkommen
+ * und Schema-Erweiterungen. Der **einzige** Zugriff des Baums auf Zustand — im
+ * Werkzeug ist das der Store, eine Auswertung ohne Sitzung legt nichts darueber.
+ */
+export interface ProfilUeberlagerung {
+  auspsOf(path: string): Auspraegung[] | null;
+  erweiterungenOf(parentPath: string): Erweiterung[] | null;
+  root(): TreeNode | null;
+}
+
+/** Der nackte Schema-Baum: keine Vorkommen, keine Erweiterungen, keine Wurzel. */
+export const OHNE_UEBERLAGERUNG: ProfilUeberlagerung = {
+  auspsOf: () => null,
+  erweiterungenOf: () => null,
+  root: () => null,
+};
+
+/** Die Ueberlagerung des Baums; im Werkzeug der Store. */
+export const PROFIL_UEBERLAGERUNG = new InjectionToken<ProfilUeberlagerung>('ProfilUeberlagerung', {
+  providedIn: 'root',
+  factory: () => inject(StateService),
+});
 
 /**
  * Baum-Modell: Aufbau und Lazy-Expansion der Element-Knoten. Portiert aus
@@ -17,11 +48,17 @@ import { StateService } from './state.service';
  * reaktiver Zustand. Reaktiv sind nur Auswahl, Oeffnungszustaende und Profil
  * (im StateService). `nodeId`/`ctxCache`/`idx` sind Instanzfelder (frueher
  * globale Mutables NODEID/S.ctxCache/S.idx, Z.459/468/329).
+ *
+ * Genau **wegen** dieser Instanzfelder ist der Dienst zweitinstanziierbar
+ * (`baumOhneProfil`): `buildRoot` setzt den aktiven Index und leert die Caches,
+ * `expandNode` mutiert `children`. Wer einen zweiten Baum braucht — eine
+ * Instanz gegen ein anderes Schema auswerten, ohne den geoeffneten Editor
+ * anzufassen —, darf dafuer nicht die Instanz des Editors benutzen.
  */
 @Injectable({ providedIn: 'root' })
 export class TreeService {
   private readonly parser = inject(XsdParserService);
-  private readonly state = inject(StateService);
+  private readonly ueberlagerung = inject(PROFIL_UEBERLAGERUNG);
 
   private nodeId = 0;
   private ctxCache: Record<string, TreeNode> = {};
@@ -210,7 +247,7 @@ export class TreeService {
    * Kopie der Typstruktur ins Profil.
    */
   erweiterungsKinder(parent: TreeNode): TreeNode[] {
-    const list = this.state.erweiterungenOf(parent.path);
+    const list = this.ueberlagerung.erweiterungenOf(parent.path);
     if (!list?.length) return [];
     return list.map((e) => {
       const typ = this.erwSchemaTyp(e);
@@ -251,7 +288,7 @@ export class TreeService {
       // Blatt, wenn der Typ zu keiner Struktur aufloest UND keine eigenen
       // Erweiterungen hängen. Ein Container (ohne Typ) bleibt aufklappbar —
       // darunter liegt die "+ Element"-Box.
-      if (this.state.erweiterungenOf(n.path)?.length) return false;
+      if (this.ueberlagerung.erweiterungenOf(n.path)?.length) return false;
       if (n.codelist) return true;
       if (!n.erweiterung.datentyp) return false;
       const ct = this.erwCT(n.erweiterung);
@@ -304,8 +341,27 @@ export class TreeService {
 
   /** rootItem (Z.1040). */
   rootItem(): TreeItem | null {
-    const root = this.state.root();
+    const root = this.ueberlagerung.root();
     return root ? { kind: 'el', node: root } : null;
+  }
+
+  /**
+   * Das Item zu einem Pfad, ab einer **gegebenen** Wurzel — der Abstieg selbst,
+   * ohne Annahme darueber, welcher Baum gemeint ist. `NavService.findItemByPath`
+   * ist der Sitzungs-Zugang (Wurzel aus der Ueberlagerung); eine Auswertung
+   * ohne Sitzung reicht ihre eigene Wurzel herein.
+   */
+  itemByPath(root: TreeItem, path: string): TreeItem | null {
+    if (itemPath(root) === path) return root;
+    let it = root;
+    let guard = 0;
+    while (guard++ < 80) {
+      const next = this.childItems(it).find((k) => unterPfad(path, itemPath(k)));
+      if (!next) return null;
+      if (itemPath(next) === path) return next;
+      it = next;
+    }
+    return null;
   }
 
   /**
@@ -323,7 +379,7 @@ export class TreeService {
    * die Umkehrung dieser Regel, keine Kopie.
    */
   vorkommenKinder(n: TreeNode): { node: TreeNode; ausp: Auspraegung }[] | null {
-    const ausps = this.state.auspsOf(n.path);
+    const ausps = this.ueberlagerung.auspsOf(n.path);
     if (!ausps || !ausps.length) return null;
     return ausps.map((a) => ({ node: this.ctxNode(n, a.id), ausp: a }));
   }
@@ -518,13 +574,37 @@ export class TreeService {
       // Container sind immer aufklappbar (darunter liegt die "+ Element"-Box),
       // ein typisierter Knoten genau dann, wenn sein Typ zu einer Struktur
       // aufloest — `isLeaf` entscheidet beides.
-      const ausps = this.state.auspsOf(n.path);
+      const ausps = this.ueberlagerung.auspsOf(n.path);
       if (ausps && ausps.length) return true;
-      if (this.state.erweiterungenOf(n.path)?.length) return true;
+      if (this.ueberlagerung.erweiterungenOf(n.path)?.length) return true;
       return !n.recursive && !this.isLeaf(n);
     }
     const cn = this.ctxNode(it.parentNode, it.ausp.id);
-    if (this.state.erweiterungenOf(cn.path)?.length) return true;
+    if (this.ueberlagerung.erweiterungenOf(cn.path)?.length) return true;
     return !cn.recursive && !this.isLeaf(cn);
   }
+}
+
+/**
+ * Ein **zweiter** Baum ueber einem beliebigen Schema-Index: eigene Caches,
+ * eigener aktiver Index, eigene Ueberlagerung. Fuer Auswertungen, die den
+ * Editor-Baum nicht anfassen duerfen — eine hochgeladene Nachricht wird gegen
+ * ihr eigenes Schema ausgewertet, waehrend im Editor eine andere Nachricht
+ * (womoeglich einer anderen XJustiz-Version) offen bleibt.
+ *
+ * Ohne diese Trennung liefe die Auswertung ueber die Instanz des Editors und
+ * `buildRoot` wuerde dort Index und Caches austauschen.
+ *
+ * Die Ueberlagerung ist standardmaessig leer. Wer die Vorkommen der
+ * ausgewerteten Nachricht sichtbar machen will (damit `childItems` und
+ * `itemByPath` die `@id`-Pfade finden), reicht eine eigene herein.
+ */
+export function eigenerBaum(
+  parent: EnvironmentInjector,
+  ueberlagerung: ProfilUeberlagerung = OHNE_UEBERLAGERUNG,
+): TreeService {
+  return createEnvironmentInjector(
+    [{ provide: PROFIL_UEBERLAGERUNG, useValue: ueberlagerung }, TreeService],
+    parent,
+  ).get(TreeService);
 }

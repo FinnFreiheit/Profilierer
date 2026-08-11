@@ -16,21 +16,28 @@
   </p>
   <div class="validFehler">
     @for (e of report.eintraege(); track $index) {
-      <div
-        class="vfItem"
-        [class.klickbar]="e.pfad"
-        [class.vfErw]="e.erweiterung"
-        [title]="e.pfad ? 'Zum betroffenen Element springen' : ''"
-        (click)="springe(e)"
-      >
-        @if (e.erweiterung) {
-          <span class="tag t-ext">bekannte Schema-Erweiterung</span>
-        }
-        {{ e.text }}
-      </div>
+      @if (e.abschnitt) {
+        <div class="vfAbschnitt">{{ e.text }}</div>
+      } @else {
+        <div
+          class="vfItem"
+          [class.klickbar]="e.pfad"
+          [class.vfErw]="e.erweiterung"
+          [title]="e.pfad ? 'Zum betroffenen Element springen' : ''"
+          (click)="springe(e)"
+        >
+          @if (e.erweiterung) {
+            <span class="tag t-ext">bekannte Schema-Erweiterung</span>
+          }
+          {{ e.text }}
+        </div>
+      }
     }
   </div>
   <div style="text-align: right; margin-top: 12px">
+    @if (report.ausleitung(); as a) {
+      <button (click)="a.starte()">{{ a.label }}</button>
+    }
     <button class="primary" (click)="report.schliesse()">Schließen</button>
   </div>
 </dialog>

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { StateService } from '../../core/services/state.service';
 import { SearchService } from '../../core/services/search.service';
 import { NavService } from '../../core/services/nav.service';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
 /**
  * Baum-Suche (Profilierer.html Z.223, #searchPanel Z.244, runSearch Z.712).
@@ -11,6 +12,7 @@ import { NavService } from '../../core/services/nav.service';
   selector: 'app-search',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './search.html',
+  imports: [KeinAutofillDirective],
 })
 export class Search {
   private readonly state = inject(StateService);

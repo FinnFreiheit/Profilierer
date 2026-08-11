@@ -11,6 +11,7 @@ import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { PersistenceService } from '../../core/services/persistence.service';
 import { ToastService } from '../../core/services/toast.service';
 import { VergleichService } from '../../core/services/vergleich.service';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { ProfilVersion } from '../../models/profile.model';
 
 /**
@@ -23,6 +24,7 @@ import { ProfilVersion } from '../../models/profile.model';
   selector: 'app-versions-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './versions-dialog.html',
+  imports: [KeinAutofillDirective],
 })
 export class VersionsDialog {
   private readonly state = inject(StateService);

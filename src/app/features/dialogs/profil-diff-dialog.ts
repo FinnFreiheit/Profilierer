@@ -22,6 +22,7 @@ import {
   ProfilDiffResult,
 } from '../../models/profil-diff.model';
 import { DIFF_FARBEN, DIFF_SYM } from '../../core/util/diff-anzeige.util';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
 /** Anzeigenamen der Filter-Chips. */
 const BEREICH_LABEL: Record<ProfilDiffBereich, string> = {
@@ -53,6 +54,7 @@ const MAX_ZEILEN = 800;
   selector: 'app-profil-diff-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profil-diff-dialog.html',
+  imports: [KeinAutofillDirective],
 })
 export class ProfilDiffDialog {
   private readonly state = inject(StateService);

@@ -8,6 +8,7 @@ import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { Menu } from '../../shared/menu/menu';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
 /**
  * Zeile 1 der Kopfzone: das Dokument (Issue #80). Feste Zonen, wechselnder
@@ -20,7 +21,7 @@ import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
 @Component({
   selector: 'app-objektleiste',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Menu, RolleBadge],
+  imports: [Menu, RolleBadge, KeinAutofillDirective],
   templateUrl: './objektleiste.html',
 })
 export class Objektleiste {
@@ -48,6 +49,8 @@ export class Objektleiste {
   readonly printClick = output<void>();
   /** Link auf die offene Profilierung in die Zwischenablage legen. */
   readonly teilenClick = output<void>();
+  /** Link auf die offene Testnachricht in die Zwischenablage legen. */
+  readonly teilenNachrichtClick = output<void>();
   readonly saveMessageClick = output<void>();
   readonly updateMessageClick = output<void>();
   /** Profilbindung der geoeffneten Nachricht bewusst loesen (#32). */

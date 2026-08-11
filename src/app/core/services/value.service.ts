@@ -5,6 +5,7 @@ import { kid, kids, local } from '../util/xml.util';
 import { pflichtAttrWert } from '../util/xsd-attribut.util';
 import { compileXsdPattern, konformerBeispielwert } from '../util/pattern-sample.util';
 import { letztesVorkommenPfad } from '../util/pfad.util';
+import { refSchluesselArt } from '../refs';
 import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
 
@@ -413,13 +414,22 @@ export class ValueService {
     const elemente = this.state.elemente();
     const p = elemente[n.path] ?? {};
 
-    // Verweis-Blatt: Nummer der Ziel-Auspraegung.
+    // Verweis-Blatt: der Schluessel der Ziel-Auspraegung. Welcher das ist, sagt
+    // die Verweis-Art — die laufende Nummer oder, bei Schriftgutobjekten, die
+    // UUID aus `identifikation/id` des Ziels. Steht dort noch keine Kennung,
+    // faellt es auf die Typ-Logik durch (die UUID-Facette erzwingt dort eine
+    // echte UUID); eine Vorkommen-Nummer waere an einem `ref.sgo` schemawidrig.
     if (/^ref\./.test(n.name)) {
       const parentPath = n.path.slice(0, n.path.lastIndexOf('/'));
       const rz = elemente[parentPath]?.refZiel || p.refZiel || null;
       if (rz) {
-        const num = this.state.auspNumber(rz);
-        if (num != null) return String(num);
+        if (refSchluesselArt(n.name.slice(4)) === 'uuid') {
+          const kennung = this.state.sgoKennungOf(rz);
+          if (kennung) return kennung;
+        } else {
+          const num = this.state.auspNumber(rz);
+          if (num != null) return String(num);
+        }
       }
     }
     // Gegenstueck: Nummer der eigenen Auspraegung.

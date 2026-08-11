@@ -66,6 +66,32 @@ describe('ProfileStoreService (HTTP)', () => {
     expect(await store.load('fehlt')).toBeNull();
   });
 
+  // Regression: die 404-toleranten Lesepfade liefen frueher an `req` vorbei
+  // und schickten den AG-Schluessel nicht mit — der Abnahme-Schutz (ADR 0012)
+  // galt dort nicht. Seit dem BackendClient geht er an jeden Request.
+  it('lesende Wege schicken den AG-Schluessel mit', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: RolleService, useValue: { authHeaders: () => ({ 'x-ag-key': 'geheim' }) } },
+      ],
+    });
+    const s = TestBed.inject(ProfileStoreService);
+    // Der Store aus dem beforeEach hat schon gefetcht (ohne Schluessel-Stub).
+    (window.fetch as jasmine.Spy).calls.reset();
+    handlers['GET api/profiles/x'] = () => json(doc());
+    handlers['GET api/profiles/x/abnahme'] = () => json({ nr: 1, doc: doc() });
+    const kopf = (): (string | null)[] =>
+      (window.fetch as jasmine.Spy).calls
+        .allArgs()
+        .map((args) => new Headers((args[1] as RequestInit | undefined)?.headers).get('x-ag-key'));
+
+    await s.load('x');
+    await s.loadAbnahmeDoc('x');
+
+    expect(kopf().every((k) => k === 'geheim')).toBeTrue();
+  });
+
   it('duplicate liefert neue id bzw. null bei 404', async () => {
     handlers['POST api/profiles/x/duplicate'] = () =>
       json({ id: 'kopie', entry: entry('kopie', { name: 'P (Kopie)', aktualisiert: 700 }) }, 201);

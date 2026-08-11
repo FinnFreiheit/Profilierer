@@ -6,7 +6,8 @@ import { NavService } from './nav.service';
 import { XsdParserService } from './xsd-parser.service';
 import { XsdDoc } from '../../models/xsd-index.model';
 import { ElementProfile, Erweiterung } from '../../models/profile.model';
-import { itemPath } from '../../models/node.model';
+import { TreeNode, itemPath } from '../../models/node.model';
+import { ValueService } from './value.service';
 
 /**
  * Fixture: Pflicht-Rueckgrat (kopf), optionales Blatt (az), choice mit zwei
@@ -98,6 +99,43 @@ const XSD_TYP = `<?xml version="1.0" encoding="UTF-8"?>
 
 const M4 = 'nachricht.test.0004';
 
+/**
+ * Fuenfte Fixture fuer den Verweis auf ein **Schriftgutobjekt**: ein
+ * wiederholbares `dokument` mit `identifikation/id` (UUID) und
+ * `nummerImUebergeordnetenContainer`, dazu der Traeger `anschreiben` vom Typ
+ * `Type.GDS.Ref.SGO` — der Aufbau des Grunddatensatzes
+ * (`schriftgutobjekte/anschreiben`). Verwiesen wird auf die UUID, nicht auf die
+ * Nummer im Container.
+ */
+const XSD_SGO = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0005" type="Type.Test5.Root"/>
+  <xs:complexType name="Type.Test5.Root"><xs:sequence>
+    <xs:element name="dokument" type="Type.Test5.Dok" minOccurs="0" maxOccurs="unbounded"/>
+    <xs:element name="anschreiben" type="Type.GDS.Ref.SGO" minOccurs="0"/>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="Type.Test5.Dok"><xs:sequence>
+    <xs:element name="identifikation" type="Type.GDS.Xdomea.IdentifikationObjektType"/>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="Type.GDS.Xdomea.IdentifikationObjektType"><xs:sequence>
+    <xs:element name="id" type="Type.GDS.Xdomea.stringUUIDType"/>
+    <xs:element name="nummerImUebergeordnetenContainer" type="xs:positiveInteger"/>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="Type.GDS.Ref.SGO"><xs:sequence>
+    <xs:element name="ref.sgo" type="Type.GDS.Xdomea.stringUUIDType"/>
+  </xs:sequence></xs:complexType>
+  <xs:simpleType name="Type.GDS.Xdomea.stringUUIDType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9|A-F|a-f]{8}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{4}-[0-9|A-F|a-f]{12}"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`;
+
+const M5 = 'nachricht.test.0005';
+
+/** Die UUID-Facette des Grunddatensatzes (Type.GDS.Xdomea.stringUUIDType). */
+const UUID_RX = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/;
+
 describe('GuidedService', () => {
   let svc: GuidedService;
   let state: StateService;
@@ -148,6 +186,16 @@ describe('GuidedService', () => {
     const idx = parser.buildIndexFrom([{ file: 'xjustiz_0000_test3.xsd', dom }]).idx;
     state.idx.set(idx);
     state.root.set(tree.buildRoot(M3, idx));
+  };
+
+  /** Schaltet die Testbasis auf die Schriftgutobjekt-Fixture (M5) um. */
+  const ladeSgoFixture = (): void => {
+    const tree = TestBed.inject(TreeService);
+    const parser = TestBed.inject(XsdParserService);
+    const dom = new DOMParser().parseFromString(XSD_SGO, 'application/xml');
+    const idx = parser.buildIndexFrom([{ file: 'xjustiz_0000_test5.xsd', dom }]).idx;
+    state.idx.set(idx);
+    state.root.set(tree.buildRoot(M5, idx));
   };
 
   // ── Verweise: Ziel-Vorkommen statt Nummer (Issue #30) ─────────────────
@@ -244,6 +292,58 @@ describe('GuidedService', () => {
       expect(svc.verweisZiele(`${M3}/verweis`).length).toBe(2);
       // Das fremde Vorkommen bleibt draussen.
       expect(svc.verweisZiele(`${M3}/verweis`).some((z) => z.path.endsWith('@n2'))).toBeFalse();
+    });
+  });
+
+  // ── Verweise auf Schriftgutobjekte: UUID statt Vorkommen-Nummer ───────
+
+  describe('Verweise auf Schriftgutobjekte', () => {
+    beforeEach(() => {
+      ladeSgoFixture();
+      state.messageCreate.set({ msgName: M5, entryId: null, name: null });
+    });
+
+    it('verweist auf die Kennung des Ziels, nicht auf seine Nummer', () => {
+      state.addAusp(`${M5}/dokument`, 'Antrag');
+      const id2 = state.addAusp(`${M5}/dokument`, 'Anschreiben');
+
+      svc.waehleVerweisZiel(`${M5}/anschreiben`, `${M5}/dokument@${id2}`);
+
+      const wert = state.elemente()[`${M5}/anschreiben/ref.sgo`]?.beispiel;
+      // Die "2" des zweiten Vorkommens waere an einem UUID-Typ schemawidrig.
+      expect(wert).toMatch(UUID_RX);
+      expect(state.elemente()[`${M5}/dokument@${id2}/identifikation/id`]?.beispiel).toBe(wert!);
+    });
+
+    it('laesst eine schon vergebene Kennung des Ziels stehen', () => {
+      const id1 = state.addAusp(`${M5}/dokument`, 'Antrag');
+      const vorhanden = '11111111-2222-3333-4444-555555555555';
+      state.setElementProfile(`${M5}/dokument@${id1}/identifikation/id`, { beispiel: vorhanden });
+
+      svc.waehleVerweisZiel(`${M5}/anschreiben`, `${M5}/dokument@${id1}`);
+
+      expect(state.elemente()[`${M5}/anschreiben/ref.sgo`]?.beispiel).toBe(vorhanden);
+      expect(state.elemente()[`${M5}/dokument@${id1}/identifikation/id`]?.beispiel).toBe(vorhanden);
+    });
+
+    it('nimmt auch beim Wuerfeln die Kennung des Ziels', () => {
+      const id1 = state.addAusp(`${M5}/dokument`, 'Antrag');
+      const vorhanden = '11111111-2222-3333-4444-555555555555';
+      state.setElementProfile(`${M5}/dokument@${id1}/identifikation/id`, { beispiel: vorhanden });
+      state.setElementProfile(`${M5}/anschreiben`, { refZiel: `${M5}/dokument@${id1}` });
+
+      const values = TestBed.inject(ValueService);
+      const blatt = TestBed.inject(NavService).findItemByPath(`${M5}/anschreiben/ref.sgo`);
+      expect(blatt?.kind).toBe('el');
+      expect(values.dummyFor((blatt as { node: TreeNode }).node)).toBe(vorhanden);
+    });
+
+    it('loest ein eindeutiges Schriftgutobjekt ohne Zutun auf', () => {
+      const id1 = state.addAusp(`${M5}/dokument`, 'Antrag');
+
+      expect(svc.loeseEindeutigeVerweise()).toBe(1);
+      expect(state.refZielOf(`${M5}/anschreiben`)).toBe(`${M5}/dokument@${id1}`);
+      expect(state.elemente()[`${M5}/anschreiben/ref.sgo`]?.beispiel).toMatch(UUID_RX);
     });
   });
 

@@ -23,6 +23,7 @@ import { LibraryEntry } from '../../models/profile.model';
 import { fachmodulOf, nachFachmodul } from '../../core/util/fachmodul.util';
 import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiterung-sperre';
 import { nachrichtTeile } from '../../core/util/pretty.util';
+import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
 /**
  * Ein Abschnitt der Bibliothek: seit #88 je Fachmodul einer. Die Abnahme
@@ -46,7 +47,7 @@ interface Sektion {
 @Component({
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu],
+  imports: [RolleBadge, Menu, KeinAutofillDirective],
   templateUrl: './dashboard.html',
 })
 export class Dashboard {

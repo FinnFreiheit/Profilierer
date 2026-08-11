@@ -236,10 +236,7 @@ export class ExcelExportService {
   ): void {
     for (const n of kinder) {
       if (tiefe > 30 || n.recursive) continue;
-      const ausgeschlossen =
-        this.state.statusOf(n.path)?.wirkung === 'ausgeschlossen' ||
-        this.state.inheritedExcluded(n.path);
-      if (ausgeschlossen) continue;
+      if (this.state.entfaellt(n.path)) continue;
       if (n.codelist) {
         const key = n.codelist.kennung || n.codelist.typeName;
         if (!gefunden.has(key)) gefunden.set(key, n.codelist);

@@ -36,6 +36,14 @@ describe('KonformitaetService', () => {
     svc = TestBed.inject(KonformitaetService);
   });
 
+  /**
+   * Die Verstoesse eines Abgleichs. Fast alle Faelle hier handeln von der
+   * Nachricht; die Luecken der Profilierung haben ihren eigenen Block.
+   */
+  const verstoesse = (
+    ...args: Parameters<KonformitaetService['pruefe']>
+  ): ReturnType<KonformitaetService['pruefe']>['verstoesse'] => svc.pruefe(...args).verstoesse;
+
   it('meldet nichts, wenn die Nachricht der Fassung folgt', () => {
     const doc = vorgabe({
       elemente: {
@@ -47,7 +55,7 @@ describe('KonformitaetService', () => {
       elemente: { [`${M}/kopf`]: { beispiel: 'Az 1' }, [`${M}/art`]: { beispiel: '002' } },
     });
 
-    expect(svc.pruefe(doc, inst, { istBlatt: () => true })).toEqual([]);
+    expect(verstoesse(doc, inst, { istBlatt: () => true })).toEqual([]);
   });
 
   it('meldet einen belegten ausgeschlossenen Pfad — auch geerbt', () => {
@@ -59,10 +67,10 @@ describe('KonformitaetService', () => {
       },
     });
 
-    const arten = svc.pruefe(doc, inst).map((v) => v.art);
+    const arten = verstoesse(doc, inst).map((v) => v.art);
     expect(arten).toEqual(['ausgeschlossen', 'ausgeschlossen']);
     // Die geerbte Meldung nennt die Quelle des Ausschlusses.
-    const geerbt = svc.pruefe(doc, inst).find((v) => v.pfad.includes('@a1'))!;
+    const geerbt = verstoesse(doc, inst).find((v) => v.pfad.includes('@a1'))!;
     expect(geerbt.text).toContain(`${M}/beteiligung`);
   });
 
@@ -70,7 +78,7 @@ describe('KonformitaetService', () => {
     const doc = vorgabe({ elemente: { [`${M}/art`]: { werte: ['001', '002'] } } });
     const inst = instanz({ elemente: { [`${M}/art`]: { beispiel: '007' } } });
 
-    const v = svc.pruefe(doc, inst);
+    const v = verstoesse(doc, inst);
     expect(v.length).toBe(1);
     expect(v[0]!.art).toBe('wert');
     expect(v[0]!.text).toContain('007');
@@ -89,10 +97,30 @@ describe('KonformitaetService', () => {
       },
     });
 
-    const v = svc.pruefe(doc, inst);
+    const v = verstoesse(doc, inst);
     expect(v.map((x) => x.art)).toEqual(['kardinalitaet', 'kardinalitaet']);
     expect(v.find((x) => x.pfad.endsWith('anlage'))!.text).toContain('mindestens 2');
     expect(v.find((x) => x.pfad.endsWith('beteiligung'))!.text).toContain('höchstens 1');
+  });
+
+  it('meldet eine Mindestanzahl, die durch Abwesenheit verletzt ist (mit Umgebungs-Auskunft)', () => {
+    // Der Widerspruch, den die eine Regel aufloest: die Profilierung grenzt ein
+    // im Schema optionales Element auf min = 1 ein, ohne Statusstufe. Der
+    // Export schreibt es (Untergrenze der Profilierung); traegt die Nachricht
+    // es dennoch nicht, ist das ein Verstoss. Ohne Auskunft zaehlte „kein
+    // Eintrag" als ein Vorkommen und die Nachricht galt als konform.
+    const doc = vorgabe({ elemente: { [`${M}/az`]: { min: '1' } } });
+    const ohneAz = instanz();
+
+    expect(verstoesse(doc, ohneAz)).toEqual([]); // Rueckfall: schwaechere Auskunft
+
+    const v = verstoesse(doc, ohneAz, { istEnthalten: () => false });
+    expect(v.map((x) => x.art)).toEqual(['kardinalitaet']);
+    expect(v[0]!.text).toContain('mindestens 1');
+    expect(v[0]!.text).toContain('die Nachricht trägt 0'); // nicht mehr „traegt 1"
+
+    // Traegt sie es, bleibt es still.
+    expect(verstoesse(doc, ohneAz, { istEnthalten: () => true })).toEqual([]);
   });
 
   it('zaehlt eine generische Grenze je Vorkommen — am @-Pfad, wo materialisiert wird', () => {
@@ -111,13 +139,13 @@ describe('KonformitaetService', () => {
         ],
       },
     });
-    expect(svc.pruefe(doc, konform)).toEqual([]);
+    expect(verstoesse(doc, konform)).toEqual([]);
 
     // Nur ein Vorkommen: der Verstoss zeigt auf den @-Pfad, den der Baum rendert.
     const zuWenig = instanz({
       auspraegungen: { [`${M}/beteiligung@n1/kontakt`]: [{ id: 'v1', name: 'Vorkommen 1' }] },
     });
-    const v = svc.pruefe(doc, zuWenig);
+    const v = verstoesse(doc, zuWenig);
     expect(v.length).toBe(1);
     expect(v[0]!.art).toBe('kardinalitaet');
     expect(v[0]!.pfad).toBe(`${M}/beteiligung@n1/kontakt`);
@@ -131,7 +159,7 @@ describe('KonformitaetService', () => {
     const doc = vorgabe({ elemente: { [`${M}/bet/name`]: { status: V.excl } } });
     const inst = instanz({ elemente: { [`${M}/bet@a1/name`]: { beispiel: 'x' } } });
 
-    const v = svc.pruefe(doc, inst);
+    const v = verstoesse(doc, inst);
     expect(v.length).toBe(1);
     expect(v[0]!.text).toContain('schließt das Element aus');
     expect(v[0]!.text).not.toContain('samt Teilbaum');
@@ -153,7 +181,7 @@ describe('KonformitaetService', () => {
       auspraegungen: { [`${M}/bet@n1/kontakt`]: [{ id: 'v1', name: 'Vorkommen 1' }] },
     });
 
-    expect(svc.pruefe(doc, inst)).toEqual([]); // min 1 erfuellt, min 2 gilt hier nicht
+    expect(verstoesse(doc, inst)).toEqual([]); // min 1 erfuellt, min 2 gilt hier nicht
   });
 
   it('in ausgeschlossenen Vorkommen wird nicht gezaehlt (Deep-Review)', () => {
@@ -180,7 +208,7 @@ describe('KonformitaetService', () => {
       },
     });
 
-    expect(svc.pruefe(doc, inst)).toEqual([]);
+    expect(verstoesse(doc, inst)).toEqual([]);
   });
 
   it('Vorkommen-Pflicht wird nicht vom Traeger geerbt — wie die Sperre (Deep-Review)', () => {
@@ -201,7 +229,7 @@ describe('KonformitaetService', () => {
       auspraegungen: { [`${M}/bet`]: [{ id: 'n1', name: 'Notar/in' }] }, // n2 entfernt
     });
 
-    expect(svc.pruefe(doc, inst).filter((v) => v.art === 'vorkommen')).toEqual([]);
+    expect(verstoesse(doc, inst).filter((v) => v.art === 'vorkommen')).toEqual([]);
   });
 
   it('meldet ein fehlendes zwingendes Vorkommen — die Kopie erfuellt es', () => {
@@ -219,7 +247,7 @@ describe('KonformitaetService', () => {
     const ohne = instanz({
       auspraegungen: { [`${M}/beteiligung`]: [{ id: 'n2', name: 'Zeuge' }] },
     });
-    const v = svc.pruefe(doc, ohne);
+    const v = verstoesse(doc, ohne);
     expect(v.length).toBe(1);
     expect(v[0]!.art).toBe('vorkommen');
     expect(v[0]!.text).toContain('Notar/in');
@@ -230,7 +258,7 @@ describe('KonformitaetService', () => {
         [`${M}/beteiligung`]: [{ id: 'k9', name: 'Notar/in (Kopie)', vonId: 'n1' }],
       },
     });
-    expect(svc.pruefe(doc, mitKopie)).toEqual([]);
+    expect(verstoesse(doc, mitKopie)).toEqual([]);
   });
 
   it('meldet ein zwingend gesetztes Blatt ohne Wert, je Vorkommen', () => {
@@ -248,7 +276,7 @@ describe('KonformitaetService', () => {
       elemente: { [`${M}/beteiligung@n1/name`]: { beispiel: 'Musterfrau' } },
     });
 
-    const v = svc.pruefe(doc, inst, { istBlatt: (p) => p.endsWith('/name') });
+    const v = verstoesse(doc, inst, { istBlatt: (p) => p.endsWith('/name') });
     expect(v.length).toBe(1);
     expect(v[0]!.art).toBe('pflichtwert');
     expect(v[0]!.pfad).toBe(`${M}/beteiligung@n2/name`);
@@ -257,7 +285,70 @@ describe('KonformitaetService', () => {
   it('prueft Pflichtwerte nur mit Blatt-Wissen — ein Container bleibt unbeanstandet', () => {
     const doc = vorgabe({ elemente: { [`${M}/beteiligung`]: { status: V.pflicht } } });
 
-    expect(svc.pruefe(doc, instanz())).toEqual([]); // ohne istBlatt gar nicht
-    expect(svc.pruefe(doc, instanz(), { istBlatt: () => false })).toEqual([]);
+    expect(verstoesse(doc, instanz())).toEqual([]); // ohne istBlatt gar nicht
+    expect(verstoesse(doc, instanz(), { istBlatt: () => false })).toEqual([]);
+  });
+
+  // ── Luecken der Profilierung (kein Verstoss der Nachricht) ───────────
+
+  describe('luecken', () => {
+    const luecken = (doc: ProfileDoc, inst: InstanzModell) => svc.pruefe(doc, inst).luecken;
+
+    it('meldet belegte Elemente ohne Festlegung — mit Wert und Pfad', () => {
+      const doc = vorgabe({ elemente: { [`${M}/kopf`]: { status: V.pflicht } } });
+      const inst = instanz({
+        elemente: { [`${M}/kopf`]: { beispiel: 'Az 1' }, [`${M}/az`]: { beispiel: '4 O 12/25' } },
+      });
+
+      const l = luecken(doc, inst);
+      expect(l.map((x) => x.pfad)).toEqual([`${M}/az`]);
+      expect(l[0]!.wert).toBe('4 O 12/25');
+      expect(l[0]!.text).toContain('keine Festlegung');
+    });
+
+    it('eine Festlegung am generischen Pfad deckt jedes Vorkommen (Erbe)', () => {
+      const doc = vorgabe({ elemente: { [`${M}/bet/name`]: { status: V.optional } } });
+      const inst = instanz({ elemente: { [`${M}/bet@a1/name`]: { beispiel: 'Musterfrau' } } });
+
+      expect(luecken(doc, inst)).toEqual([]);
+    });
+
+    it('Anmerkung und Beispielwert sind keine Festlegung', () => {
+      // Sie erlaeutern und schlagen vor — entschieden ist damit nichts.
+      const doc = vorgabe({
+        elemente: { [`${M}/az`]: { anmerkung: 'noch zu klären', beispiel: '4 O 1/25' } },
+      });
+      const inst = instanz({ elemente: { [`${M}/az`]: { beispiel: 'x' } } });
+
+      expect(luecken(doc, inst).map((x) => x.pfad)).toEqual([`${M}/az`]);
+    });
+
+    it('eine durchgesetzte Grenze ohne Statusstufe ist eine Aussage — keine Luecke', () => {
+      // Sonst meldete der Bericht dasselbe Element als Verstoss *und* als
+      // Luecke: "die Profilierung sagt nichts" und "die Nachricht haelt sich
+      // nicht daran" im selben Atemzug.
+      const doc = vorgabe({ elemente: { [`${M}/art`]: { werte: ['001'] } } });
+      const inst = instanz({ elemente: { [`${M}/art`]: { beispiel: '007' } } });
+
+      expect(verstoesse(doc, inst).map((v) => v.art)).toEqual(['wert']);
+      expect(luecken(doc, inst)).toEqual([]);
+
+      // Ebenso eine Kardinalitaets-Eingrenzung.
+      const mitGrenze = vorgabe({ elemente: { [`${M}/art`]: { max: '1' } } });
+      expect(luecken(mitGrenze, inst)).toEqual([]);
+    });
+
+    it('Ausgeschlossenes ist ein Verstoss und keine Luecke — nicht doppelt melden', () => {
+      const doc = vorgabe({ elemente: { [`${M}/bet`]: { status: V.excl } } });
+      const inst = instanz({ elemente: { [`${M}/bet@a1/name`]: { beispiel: 'x' } } });
+
+      expect(verstoesse(doc, inst).map((v) => v.art)).toEqual(['ausgeschlossen']);
+      expect(luecken(doc, inst)).toEqual([]);
+    });
+
+    it('unbelegte Elemente sind keine Luecke — es geht um das, was die Nachricht sagt', () => {
+      const doc = vorgabe();
+      expect(luecken(doc, instanz({ elemente: { [`${M}/az`]: { beispiel: '  ' } } }))).toEqual([]);
+    });
   });
 });
