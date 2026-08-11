@@ -166,15 +166,35 @@ export class KonformitaetService {
    * Was ein Vorfahr ausschliesst, ist bereits ein **Verstoss** und wird hier
    * nicht noch einmal gemeldet: dort hat die Profilierung entschieden, die
    * Nachricht haelt sich nur nicht daran.
+   *
+   * Gefragt wird ueber die **generische Form** des Pfads, also
+   * vorkommen-unabhaengig. Der Grund ist gemeldet worden: Profilierungen
+   * treffen ihre Festlegungen oft je **benanntem Vorkommen**
+   * (`…/beteiligung@amsd619e91/…/anschriftstyp` = pflicht, Werte ['003'] fuer
+   * die Notarin). Eine aus XML gewonnene Nachricht traegt dort ein anonymes
+   * Vorkommen; pfadgenau und generisch gesucht findet sich nichts, und der
+   * Bericht behauptete „die Profilierung trifft zu diesem Element keine
+   * Festlegung" — obwohl sie eine trifft, die sich nur nicht **zuordnen**
+   * laesst. Das ist der Unterschied zwischen „nichts entschieden" und „nicht
+   * attribuierbar", und nur das Erste ist eine Luecke.
+   *
+   * Die Lesart ist damit bewusst grosszuegig: gibt es die Aussage unter
+   * irgendeinem Vorkommen, gilt das Element als bedacht. Lieber eine Luecke
+   * uebersehen als eine behaupten, die es nicht gibt — der Kopf des Berichts
+   * sagt ohnehin, dass die Vorkommen nicht zuordenbar sind.
    */
   private sammleLuecken(v: VorgabeSicht, instanz: InstanzModell): Luecke[] {
+    // Alle Elemente, zu denen die Vorgabe **irgendwo** eine durchsetzbare
+    // Aussage trifft — auf die vorkommen-unabhaengige Form gebracht.
+    const bedacht = new Set<string>();
+    for (const [pfad, e] of Object.entries(v.doc.elemente)) {
+      if (e.status || e.werte?.length || e.min || e.max) bedacht.add(ohneVorkommen(pfad));
+    }
     const out: Luecke[] = [];
     for (const [pfad, p] of Object.entries(instanz.elemente)) {
       const wert = p.beispiel?.trim();
       if (!wert) continue;
-      if (v.wirkungGeerbt(pfad)) continue;
-      const eintrag = v.eintragGeerbt(pfad);
-      if (eintrag?.werte?.length || eintrag?.min || eintrag?.max) continue;
+      if (bedacht.has(ohneVorkommen(pfad))) continue;
       if (v.ausschlussQuelle(pfad)) continue;
       out.push({
         pfad,

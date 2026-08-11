@@ -368,6 +368,26 @@ describe('KonformitaetService', () => {
       expect(l[0]!.text).toContain('keine Festlegung');
     });
 
+    it('eine Festlegung an einem benannten Vorkommen ist keine Luecke — auch anderswo', () => {
+      // Gemeldet am eigenen Bestand: die Profilierung setzt `anschriftstyp` je
+      // benanntem Vorkommen zwingend (`…/bet@amsd619e91/…`), die hochgeladene
+      // Nachricht traegt dort ein anonymes `@v1`. Pfadgenau und generisch
+      // gesucht fand sich nichts, und der Bericht behauptete „keine
+      // Festlegung" — obwohl es eine gibt, die sich nur nicht zuordnen laesst.
+      const doc = vorgabe({
+        elemente: {
+          [`${M}/bet@amsd619e91/anschrift/anschriftstyp`]: { status: V.pflicht, werte: ['003'] },
+        },
+        auspraegungen: { [`${M}/bet`]: [{ id: 'amsd619e91', name: 'Notar' }] },
+      });
+      const inst = instanz({
+        elemente: { [`${M}/bet@v1/anschrift/anschriftstyp`]: { beispiel: '003' } },
+        auspraegungen: { [`${M}/bet`]: [{ id: 'v1', name: 'Vorkommen 1' }] },
+      });
+
+      expect(luecken(doc, inst)).toEqual([]);
+    });
+
     it('eine Festlegung am generischen Pfad deckt jedes Vorkommen (Erbe)', () => {
       const doc = vorgabe({ elemente: { [`${M}/bet/name`]: { status: V.optional } } });
       const inst = instanz({ elemente: { [`${M}/bet@a1/name`]: { beispiel: 'Musterfrau' } } });
