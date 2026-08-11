@@ -168,19 +168,32 @@ export class VorgabeSicht {
   /**
    * Zahl der Vorkommen eines Elements in der Nachricht — die Zaehlkonvention
    * aus ADR 0015: benannte Vorkommen zaehlen; sonst steht der generische
-   * Unterbaum fuer eines, es sei denn, die Nachricht laesst das Element mit
-   * eigener Entscheidung weg (aufgeloest ueber die Stufenliste der Vorgabe —
+   * Unterbaum fuer **eines**.
+   *
+   * Ob er das wirklich tut, steht allerdings nicht in den beiden Dokumenten:
+   * es haengt an Schema-Kardinalitaet und Serialisierung. `istEnthalten`
+   * reicht die Antwort aus der Umgebung herein — die **eine** Regel
+   * (`core/enthalten.ts`), die auch der Export anwendet. Ohne sie gilt der
+   * Rueckfall auf die Entscheidungsschicht: ausdruecklich ausgeschlossen zaehlt
+   * null, alles Uebrige eins (aufgeloest ueber die Stufenliste der Vorgabe —
    * die Stufenliste der Nachricht ist die des Profils, aus dem sie entstand;
    * unbekannte ids zaehlen wie "keine Aussage").
+   *
+   * Der Rueckfall ist die schwaechere Auskunft: er zaehlt ein Element als
+   * vorhanden, das der Export gar nicht schreibt. Er bleibt fuer Aufrufer ohne
+   * Schema-Zugang, statt zu raten — wer die Umgebung liefert, bekommt die
+   * belastbare Zahl.
    *
    * Bewusst NICHT dasselbe wie `GuidedService.vorkommenAnzahl`: der Durchlauf
    * zaehlt auf der Entscheidungsschicht (inkl. `wirkungOf` und
    * `vorgabeGesperrt` der laufenden Sitzung), diese Lesart auf den beiden
    * Dokumenten — zwei Ebenen derselben Konvention, keine Kopien.
    */
-  vorkommenAnzahl(pfad: string): number {
+  vorkommenAnzahl(pfad: string, istEnthalten?: (pfad: string) => boolean | null): number {
     const liste = this.auspsEffektiv(pfad);
     if (liste?.length) return liste.length;
+    const auskunft = istEnthalten?.(pfad);
+    if (auskunft != null) return auskunft ? 1 : 0;
     const eigen = this.instanz.elemente[pfad]?.status;
     if (eigen && this.doc.statuses.find((s) => s.id === eigen)?.wirkung === 'ausgeschlossen')
       return 0;

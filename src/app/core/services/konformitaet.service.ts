@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { ProfileDoc } from '../../models/profile.model';
+import { TreeNode } from '../../models/node.model';
 import { blattName, ohneVorkommen } from '../util/pfad.util';
 import { pretty } from '../util/pretty.util';
 import { InstanzModell, VorgabeSicht } from '../vorgabe-sicht';
@@ -32,6 +33,18 @@ export interface Verstoss {
 export interface KonformitaetsUmgebung {
   /** Ist der Pfad im Schema ein Blatt (traegt also selbst einen Wert)? */
   istBlatt?: (pfad: string) => boolean;
+  /**
+   * Traegt die Nachricht diesen Pfad? Beantwortet ueber die eine Regel
+   * (`core/enthalten.ts`) von der Schicht, die Schema und Profil kennt —
+   * dieselbe, aus der der Export entscheidet, was er schreibt. `null` heisst
+   * "keine Auskunft" (etwa: der Baum kennt den Pfad nicht); dann gilt der
+   * Rueckfall der Zaehlkonvention in `VorgabeSicht.vorkommenAnzahl`.
+   *
+   * Ohne diese Funktion zaehlt der Abgleich ein Element als vorhanden, das der
+   * Export nicht schreibt — die Kardinalitaets-Pruefung ist dann schwaecher,
+   * aber nicht falsch begruendet.
+   */
+  istEnthalten?: (pfad: string) => boolean | null;
 }
 
 /**
@@ -71,7 +84,7 @@ export class KonformitaetService {
     this.pruefeAusgeschlossen(v, instanz, out);
     this.pruefeWerte(v, instanz, out);
     this.pruefeVorkommen(v, instanz, out);
-    this.pruefeKardinalitaet(v, instanz, out);
+    this.pruefeKardinalitaet(v, out, umgebung);
     this.pruefePflichtwerte(v, instanz, out, umgebung);
     return out.sort((a, b) => a.pfad.localeCompare(b.pfad));
   }
@@ -140,7 +153,11 @@ export class KonformitaetService {
   }
 
   /** Verletzte Kardinalitaeten der Profilierung (Mindest- und Hoechstanzahl). */
-  private pruefeKardinalitaet(v: VorgabeSicht, instanz: InstanzModell, out: Verstoss[]): void {
+  private pruefeKardinalitaet(
+    v: VorgabeSicht,
+    out: Verstoss[],
+    umgebung: KonformitaetsUmgebung,
+  ): void {
     // Erst die Ziele einsammeln, dedupliziert: mehrere Vorgabe-Eintraege
     // (generisch und pfadgenau) koennen auf dasselbe Instanz-Ziel zeigen.
     // Massgeblich ist dort die **effektive** Grenze der Lesart (pfadgenau vor
@@ -167,7 +184,7 @@ export class KonformitaetService {
       const min = parseInt(g?.min ?? '', 10) || 0;
       const max = g?.max === 'unbounded' ? Infinity : parseInt(g?.max ?? '', 10) || Infinity;
       if (!min && max === Infinity) continue;
-      const n = v.vorkommenAnzahl(ziel);
+      const n = v.vorkommenAnzahl(ziel, umgebung.istEnthalten);
       if (min && n < min) {
         out.push({
           pfad: ziel,
@@ -241,13 +258,28 @@ export class SitzungsAbgleichService {
       { elemente: this.state.elemente(), auspraegungen: this.state.auspraegungen() },
       {
         istBlatt: (pfad) => {
-          const it = this.nav.findItemByPath(pfad);
-          if (!it) return false;
-          const node = it.kind === 'el' ? it.node : this.tree.ctxNode(it.parentNode, it.ausp.id);
-          return this.tree.isLeaf(node);
+          const node = this.knoten(pfad);
+          return node ? this.tree.isLeaf(node) : false;
+        },
+        // Ueber die eine Regel, also mit derselben Antwort, die der Export
+        // beim Schreiben gibt. Was der Baum nicht kennt, bleibt ohne Auskunft
+        // (`null`) — dieselbe Entscheidung wie bei den Sperren des Durchlaufs
+        // (`GuidedService.kardLage`, Issue #49): ein Pfad aus einer alten
+        // Fassung ist ein Mangel der Profilierung, kein Befund an der
+        // Nachricht, und soll hier keinen Verstoss erfinden.
+        istEnthalten: (pfad) => {
+          const node = this.knoten(pfad);
+          return node ? this.state.enthaelt(node) : null;
         },
       },
     );
+  }
+
+  /** Der Baumknoten zu einem Pfad — null, wo der Baum ihn nicht kennt. */
+  private knoten(pfad: string): TreeNode | null {
+    const it = this.nav.findItemByPath(pfad);
+    if (!it) return null;
+    return it.kind === 'el' ? it.node : this.tree.ctxNode(it.parentNode, it.ausp.id);
   }
 }
 

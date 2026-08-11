@@ -362,15 +362,6 @@ export class ExportService {
         push(`${pad}<${n.name}${this.fixedRequiredAttrs(n)}>${v}</${n.name}>`, n.path);
       }
     };
-    const hasProfilBelow = (path: string): boolean => {
-      const pre1 = path + '/';
-      const pre2 = path + '@';
-      for (const k of Object.keys(this.state.elemente()))
-        if (k.startsWith(pre1) || k.startsWith(pre2)) return true;
-      for (const k of Object.keys(this.state.auspraegungen()))
-        if (k === path || k.startsWith(pre1) || k.startsWith(pre2)) return true;
-      return false;
-    };
     const forced = new Set<string>();
     {
       const refZiele = new Set(
@@ -405,18 +396,14 @@ export class ExportService {
       }
     }
     const include = (n: TreeNode): boolean => {
-      // Schema-Erweiterungen werden immer emittiert (bewusste XSD-Abweichung).
+      // Schema-Erweiterungen werden immer emittiert (bewusste XSD-Abweichung),
+      // erzwungene Verweis-Kennungen ebenso — beides sind Gruende des
+      // Serialisierers, keine Aussage der Profilierung ueber das Element.
       if (n.erweiterung) return true;
       if (forced.has(n.path)) return true;
-      const w = this.state.wirkungOf(n.path);
-      if (w === 'ausgeschlossen') return false;
-      if (w === 'pflicht') return true;
-      const p = this.state.elemente()[n.path] ?? {};
-      const min = parseInt(p.min || n.min, 10);
-      if (min >= 1) return true;
-      if (p.beispiel || (p.werte && p.werte.length)) return true;
-      if (hasProfilBelow(n.path)) return true;
-      return false;
+      // Alles Weitere ist die eine Regel (core/enthalten.ts) — dieselbe, aus
+      // der der Konformitaets-Abgleich seine Vorkommenszahl zieht.
+      return this.state.enthaelt(n);
     };
     const chooseBranch = (auswahlPfad: string, children: TreeNode[]): TreeNode | null => {
       // Instanz: kein Raten — es gilt die Leseregel der Fuehrung
@@ -437,10 +424,15 @@ export class ExportService {
       if (decided) return decided;
       return children.find((c) => this.state.wirkungOf(c.path) !== 'ausgeschlossen') || null;
     };
-    /** Instanz: optionale Gruppe nur, wenn aufgenommen oder mit Inhalt darunter. */
+    /**
+     * Instanz: optionale Gruppe nur, wenn aufgenommen oder mit Inhalt darunter.
+     * Bewusst **nicht** die Regel aus `core/enthalten.ts`: eine synthetische
+     * Gruppe ist kein Element der Nachricht (ihre Kinder liegen direkt unter dem
+     * Elternelement), hier wird nur ueber den Abstieg entschieden.
+     */
     const gruppeAktiv = (n: TreeNode): boolean => {
       if (!instanz || n.min !== '0') return true;
-      return this.state.wirkungOf(n.path) === 'pflicht' || hasProfilBelow(n.path);
+      return this.state.wirkungOf(n.path) === 'pflicht' || this.state.inhaltDarunter(n.path);
     };
     const offeneAuswahl = (n: TreeNode, depth: number): void => {
       if (instanz) lines.push(IND.repeat(depth) + `<!-- Auswahl noch offen: ${esc(n.name)} -->`);

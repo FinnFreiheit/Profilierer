@@ -95,6 +95,26 @@ describe('KonformitaetService', () => {
     expect(v.find((x) => x.pfad.endsWith('beteiligung'))!.text).toContain('höchstens 1');
   });
 
+  it('meldet eine Mindestanzahl, die durch Abwesenheit verletzt ist (mit Umgebungs-Auskunft)', () => {
+    // Der Widerspruch, den die eine Regel aufloest: die Profilierung grenzt ein
+    // im Schema optionales Element auf min = 1 ein, ohne Statusstufe. Der
+    // Export schreibt es (Untergrenze der Profilierung); traegt die Nachricht
+    // es dennoch nicht, ist das ein Verstoss. Ohne Auskunft zaehlte „kein
+    // Eintrag" als ein Vorkommen und die Nachricht galt als konform.
+    const doc = vorgabe({ elemente: { [`${M}/az`]: { min: '1' } } });
+    const ohneAz = instanz();
+
+    expect(svc.pruefe(doc, ohneAz)).toEqual([]); // Rueckfall: schwaechere Auskunft
+
+    const v = svc.pruefe(doc, ohneAz, { istEnthalten: () => false });
+    expect(v.map((x) => x.art)).toEqual(['kardinalitaet']);
+    expect(v[0]!.text).toContain('mindestens 1');
+    expect(v[0]!.text).toContain('die Nachricht trägt 0'); // nicht mehr „traegt 1"
+
+    // Traegt sie es, bleibt es still.
+    expect(svc.pruefe(doc, ohneAz, { istEnthalten: () => true })).toEqual([]);
+  });
+
   it('zaehlt eine generische Grenze je Vorkommen — am @-Pfad, wo materialisiert wird', () => {
     // Die Divergenz vor der gemeinsamen VorgabeSicht: der Abgleich zaehlte am
     // generischen Pfad, die Materialisierung legt die Vorkommen aber an den

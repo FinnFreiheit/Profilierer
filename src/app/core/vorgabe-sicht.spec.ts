@@ -164,6 +164,31 @@ describe('VorgabeSicht', () => {
       expect(s.vorkommenAnzahl(`${M}/kopf`)).toBe(1);
       expect(s.vorkommenAnzahl(`${M}/az`)).toBe(0);
     });
+
+    it('die Umgebungs-Auskunft schlaegt den Rueckfall — sie kennt das Schema', () => {
+      // Der Rueckfall zaehlt „kein Eintrag" als ein Vorkommen; ob der Export
+      // das Element wirklich schreibt, weiss nur die eine Regel
+      // (`core/enthalten.ts`), und die braucht das Schema.
+      const s = new VorgabeSicht(doc(), instanz());
+      expect(s.vorkommenAnzahl(`${M}/az`)).toBe(1);
+      expect(s.vorkommenAnzahl(`${M}/az`, () => false)).toBe(0);
+      expect(s.vorkommenAnzahl(`${M}/az`, () => true)).toBe(1);
+    });
+
+    it('„keine Auskunft" (null) faellt auf die Zaehlkonvention zurueck', () => {
+      // Was der Baum nicht kennt — etwa ein Pfad aus einer alten Fassung —
+      // soll keinen Verstoss erfinden.
+      const s = new VorgabeSicht(doc(), instanz());
+      expect(s.vorkommenAnzahl(`${M}/az`, () => null)).toBe(1);
+    });
+
+    it('benannte Vorkommen gehen der Auskunft vor', () => {
+      const s = new VorgabeSicht(
+        doc(),
+        instanz({ auspraegungen: { [`${M}/bet`]: [{ id: 'a1', name: '1' }] } }),
+      );
+      expect(s.vorkommenAnzahl(`${M}/bet`, () => false)).toBe(1);
+    });
   });
 
   describe('instanzPfade', () => {
