@@ -68,6 +68,15 @@ export function berichtKopfzeile(k: PruefberichtKopf): string {
       `Profilierung: ${k.festlegungen} Festlegungen (Entscheidungsstand dieser Fassung nicht mitgeführt)`,
     );
 
+  // Die Reichweite gehoert **vor** die uebrigen Einschraenkungen: sie sagt, wie
+  // viel der Bericht ueberhaupt aussagt.
+  const r = k.reichweite;
+  if (r.ungeprueft)
+    teile.push(
+      `${r.ungeprueft} von ${r.gesamt} Festlegungen ließen sich nicht zuordnen und blieben ` +
+        'ungeprüft (benannte Vorkommen)',
+    );
+
   if (k.nErweiterung)
     teile.push(
       `${k.nErweiterung} Befund${k.nErweiterung === 1 ? '' : 'e'} betrifft nachbeauftragte ` +

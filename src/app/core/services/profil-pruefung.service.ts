@@ -89,6 +89,7 @@ export class ProfilPruefungService {
         fortschritt: doc.fortschritt,
         festlegungen: Object.values(doc.elemente).filter((e) => e.status).length,
         nErweiterung: befunde.verstoesse.filter((v) => v.erweiterung).length,
+        reichweite: befunde.reichweite,
         // Nur melden, wo die Profilierung überhaupt benannte Vorkommen führt:
         // sonst stünde der Hinweis an jeder Nachricht, ohne etwas zu sagen.
         vorkommenUnzuordenbar: Object.keys(doc.auspraegungen).some((p) => !zuordenbar(p)),

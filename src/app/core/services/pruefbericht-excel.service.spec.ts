@@ -26,6 +26,7 @@ describe('PruefberichtExcelService', () => {
     schemaFehler: [],
     festlegungen: 236,
     nErweiterung: 0,
+    reichweite: { gesamt: 236, ungeprueft: 0 },
     vorkommenUnzuordenbar: false,
     ...teile,
   });

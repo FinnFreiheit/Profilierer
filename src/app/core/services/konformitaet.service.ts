@@ -57,6 +57,21 @@ export interface Luecke {
 export interface Pruefbefunde {
   verstoesse: Verstoss[];
   luecken: Luecke[];
+  /** Wie weit der Abgleich ueberhaupt reichte (siehe `Reichweite`). */
+  reichweite: Reichweite;
+}
+
+/**
+ * Die **Reichweite** eines Abgleichs: wie viele durchsetzbare Festlegungen der
+ * Vorgabe angewandt werden konnten. Ohne diese Zahl liest sich „keine
+ * Abweichungen" als Unbedenklichkeitsbescheinigung, auch wenn der Abgleich
+ * kaum etwas anwenden konnte.
+ */
+export interface Reichweite {
+  /** Durchsetzbare Festlegungen der geprueften Fassung. */
+  gesamt: number;
+  /** Davon nicht zuordenbar und darum ungeprueft (benannte Vorkommen). */
+  ungeprueft: number;
 }
 
 /**
@@ -142,7 +157,34 @@ export class KonformitaetService {
         .map((x) => (istErweiterungsPfad(x.pfad) ? { ...x, erweiterung: true } : x))
         .sort((a, b) => a.pfad.localeCompare(b.pfad)),
       luecken: this.sammleLuecken(v, instanz),
+      reichweite: this.reichweite(v, umgebung),
     };
+  }
+
+  /**
+   * Wie viele Festlegungen der Vorgabe **konnten** ueberhaupt angewandt werden?
+   *
+   * Profilierungen treffen ihre Festlegungen ueberwiegend je **benanntem
+   * Vorkommen** (an realen Profilierungen 48 bis 92 Prozent). Eine aus XML
+   * gewonnene Nachricht traegt dort anonyme Vorkommen; solche Festlegungen sind
+   * nicht zuordenbar und bleiben ungeprueft (`imPfadraum`). Ohne diese Zahl
+   * liest sich „keine Abweichungen" als „die Nachricht ist in Ordnung", obwohl
+   * womoeglich neun von zehn Festlegungen nie zur Anwendung kamen — genau die
+   * Sorte falsch-gruenes Urteil, das dieser Bericht vermeiden soll.
+   *
+   * Gezaehlt werden nur die **durchsetzbaren** Aussagen (Status, Werteliste,
+   * Kardinalitaet): Anmerkung und Beispielwert legen nichts fest, sie koennen
+   * darum auch nicht ungeprueft bleiben.
+   */
+  private reichweite(v: VorgabeSicht, umgebung: KonformitaetsUmgebung): Reichweite {
+    let gesamt = 0;
+    let ungeprueft = 0;
+    for (const [pfad, e] of Object.entries(v.doc.elemente)) {
+      if (!e.status && !e.werte?.length && !e.min && !e.max) continue;
+      gesamt++;
+      if (!v.imPfadraum(pfad, umgebung.vorkommenZuordenbar)) ungeprueft++;
+    }
+    return { gesamt, ungeprueft };
   }
 
   /**
