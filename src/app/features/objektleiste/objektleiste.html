@@ -196,6 +196,13 @@
       >
         Als neue Nachricht speichern
       </button>
+      <button
+        class="menuItem"
+        title="Link in die Zwischenablage legen — er öffnet diese Testnachricht direkt (aktueller Stand)"
+        (click)="weiteres.close(); teilenNachrichtClick.emit()"
+      >
+        Link zum Teilen kopieren
+      </button>
     }
     @if (isCreate() && serieMoeglich()) {
       <button

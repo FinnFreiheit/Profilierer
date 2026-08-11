@@ -14,7 +14,7 @@ function setzeZwischenablage(wert: unknown): void {
 describe('TeilenService', () => {
   let teilen: TeilenService;
   let toast: ToastService;
-  /** Adresszeile des Karma-Fensters — startProfilId veraendert sie wirklich. */
+  /** Adresszeile des Karma-Fensters — startZiel veraendert sie wirklich. */
   let urlVorher: string;
 
   beforeEach(() => {
@@ -72,14 +72,42 @@ describe('TeilenService', () => {
 
   it('liest die id aus dem Link und raeumt den Parameter aus der Adresszeile', () => {
     window.history.replaceState(null, '', '?profil=p%207f3a&x=1#tief');
-    expect(teilen.startProfilId()).toBe('p 7f3a');
+    expect(teilen.startZiel()).toEqual({ art: 'profil', id: 'p 7f3a' });
     expect(window.location.search).toBe('?x=1');
     expect(window.location.hash).toBe('#tief');
   });
 
   it('gibt ohne Parameter null zurueck und laesst die Adresszeile in Ruhe', () => {
     const replace = spyOn(window.history, 'replaceState');
-    expect(teilen.startProfilId()).toBeNull();
+    expect(teilen.startZiel()).toBeNull();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  // ── Testnachricht ──────────────────────────────────────────────────
+
+  it('baut den Nachrichten-Link gegen den <base href> und kodiert die id', () => {
+    expect(teilen.linkFuerTestnachricht('t 1/2')).toBe(
+      new URL('?testnachricht=t%201%2F2', document.baseURI).href,
+    );
+  });
+
+  it('kopiert den Nachrichten-Link und quittiert eigens', async () => {
+    const writeText = jasmine.createSpy('writeText').and.resolveTo();
+    setzeZwischenablage({ writeText });
+    await teilen.kopiereTestnachrichtLink('t1');
+    expect(writeText).toHaveBeenCalledWith(teilen.linkFuerTestnachricht('t1'));
+    expect(toast.text()).toContain('Testnachricht');
+  });
+
+  it('erkennt den Nachrichten-Link und raeumt den Parameter', () => {
+    window.history.replaceState(null, '', '?testnachricht=t1&x=1');
+    expect(teilen.startZiel()).toEqual({ art: 'testnachricht', id: 't1' });
+    expect(window.location.search).toBe('?x=1');
+  });
+
+  it('nimmt bei beiden Parametern das Profil und raeumt dennoch beide', () => {
+    window.history.replaceState(null, '', '?profil=p1&testnachricht=t1');
+    expect(teilen.startZiel()).toEqual({ art: 'profil', id: 'p1' });
+    expect(window.location.search).toBe('');
   });
 });

@@ -4,9 +4,11 @@ import { StateService } from '../../core/services/state.service';
 import { MessageCreateSession } from '../../models/testmessage.model';
 
 /**
- * Die Fusszeile traegt seit #80 die Systemtelemetrie des offenen Profils.
- * Sie darf nicht in den Nachrichten-/Erzeugen-Modus durchschlagen: dort gehoert
- * sie zu einem Dokument, das gerade nicht bearbeitet wird.
+ * Die Fusszeile traegt seit #80 die Systemtelemetrie. Seit #105 gilt sie in
+ * jedem Modus: auch Testnachrichten werden fortlaufend gesichert, und ohne die
+ * Anzeige waere dem stillen Mechanismus nicht anzusehen, ob er laeuft. Dass
+ * keine Meldung eines fremden Modus haengen bleibt, sichern die Einstiege
+ * selbst (TestmessageAutosaveService.sitzungBeginnt raeumt das Signal).
  */
 describe('Legend — Zustandstext', () => {
   let state: StateService;
@@ -30,9 +32,16 @@ describe('Legend — Zustandstext', () => {
     expect(text()).toContain('automatisch gesichert 14:03');
   });
 
-  it('schweigt im Erzeugen-Modus statt die Meldung des vorigen Profils zu halten', () => {
-    state.autosaveInfo.set('von der BLK-AG abgenommen — schreibgeschützt');
+  it('zeigt die Autosave-Meldung auch im Erzeugen-Modus', () => {
     state.messageCreate.set({ msgName: 'x', entryId: null, name: null } as MessageCreateSession);
+    state.autosaveInfo.set('automatisch gesichert 14:07');
+
+    expect(text()).toContain('automatisch gesichert 14:07');
+  });
+
+  it('schweigt, solange nichts gesichert wurde', () => {
+    state.messageCreate.set({ msgName: 'x', entryId: null, name: null } as MessageCreateSession);
+    state.autosaveInfo.set('');
 
     expect(text()).toBe('');
   });

@@ -14,6 +14,21 @@ export class DownloadService {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
 
+  /**
+   * Dateiname einer heruntergeladenen Testnachricht. Namen im Testspeicher sind
+   * frei vergeben („Quelle (bearbeitet 26.08.06)") und tragen die Endung nicht
+   * zwingend — heruntergeladen wird aber immer eine `.xml`. Ein `zusatz` (z. B.
+   * `.abgenommen`) haengt vor der Endung, nicht dahinter.
+   */
+  xmlFilename(name: string, zusatz = ''): string {
+    const basis =
+      (name ?? '')
+        .trim()
+        .replace(/\.xml$/i, '')
+        .trim() || 'testnachricht';
+    return `${basis}${zusatz}.xml`;
+  }
+
   profilFilename(ext: string): string {
     const n = (this.state.meta().name || 'Profil').replace(/[^\wäöüÄÖÜß-]+/g, '_');
     const msg = (this.state.msgName() || '').split('.').slice(1, -1).join('.') || 'xjustiz';

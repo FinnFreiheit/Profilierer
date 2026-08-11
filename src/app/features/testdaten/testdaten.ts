@@ -21,6 +21,7 @@ import { XmlValidationService } from '../../core/services/xml-validation.service
 import { ValidationReportService } from '../../core/services/validation-report.service';
 import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
+import { TeilenService } from '../../core/services/teilen.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { TestmessageEntry } from '../../models/testmessage.model';
@@ -66,6 +67,7 @@ export class Testdaten {
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
   private readonly vergleich = inject(VergleichService);
+  private readonly teilenService = inject(TeilenService);
 
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
@@ -351,29 +353,11 @@ export class Testdaten {
   /**
    * Kachel-Klick: gefuehrt erstellte Nachrichten (gespeicherter
    * Entscheidungsstand) werden gefuehrt fortgesetzt, alle anderen wie bisher
-   * zum Betrachten/Bearbeiten geoeffnet.
+   * zum Betrachten geoeffnet — beides entscheidet `edit.oeffneEintrag`,
+   * damit ein geteilter Link dieselbe Tuer nimmt.
    */
   protected async openEntry(e: TestmessageEntry): Promise<void> {
-    // Gefuehrtes Fortsetzen schreibt in den Eintrag — fuer Externe an
-    // abgenommenen Nachrichten gesperrt; sie oeffnen nur betrachtend im Baum.
-    if (e.gefuehrt && !this.gesperrt(e)) {
-      try {
-        await this.creator.fortsetzen(e);
-        return;
-      } catch {
-        // Stand nicht ladbar (Backend/Schema) — auf das normale Oeffnen zurueckfallen.
-      }
-    }
-    await this.openInTree(e);
-  }
-
-  /** Testnachricht betrachtend im Baum-Editor oeffnen (gesperrt, nur Werte). */
-  protected async openInTree(e: TestmessageEntry): Promise<void> {
-    try {
-      await this.edit.oeffnen(e, 'betrachten');
-    } catch (err) {
-      this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
-    }
+    await this.oeffne(e, 'betrachten');
   }
 
   /**
@@ -385,19 +369,25 @@ export class Testdaten {
   protected async bearbeiten(e: TestmessageEntry, ev: Event): Promise<void> {
     ev.stopPropagation();
     if (this.gesperrt(e)) return;
-    if (e.gefuehrt) {
-      try {
-        await this.creator.fortsetzen(e);
-        return;
-      } catch {
-        // Stand nicht ladbar (Backend/Schema) — als Instanz bearbeiten.
-      }
-    }
+    await this.oeffne(e, 'bearbeiten');
+  }
+
+  private async oeffne(e: TestmessageEntry, modus: 'betrachten' | 'bearbeiten'): Promise<void> {
     try {
-      await this.edit.oeffnen(e, 'bearbeiten');
+      await this.edit.oeffneEintrag(e, modus);
     } catch (err) {
       this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
     }
+  }
+
+  /**
+   * Kachel-Aktion "Link zum Teilen kopieren": der Link zeigt auf **diesen**
+   * Eintrag, nicht auf eine Kopie — wer ihn oeffnet, sieht den jeweils
+   * aktuellen Stand der Nachricht.
+   */
+  protected teilen(e: TestmessageEntry, ev: Event): void {
+    ev.stopPropagation();
+    void this.teilenService.kopiereTestnachrichtLink(e.id);
   }
 
   // ── Upload ──────────────────────────────────────────────────────────
@@ -526,7 +516,7 @@ export class Testdaten {
         );
         return;
       }
-      this.dl.download(e.name || (e.nachricht ?? 'testnachricht') + '.xml', xml, 'application/xml');
+      this.dl.download(this.dl.xmlFilename(e.name || (e.nachricht ?? '')), xml, 'application/xml');
     } catch {
       this.toast.show('Download fehlgeschlagen — Backend nicht erreichbar.');
     }
@@ -609,10 +599,7 @@ export class Testdaten {
         this.toast.show('Keine abgenommene Fassung vorhanden.');
         return;
       }
-      const name = (e.name || (e.nachricht ?? 'testnachricht') + '.xml').replace(
-        /\.xml$/i,
-        '.abgenommen.xml',
-      );
+      const name = this.dl.xmlFilename(e.name || (e.nachricht ?? ''), '.abgenommen');
       this.dl.download(name, xml, 'application/xml');
     } catch {
       this.toast.show('Download fehlgeschlagen — Backend nicht erreichbar.');

@@ -117,6 +117,13 @@
                 <button class="menuItem" (click)="werkzeuge.close(); download(e, $event)">
                   XML herunterladen
                 </button>
+                <button
+                  class="menuItem"
+                  title="Link in die Zwischenablage legen — er öffnet diese Testnachricht direkt (aktueller Stand)"
+                  (click)="werkzeuge.close(); teilen(e, $event)"
+                >
+                  Link zum Teilen kopieren
+                </button>
                 @if (e.abgenommen) {
                   <button
                     class="menuItem"

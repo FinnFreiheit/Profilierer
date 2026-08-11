@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { TestmessageCreateService } from './testmessage-create.service';
 import { TestmessageStoreService } from './testmessage-store.service';
+import { TestmessageAutosaveService } from './testmessage-autosave.service';
 import { ProfileStoreService, VersionMitDoc } from './profile-store.service';
 import { PersistenceService } from './persistence.service';
 import { ToastService } from './toast.service';
@@ -90,6 +91,14 @@ describe('TestmessageCreateService', () => {
     pruefung = { status: 'valide', fehler: [], fehlerDetails: [] };
     TestBed.configureTestingModule({
       providers: [
+        {
+          provide: TestmessageAutosaveService,
+          useValue: {
+            flush: async () => {},
+            sitzungBeginnt: () => {},
+            explizitGespeichert: () => {},
+          },
+        },
         {
           provide: TestmessageStoreService,
           useValue: {

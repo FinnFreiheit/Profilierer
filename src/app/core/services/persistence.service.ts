@@ -13,6 +13,7 @@ import { BundledVersion } from '../../models/schema-bundle.model';
 import { RolleService } from './rolle.service';
 import { HinweisStoreService } from './hinweis-store.service';
 import { GuidedService } from './guided.service';
+import { TestmessageAutosaveService } from './testmessage-autosave.service';
 import { hinweiseAusDatei } from '../util/hinweis.util';
 import { defaultStatuses, newProfile } from '../profile-defaults';
 
@@ -47,6 +48,11 @@ export class PersistenceService {
   private readonly rolle = inject(RolleService);
   private readonly hinweise = inject(HinweisStoreService);
   private readonly guided = inject(GuidedService);
+  /**
+   * Der Autosave des Nachrichten-Modus (#105) — eigene Naht, hier nur, um
+   * beim Wechsel in ein Profil den offenen Nachrichtenstand zu sichern.
+   */
+  private readonly msgAutosave = inject(TestmessageAutosaveService);
 
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   /** Verhindert parallele Upserts (Reihenfolge/Lost-Update-Schutz). */
@@ -373,7 +379,9 @@ export class PersistenceService {
 
   /** Ein Bibliotheksprofil oeffnen und in den Editor wechseln. */
   async openFromLibrary(id: string): Promise<void> {
-    // Haengende Aenderungen des zuvor aktiven Profils erst sichern.
+    // Haengende Aenderungen des zuvor aktiven Profils bzw. der zuvor offenen
+    // Testnachricht erst sichern.
+    await this.msgAutosave.flush();
     await this.flushAutosave();
     let doc: ProfileDoc | null;
     try {
@@ -446,6 +454,9 @@ export class PersistenceService {
    * restoreVersion.
    */
   private async uebernehmeDoc(doc: ProfileDoc): Promise<void> {
+    // Die Fusszeile zeigt den Autosave-Stand seit #105 in jedem Modus — die
+    // Meldung der zuvor offenen Testnachricht gilt hier nicht mehr.
+    this.state.autosaveInfo.set('');
     this.state.loadProfile(doc);
     // Bestehende Profilierungen oeffnen im freien Modus; gefuehrt ist zuschaltbar
     // (Fortschritt wird dann aus den gespeicherten Entscheidungen berechnet).
@@ -502,6 +513,8 @@ export class PersistenceService {
 
   /** Neues, leeres Profil anlegen und in den Editor wechseln. */
   async createNew(): Promise<void> {
+    await this.msgAutosave.flush();
+    this.state.autosaveInfo.set('');
     let id: string;
     try {
       id = await this.store.create(newProfile());

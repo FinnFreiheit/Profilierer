@@ -19,7 +19,7 @@ import { BundledVersion } from '../../models/schema-bundle.model';
 import { MessageCreateSession, MessageEditSession } from '../../models/testmessage.model';
 import { newProfile } from '../profile-defaults';
 import { kardText, pretty } from '../util/pretty.util';
-import { REF_TARGETS } from '../refs';
+import { REF_TARGETS, SGO_KENNUNG } from '../refs';
 import { HinweisStoreService } from './hinweis-store.service';
 
 /**
@@ -1050,6 +1050,24 @@ export class StateService {
     if (!list) return null;
     const idx = list.findIndex((a) => a.id === teile.auspId);
     return idx >= 0 ? idx + 1 : null;
+  }
+
+  /**
+   * Die Kennung eines Verweisziels: die UUID, die ein Schriftgutobjekt in
+   * seiner `identifikation/id` traegt und ueber die ein `Type.GDS.Ref.SGO`
+   * darauf verweist. Gegenstueck zu `auspNumber` — dort die laufende Nummer,
+   * hier die Identitaet des Ziels.
+   *
+   * Gesucht wird ueber die Pfad-Endung, weil zwischen Vorkommen und
+   * `identifikation` synthetische Gruppen liegen koennen. Null, solange am Ziel
+   * keine Kennung steht; die vergibt die Zielwahl (`waehleVerweisZiel`).
+   */
+  sgoKennungOf(zielPfad: string): string | null {
+    const pre = zielPfad + '/';
+    const post = '/' + SGO_KENNUNG;
+    for (const [k, p] of Object.entries(this.elemente()))
+      if (p?.beispiel && k.startsWith(pre) && k.endsWith(post)) return p.beispiel;
+    return null;
   }
 
   /** auspLabel (Z.634-640): "Element „Name"" fuer ein Verweisziel. */

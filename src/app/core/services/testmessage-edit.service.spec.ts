@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { TestmessageEditService } from './testmessage-edit.service';
 import { TestmessageStoreService } from './testmessage-store.service';
+import { TestmessageAutosaveService } from './testmessage-autosave.service';
+import { TestmessageCreateService } from './testmessage-create.service';
 import { PersistenceService } from './persistence.service';
 import { RolleService } from './rolle.service';
 import { ToastService } from './toast.service';
@@ -82,10 +84,16 @@ describe('TestmessageEditService', () => {
   let bezAntwort: AuspBezeichnungen | null;
   /** ids, fuer die die Bindung geloest wurde. */
   let geloest: string[];
+  /** ids, fuer die der gefuehrte Durchlauf fortgesetzt wurde. */
+  let fortgesetzt: string[];
+  /** Stub-Schalter: der gespeicherte Entscheidungsstand ist nicht ladbar. */
+  let fortsetzenScheitert: boolean;
 
   beforeEach(() => {
     created = [];
     patched = [];
+    fortgesetzt = [];
+    fortsetzenScheitert = false;
     eintraege = [eintrag()];
     pruefung = { status: 'valide', fehler: [], fehlerDetails: [] };
     agAktiv = false;
@@ -95,6 +103,14 @@ describe('TestmessageEditService', () => {
     geloest = [];
     TestBed.configureTestingModule({
       providers: [
+        {
+          provide: TestmessageAutosaveService,
+          useValue: {
+            flush: async () => {},
+            sitzungBeginnt: () => {},
+            explizitGespeichert: () => {},
+          },
+        },
         {
           provide: TestmessageStoreService,
           useValue: {
@@ -118,6 +134,15 @@ describe('TestmessageEditService', () => {
           provide: PersistenceService,
           useValue: { flushAutosave: async () => {}, ensureSchema: async () => {} },
         },
+        {
+          provide: TestmessageCreateService,
+          useValue: {
+            fortsetzen: async (e: TestmessageEntry) => {
+              fortgesetzt.push(e.id);
+              if (fortsetzenScheitert) throw new Error('Stand nicht ladbar');
+            },
+          },
+        },
         { provide: RolleService, useValue: { agAktiv: () => agAktiv } },
         { provide: ToastService, useValue: { show: () => {} } },
         { provide: CodelistService, useValue: { ensureUsedCodelists: () => Promise.resolve() } },
@@ -131,6 +156,35 @@ describe('TestmessageEditService', () => {
     const docs: XsdDoc[] = [{ file: 'xjustiz_0000_test.xsd', dom }];
     state.idx.set(parser.buildIndexFrom(docs).idx);
     state.version.set('3.6.2');
+  });
+
+  describe('oeffneEintrag (die eine Tuer: Kachel-Klick wie geteilter Link)', () => {
+    it('setzt eine gefuehrt erstellte Nachricht gefuehrt fort', async () => {
+      await svc.oeffneEintrag(eintrag({ gefuehrt: true }));
+      expect(fortgesetzt).toEqual(['id-1']);
+      // Der Stub oeffnet nichts — bliebe es beim Fortsetzen aus, staende hier M.
+      expect(state.msgName()).toBeFalsy();
+    });
+
+    it('faellt auf das Oeffnen im Baum zurueck, wenn der Stand nicht ladbar ist', async () => {
+      fortsetzenScheitert = true;
+      await svc.oeffneEintrag(eintrag({ gefuehrt: true }));
+      expect(fortgesetzt).toEqual(['id-1']);
+      expect(state.msgName()).toBe(M);
+      expect(state.readOnly()).toBeTrue();
+    });
+
+    it('fuehrt Externe an einer abgenommenen Nachricht nicht fort', async () => {
+      await svc.oeffneEintrag(eintrag({ gefuehrt: true, abgenommen: true }));
+      expect(fortgesetzt).toEqual([]);
+      expect(state.abnahmeSchreibschutz()).toBeTrue();
+    });
+
+    it('oeffnet eine nicht gefuehrte Nachricht direkt im gewuenschten Modus', async () => {
+      await svc.oeffneEintrag(eintrag(), 'bearbeiten');
+      expect(fortgesetzt).toEqual([]);
+      expect(state.readOnly()).toBeFalse();
+    });
   });
 
   describe('oeffnen', () => {
@@ -273,12 +327,60 @@ describe('TestmessageEditService', () => {
       expect(patched[0]!.patch['entwurf']).toBeTrue();
     });
 
-    it('gefuehrt erstellter Eintrag fragt vor dem Ueberschreiben nach', async () => {
+    // Die Rueckfrage zu gefuehrt erstellten Nachrichten steht seit #105 am
+    // Beginn der Bearbeitung, nicht mehr hier — mit laufendem Autosave kaeme
+    // sie zu spaet (siehe unten).
+    it('fragt beim Zurueckschreiben nicht mehr nach', async () => {
       eintraege = [eintrag({ gefuehrt: true })];
+      const confirmSpy = spyOn(window, 'confirm');
+      expect(await svc.speichern()).toBeTrue();
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(patched.length).toBe(1);
+    });
+  });
+
+  /**
+   * Die Bearbeitung entkoppelt das XML vom gespeicherten Entscheidungsstand —
+   * und zwar mit der ersten Aenderung, nicht erst beim Speichern. Die Frage
+   * gehoert deshalb an den Beginn (#105); der Autosave laeuft danach frei.
+   */
+  describe('gefuehrt erstellte Nachricht bearbeiten (#105)', () => {
+    beforeEach(() => {
+      eintraege = [eintrag({ gefuehrt: true })];
+    });
+
+    it('abgelehnte Rueckfrage laesst es beim Betrachten', async () => {
       const confirmSpy = spyOn(window, 'confirm').and.returnValue(false);
-      expect(await svc.speichern()).toBeFalse();
+      await svc.oeffnen(eintrag({ gefuehrt: true }), 'bearbeiten');
+
       expect(confirmSpy).toHaveBeenCalled();
-      expect(patched.length).toBe(0);
+      expect(state.readOnly()).toBeTrue();
+    });
+
+    it('bestaetigte Rueckfrage oeffnet die Bearbeitung', async () => {
+      spyOn(window, 'confirm').and.returnValue(true);
+      await svc.oeffnen(eintrag({ gefuehrt: true }), 'bearbeiten');
+
+      expect(state.readOnly()).toBeFalse();
+    });
+
+    it('fragt in derselben Sitzung nur einmal', async () => {
+      const confirmSpy = spyOn(window, 'confirm').and.returnValue(true);
+      await svc.oeffnen(eintrag({ gefuehrt: true }), 'betrachten');
+
+      expect(svc.bearbeitenAnfordern()).toBeTrue();
+      state.nachrichtBearbeiten(false);
+      expect(svc.bearbeitenAnfordern()).toBeTrue();
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('eine nicht gefuehrt erstellte Nachricht fragt gar nicht', async () => {
+      eintraege = [eintrag()];
+      const confirmSpy = spyOn(window, 'confirm');
+      await svc.oeffnen(eintrag(), 'bearbeiten');
+
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(state.readOnly()).toBeFalse();
     });
   });
 

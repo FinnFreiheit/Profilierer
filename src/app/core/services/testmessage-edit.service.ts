@@ -9,6 +9,8 @@ import { StateService } from './state.service';
 import { InstanceImportService } from './instance-import.service';
 import { InstanceExportService } from './instance-export.service';
 import { TestmessageStoreService } from './testmessage-store.service';
+import { TestmessageAutosaveService } from './testmessage-autosave.service';
+import { TestmessageCreateService } from './testmessage-create.service';
 import { PersistenceService } from './persistence.service';
 import { RolleService } from './rolle.service';
 import { ToastService } from './toast.service';
@@ -36,12 +38,45 @@ export class TestmessageEditService {
   private readonly instanceImport = inject(InstanceImportService);
   private readonly instanceExport = inject(InstanceExportService);
   private readonly store = inject(TestmessageStoreService);
+  private readonly autosave = inject(TestmessageAutosaveService);
   private readonly persistence = inject(PersistenceService);
   private readonly rolle = inject(RolleService);
   private readonly toast = inject(ToastService);
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
   private readonly abgleich = inject(SitzungsAbgleichService);
+  private readonly create = inject(TestmessageCreateService);
+
+  /**
+   * Einen Eintrag so oeffnen, wie es der Klick auf seine Kachel tut — der eine
+   * Weg zu einer gespeicherten Testnachricht, gleich ob er aus dem Kachel-Grid
+   * kommt oder aus einem geteilten Link (`?testnachricht=<id>`).
+   *
+   * Gefuehrt erstellte Nachrichten werden gefuehrt fortgesetzt: dort ist der
+   * gespeicherte Entscheidungsstand die Wahrheit. Ist der Stand nicht ladbar
+   * (Backend/Schema), faellt es auf das gewoehnliche Oeffnen im Baum zurueck.
+   * Fuer Externe an abgenommenen Nachrichten entfaellt die Fuehrung — sie
+   * schriebe in den gesperrten Eintrag.
+   */
+  async oeffneEintrag(
+    entry: TestmessageEntry,
+    modus: 'betrachten' | 'bearbeiten' = 'betrachten',
+  ): Promise<void> {
+    if (entry.gefuehrt && !this.gesperrt(entry)) {
+      try {
+        await this.create.fortsetzen(entry);
+        return;
+      } catch {
+        // Stand nicht ladbar — auf das normale Oeffnen zurueckfallen.
+      }
+    }
+    await this.oeffnen(entry, modus);
+  }
+
+  /** Abnahme-Schreibschutz: abgenommen und ohne AG-Schluessel. */
+  gesperrt(entry: TestmessageEntry): boolean {
+    return !!entry.abgenommen && !this.rolle.agAktiv();
+  }
 
   /**
    * Testnachricht im Baum oeffnen — betrachtend (gesperrt, nur belegte Aeste)
@@ -52,7 +87,11 @@ export class TestmessageEditService {
    * was die Bearbeitung ausmacht, wird deshalb erst danach gesetzt.
    */
   async oeffnen(entry: TestmessageEntry, modus: 'betrachten' | 'bearbeiten'): Promise<void> {
+    // Haengende Aenderungen der zuvor offenen Nachricht erst sichern — sonst
+    // liefe die Entprellung gegen den alten Eintrag ins Leere (#105).
+    await this.autosave.flush();
     await this.persistence.flushAutosave();
+    this.gefragtFuer = null;
     const xml = await this.store.loadXml(entry.id);
     if (xml == null) throw new Error('Nachricht nicht gefunden.');
     await this.persistence.ensureSchema(entry.xjustizVersion);
@@ -84,14 +123,53 @@ export class TestmessageEditService {
 
     // Immer explizit setzen, also auch loesen: der Schutz haengt an der zuletzt
     // geoeffneten Nachricht, nicht an einem Profil (activeProfileId ist null).
-    const schutz = !!entry.abgenommen && !this.rolle.agAktiv();
-    this.state.abnahmeSchreibschutz.set(schutz);
-    if (modus === 'bearbeiten') {
-      if (schutz)
-        this.toast.show('Von der BLK-AG abgenommen — nur betrachten (AG-Schlüssel nötig).');
-      else this.state.nachrichtBearbeiten(true);
-    }
+    this.state.abnahmeSchreibschutz.set(this.gesperrt(entry));
+    if (modus === 'bearbeiten') this.bearbeitenAnfordern();
     this.state.view.set('editor');
+    // Der geladene Stand kommt aus dem Speicher — er ist bereits gesichert.
+    // Ohne diese Marke schriebe der Autosave die Nachricht sofort nach dem
+    // Oeffnen unveraendert zurueck und schoebe sie in der Uebersicht nach oben.
+    this.autosave.sitzungBeginnt();
+  }
+
+  /**
+   * Die Nachricht, fuer die die Rueckfrage unten schon gestellt wurde. Sie
+   * gehoert zur Sitzung, nicht zum Vorgang: einmal beantwortet, arbeitet man
+   * weiter, ohne bei jedem Moduswechsel erneut gefragt zu werden.
+   */
+  private gefragtFuer: string | null = null;
+
+  /**
+   * In den Bearbeitungsmodus schalten — der eine Ort, an dem das entschieden
+   * wird (Kachel-Aktion "Bearbeiten" wie Modus-Segment der Werkzeugleiste).
+   * Gibt false zurueck, wenn es beim Betrachten bleibt.
+   *
+   * Hier sitzt seit #105 auch die Rueckfrage zu gefuehrt erstellten
+   * Nachrichten. Sie stand frueher im Speichern — mit Autosave kaeme sie dort
+   * nie mehr zum Zug, und das ist ohnehin die spaetere Stelle: der gespeicherte
+   * Entscheidungsstand passt schon nach der **ersten Aenderung** nicht mehr zum
+   * XML, nicht erst beim Zurueckschreiben.
+   */
+  bearbeitenAnfordern(): boolean {
+    if (this.state.abnahmeSchreibschutz()) {
+      this.toast.show('Von der BLK-AG abgenommen — nur betrachten (AG-Schlüssel nötig).');
+      return false;
+    }
+    const id = this.state.messageEdit()?.entryId ?? null;
+    const eintrag = id ? this.store.entries().find((e) => e.id === id) : undefined;
+    if (eintrag?.gefuehrt && this.gefragtFuer !== id) {
+      if (
+        !confirm(
+          'Diese Nachricht wurde geführt erstellt. Beim Bearbeiten passt der gespeicherte Entscheidungsstand nicht mehr zum XML — „Entwurf fortsetzen" führt danach auf einen veralteten Stand. Trotzdem bearbeiten?',
+        )
+      ) {
+        this.toast.show('Es bleibt beim Betrachten — der Entscheidungsstand bleibt unberührt.');
+        return false;
+      }
+      this.gefragtFuer = id;
+    }
+    this.state.nachrichtBearbeiten(true);
+    return true;
   }
 
   /**
@@ -108,14 +186,9 @@ export class TestmessageEditService {
       this.toast.show('Von der BLK-AG abgenommen — Speichern nur mit AG-Schlüssel.');
       return false;
     }
-    const eintrag = this.store.entries().find((e) => e.id === session.entryId);
-    if (
-      eintrag?.gefuehrt &&
-      !confirm(
-        'Diese Nachricht wurde geführt erstellt. Der gespeicherte Entscheidungsstand passt nach dem Speichern nicht mehr zum XML. Trotzdem speichern?',
-      )
-    )
-      return false;
+    // Die Rueckfrage zu gefuehrt erstellten Nachrichten steht seit #105 am
+    // Beginn der Bearbeitung (bearbeitenAnfordern) — hier kaeme sie mit
+    // laufendem Autosave zu spaet.
 
     // Kopfdaten unangetastet: es ist dieselbe Nachricht, keine neue.
     const xml = this.instanceExport.buildInstanceXml(session, false);
@@ -154,6 +227,7 @@ export class TestmessageEditService {
       entwurf: urteil.entwurf,
       bezeichnungen: bezeichnungenAus(this.state.alleAuspListen()),
     });
+    this.autosave.explizitGespeichert();
     const m = urteil.meldung;
     if (m) {
       this.toast.show(m.toast);
@@ -196,6 +270,10 @@ export class TestmessageEditService {
    * getreu serialisieren (Original-DOM + Modell-Aenderungen), mit frischen
    * Kopfdaten. Anders als beim Zurueckspeichern muss das Ergebnis schema-valide
    * sein — neue Eintraege durchlaufen dasselbe Tor wie der Upload.
+   *
+   * Seit dem Autosave (#105) ist das kein Weg mehr, den Ausgangseintrag
+   * unberuehrt zu lassen: die Aenderungen davor sind dort laengst gesichert.
+   * Der Ausstieg heisst hier "abzweigen", nicht "verwerfen".
    */
   async alsNeueSpeichern(): Promise<boolean> {
     const session = this.state.messageEdit();

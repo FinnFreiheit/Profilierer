@@ -49,6 +49,8 @@ export class Objektleiste {
   readonly printClick = output<void>();
   /** Link auf die offene Profilierung in die Zwischenablage legen. */
   readonly teilenClick = output<void>();
+  /** Link auf die offene Testnachricht in die Zwischenablage legen. */
+  readonly teilenNachrichtClick = output<void>();
   readonly saveMessageClick = output<void>();
   readonly updateMessageClick = output<void>();
   /** Profilbindung der geoeffneten Nachricht bewusst loesen (#32). */
