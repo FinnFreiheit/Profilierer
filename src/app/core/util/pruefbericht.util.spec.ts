@@ -17,6 +17,7 @@ describe('Pruefbericht-Aufbereitung', () => {
     zeitpunkt: 0,
     festlegungen: 236,
     nErweiterung: 0,
+    reichweite: { gesamt: 236, ungeprueft: 0 },
     vorkommenUnzuordenbar: false,
     ...teile,
   });
@@ -74,6 +75,14 @@ describe('Pruefbericht-Aufbereitung', () => {
     it('warnt bei fehlender Schemavaliditaet — der Bericht kann sonst falsch-gruen sein', () => {
       expect(berichtKopfzeile(kopf({ schema: 'invalide' }))).toContain('ungeprüft');
       expect(berichtKopfzeile(kopf({ schema: 'unpruefbar' }))).toContain('nicht prüfbar');
+      expect(berichtKopfzeile(kopf())).not.toContain('ungeprüft');
+    });
+
+    it('nennt die Reichweite — „keine Abweichungen" ohne sie ist eine Blankozusage', () => {
+      const z = berichtKopfzeile(kopf({ reichweite: { gesamt: 236, ungeprueft: 216 } }));
+      expect(z).toContain('216 von 236 Festlegungen ließen sich nicht zuordnen');
+      expect(z).toContain('ungeprüft');
+      // Wo alles angewandt wurde, entfällt die Zeile.
       expect(berichtKopfzeile(kopf())).not.toContain('ungeprüft');
     });
 

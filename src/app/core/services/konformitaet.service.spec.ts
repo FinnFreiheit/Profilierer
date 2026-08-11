@@ -351,6 +351,53 @@ describe('KonformitaetService', () => {
     expect(verstoesse(doc, instanz(), { istBlatt: () => false })).toEqual([]);
   });
 
+  // ── Reichweite: wie viel konnte ueberhaupt angewandt werden ──────────
+
+  describe('reichweite', () => {
+    const reichweite = (
+      ...args: Parameters<KonformitaetService['pruefe']>
+    ): ReturnType<KonformitaetService['pruefe']>['reichweite'] => svc.pruefe(...args).reichweite;
+
+    it('zaehlt Festlegungen an nicht zuordenbaren Vorkommen als ungeprueft', () => {
+      // An realen Profilierungen haengen 48 bis 92 Prozent aller Festlegungen an
+      // benannten Vorkommen. Eine hochgeladene Nachricht kann sie nicht tragen —
+      // ohne diese Zahl liest sich „keine Abweichungen" als
+      // Unbedenklichkeitsbescheinigung, obwohl kaum etwas geprueft wurde.
+      const doc = vorgabe({
+        elemente: {
+          [`${M}/kopf`]: { status: V.pflicht },
+          [`${M}/bet@n1/name`]: { status: V.pflicht },
+          [`${M}/bet@n2/name`]: { werte: ['x'] },
+        },
+        auspraegungen: {
+          [`${M}/bet`]: [
+            { id: 'n1', name: 'A' },
+            { id: 'n2', name: 'B' },
+          ],
+        },
+      });
+
+      // Zuordenbar (gefuehrter Durchlauf): alles angewandt.
+      expect(reichweite(doc, instanz())).toEqual({ gesamt: 3, ungeprueft: 0 });
+
+      // Nicht zuordenbar (hochgeladene Nachricht): nur der vorkommenfreie Pfad.
+      expect(reichweite(doc, instanz(), { vorkommenZuordenbar: () => false })).toEqual({
+        gesamt: 3,
+        ungeprueft: 2,
+      });
+    });
+
+    it('zaehlt nur durchsetzbare Aussagen — Anmerkung und Beispiel nicht', () => {
+      const doc = vorgabe({
+        elemente: {
+          [`${M}/a`]: { status: V.pflicht },
+          [`${M}/b`]: { anmerkung: 'nur ein Hinweis', beispiel: 'x' },
+        },
+      });
+      expect(reichweite(doc, instanz()).gesamt).toBe(1);
+    });
+  });
+
   // ── Luecken der Profilierung (kein Verstoss der Nachricht) ───────────
 
   describe('luecken', () => {

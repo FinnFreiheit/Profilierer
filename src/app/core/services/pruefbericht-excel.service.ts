@@ -121,6 +121,16 @@ export class PruefberichtExcelService {
           ? 'nicht zuordenbar — geprüft wurde die Anzahl, nicht die Zuordnung'
           : 'zugeordnet',
       ],
+      // Die Reichweite ist die wichtigste Angabe des Blattes: sie sagt, wie viel
+      // der Bericht überhaupt aussagt.
+      [
+        'Reichweite der Prüfung',
+        `${k.reichweite.gesamt - k.reichweite.ungeprueft} von ${k.reichweite.gesamt} ` +
+          `Festlegungen angewandt` +
+          (k.reichweite.ungeprueft
+            ? ` — ${k.reichweite.ungeprueft} nicht zuordenbar (benannte Vorkommen)`
+            : ''),
+      ],
     ];
     for (const [a, b2] of angaben) this.paar(ws, a, b2);
 

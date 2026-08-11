@@ -1,4 +1,4 @@
-import { Luecke, Verstoss } from '../core/services/konformitaet.service';
+import { Luecke, Reichweite, Verstoss } from '../core/services/konformitaet.service';
 
 /**
  * Der Prüfbericht „Testnachricht gegen eine Profilierung" (#107).
@@ -41,6 +41,12 @@ export interface PruefberichtKopf {
    * sagt mehr über die Belastbarkeit des Lücken-Teils als gar nichts.
    */
   festlegungen: number;
+  /**
+   * Reichweite des Abgleichs: wie viele durchsetzbare Festlegungen es gab und
+   * wie viele davon nicht zuordenbar blieben. Ohne diese Zahl liest sich „keine
+   * Abweichungen" als Unbedenklichkeitsbescheinigung.
+   */
+  reichweite: Reichweite;
   /**
    * Befunde an nachbeauftragten Elementen (Schema-Erweiterungen). Sie stehen im
    * Bericht, zählen aber nicht gegen die Nachricht: das Element gibt es im
