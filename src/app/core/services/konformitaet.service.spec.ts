@@ -282,6 +282,68 @@ describe('KonformitaetService', () => {
     expect(v[0]!.pfad).toBe(`${M}/beteiligung@n2/name`);
   });
 
+  it('verlangt nichts unter einem Vorfahren, den die Nachricht nicht enthaelt (ADR 0016)', () => {
+    // Am laufenden System gefunden: die Profilierung setzte mehrere Zweige einer
+    // **Auswahl** zwingend. In einer Auswahl kann nur einer vorkommen — die
+    // uebrigen fehlen notwendig. Gemeldet wurden zwoelf Befunde, alle unschuldig.
+    const doc = vorgabe({
+      elemente: {
+        [`${M}/auswahl_x/zweigA/feld`]: { status: V.pflicht },
+        [`${M}/auswahl_x/zweigB/feld`]: { status: V.pflicht },
+      },
+    });
+    // Die Nachricht traegt Zweig A, nicht B.
+    const enthalten = new Set([
+      M,
+      `${M}/auswahl_x`,
+      `${M}/auswahl_x/zweigA`,
+      `${M}/auswahl_x/zweigA/feld`,
+    ]);
+    const v = verstoesse(
+      doc,
+      instanz({ elemente: { [`${M}/auswahl_x/zweigA/feld`]: { beispiel: 'x' } } }),
+      {
+        istEnthalten: (p) => enthalten.has(p),
+        istBlatt: (p) => p.endsWith('/feld'),
+      },
+    );
+
+    expect(v).toEqual([]);
+  });
+
+  it('meldet den fehlenden Vorfahren selbst, wenn die Profilierung ihn verlangt', () => {
+    // Die Regel unterdrueckt den Inhalt, nicht den Befund: verlangt die
+    // Profilierung den Ast selbst, steht er im Bericht — einmal, statt
+    // dutzendfach fuer jedes Blatt darunter.
+    const doc = vorgabe({
+      elemente: {
+        [`${M}/bet/adresse`]: { status: V.pflicht },
+        [`${M}/bet/adresse/ort`]: { status: V.pflicht },
+      },
+    });
+    const enthalten = new Set([M, `${M}/bet`]);
+    const v = verstoesse(doc, instanz(), {
+      istEnthalten: (p) => enthalten.has(p),
+      istBlatt: (p) => p.endsWith('/ort'),
+    });
+
+    expect(v.map((x) => x.pfad)).toEqual([`${M}/bet/adresse`]);
+    expect(v[0]!.art).toBe('fehlt');
+  });
+
+  it('eine synthetische Gruppe im Pfad unterdrueckt nichts („keine Auskunft")', () => {
+    // Synthetische Knoten sind keine Elemente der Nachricht. Wuerden sie mit
+    // „nein" antworten, verschwaenden alle Befunde unter jeder Gruppe.
+    const doc = vorgabe({ elemente: { [`${M}/_gruppe/feld`]: { status: V.pflicht } } });
+    const v = verstoesse(doc, instanz(), {
+      istEnthalten: (p) => (p.includes('_gruppe') && !p.endsWith('/feld') ? null : p === M),
+      istBlatt: () => true,
+    });
+
+    expect(v.map((x) => x.art)).toEqual(['fehlt']);
+    expect(v[0]!.pfad).toBe(`${M}/_gruppe/feld`);
+  });
+
   it('prueft Pflichtwerte nur mit Blatt-Wissen — ein Container bleibt unbeanstandet', () => {
     const doc = vorgabe({ elemente: { [`${M}/beteiligung`]: { status: V.pflicht } } });
 

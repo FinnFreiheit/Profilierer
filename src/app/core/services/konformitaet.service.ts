@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { ProfileDoc } from '../../models/profile.model';
 import { TreeNode } from '../../models/node.model';
-import { blattName, istErweiterungsPfad, ohneVorkommen } from '../util/pfad.util';
+import { blattName, istErweiterungsPfad, ohneVorkommen, vorfahren } from '../util/pfad.util';
 import { pretty } from '../util/pretty.util';
 import { InstanzModell, VorgabeSicht } from '../vorgabe-sicht';
 import { StateService } from './state.service';
@@ -341,6 +341,18 @@ export class KonformitaetService {
       for (const ziel of v.instanzPfade(pfad, umgebung.vorkommenZuordenbar)) {
         if (v.ausschlussQuelle(ziel)) continue; // gesperrtes Vorkommen: nichts verlangt
         if (!v.imPfadraum(ziel, umgebung.vorkommenZuordenbar)) continue;
+        // **Elternabhaengigkeit** (ADR 0016): was die Nachricht nicht betritt,
+        // verlangt sie auch nicht — auch dann nicht, wenn die gebundene Fassung
+        // darunter etwas zwingend setzt. Der fehlende Vorfahr ist der Befund,
+        // nicht sein Inhalt.
+        //
+        // Ohne diese Regel meldete der Abgleich jeden zwingend gesetzten Zweig
+        // einer **Auswahl** als fehlend: in einer Auswahl kann nur einer
+        // vorkommen, die uebrigen fehlen notwendig. An einer realen
+        // Profilierung waren das zwoelf Befunde, alle unschuldig. Dass die
+        // Profilierung mehrere sich ausschliessende Zweige verlangt, ist ein
+        // Widerspruch **in ihr** (ADR 0015) — kein Mangel der Nachricht.
+        if (vorfahren(ziel).some((a) => istEnthalten?.(a) === false)) continue;
         // Wo die Profilierung zusaetzlich eine Mindestanzahl fuehrt, meldet die
         // Kardinalitaets-Pruefung denselben Sachverhalt mit der genaueren Zahl.
         const auskunft = v.eintragGeerbt(ziel)?.min ? null : istEnthalten?.(ziel);

@@ -161,6 +161,10 @@ export function extrahiereInstanz(
     bindChildren(node, xmlEl, depth + 1);
   };
 
+  // Die Wurzel gehoert in die Zuordnung: sie **ist** die Nachricht. Ohne diesen
+  // Eintrag galt sie als nicht enthalten, und eine Profilierung, die den
+  // Wurzelknoten zwingend setzt, bekam „die Nachricht enthaelt es nicht".
+  quelle.set(root.path, rootEl);
   bindChildren(root, rootEl, 0);
   return { modell: { elemente, auspraegungen }, quelle, vorkommenIndex, offen, verweise };
 }

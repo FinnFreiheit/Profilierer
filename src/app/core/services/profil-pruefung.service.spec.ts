@@ -214,6 +214,18 @@ describe('ProfilPruefungService', () => {
     expect(mit.kopf.vorkommenUnzuordenbar).toBeFalse();
   });
 
+  it('meldet ein zwingendes Element mit zwei Vorkommen nicht als fehlend', async () => {
+    // Am laufenden System gefunden (enova_NGEM1 gegen „Notar an Gemeinde"): die
+    // Nachricht trug zwei `ersuchenSachentscheidung`, der Bericht sagte „die
+    // Nachricht enthält es nicht". Ursache war die Anwesenheits-Auskunft, die
+    // nur die `@id`-Pfade kannte, nicht den Träger.
+    profilDoc = doc({ elemente: { [`${M}/beteiligung`]: { status: V.pflicht } } });
+
+    const b = await svc.pruefe(eintrag(), profil(), null);
+
+    expect(b.verstoesse.filter((v) => v.art === 'fehlt')).toEqual([]);
+  });
+
   it('meldet Festlegungen an Vorkommen-Pfaden der Vorgabe nicht als fehlend', async () => {
     // Der reale Fall aus dem Durchlauf am Bestand: die Profilierung entscheidet
     // je benanntem Vorkommen (`…/beteiligung@n1/name`), die Nachricht traegt

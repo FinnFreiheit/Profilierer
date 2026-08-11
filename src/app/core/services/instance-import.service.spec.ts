@@ -179,6 +179,16 @@ describe('InstanceImportService', () => {
       expect(a.istEnthalten(`${M}/gibtsNicht`)).toBeFalse();
     });
 
+    it('der Trägerpfad benannter Vorkommen ist enthalten — auch ab zwei Vorkommen', () => {
+      // Am laufenden System gefunden: ab zwei Vorkommen bindet der Walk nur die
+      // `@id`-Pfade, für den Träger gibt es keinen Eintrag in `quelle`. Allein
+      // danach gefragt, galt eine Nachricht mit **zwei** `ersuchenSachentscheidung`
+      // als "enthält es nicht" — bei genau einem Vorkommen fiel es nicht auf.
+      const a = svc.auswerten(INSTANCE, state.idx()!);
+      expect(a.modell.auspraegungen[`${M}/beteiligung`]!.length).toBe(2);
+      expect(a.istEnthalten(`${M}/beteiligung`)).toBeTrue();
+    });
+
     it('istBlatt beantwortet auch Pfade in Vorkommen (Überlagerung der Prüfung)', () => {
       const a = svc.auswerten(INSTANCE, state.idx()!);
       const bet = a.modell.auspraegungen[`${M}/beteiligung`]!;
