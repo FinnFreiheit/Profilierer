@@ -14,7 +14,9 @@ describe('Pruefbericht-Aufbereitung', () => {
     xjustizVersion: '3.6.2',
     schema: 'valide',
     schemaFehler: [],
+    zeitpunkt: 0,
     festlegungen: 236,
+    nErweiterung: 0,
     vorkommenUnzuordenbar: false,
     ...teile,
   });
@@ -112,6 +114,39 @@ describe('Pruefbericht-Aufbereitung', () => {
       expect(e.filter((x) => x.abschnitt).length).toBe(2);
       expect(e.some((x) => x.text.startsWith('Keine — die Nachricht hält'))).toBeTrue();
       expect(e.some((x) => x.text.startsWith('Keine — zu jedem belegten'))).toBeTrue();
+    });
+
+    it('nachbeauftragte Elemente stehen im eigenen Abschnitt und zaehlen nicht mit', () => {
+      // #98/Frage 8: ein nachbeauftragtes Element gibt es im Schema nicht — eine
+      // gueltige XJustiz-Nachricht kann es nicht enthalten. Es dem Absender
+      // anzulasten waere eine falsche Beschuldigung.
+      const b = bericht({
+        kopf: kopf({ nErweiterung: 1 }),
+        verstoesse: [
+          { pfad: 'm/az', art: 'fehlt', text: 'echter Befund' },
+          { pfad: 'm/~x1/feld', art: 'fehlt', text: 'nachbeauftragt', erweiterung: true },
+        ],
+      });
+
+      expect(berichtTitel('a.xml', b)).toContain('1 Abweichung von der Profilierung');
+      expect(berichtTitel('a.xml', b)).not.toContain('2 Abweichungen');
+
+      const e = berichtEintraege(b);
+      expect(e.filter((x) => x.abschnitt).map((x) => x.text)).toEqual([
+        'Abweichungen von der Profilierung (1)',
+        'Lücken der Profilierung (0)',
+        'Nachbeauftragte Elemente (1)',
+      ]);
+      // Der Eintrag traegt die Kennzeichnung, die der Dialog schon rendert.
+      expect(e.find((x) => x.text === 'nachbeauftragt')?.erweiterung).toBeTrue();
+
+      expect(berichtKopfzeile(b.kopf)).toContain('zählen nicht gegen die Nachricht');
+    });
+
+    it('ohne nachbeauftragte Elemente entfaellt der Abschnitt', () => {
+      const e = berichtEintraege(bericht());
+      expect(e.some((x) => x.text.startsWith('Nachbeauftragte'))).toBeFalse();
+      expect(berichtKopfzeile(kopf())).not.toContain('nachbeauftragte');
     });
 
     it('haengt die Schemafehler als eigenen Abschnitt an, wenn es welche gibt', () => {

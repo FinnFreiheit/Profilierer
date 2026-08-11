@@ -83,10 +83,12 @@ export class ProfilPruefungService {
         profilName: doc.meta?.name || profil.name,
         fassung,
         xjustizVersion: version,
+        zeitpunkt: Date.now(),
         schema: schemaPruefung.status as SchemaUrteil,
         schemaFehler: schemaPruefung.status === 'valide' ? [] : schemaPruefung.fehler,
         fortschritt: doc.fortschritt,
         festlegungen: Object.values(doc.elemente).filter((e) => e.status).length,
+        nErweiterung: befunde.verstoesse.filter((v) => v.erweiterung).length,
         // Nur melden, wo die Profilierung überhaupt benannte Vorkommen führt:
         // sonst stünde der Hinweis an jeder Nachricht, ohne etwas zu sagen.
         vorkommenUnzuordenbar: Object.keys(doc.auspraegungen).some((p) => !zuordenbar(p)),

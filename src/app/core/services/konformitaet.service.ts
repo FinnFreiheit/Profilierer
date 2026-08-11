@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { ProfileDoc } from '../../models/profile.model';
 import { TreeNode } from '../../models/node.model';
-import { blattName, ohneVorkommen } from '../util/pfad.util';
+import { blattName, istErweiterungsPfad, ohneVorkommen } from '../util/pfad.util';
 import { pretty } from '../util/pretty.util';
 import { InstanzModell, VorgabeSicht } from '../vorgabe-sicht';
 import { StateService } from './state.service';
@@ -23,6 +23,15 @@ export interface Verstoss {
   art: VerstossArt;
   /** Nutzertext: was gilt, was die Nachricht tut. */
   text: string;
+  /**
+   * Der Befund haengt an einem **nachbeauftragten** Element (Schema-Erweiterung,
+   * Pfad mit `/~`). Er zaehlt **nicht** gegen die Nachricht: das Element gibt es
+   * im Schema nicht, eine gueltige XJustiz-Nachricht kann es nicht enthalten.
+   * Ohne diese Unterscheidung meldete der Abgleich jede nachbeauftragte
+   * Pflicht-Festlegung als "fehlt" und lastete dem Absender etwas an, das nur
+   * die Profilierung wuenscht (#98, Frage 8 der Spec zu #107).
+   */
+  erweiterung?: boolean;
 }
 
 /**
@@ -127,7 +136,11 @@ export class KonformitaetService {
     this.pruefeKardinalitaet(v, out, umgebung);
     this.pruefeZwingende(v, instanz, out, umgebung);
     return {
-      verstoesse: out.sort((a, b) => a.pfad.localeCompare(b.pfad)),
+      // Die Herkunft an genau einer Stelle angeheftet, statt in jeder einzelnen
+      // Pruefung: sie haengt allein am Pfad, und jede Art kann sie treffen.
+      verstoesse: out
+        .map((x) => (istErweiterungsPfad(x.pfad) ? { ...x, erweiterung: true } : x))
+        .sort((a, b) => a.pfad.localeCompare(b.pfad)),
       luecken: this.sammleLuecken(v, instanz),
     };
   }
