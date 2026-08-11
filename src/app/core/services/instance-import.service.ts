@@ -8,6 +8,11 @@ import { CodelistService } from './codelist.service';
 import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
 import { byName, leafValue } from '../util/xml.util';
+import { REF_TARGETS, SGO_KENNUNG, refKindEff, refKindOf, refTraeger } from '../refs';
+
+/** Elementarten, die Verweisziel sein koennen — die Werte aus `REF_TARGETS`. */
+const ZIEL_NAMEN = new Set(Object.values(REF_TARGETS).flat());
+const [SGO_ELTERN, SGO_BLATT] = SGO_KENNUNG.split('/') as [string, string];
 
 /**
  * Importiert eine bestehende XJustiz-Nachricht (XML-Instanz) und bildet sie
@@ -46,6 +51,17 @@ export class InstanceImportService {
    */
   private vorkommen: Map<string, number> | null = null;
 
+  /**
+   * Waehrend eines Imports gesammelte Verweise: der Traeger und der Wert, der
+   * am `ref.*`-Blatt darunter steht. Erst nach dem vollstaendigen Durchlauf
+   * aufloesbar — das Ziel kann in der Nachricht hinter dem Verweis stehen und
+   * seine Vorkommen entstehen dann erst spaeter.
+   */
+  private verweise: { traeger: TreeNode; wert: string }[] | null = null;
+
+  /** Werte der `ref.*`-Blaetter der laufenden Quelle (siehe `verwieseneWerte`). */
+  private refWerte = new Set<string>();
+
   /** Prüft, ob ein XML-Text eine XJustiz-Nachricht (kein Genericode o. ä.) ist. */
   static rootMessageName(xmlText: string): string | null {
     const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
@@ -78,7 +94,12 @@ export class InstanceImportService {
     const opened = new Set<string>([root.path]);
     this.quelle = new Map<string, Element>();
     this.vorkommen = new Map<string, number>();
+    this.verweise = [];
+    this.refWerte = this.verwieseneWerte(rootEl);
     this.bindChildren(root, rootEl, opened, 0);
+    this.verweiseAufloesen();
+    this.verweise = null;
+    this.refWerte = new Set();
     this.state.open.set(opened);
     this.state.selItem.set({ kind: 'el', node: root });
     // Bearbeitungs-Session merken: Quell-DOM + Pfad-Zuordnung fuer den treuen
@@ -147,7 +168,14 @@ export class InstanceImportService {
     opened: Set<string>,
     depth: number,
   ): void {
-    if (matches.length >= 2 && this.tree.isRepeatable(child)) {
+    // Ein einzelnes Vorkommen bleibt in der Regel ohne Auspraegung — es sei
+    // denn, ein Verweis der Nachricht zeigt darauf: ein Verweisziel *ist* ein
+    // Vorkommen, ohne Auspraegung gaebe es nichts, worauf `refZiel` zeigen
+    // koennte, und die Zielangabe ginge beim Oeffnen verloren.
+    if (
+      this.tree.isRepeatable(child) &&
+      (matches.length >= 2 || this.istVerwiesen(child.name, matches[0]!))
+    ) {
       opened.add(child.path);
       matches.forEach((m, i) => {
         const auspId = this.state.addAusp(child.path, 'Vorkommen ' + (i + 1));
@@ -169,10 +197,73 @@ export class InstanceImportService {
     this.quelle?.set(node.path, xmlEl);
     if (this.tree.isLeaf(node)) {
       const val = leafValue(xmlEl, !!node.codelist);
-      if (val) this.state.setElementProfile(node.path, { beispiel: val });
+      if (val) {
+        this.state.setElementProfile(node.path, { beispiel: val });
+        // Der Verweis haengt am Traeger, nicht am Nummern-Blatt darunter —
+        // dieselbe Ableitung wie im Detailbereich (#30). Ohne Traeger (Typ per
+        // xs:extension) traegt das Blatt die Zielangabe selbst.
+        const traeger = refTraeger(node) ?? (refKindOf(node) ? node : null);
+        if (traeger) this.verweise?.push({ traeger, wert: val });
+      }
       return;
     }
     opened.add(node.path);
     this.bindChildren(node, xmlEl, opened, depth + 1);
+  }
+
+  /**
+   * Alle Werte, auf die in der Quelle verwiesen wird — der Inhalt jedes
+   * `ref.*`-Blatts. Einmal vorab erhoben, weil beim Binden eines moeglichen
+   * Ziels feststehen muss, ob es ein Vorkommen braucht; der zugehoerige Verweis
+   * kann in der Nachricht weit dahinter stehen.
+   */
+  private verwieseneWerte(rootEl: Element): Set<string> {
+    const out = new Set<string>();
+    for (const el of Array.from(rootEl.getElementsByTagName('*'))) {
+      if (!/^ref\./.test(el.localName)) continue;
+      const t = el.textContent?.trim();
+      if (t) out.add(t);
+    }
+    return out;
+  }
+
+  /**
+   * Zeigt ein Verweis der Nachricht auf dieses Vorkommen? Gefragt wird nur bei
+   * Elementarten, die ueberhaupt Verweisziel sein koennen (`REF_TARGETS`), und
+   * beantwortet ueber die Kennung darunter: die laufende Nummer oder die
+   * Identifikation eines Schriftgutobjekts. Traegt sie einen Wert, auf den
+   * verwiesen wird, ist dieses Vorkommen gemeint.
+   */
+  private istVerwiesen(elName: string, xmlEl: Element): boolean {
+    if (!ZIEL_NAMEN.has(elName) || !this.refWerte.size) return false;
+    for (const k of Array.from(xmlEl.getElementsByTagName('*'))) {
+      const t = k.textContent?.trim();
+      if (!t || !this.refWerte.has(t)) continue;
+      if (k.localName === 'rollennummer' || k.localName === 'beteiligtennummer') return true;
+      if (k.localName === SGO_BLATT && k.parentElement?.localName === SGO_ELTERN) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Die Verweise der geladenen Nachricht auf ihre Ziele zurueckfuehren. Im XML
+   * steht nur der Wert (Rollennummer, UUID eines Schriftgutobjekts); welches
+   * Vorkommen damit gemeint ist, sagt erst der Abgleich mit den Kennungen der
+   * moeglichen Ziele (`StateService.zielMitKennung`). Ohne diesen Schritt zeigte
+   * die geoeffnete Nachricht "kein Ziel festgelegt", obwohl der Verweis steht —
+   * und der Baum zoege keine Verbindungslinie.
+   *
+   * Kein Ziel gefunden heisst: nur der Wert bleibt (er wird beim Speichern
+   * unveraendert zurueckgeschrieben). Das ist der Fall, wenn das Ziel gar nicht
+   * in der Nachricht steht — oder wenn es nur einmal vorkommt und darum keine
+   * Auspraegung traegt, auf die verwiesen werden koennte.
+   */
+  private verweiseAufloesen(): void {
+    for (const { traeger, wert } of this.verweise ?? []) {
+      const kind = refKindEff(traeger);
+      if (!kind) continue;
+      const ziel = this.state.zielMitKennung(kind, wert);
+      if (ziel) this.state.setElementProfile(traeger.path, { refZiel: ziel });
+    }
   }
 }

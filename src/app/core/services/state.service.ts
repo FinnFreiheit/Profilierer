@@ -19,7 +19,7 @@ import { BundledVersion } from '../../models/schema-bundle.model';
 import { MessageCreateSession, MessageEditSession } from '../../models/testmessage.model';
 import { newProfile } from '../profile-defaults';
 import { kardText, pretty } from '../util/pretty.util';
-import { REF_TARGETS, SGO_KENNUNG } from '../refs';
+import { REF_TARGETS, RefSchluessel, SGO_KENNUNG, refSchluesselArt } from '../refs';
 import { HinweisStoreService } from './hinweis-store.service';
 
 /**
@@ -1068,6 +1068,47 @@ export class StateService {
     for (const [k, p] of Object.entries(this.elemente()))
       if (p?.beispiel && k.startsWith(pre) && k.endsWith(post)) return p.beispiel;
     return null;
+  }
+
+  /**
+   * Die **Rueckrichtung** der Zielwahl: welches Vorkommen traegt den Wert, mit
+   * dem ein Verweis benannt ist? Eine geladene Nachricht kennt nur diesen Wert
+   * — die Zielangabe daneben (`refZiel`) ist eine Zutat des Werkzeugs und steht
+   * nirgends im XML. Ohne diese Ableitung zeigte jeder Verweis einer geoeffneten
+   * Nachricht "kein Ziel festgelegt", obwohl der Wert stimmt.
+   *
+   * Gesucht wird unter den zulaessigen Zielen der Verweis-Art nach einem
+   * Kennungs-Blatt mit genau diesem Wert — der laufenden Nummer bzw. der UUID
+   * eines Schriftgutobjekts (`refSchluesselArt`). Das Blatt kann tief unter dem
+   * Vorkommen liegen: eine Beteiligung fuehrt ihre Rollen als eigene Vorkommen,
+   * die `rollennummer` sitzt dort eine Ebene tiefer.
+   *
+   * Passen mehrere Vorkommen ineinander (ein `beteiligter` innerhalb einer
+   * `beteiligung`), gewinnt das **innerste** — es ist das, was der Wert
+   * benennt. Null, wenn kein Vorkommen den Wert traegt.
+   */
+  zielMitKennung(kind: string, wert: string): string | null {
+    const w = wert.trim();
+    if (!w) return null;
+    const art = refSchluesselArt(kind);
+    const traeger: string[] = [];
+    for (const [k, p] of Object.entries(this.elemente()))
+      if (p?.beispiel?.trim() === w && this.istKennungsPfad(k, art)) traeger.push(k);
+    if (!traeger.length) return null;
+    let treffer: string | null = null;
+    for (const kand of this.refZielKandidaten(kind)) {
+      const pre = kand.path + '/';
+      if (!traeger.some((k) => k.startsWith(pre))) continue;
+      if (!treffer || kand.path.length > treffer.length) treffer = kand.path;
+    }
+    return treffer;
+  }
+
+  /** Traegt dieser Pfad die Kennung eines Verweisziels (siehe `zielMitKennung`)? */
+  private istKennungsPfad(pfad: string, art: RefSchluessel): boolean {
+    return art === 'uuid'
+      ? pfad.endsWith('/' + SGO_KENNUNG)
+      : /\/(rollennummer|beteiligtennummer)$/.test(pfad);
   }
 
   /** auspLabel (Z.634-640): "Element „Name"" fuer ein Verweisziel. */
