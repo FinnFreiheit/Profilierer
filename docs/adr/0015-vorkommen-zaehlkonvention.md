@@ -39,6 +39,12 @@ gesamten Pflicht-Rückgrat eine benannte Vorkommen-Ebene, wo das Schema nur ein 
 vorsieht — sichtbar im Baum, in der Excel-Ausleitung und in jedem Verweisziel, ohne dass die
 Nachricht dadurch anders aussähe. Der Name („Vorkommen 1") wäre reines Gerüst.
 
+> **Nachtrag (ADR 0018, 26.08.11):** Die Konvention ist seitdem der **Rückfall**, nicht
+> die einzige Lesart. Ob der generische Unterbaum wirklich für ein Vorkommen steht, hängt
+> an Schema-Kardinalität und Serialisierung — das beantwortet `core/enthalten.ts`, und
+> `VorgabeSicht.vorkommenAnzahl` nimmt die Antwort über die Umgebung entgegen. Ohne
+> Umgebung (Aufrufer ohne Schema-Zugang) gilt die Konvention unverändert weiter.
+
 > **Nachtrag (ADR 0016, 26.08.03):** Im Instanz-Durchlauf gibt es die Aufnahme-Entscheidung
 > nicht mehr — dort entscheidet der Wert. Die Untergrenze der Profilierung wirkt seitdem als
 > **Pflicht** (Blatt = Pflichtwert, Container = wird ohne Rückfrage betreten), statt eine
