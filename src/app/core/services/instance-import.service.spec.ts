@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { InstanceImportService } from './instance-import.service';
 import { StateService } from './state.service';
+import { TreeService } from './tree.service';
 import { XsdParserService } from './xsd-parser.service';
 import { CodelistService } from './codelist.service';
 import { XsdDoc } from '../../models/xsd-index.model';
@@ -140,6 +141,82 @@ describe('InstanceImportService', () => {
     expect(idx.get(`${M}/beteiligung@${ausps[0]!.id}`)).toBe(0);
     expect(idx.get(`${M}/beteiligung@${ausps[1]!.id}`)).toBe(1);
   });
+
+  describe('modellAus (zustandslos)', () => {
+    it('liefert dasselbe Modell wie der Import — ohne den Store anzufassen', () => {
+      const idx = state.idx()!;
+
+      // Ein offener Editor-Zustand, der unberuehrt bleiben muss.
+      state.msgName.set('etwas.anderes');
+      state.setElementProfile('etwas.anderes/feld', { beispiel: 'unberuehrt' });
+      const rootVorher = state.root();
+
+      const { msgName, modell } = svc.modellAus(INSTANCE, idx);
+
+      expect(msgName).toBe(M);
+      expect(state.msgName()).toBe('etwas.anderes');
+      expect(state.root()).toBe(rootVorher);
+      expect(state.elemente()).toEqual({ 'etwas.anderes/feld': { beispiel: 'unberuehrt' } });
+      expect(state.auspraegungen()).toEqual({});
+      expect(state.messageEdit()).toBeNull();
+
+      // Dieselbe Aussage wie nach dem Import — bis auf die Auspraegungs-ids,
+      // die beide Wege frisch vergeben (ein XML traegt keine Vorkommen-Namen).
+      svc.importXml(INSTANCE);
+      expect(ohneIds(modell.elemente)).toEqual(ohneIds(state.elemente()));
+      expect(namenJeListe(modell.auspraegungen)).toEqual(namenJeListe(state.auspraegungen()));
+    });
+
+    it('wirft, wenn der Index die Nachricht nicht kennt', () => {
+      const parser = TestBed.inject(XsdParserService);
+      const leer = parser.buildIndexFrom([
+        {
+          file: 'leer.xsd',
+          dom: new DOMParser().parseFromString(
+            '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>',
+            'application/xml',
+          ),
+        },
+      ]).idx;
+      expect(() => svc.modellAus(INSTANCE, leer)).toThrowError(/Kein passendes Schema/);
+    });
+
+    it('laeuft ueber einen eigenen Baum — der Editor-Baum behaelt sein Schema', () => {
+      // `buildRoot` tauscht Index und Caches **seiner Instanz** aus. Liefe die
+      // Auswertung ueber den Baum des Editors, stuende dort danach der Index
+      // der ausgewerteten Nachricht — der offene Baum koennte seine eigenen
+      // Typen nicht mehr aufloesen und expandierte zu nichts.
+      const tree = TestBed.inject(TreeService);
+      const parser = TestBed.inject(XsdParserService);
+      const editorRoot = tree.buildRoot(M, state.idx()!);
+
+      // Ausgewertet wird eine Nachricht aus einem **anderen** Schema.
+      const refIdx = parser.buildIndexFrom([
+        {
+          file: 'xjustiz_0000_ref.xsd',
+          dom: new DOMParser().parseFromString(REF_XSD, 'application/xml'),
+        },
+      ]).idx;
+      svc.modellAus(REF_INSTANCE, refIdx);
+
+      tree.expandNode(editorRoot);
+      expect(editorRoot.children?.map((c) => c.name)).toEqual(['vorname', 'beteiligung', 'art']);
+    });
+  });
+
+  /** Pfade mit Auspraegungs-id auf eine stabile Form bringen (ids sind frisch). */
+  function ohneIds(m: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(m)) out[k.replace(/@[^/]+/g, '@#')] = v;
+    return out;
+  }
+
+  /** Je Listenpfad nur die Namen — die ids vergibt jeder Weg neu. */
+  function namenJeListe(m: Record<string, { name: string }[]>): Record<string, string[]> {
+    const out: Record<string, string[]> = {};
+    for (const [k, list] of Object.entries(m)) out[k] = list.map((a) => a.name);
+    return out;
+  }
 
   describe('Verweise', () => {
     const R = 'nachricht.test.0002';
