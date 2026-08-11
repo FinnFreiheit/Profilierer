@@ -89,7 +89,11 @@ export class TestmessageEditService {
    * `loadProfile` und setzt dabei Sessions und Ansichts-Flags zurueck. Alles,
    * was die Bearbeitung ausmacht, wird deshalb erst danach gesetzt.
    */
-  async oeffnen(entry: TestmessageEntry, modus: 'betrachten' | 'bearbeiten'): Promise<void> {
+  async oeffnen(
+    entry: TestmessageEntry,
+    modus: 'betrachten' | 'bearbeiten',
+    opts: { schemaHinweis?: boolean } = {},
+  ): Promise<void> {
     // Haengende Aenderungen der zuvor offenen Nachricht erst sichern — sonst
     // liefe die Entprellung gegen den alten Eintrag ins Leere (#105).
     await this.autosave.flush();
@@ -101,7 +105,7 @@ export class TestmessageEditService {
     // Kein Bibliothekseintrag: die Bearbeitung einer Nachricht darf nicht per
     // Autosave in ein (evtl. offenes) Profil geschrieben werden.
     this.state.activeProfileId.set(null);
-    this.instanceImport.importXml(xml, entry.name);
+    this.instanceImport.importXml(xml, entry.name, opts.schemaHinweis ?? true);
     this.state.messageEdit.update((s) => (s ? { ...s, entryId: entry.id } : s));
 
     // Profil-Bindung ueberlebt das Bearbeiten (#32): die eingefrorene Kopie
@@ -153,7 +157,9 @@ export class TestmessageEditService {
     vorgabe: ProfileDoc,
     pfad: string,
   ): Promise<void> {
-    await this.oeffnen(entry, 'betrachten');
+    // Ohne den Schema-Hinweis: er wuerde den Pruefbericht im gemeinsamen
+    // Berichts-Store ersetzen, und sein Inhalt steht dort schon.
+    await this.oeffnen(entry, 'betrachten', { schemaHinweis: false });
     this.state.setVorgabe(vorgabe);
     this.state.guided.set(true);
     this.nav.jumpTo(pfad, true);

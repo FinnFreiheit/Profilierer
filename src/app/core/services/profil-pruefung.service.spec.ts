@@ -141,15 +141,50 @@ describe('ProfilPruefungService', () => {
     expect(b.kopf.fassung).toBe('Arbeitsstand');
   });
 
-  it('meldet ein fehlendes Pflicht-Blatt ueber die Anwesenheit der Nachricht', async () => {
-    // `az` fehlt in dieser Nachricht — additiv gelesen ist es nicht enthalten.
+  it('meldet ein fehlendes zwingendes Blatt als „fehlt", ein leeres als „pflichtwert"', async () => {
+    // Nicht enthalten: additiv gelesen trägt die Nachricht das Element nicht.
     xml = INSTANCE.replace('<az>4 O 12/25</az>\n  ', '');
     profilDoc = doc({ elemente: { [`${M}/az`]: { status: V.pflicht } } });
 
+    const fehlt = await svc.pruefe(eintrag(), profil(), null);
+    expect(fehlt.verstoesse.map((v) => v.art)).toEqual(['fehlt']);
+    expect(fehlt.verstoesse[0]!.pfad).toBe(`${M}/az`);
+    expect(fehlt.verstoesse[0]!.text).toContain('enthält es nicht');
+
+    // Enthalten, aber leer: der andere Befund.
+    xml = INSTANCE.replace('<az>4 O 12/25</az>', '<az></az>');
+    const leer = await svc.pruefe(eintrag(), profil(), null);
+    expect(leer.verstoesse.map((v) => v.art)).toEqual(['pflichtwert']);
+  });
+
+  it('meldet auch einen fehlenden zwingenden Container — die Lücke aus #106', async () => {
+    // Vor der einen Enthaltensein-Regel blieb das stumm: `pruefeZwingende`
+    // übersprang Nicht-Blätter, weil "zwingender Container ohne Wert" in
+    // Ordnung ist — von "Container fehlt ganz" war es nicht zu unterscheiden.
+    xml = `<?xml version="1.0" encoding="UTF-8"?>
+<nachricht.test.0001 xmlns="http://www.xjustiz.de"><az>4 O 12/25</az></nachricht.test.0001>`;
+    profilDoc = doc({ elemente: { [`${M}/beteiligung`]: { status: V.pflicht } } });
+
     const b = await svc.pruefe(eintrag(), profil(), null);
 
-    expect(b.verstoesse.map((v) => v.art)).toEqual(['pflichtwert']);
-    expect(b.verstoesse[0]!.pfad).toBe(`${M}/az`);
+    expect(b.verstoesse.map((v) => v.art)).toEqual(['fehlt']);
+    expect(b.verstoesse[0]!.pfad).toBe(`${M}/beteiligung`);
+  });
+
+  it('überlässt der Kardinalitäts-Prüfung das Feld, wo eine Mindestanzahl steht', async () => {
+    // Sonst stünde derselbe Sachverhalt zweimal im Bericht — einmal als „fehlt",
+    // einmal mit der genaueren Zahl.
+    xml = `<?xml version="1.0" encoding="UTF-8"?>
+<nachricht.test.0001 xmlns="http://www.xjustiz.de"><az>4 O 12/25</az></nachricht.test.0001>`;
+    profilDoc = doc({
+      elemente: { [`${M}/beteiligung`]: { status: V.pflicht, min: '2' } },
+    });
+
+    const b = await svc.pruefe(eintrag(), profil(), null);
+
+    expect(b.verstoesse.map((v) => v.art)).toEqual(['kardinalitaet']);
+    expect(b.verstoesse[0]!.text).toContain('mindestens 2');
+    expect(b.verstoesse[0]!.text).toContain('trägt 0');
   });
 
   it('meldet ein zwingendes benanntes Vorkommen nur, wenn es zuordenbar ist', async () => {
@@ -177,6 +212,33 @@ describe('ProfilPruefungService', () => {
     expect(v.length).toBe(1);
     expect(v[0]!.text).toContain('Antragsteller');
     expect(mit.kopf.vorkommenUnzuordenbar).toBeFalse();
+  });
+
+  it('meldet Festlegungen an Vorkommen-Pfaden der Vorgabe nicht als fehlend', async () => {
+    // Der reale Fall aus dem Durchlauf am Bestand: die Profilierung entscheidet
+    // je benanntem Vorkommen (`…/beteiligung@n1/name`), die Nachricht traegt
+    // dort nur ein anonymes. Ohne den Pfadraum-Filter meldete der Abgleich jede
+    // solche Festlegung als „fehlt" — 97 Mal, mit Sprungzielen, die der Baum
+    // nicht kennt.
+    xml = `<?xml version="1.0" encoding="UTF-8"?>
+<nachricht.test.0001 xmlns="http://www.xjustiz.de"><beteiligung><name>A</name></beteiligung></nachricht.test.0001>`;
+    profilDoc = doc({
+      elemente: {
+        [`${M}/beteiligung@n1/name`]: { status: V.pflicht },
+        [`${M}/beteiligung@n2/name`]: { status: V.pflicht },
+      },
+      auspraegungen: {
+        [`${M}/beteiligung`]: [
+          { id: 'n1', name: 'Antragsteller' },
+          { id: 'n2', name: 'Antragsgegner' },
+        ],
+      },
+    });
+
+    const b = await svc.pruefe(eintrag(), profil(), null);
+
+    expect(b.verstoesse).toEqual([]);
+    expect(b.kopf.vorkommenUnzuordenbar).toBeTrue();
   });
 
   it('prueft eine schema-invalide Nachricht weiter, nennt das Urteil aber im Kopf', async () => {

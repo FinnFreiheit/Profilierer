@@ -126,8 +126,14 @@ export class InstanceImportService {
    * Importiert die XML-Instanz und lädt sie als aktuelles Profil. `quellName`
    * (Dateiname/Testnachrichten-Name) fliesst in die Bearbeitungs-Session als
    * Vorschlag fuer das spaetere „als neue Nachricht speichern".
+   *
+   * `schemaHinweis` (Standard: an) meldet eine nicht schema-valide Nachricht im
+   * Berichts-Dialog. Wer aus einem **anderen** Bericht heraus öffnet, schaltet
+   * das ab: der Berichts-Dialog ist ein gemeinsamer Store, die Meldung würde
+   * den Bericht nicht überlagern, sondern ersetzen — und ihr Inhalt steht dort
+   * ohnehin schon (Kopfzeile und eigener Abschnitt, #107).
    */
-  importXml(xmlText: string, quellName?: string): void {
+  importXml(xmlText: string, quellName?: string, schemaHinweis = true): void {
     const rootEl = this.wurzel(xmlText);
     const doc = rootEl.ownerDocument;
     const msgName = rootEl.localName;
@@ -175,11 +181,13 @@ export class InstanceImportService {
     void this.codelists.ensureUsedCodelists();
     // Schemavalidierung im Hintergrund: invalide Nachrichten duerfen betrachtet
     // und repariert werden (Speichern/Export sind hart gesperrt), aber der
-    // Befund wird sofort gemeldet.
-    void this.validator.validiere(xmlText).then((p) => {
-      if (p.status === 'invalide')
-        this.report.zeige(`Hinweis: „${quellName || msgName}" ist nicht schema-valide`, p.fehler);
-    });
+    // Befund wird sofort gemeldet — ausser der Aufrufer bringt seinen eigenen
+    // Bericht mit, der ihn schon nennt.
+    if (schemaHinweis)
+      void this.validator.validiere(xmlText).then((p) => {
+        if (p.status === 'invalide')
+          this.report.zeige(`Hinweis: „${quellName || msgName}" ist nicht schema-valide`, p.fehler);
+      });
   }
 
   /** XJustiz-Version aus dem `xjustizVersion`-Attribut (Wurzel oder Nachrichtenkopf). */

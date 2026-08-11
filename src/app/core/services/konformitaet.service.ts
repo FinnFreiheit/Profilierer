@@ -13,7 +13,8 @@ import { TreeService } from './tree.service';
 export type { InstanzModell } from '../vorgabe-sicht';
 
 /** Art eines Verstosses — je Art eine eigene Meldung und ein eigener Test. */
-export type VerstossArt = 'ausgeschlossen' | 'kardinalitaet' | 'wert' | 'vorkommen' | 'pflichtwert';
+export type VerstossArt =
+  'ausgeschlossen' | 'kardinalitaet' | 'wert' | 'vorkommen' | 'pflichtwert' | 'fehlt';
 
 /** Ein einzelner Verstoss gegen die gebundene Profilfassung. */
 export interface Verstoss {
@@ -28,7 +29,7 @@ export interface Verstoss {
  * Ein belegtes Element, ueber das die Profilierung **nie entschieden** hat.
  * Der Anspruch ist eine vollstaendige Profilierung: zu jedem Element eine
  * Aussage. Wo sie fehlt, liegt der Mangel bei der **Profilierung**, nicht bei
- * der Nachricht — darum eine eigene Art von Befund und keine sechste
+ * der Nachricht — darum ein eigener Typ neben `Verstoss` und keine weitere
  * Verstossart. Wer beides in eine Liste wirft, schiebt dem Absender die eigene
  * Unvollstaendigkeit zu.
  */
@@ -124,7 +125,7 @@ export class KonformitaetService {
     this.pruefeWerte(v, instanz, out);
     this.pruefeVorkommen(v, instanz, out, umgebung);
     this.pruefeKardinalitaet(v, out, umgebung);
-    this.pruefePflichtwerte(v, instanz, out, umgebung);
+    this.pruefeZwingende(v, instanz, out, umgebung);
     return {
       verstoesse: out.sort((a, b) => a.pfad.localeCompare(b.pfad)),
       luecken: this.sammleLuecken(v, instanz),
@@ -263,13 +264,16 @@ export class KonformitaetService {
       // zugleich verlangt" ist ein Mangel der Profilierung, nicht der
       // Nachricht (er wird beim Start des Durchlaufs gemeldet).
       if (v.ausschlussQuelle(pfad)) continue;
-      for (const ziel of v.instanzPfade(pfad)) ziele.add(ziel);
+      for (const ziel of v.instanzPfade(pfad, umgebung.vorkommenZuordenbar)) ziele.add(ziel);
     }
     for (const ziel of ziele) {
       // Auch am Ziel: in einem ausgeschlossenen Vorkommen materialisiert der
       // Durchlauf nichts — dort zu zaehlen meldete Verstoesse in gesperrten
       // Teilbaeumen (Deep-Review-Befund).
       if (v.ausschlussQuelle(ziel)) continue;
+      // Pfade im id-Raum der Vorgabe, die die Nachricht nicht tragen kann,
+      // sind unbeantwortbar — nicht "null Vorkommen" (siehe `imPfadraum`).
+      if (!v.imPfadraum(ziel, umgebung.vorkommenZuordenbar)) continue;
       const g = v.eintragGeerbt(ziel);
       const min = parseInt(g?.min ?? '', 10) || 0;
       const max = g?.max === 'unbounded' ? Infinity : parseInt(g?.max ?? '', 10) || Infinity;
@@ -293,27 +297,49 @@ export class KonformitaetService {
   }
 
   /**
-   * Zwingend gesetzte **Blaetter** ohne Wert. Nur mit Blatt-Wissen aus der
-   * Umgebung: ob ein Pfad einen eigenen Wert traegt, steht im Schema, nicht in
-   * den beiden Dokumenten. Ohne `istBlatt` entfaellt die Pruefung, statt zu
-   * raten (ein zwingender Container ohne Wert ist voellig in Ordnung).
+   * Zwingend gesetzte Elemente: **fehlen** sie ganz, oder traegt ein zwingendes
+   * **Blatt** keinen Wert? Zwei Befunde am selben Anlass, jeder mit eigener
+   * Voraussetzung aus der Umgebung:
+   *
+   * - `fehlt` braucht `istEnthalten`. Es gilt fuer Blaetter **und** Container:
+   *   ein zwingender Container ohne Wert ist voellig in Ordnung — einer, den
+   *   die Nachricht gar nicht enthaelt, nicht. Vor der einen Enthaltensein-
+   *   Regel (ADR 0018) liess sich das nicht unterscheiden, und der haeufigste
+   *   reale Verstoss — „der Pflichtblock fehlt komplett" — blieb stumm.
+   * - `pflichtwert` braucht `istBlatt`: ob ein Pfad einen eigenen Wert traegt,
+   *   steht im Schema, nicht in den beiden Dokumenten.
+   *
+   * Fehlt die jeweilige Auskunft, entfaellt der zugehoerige Befund, statt zu
+   * raten.
    */
-  private pruefePflichtwerte(
+  private pruefeZwingende(
     v: VorgabeSicht,
     instanz: InstanzModell,
     out: Verstoss[],
     umgebung: KonformitaetsUmgebung,
   ): void {
-    const istBlatt = umgebung.istBlatt;
-    if (!istBlatt) return;
+    const { istBlatt, istEnthalten } = umgebung;
+    if (!istBlatt && !istEnthalten) return;
     for (const [pfad, p] of Object.entries(v.doc.elemente)) {
       if (!p.status || v.wirkungGeerbt(pfad) !== 'pflicht') continue;
       if (v.ausschlussQuelle(pfad)) continue;
       // Ein zwingendes Element in einem Vorkommen-Pfadraum wird ueber die
       // Vorkommen der Nachricht geprueft, nicht am generischen Pfad.
-      for (const ziel of v.instanzPfade(pfad)) {
+      for (const ziel of v.instanzPfade(pfad, umgebung.vorkommenZuordenbar)) {
         if (v.ausschlussQuelle(ziel)) continue; // gesperrtes Vorkommen: nichts verlangt
-        if (!istBlatt(ziel)) continue;
+        if (!v.imPfadraum(ziel, umgebung.vorkommenZuordenbar)) continue;
+        // Wo die Profilierung zusaetzlich eine Mindestanzahl fuehrt, meldet die
+        // Kardinalitaets-Pruefung denselben Sachverhalt mit der genaueren Zahl.
+        const auskunft = v.eintragGeerbt(ziel)?.min ? null : istEnthalten?.(ziel);
+        if (auskunft === false) {
+          out.push({
+            pfad: ziel,
+            art: 'fehlt',
+            text: `${kurz(ziel)} (${ziel}): Die Profilierung setzt das Element zwingend, die Nachricht enthält es nicht.`,
+          });
+          continue; // fehlt ganz — die Frage nach dem Wert stellt sich nicht
+        }
+        if (!istBlatt?.(ziel)) continue;
         if (instanz.elemente[ziel]?.beispiel?.trim()) continue;
         out.push({
           pfad: ziel,
