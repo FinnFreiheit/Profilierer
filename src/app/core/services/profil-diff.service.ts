@@ -31,6 +31,7 @@ const ELEMENT_FELDER: { feld: keyof ElementProfile; label: string }[] = [
   { feld: 'min', label: 'Mindest-Vorkommen' },
   { feld: 'max', label: 'Höchst-Vorkommen' },
   { feld: 'werte', label: 'Zulässige Werte' },
+  { feld: 'kennzeichnend', label: 'Kennzeichnend' },
   { feld: 'beispiel', label: 'Beispielwert' },
   { feld: 'anmerkung', label: 'Anmerkung' },
   { feld: 'refZiel', label: 'Verweisziel' },
@@ -155,6 +156,8 @@ function elementWert(
   const v = p[feld];
   if (v === undefined || v === null || v === '') return undefined;
   if (feld === 'status') return statusText(doc, v as string);
+  // Boolesches Flag: nur "ja" ist eine Aussage — false ist dasselbe wie ungesetzt.
+  if (feld === 'kennzeichnend') return v ? 'ja' : undefined;
   if (feld === 'werte') {
     const liste = v as string[];
     // Leeres Array ist bewusst gesetzt ("keine Werte zugelassen") und muss
