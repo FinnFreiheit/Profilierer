@@ -261,6 +261,40 @@ describe('KonformitaetService', () => {
     expect(verstoesse(doc, mitKopie)).toEqual([]);
   });
 
+  it('prueft zwingende Vorkommen innerer Listen ueber den Quellpfad (#116)', () => {
+    // Die Vorgabe fuehrt die Anschriften-Liste unter ihrer eigenen id
+    // (`…@n1/anschrift`); eine aus XML gewonnene Nachricht traegt dort eine
+    // fremde id (`…@v1/anschrift`), die erst die Zuordnung (vonId) verbindet.
+    const doc = vorgabe({
+      elemente: { [`${M}/beteiligung@n1/anschrift@k1`]: { status: V.pflicht } },
+      auspraegungen: {
+        [`${M}/beteiligung`]: [{ id: 'n1', name: 'Notar/in' }],
+        [`${M}/beteiligung@n1/anschrift`]: [{ id: 'k1', name: 'Kanzleianschrift' }],
+      },
+    });
+    const inst = instanz({
+      auspraegungen: {
+        [`${M}/beteiligung`]: [{ id: 'v1', name: 'Vorkommen 1', vonId: 'n1' }],
+        [`${M}/beteiligung@v1/anschrift`]: [{ id: 'w1', name: 'Vorkommen 1' }],
+      },
+    });
+
+    const v = verstoesse(doc, inst).filter((x) => x.art === 'vorkommen');
+    expect(v.length).toBe(1);
+    expect(v[0]!.text).toContain('Kanzleianschrift');
+    // Der gemeldete Pfad ist der der Nachricht — auf ihn zeigt der Klick.
+    expect(v[0]!.pfad).toBe(`${M}/beteiligung@v1/anschrift`);
+
+    // Traegt das innere Vorkommen die Herkunft, ist die Festlegung erfuellt.
+    const erfuellt = instanz({
+      auspraegungen: {
+        [`${M}/beteiligung`]: [{ id: 'v1', name: 'Vorkommen 1', vonId: 'n1' }],
+        [`${M}/beteiligung@v1/anschrift`]: [{ id: 'w1', name: 'Vorkommen 1', vonId: 'k1' }],
+      },
+    });
+    expect(verstoesse(doc, erfuellt).filter((x) => x.art === 'vorkommen')).toEqual([]);
+  });
+
   it('meldet ein zwingend gesetztes Blatt ohne Wert, je Vorkommen', () => {
     const doc = vorgabe({
       elemente: { [`${M}/beteiligung/name`]: { status: V.pflicht } },

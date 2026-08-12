@@ -1,4 +1,5 @@
 import { Luecke, Reichweite, Verstoss } from '../core/services/konformitaet.service';
+import { ListenZuordnung } from '../core/vorkommen-matching';
 
 /**
  * Der Prüfbericht „Testnachricht gegen eine Profilierung" (#107).
@@ -65,4 +66,11 @@ export interface Pruefbericht {
   kopf: PruefberichtKopf;
   verstoesse: Verstoss[];
   luecken: Luecke[];
+  /**
+   * Ausweis der Erfuellbarkeits-Zuordnung (#116): welches anonyme Vorkommen der
+   * Nachricht wurde ueber welche kennzeichnenden Festlegungen als welche
+   * Auspraegung gelesen — der Leser prueft die Zuordnung, statt ihr glauben zu
+   * muessen. Leer, wo die Profilierung keine Kennzeichen fuehrt.
+   */
+  zuordnung: ListenZuordnung[];
 }

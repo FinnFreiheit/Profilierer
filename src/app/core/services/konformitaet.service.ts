@@ -293,12 +293,22 @@ export class KonformitaetService {
     out: Verstoss[],
     umgebung: KonformitaetsUmgebung,
   ): void {
+    // Instanz-Listen im Pfadraum der **Vorgabe**: innere Listen einer aus XML
+    // gewonnenen Nachricht liegen unter deren frischen ids
+    // (`m/bet@v1/anschrift`), die Vorgabe fuehrt sie unter ihren eigenen
+    // (`m/bet@a1/anschrift`). Ueber den Quellpfad (vonId) faellt beides
+    // zusammen — ohne die Uebersetzung blieben zwingende Vorkommen innerer
+    // Listen dort ungeprueft, wo die Zuordnung (Namen oder Kennzeichen, #116)
+    // sie gerade nachweisbar gemacht hat.
+    const uebersetzt = new Map<string, string>();
+    for (const pfad of Object.keys(instanz.auspraegungen)) uebersetzt.set(v.quellPfad(pfad), pfad);
     for (const [listPfad, liste] of Object.entries(v.doc.auspraegungen)) {
-      const eigene = instanz.auspraegungen[listPfad];
-      if (!eigene) continue; // keine eigene Liste = die der Vorgabe gilt unveraendert
+      const eigenPfad = instanz.auspraegungen[listPfad] ? listPfad : uebersetzt.get(listPfad);
+      const eigene = eigenPfad ? instanz.auspraegungen[eigenPfad] : undefined;
+      if (!eigenPfad || !eigene) continue; // keine eigene Liste = die der Vorgabe gilt unveraendert
       // Ohne Zuordenbarkeit sagt der Vergleich nichts (siehe Umgebung): die
       // Anzahl prueft `pruefeKardinalitaet` weiterhin.
-      if (umgebung.vorkommenZuordenbar && !umgebung.vorkommenZuordenbar(listPfad)) continue;
+      if (umgebung.vorkommenZuordenbar && !umgebung.vorkommenZuordenbar(eigenPfad)) continue;
       for (const a of liste) {
         // **Pfadgenau**, nicht geerbt — dieselbe Entscheidung wie
         // `GuidedService.auspSperreEntfernen` (#28): dass das Traegerelement
@@ -306,13 +316,15 @@ export class KonformitaetService {
         // benannte Vorkommen bleiben muss. Geerbt gelesen meldete der Abgleich
         // ein Entfernen als Verstoss, das der Durchlauf ausdruecklich erlaubt
         // (Deep-Review-Befund: Widerspruch Sperre vs. Verstossliste).
-        if (v.wirkung(`${listPfad}@${a.id}`) !== 'pflicht') continue;
+        if (v.wirkung(`${eigenPfad}@${a.id}`) !== 'pflicht') continue;
         // Eine Kopie traegt die Herkunft und erfuellt die Festlegung mit.
         if (eigene.some((e) => e.id === a.id || e.vonId === a.id)) continue;
+        // Der gemeldete Pfad ist der der **Nachricht** — auf ihn zeigt der
+        // Klick im Bericht, und nur ihn rendert der Baum.
         out.push({
-          pfad: listPfad,
+          pfad: eigenPfad,
           art: 'vorkommen',
-          text: `${kurz(listPfad)} (${listPfad}): Das zwingende Vorkommen „${a.name}" fehlt in der Nachricht.`,
+          text: `${kurz(eigenPfad)} (${eigenPfad}): Das zwingende Vorkommen „${a.name}" fehlt in der Nachricht.`,
         });
       }
     }

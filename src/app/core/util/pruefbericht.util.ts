@@ -1,6 +1,9 @@
 import { Pruefbericht, PruefberichtKopf } from '../../models/pruefbericht.model';
 import { Verstoss } from '../services/konformitaet.service';
 import { ReportEintrag } from '../../models/validation.model';
+import { ListenZuordnung } from '../vorkommen-matching';
+import { blattName } from './pfad.util';
+import { pretty } from './pretty.util';
 
 /**
  * Den Pruefbericht (#107) fuer die Anzeige aufbereiten. Reine Funktionen, damit
@@ -126,6 +129,15 @@ export function berichtEintraege(b: Pruefbericht): ReportEintrag[] {
     for (const v of erw) out.push({ text: v.text, pfad: v.pfad, erweiterung: true });
   }
 
+  // Der Ausweis der Zuordnung (#116): als was wurde jedes anonyme Vorkommen
+  // gelesen, und worueber ist das belegt. Nur wo das Matching lief — an einer
+  // Profilierung ohne Kennzeichen waere der Abschnitt eine leere Behauptung.
+  if (b.zuordnung.length) {
+    const zeilen = b.zuordnung.flatMap(zuordnungZeilen);
+    out.push({ text: abschnittTitel('Zuordnung der Vorkommen', zeilen.length), abschnitt: true });
+    out.push(...zeilen);
+  }
+
   if (b.kopf.schemaFehler.length) {
     out.push({
       text: abschnittTitel('Schemafehler der Nachricht', b.kopf.schemaFehler.length),
@@ -138,4 +150,52 @@ export function berichtEintraege(b: Pruefbericht): ReportEintrag[] {
 
 function abschnittTitel(text: string, n: number): string {
   return `${text} (${n})`;
+}
+
+/**
+ * Die Zeilen einer Listen-Zuordnung. Vier Aussagen, jede mit eigener
+ * Zurechnung: die getroffenen Paare (nachpruefbar ueber die genannten
+ * Kennzeichen), die unbelegten zwingenden Auspraegungen (zweiklassig — eine
+ * einzeln anzuklagen, die austauschbar ist, waere eine falsche Anklage), die
+ * nicht aufgenommenen Vorkommen (offene Welt: Hinweis, kein Verstoss) und die
+ * uebersprungene Liste (Grenze der exakten Suche, ehrlich benannt).
+ */
+export function zuordnungZeilen(l: ListenZuordnung): ReportEintrag[] {
+  const name = pretty(blattName(l.listPfad));
+  const out: ReportEintrag[] = [];
+  if (l.uebersprungen) {
+    out.push({ text: `${name} (${l.listPfad}): ${l.uebersprungen}`, pfad: l.listPfad });
+    return out;
+  }
+  for (const e of l.eintraege) {
+    out.push({
+      text:
+        `${name} (${l.listPfad}): „${e.vorkommenName}" gelesen als „${e.auspName}"` +
+        (e.kennzeichen.length
+          ? ` — belegt über ${e.kennzeichen.join(', ')}.`
+          : ' — ohne Kennzeichen (günstigste Lesart, keine Identifikation).'),
+      pfad: `${l.listPfad}@${e.vorkommenId}`,
+    });
+  }
+  for (const f of l.fehlbetraege) {
+    out.push({
+      text:
+        f.klasse === 'unvermeidbar'
+          ? `${name} (${l.listPfad}): Das zwingende Vorkommen „${f.auspName}" ist in keiner Zuordnung belegbar` +
+            (f.kandidaten.length
+              ? ` — die passenden Vorkommen (${f.kandidaten.join(', ')}) werden von anderen zwingenden Ausprägungen gebraucht.`
+              : ' — kein Vorkommen trägt seine Kennzeichen.')
+          : `${name} (${l.listPfad}): Das zwingende Vorkommen „${f.auspName}" bleibt unbelegt, ist aber austauschbar — geteilte Kandidaten: ${f.kandidaten.join(', ')}.`,
+      pfad: l.listPfad,
+    });
+  }
+  if (l.unaufgenommen.length) {
+    out.push({
+      text:
+        `${name} (${l.listPfad}): Nicht zugeordnet (Hinweis, kein Verstoß): ` +
+        `${l.unaufgenommen.join(', ')} — die Profilierung nennt dafür keine passende Ausprägung.`,
+      pfad: l.listPfad,
+    });
+  }
+  return out;
 }

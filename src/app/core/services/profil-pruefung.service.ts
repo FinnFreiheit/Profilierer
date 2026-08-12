@@ -3,6 +3,8 @@ import { LibraryEntry, ProfileDoc } from '../../models/profile.model';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { Pruefbericht, SchemaUrteil } from '../../models/pruefbericht.model';
 import { ordneVorkommenZu } from '../vorkommen-zuordnung';
+import { kennzeichenZuordnung } from '../vorkommen-matching';
+import { VorgabeSicht } from '../vorgabe-sicht';
 import { InstanceImportService } from './instance-import.service';
 import { KonformitaetService } from './konformitaet.service';
 import { ProfileStoreService } from './profile-store.service';
@@ -70,10 +72,19 @@ export class ProfilPruefungService {
     const bezeichnungen = await this.testmessages.loadBezeichnungen(eintrag.id).catch(() => null);
     const { modell, zuordenbar } = ordneVorkommenZu(auswertung.modell, doc, bezeichnungen);
 
-    const befunde = this.konformitaet.pruefe(doc, modell, {
+    // Erfuellbarkeits-Zuordnung ueber kennzeichnende Festlegungen (#116) — fuer
+    // die Listen, die die Namens-Zuordnung nicht abdeckt. Die Zuordnung steht
+    // als `vonId` im Modell; damit greifen die bestehenden Pruefungen an den
+    // vorkommens-spezifischen Festlegungen, und die Reichweite steigt.
+    const matching = kennzeichenZuordnung(modell, doc, zuordenbar, {
+      istEnthalten: auswertung.istEnthalten,
+    });
+    const zuordenbarGesamt = (p: string) => zuordenbar(p) || matching.zugeordnet.has(p);
+
+    const befunde = this.konformitaet.pruefe(doc, matching.modell, {
       istBlatt: auswertung.istBlatt,
       istEnthalten: auswertung.istEnthalten,
-      vorkommenZuordenbar: zuordenbar,
+      vorkommenZuordenbar: zuordenbarGesamt,
     });
 
     return {
@@ -92,10 +103,22 @@ export class ProfilPruefungService {
         reichweite: befunde.reichweite,
         // Nur melden, wo die Profilierung überhaupt benannte Vorkommen führt:
         // sonst stünde der Hinweis an jeder Nachricht, ohne etwas zu sagen.
-        vorkommenUnzuordenbar: Object.keys(doc.auspraegungen).some((p) => !zuordenbar(p)),
+        // Gedeckt ist eine Liste der Vorgabe, wenn eine Liste der Nachricht per
+        // Namen oder Kennzeichen auf sie zeigt — verglichen im Pfadraum der
+        // Vorgabe, denn innere Listen tragen in der Nachricht fremde ids.
+        vorkommenUnzuordenbar: (() => {
+          const sicht = new VorgabeSicht(doc, matching.modell);
+          const gedeckt = new Set(
+            Object.keys(matching.modell.auspraegungen)
+              .filter(zuordenbarGesamt)
+              .map((p) => sicht.quellPfad(p)),
+          );
+          return Object.keys(doc.auspraegungen).some((p) => !gedeckt.has(p));
+        })(),
       },
       verstoesse: befunde.verstoesse,
       luecken: befunde.luecken,
+      zuordnung: matching.listen,
     };
   }
 
