@@ -629,17 +629,21 @@ export class DetailPanel {
     if (cur.has(value)) cur.delete(value);
     else cur.add(value);
     const sel = all.filter((v) => cur.has(v));
+    const werte = sel.length === all.length ? undefined : sel;
+    // Ohne Werteliste kein Kennzeichen: die Markierung haengt an der
+    // Einschraenkung, nicht am Element (#116).
     this.state.setElementProfile(this.path(), {
-      werte: sel.length === all.length ? undefined : sel,
+      werte,
+      ...(werte ? {} : { kennzeichnend: undefined }),
     });
   }
 
   protected clAll(): void {
-    this.state.setElementProfile(this.path(), { werte: undefined });
+    this.state.setElementProfile(this.path(), { werte: undefined, kennzeichnend: undefined });
   }
 
   protected clNone(): void {
-    this.state.setElementProfile(this.path(), { werte: [] });
+    this.state.setElementProfile(this.path(), { werte: [], kennzeichnend: undefined });
   }
 
   protected onManualWerte(e: Event): void {
@@ -647,7 +651,32 @@ export class DetailPanel {
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean);
-    this.state.setElementProfile(this.path(), { werte: lines.length ? lines : undefined });
+    this.state.setElementProfile(this.path(), {
+      werte: lines.length ? lines : undefined,
+      ...(lines.length ? {} : { kennzeichnend: undefined }),
+    });
+  }
+
+  /**
+   * Sichtbarkeit des Kennzeichen-Schalters (#116): nur im Profil-Modus, nur an
+   * einer eigenen Werte-Einschraenkung unterhalb eines **benannten Vorkommens**
+   * — dort ordnet der Pruefbericht anonyme Vorkommen einer hochgeladenen
+   * Nachricht ueber die Kennzeichen zu.
+   */
+  protected readonly kennzeichnung = computed(() => {
+    if (this.roEff() || this.msgMode()) return null;
+    const it = this.state.selItem();
+    if (!it) return null;
+    const path = itemPath(it);
+    if (!path.includes('@')) return null;
+    const p = this.state.elemente()[path];
+    if (!p?.werte?.length) return null;
+    return { aktiv: !!p.kennzeichnend };
+  });
+
+  protected toggleKennzeichnend(e: Event): void {
+    const checked = (e.target as HTMLInputElement).checked;
+    this.state.setElementProfile(this.path(), { kennzeichnend: checked || undefined });
   }
 
   protected onClFilter(e: Event): void {

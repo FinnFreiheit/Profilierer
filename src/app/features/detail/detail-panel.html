@@ -616,6 +616,28 @@
             </div>
           }
 
+          @if (kennzeichnung(); as kz) {
+            <div class="dsec">
+              <span class="dsecTitel">Kennzeichen</span>
+              <label
+                class="clAlleToggle"
+                title="Nur kennzeichnende Festlegungen ordnen im Prüfbericht die anonymen Vorkommen einer hochgeladenen Nachricht den benannten Vorkommen zu."
+              >
+                <input
+                  type="checkbox"
+                  [checked]="kz.aktiv"
+                  (change)="toggleKennzeichnend($event)"
+                />
+                kennzeichnend für dieses Vorkommen
+              </label>
+              <div style="font-size: 12px; color: var(--muted); margin-top: 4px">
+                Der Wert macht das Vorkommen in einer Nachricht erkennbar (etwa die
+                Rollenbezeichnung des Notars). Der Prüfbericht ordnet anonyme Vorkommen einer
+                hochgeladenen Nachricht ausschließlich über solche Kennzeichen zu — nie geraten.
+              </div>
+            </div>
+          }
+
           <!-- Wert und Verweisnummer sind Entscheidungen und stehen deshalb oben. -->
           @if (!roEff()) {
             @if (v.refNummer) {
