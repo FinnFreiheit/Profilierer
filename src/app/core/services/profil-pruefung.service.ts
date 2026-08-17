@@ -5,6 +5,7 @@ import { Pruefbericht, SchemaUrteil } from '../../models/pruefbericht.model';
 import { ordneVorkommenZu } from '../vorkommen-zuordnung';
 import { kennzeichenZuordnung } from '../vorkommen-matching';
 import { VorgabeSicht } from '../vorgabe-sicht';
+import { ohneVorkommen } from '../util/pfad.util';
 import { InstanceImportService } from './instance-import.service';
 import { KonformitaetService } from './konformitaet.service';
 import { ProfileStoreService } from './profile-store.service';
@@ -68,7 +69,14 @@ export class ProfilPruefungService {
     // gar nicht gelesen wurden.
     const schemaPruefung = await this.validator.validiere(xml);
 
-    const auswertung = this.importer.auswerten(xml, idx);
+    // Wo die Vorgabe benannte Vorkommen fuehrt, soll der Walk auch ein
+    // **einzelnes** Vorkommen als Auspraegung fuehren (#118) — sonst liegen
+    // dessen Werte am generischen Pfad und die Zuordnung (#116) findet keine
+    // Liste, gegen die sie zuordnen koennte. Verglichen wird ohne Vorkommen-ids:
+    // innere Listen der Vorgabe tragen die ids ihrer aeusseren Auspraegungen,
+    // die die Nachricht nicht kennt.
+    const vorkommenListen = new Set(Object.keys(doc.auspraegungen).map(ohneVorkommen));
+    const auswertung = this.importer.auswerten(xml, idx, { vorkommenListen });
     const bezeichnungen = await this.testmessages.loadBezeichnungen(eintrag.id).catch(() => null);
     const { modell, zuordenbar } = ordneVorkommenZu(auswertung.modell, doc, bezeichnungen);
 

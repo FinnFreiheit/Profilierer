@@ -8,7 +8,7 @@ import { ToastService } from './toast.service';
 import { CodelistService } from './codelist.service';
 import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
-import { RohVerweis, extrahiereInstanz } from '../instanz-extrakt';
+import { ExtraktOptionen, RohVerweis, extrahiereInstanz } from '../instanz-extrakt';
 import { InstanzModell } from '../vorgabe-sicht';
 import { KonformitaetsUmgebung } from './konformitaet.service';
 import { refKindEff } from '../refs';
@@ -74,7 +74,7 @@ export class InstanceImportService {
    * Wirft, wenn das XML nicht lesbar ist oder der Index die Nachricht nicht
    * kennt — dieselben Vorbedingungen wie `importXml`, nur ohne Nebenwirkung.
    */
-  auswerten(xmlText: string, idx: XsdIndex): InstanzAuswertung {
+  auswerten(xmlText: string, idx: XsdIndex, optionen: ExtraktOptionen = {}): InstanzAuswertung {
     const rootEl = this.wurzel(xmlText);
     const msgName = rootEl.localName;
     if (!idx.el[msgName]) throw new Error(`Kein passendes Schema für <${msgName}>.`);
@@ -90,7 +90,7 @@ export class InstanceImportService {
       root: () => root,
     });
     const root = baum.buildRoot(msgName, idx);
-    const extrakt = extrahiereInstanz(baum, root, rootEl);
+    const extrakt = extrahiereInstanz(baum, root, rootEl, optionen);
     modell = extrakt.modell;
 
     const knoten = (pfad: string): TreeNode | null => {

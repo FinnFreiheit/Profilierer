@@ -213,6 +213,44 @@ describe('InstanceImportService', () => {
       expect(() => svc.auswerten(INSTANCE, leer)).toThrowError(/Kein passendes Schema/);
     });
 
+    // #118: bei genau einem Vorkommen legt der Walk sonst keine Liste an — die
+    // Werte lägen am generischen Pfad, und die Erfüllbarkeits-Zuordnung (#116)
+    // fände nichts, wogegen sie zuordnen könnte.
+    describe('vorkommenListen (#118)', () => {
+      const EINS = INSTANCE.replace('<beteiligung><name>B</name></beteiligung>\n  ', '');
+
+      it('führt ein einzelnes Vorkommen als Ausprägung, wenn die Vorgabe dort benannte führt', () => {
+        const a = svc.auswerten(EINS, state.idx()!, {
+          vorkommenListen: new Set([`${M}/beteiligung`]),
+        });
+        const bet = a.modell.auspraegungen[`${M}/beteiligung`];
+
+        expect(bet?.length).toBe(1);
+        expect(a.modell.elemente[`${M}/beteiligung@${bet![0]!.id}/name`]?.beispiel).toBe('A');
+        // Nicht doppelt: am generischen Pfad steht der Wert dann nicht mehr.
+        expect(a.modell.elemente[`${M}/beteiligung/name`]).toBeUndefined();
+        expect(a.istEnthalten(`${M}/beteiligung`)).toBeTrue();
+      });
+
+      it('lässt Pfade ausserhalb der Menge unangetastet', () => {
+        const a = svc.auswerten(EINS, state.idx()!, {
+          vorkommenListen: new Set([`${M}/etwas/anderes`]),
+        });
+        expect(a.modell.auspraegungen[`${M}/beteiligung`]).toBeUndefined();
+        expect(a.modell.elemente[`${M}/beteiligung/name`]?.beispiel).toBe('A');
+      });
+
+      it('ohne Menge bleibt es beim bisherigen Verhalten — der Editor-Weg ist unberührt', () => {
+        const a = svc.auswerten(EINS, state.idx()!);
+        expect(a.modell.auspraegungen[`${M}/beteiligung`]).toBeUndefined();
+        expect(a.modell.elemente[`${M}/beteiligung/name`]?.beispiel).toBe('A');
+
+        svc.importXml(EINS);
+        expect(state.auspsOf(`${M}/beteiligung`)).toBeFalsy();
+        expect(state.elemente()[`${M}/beteiligung/name`]?.beispiel).toBe('A');
+      });
+    });
+
     it('laeuft ueber einen eigenen Baum — der Editor-Baum behaelt sein Schema', () => {
       // `buildRoot` tauscht Index und Caches **seiner Instanz** aus. Liefe die
       // Auswertung ueber den Baum des Editors, stuende dort danach der Index
