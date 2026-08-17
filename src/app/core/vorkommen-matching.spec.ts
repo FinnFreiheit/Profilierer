@@ -265,6 +265,101 @@ describe('kennzeichenZuordnung', () => {
     expect(z.zugeordnet.size).toBe(0);
   });
 
+  describe('Gleichstand (#119)', () => {
+    it('weist gleichwertige Lesarten aus, wenn zwei Vorkommen dieselben Kennzeichen tragen', () => {
+      // Beide Vorkommen tragen Rolle 22 und passen damit auf dieselbe
+      // Auspraegung. Welches als „Notar" gelesen wird, ist willkuerlich —
+      // und genau das muss der Bericht sagen, denn ein Verstoss an dem einen
+      // haette unter der anderen Lesart den anderen getroffen.
+      const doc = vorgabe({
+        elemente: {
+          [`${BET}@n1`]: { status: P },
+          [`${BET}@n1/${ROLLE}`]: { werte: ['22'], kennzeichnend: true },
+        },
+        auspraegungen: { [BET]: [{ id: 'n1', name: 'Notar' }] },
+      });
+      const inst = instanz({
+        elemente: {
+          [`${BET}@v1/${ROLLE}`]: { beispiel: '22' },
+          [`${BET}@v2/${ROLLE}`]: { beispiel: '22' },
+        },
+        auspraegungen: {
+          [BET]: [
+            { id: 'v1', name: 'Vorkommen 1' },
+            { id: 'v2', name: 'Vorkommen 2' },
+          ],
+        },
+      });
+
+      const z = kennzeichenZuordnung(inst, doc, nie);
+      const eintrag = z.listen[0]!.eintraege[0]!;
+
+      // Genau eines wird zugeordnet — aber welches, ist offen.
+      expect(z.listen[0]!.eintraege.length).toBe(1);
+      expect(eintrag.auchUnaufgenommen).toBeTrue();
+    });
+
+    it('schweigt, wo die Lesart eindeutig ist', () => {
+      const inst = instanz({
+        elemente: {
+          [`${BET}@v1/${ROLLE}`]: { beispiel: '22' },
+          [`${BET}@v2/${ROLLE}`]: { beispiel: '07' },
+        },
+        auspraegungen: {
+          [BET]: [
+            { id: 'v1', name: 'Vorkommen 1' },
+            { id: 'v2', name: 'Vorkommen 2' },
+          ],
+        },
+      });
+
+      const z = kennzeichenZuordnung(inst, zweiRollen(), nie);
+
+      for (const e of z.listen[0]!.eintraege) {
+        expect(e.alternativen).toEqual([]);
+        expect(e.auchUnaufgenommen).toBeFalse();
+      }
+    });
+
+    it('nennt die andere Auspraegung, wenn ein Vorkommen auf beide passt', () => {
+      // Zwei Auspraegungen ohne Kennzeichen sind Joker — jedes Vorkommen passt
+      // auf jede, die Zuordnung ist reine Willkuer. Eine dritte, kennzeichnende
+      // haelt die Liste ueberhaupt erst im Matching.
+      const doc = vorgabe({
+        elemente: {
+          [`${BET}@k1/${ROLLE}`]: { werte: ['22'], kennzeichnend: true },
+        },
+        auspraegungen: {
+          [BET]: [
+            { id: 'k1', name: 'Notar' },
+            { id: 'j1', name: 'Beteiligter A' },
+            { id: 'j2', name: 'Beteiligter B' },
+          ],
+        },
+      });
+      const inst = instanz({
+        elemente: {
+          [`${BET}@v1/${ROLLE}`]: { beispiel: '22' },
+          [`${BET}@v2/${ROLLE}`]: { beispiel: '99' },
+        },
+        auspraegungen: {
+          [BET]: [
+            { id: 'v1', name: 'Vorkommen 1' },
+            { id: 'v2', name: 'Vorkommen 2' },
+          ],
+        },
+      });
+
+      const z = kennzeichenZuordnung(inst, doc, nie);
+      const v2 = z.listen[0]!.eintraege.find((e) => e.vorkommenId === 'v2')!;
+
+      // Vorkommen 2 traegt Rolle 99 und passt daher nur auf die Joker — welcher
+      // der beiden, ist gleichwertig.
+      expect(v2.alternativen.length).toBe(1);
+      expect(['Beteiligter A', 'Beteiligter B']).toContain(v2.alternativen[0]!);
+    });
+  });
+
   it('ueberspringt Listen, die die Namens-Zuordnung bereits abdeckt', () => {
     const inst = instanz({
       elemente: { [`${BET}@v1/${ROLLE}`]: { beispiel: '22' } },

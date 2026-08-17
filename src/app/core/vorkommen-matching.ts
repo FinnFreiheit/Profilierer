@@ -59,6 +59,19 @@ export interface ZuordnungsEintrag {
   auspName: string;
   /** Die nachgewiesenen Kennzeichen, menschenlesbar („rollenbezeichnung = 22"). */
   kennzeichen: string[];
+  /**
+   * Gleichwertige Lesarten (#119): Auspraegungen, als die dieses Vorkommen
+   * genauso gut gelesen werden koennte, ohne dass die Zuordnung insgesamt
+   * schlechter wuerde. Leer heisst eindeutig.
+   *
+   * Der Ausweis (Punkt 7 der Spec zu #116) soll den Leser die Zuordnung
+   * **pruefen** lassen. Bei Gleichstand fehlte ihm dafuer das Entscheidende:
+   * „dem Notar fehlt die Anschrift" haengt dann an der gewaehlten Lesart, und
+   * unter der gleichwertigen anderen fehlte sie jemand anderem.
+   */
+  alternativen: string[];
+  /** Gleichwertig waere auch, dieses Vorkommen gar nicht aufzunehmen. */
+  auchUnaufgenommen: boolean;
 }
 
 /** Eine zwingende Auspraegung, die unbelegt bleibt — mit ehrlicher Begruendung. */
@@ -201,12 +214,17 @@ export function kennzeichenZuordnung(
       const v = vorkommen[vi]!;
       const a = ausps[ai]!;
       v.vonId = a.id;
+      // Gleichwertige Lesarten dieses Vorkommens (#119) — die ausgewiesene ist
+      // dann eine unter mehreren, und Befunde an ihr haengen an der Wahl.
+      const andere = (ergebnis.optionen[vi] ?? []).filter((o) => o !== ai);
       eintraege.push({
         vorkommenId: v.id,
         vorkommenName: v.name,
         auspId: a.id,
         auspName: a.name,
         kennzeichen: a.kennzeichen.map((k) => kennzeichenText(neu, `${listPfad}@${v.id}`, k)),
+        alternativen: andere.filter((o) => o !== NICHT_AUFGENOMMEN).map((o) => ausps[o]!.name),
+        auchUnaufgenommen: andere.includes(NICHT_AUFGENOMMEN),
       });
     }
 
@@ -374,6 +392,13 @@ interface Loesung {
    * erreicht sie das Optimum, ist die Auspraegung austauschbar unbelegt.
    */
   zwingendMitAusp: number[];
+  /**
+   * Je Vorkommen die Lesarten, die in **irgendeiner** optimalen Zuordnung
+   * vorkommen (#119): Auspraegungs-Indizes, dazu `NICHT_AUFGENOMMEN`. Genau ein
+   * Eintrag heisst eindeutig; mehrere heissen, dass die ausgewiesene Lesart
+   * eine unter gleichwertigen ist.
+   */
+  optionen: number[][];
 }
 
 /** Bewertung einer Teilzuordnung — lexikographisch (zwingend, Aufnahme, -Kosten). */
@@ -400,13 +425,16 @@ function loeseZuordnung(zwingend: boolean[], kanten: boolean[][], kosten: number
   const nV = kanten.length;
   const groesse = 1 << nA;
 
-  // dp[schritt][maske] — bestes Ergebnis nach `schritt` Vorkommen mit belegter
-  // Auspraegungs-Menge `maske`; Rueckverweise fuer die Rekonstruktion.
-  let dp: (Wert | null)[] = new Array(groesse).fill(null);
-  dp[0] = { z: 0, n: 0, c: 0 };
+  // vorwaerts[schritt][maske] — bestes Ergebnis nach `schritt` Vorkommen mit
+  // belegter Auspraegungs-Menge `maske`; Rueckverweise fuer die Rekonstruktion.
+  // Alle Schritte bleiben stehen: die Mehrdeutigkeits-Auskunft (#119) braucht
+  // sie zusammen mit dem Rueckwaertslauf.
+  const vorwaerts: (Wert | null)[][] = [new Array(groesse).fill(null)];
+  vorwaerts[0]![0] = { z: 0, n: 0, c: 0 };
   const herkunft: Int32Array[] = []; // je Schritt: maske -> gewaehlte Auspraegung (-1 = keine, -2 = unerreichbar)
 
   for (let vi = 0; vi < nV; vi++) {
+    const dp = vorwaerts[vi]!;
     const next: (Wert | null)[] = new Array(groesse).fill(null);
     const her = new Int32Array(groesse).fill(-2);
     for (let maske = 0; maske < groesse; maske++) {
@@ -433,10 +461,11 @@ function loeseZuordnung(zwingend: boolean[], kanten: boolean[][], kosten: number
         }
       }
     }
-    dp = next;
+    vorwaerts.push(next);
     herkunft.push(her);
   }
 
+  const dp = vorwaerts[nV]!;
   let besteMaske = 0;
   for (let maske = 1; maske < groesse; maske++) {
     if (dp[maske] && (!dp[besteMaske] || besser(dp[maske]!, dp[besteMaske]!))) besteMaske = maske;
@@ -463,5 +492,76 @@ function loeseZuordnung(zwingend: boolean[], kanten: boolean[][], kosten: number
       maske &= ~(1 << ai);
     }
   }
-  return { wahl, zwingend: optimum.z, zwingendMitAusp };
+  return { wahl, zwingend: optimum.z, zwingendMitAusp, optionen: optionenJeVorkommen() };
+
+  /**
+   * Welche Lesarten eines Vorkommens kommen in **irgendeiner** optimalen
+   * Zuordnung vor (#119)? Der Rueckwaertslauf beantwortet, was ab einem Zustand
+   * bestenfalls noch erreichbar ist; zusammen mit dem Vorwaertslauf liegt ein
+   * Schritt genau dann auf einer optimalen Zuordnung, wenn Vorlauf + Schritt +
+   * Nachlauf das Optimum ergeben.
+   *
+   * Das geht ohne Aufzaehlen — die Zahl optimaler Zuordnungen kann
+   * kombinatorisch wachsen, die Zahl der Lesarten je Vorkommen ist durch die
+   * Auspraegungen beschraenkt. Ein Deckel ist deshalb nicht noetig.
+   *
+   * Erlaubt ist die Zerlegung, weil die Ordnung verschiebungsstabil ist:
+   * `besser` vergleicht (z, n, -c) lexikographisch, und dieselbe Summe auf
+   * beiden Seiten aufzuschlagen dreht keinen Vergleich um. Bestes Vorstueck und
+   * bestes Reststueck ergeben also zusammen das Optimum.
+   */
+  function optionenJeVorkommen(): number[][] {
+    // rueck[schritt][maske]: bester Zusatzwert ab diesem Zustand bis zum Ende.
+    const nichts: Wert = { z: 0, n: 0, c: 0 };
+    const rueck: Wert[][] = new Array(nV + 1);
+    rueck[nV] = new Array(groesse).fill(nichts);
+    for (let vi = nV - 1; vi >= 0; vi--) {
+      const naechste = rueck[vi + 1]!;
+      const hier: Wert[] = new Array(groesse);
+      for (let m = 0; m < groesse; m++) {
+        let best = naechste[m]!; // dieses Vorkommen nicht aufnehmen
+        for (let ai = 0; ai < nA; ai++) {
+          if (m & (1 << ai)) continue;
+          if (!kanten[vi]![ai]) continue;
+          const kand = plus(naechste[m | (1 << ai)]!, schritt(vi, ai));
+          if (besser(kand, best)) best = kand;
+        }
+        hier[m] = best;
+      }
+      rueck[vi] = hier;
+    }
+
+    const out: number[][] = [];
+    for (let vi = 0; vi < nV; vi++) {
+      const menge = new Set<number>();
+      for (let m = 0; m < groesse; m++) {
+        const vor = vorwaerts[vi]![m];
+        if (!vor) continue;
+        if (istOptimal(plus(vor, rueck[vi + 1]![m]!))) menge.add(NICHT_AUFGENOMMEN);
+        for (let ai = 0; ai < nA; ai++) {
+          if (m & (1 << ai)) continue;
+          if (!kanten[vi]![ai]) continue;
+          const ziel = m | (1 << ai);
+          if (istOptimal(plus(plus(vor, schritt(vi, ai)), rueck[vi + 1]![ziel]!))) menge.add(ai);
+        }
+      }
+      out.push([...menge].sort((a, b) => a - b));
+    }
+    return out;
+  }
+
+  function schritt(vi: number, ai: number): Wert {
+    return { z: zwingend[ai] ? 1 : 0, n: 1, c: kosten[vi]![ai]! };
+  }
+
+  function istOptimal(w: Wert): boolean {
+    return w.z === optimum.z && w.n === optimum.n && w.c === optimum.c;
+  }
+}
+
+/** Der Platzhalter in `Loesung.optionen` fuer „gar nicht aufgenommen". */
+export const NICHT_AUFGENOMMEN = -1;
+
+function plus(a: Wert, b: Wert): Wert {
+  return { z: a.z + b.z, n: a.n + b.n, c: a.c + b.c };
 }
