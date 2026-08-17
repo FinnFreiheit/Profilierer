@@ -1,5 +1,6 @@
 import { Luecke, Reichweite, Verstoss } from '../core/services/konformitaet.service';
 import { ListenZuordnung } from '../core/vorkommen-matching';
+import { ListenLage } from '../core/kennzeichen-lage';
 
 /**
  * Der Prüfbericht „Testnachricht gegen eine Profilierung" (#107).
@@ -73,4 +74,11 @@ export interface Pruefbericht {
    * muessen. Leer, wo die Profilierung keine Kennzeichen fuehrt.
    */
   zuordnung: ListenZuordnung[];
+  /**
+   * Wo eine Kennzeichnung die Reichweite heben wuerde (#121) — abgeleitet aus
+   * der Profilierung allein, ohne die Nachricht zu befragen. Ohne diesen
+   * Abschnitt nennt der Bericht zwar die ungeprueften Festlegungen, aber nicht
+   * den Handgriff, der sie pruefbar machte.
+   */
+  kennzeichenLage: ListenLage[];
 }

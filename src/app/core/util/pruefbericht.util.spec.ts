@@ -1,5 +1,6 @@
 import { Pruefbericht, PruefberichtKopf } from '../../models/pruefbericht.model';
 import { berichtEintraege, berichtKopfzeile, berichtTitel } from './pruefbericht.util';
+import { ListenLage } from '../kennzeichen-lage';
 
 /**
  * Die Aufbereitung des Pruefberichts — vor allem die **Zurechnung**: was der
@@ -27,6 +28,7 @@ describe('Pruefbericht-Aufbereitung', () => {
     verstoesse: [],
     luecken: [],
     zuordnung: [],
+    kennzeichenLage: [],
     ...teile,
   });
 
@@ -96,9 +98,13 @@ describe('Pruefbericht-Aufbereitung', () => {
       expect(z).toContain('nicht mitgeführt');
     });
 
-    it('nennt die Grenze bei nicht zuordenbaren Vorkommen', () => {
+    it('nennt die Grenze bei nicht zuordenbaren Vorkommen — samt Handgriff (#121)', () => {
       const z = berichtKopfzeile(kopf({ vorkommenUnzuordenbar: true }));
-      expect(z).toContain('Anzahl, nicht ihre Zuordnung');
+      expect(z).toContain('zählt allein die Anzahl');
+      // Seit #116 ist die Grenze keine Eigenschaft von XJustiz mehr, sondern
+      // eine Folge fehlender Kennzeichen. Der Satz muss das sagen, sonst liest
+      // er sich als unabaenderlich.
+      expect(z).toContain('kennzeichnend');
     });
   });
 
@@ -170,6 +176,60 @@ describe('Pruefbericht-Aufbereitung', () => {
         mit.some((x) => x.abschnitt && x.text === 'Schemafehler der Nachricht (1)'),
       ).toBeTrue();
       expect(mit.some((x) => x.text === 'Zeile 3: kaputt')).toBeTrue();
+    });
+
+    describe('Kennzeichen-Abschnitt (#121)', () => {
+      const lage = (teile: Partial<ListenLage> = {}): ListenLage => ({
+        listPfad: 'm/beteiligung',
+        auspNamen: ['Notar', 'Antragsteller'],
+        markiert: [],
+        ohneTrennwirkung: [],
+        kandidaten: [],
+        ...teile,
+      });
+
+      it('entfaellt, wo nichts zu sagen ist', () => {
+        expect(
+          berichtEintraege(bericht()).some((x) => x.text.startsWith('Kennzeichen')),
+        ).toBeFalse();
+      });
+
+      it('nennt den Kandidaten und was er bewirken wuerde — ohne zu markieren', () => {
+        const e = berichtEintraege(
+          bericht({
+            kennzeichenLage: [
+              lage({ kandidaten: [{ suffix: 'rolle', trennung: 'vollstaendig', offen: [] }] }),
+            ],
+          }),
+        );
+        const zeile = e.find((x) => x.text.includes('rolle'))!;
+        expect(e.some((x) => x.abschnitt && x.text === 'Kennzeichen (1)')).toBeTrue();
+        expect(zeile.text).toContain('Notar');
+        expect(zeile.text).toContain('trennt alle Vorkommen');
+        expect(zeile.pfad).toBe('m/beteiligung');
+      });
+
+      it('benennt eine teilweise Trennung mit den offen bleibenden Vorkommen', () => {
+        const e = berichtEintraege(
+          bericht({
+            kennzeichenLage: [
+              lage({
+                kandidaten: [{ suffix: 'rolle', trennung: 'teilweise', offen: ['A', 'B'] }],
+              }),
+            ],
+          }),
+        );
+        expect(e.some((x) => x.text.includes('A, B') && x.text.includes('teilweise'))).toBeTrue();
+      });
+
+      it('meldet ein gesetztes Kennzeichen ohne Trennwirkung', () => {
+        const e = berichtEintraege(
+          bericht({
+            kennzeichenLage: [lage({ markiert: ['rolle'], ohneTrennwirkung: ['rolle'] })],
+          }),
+        );
+        expect(e.some((x) => x.text.includes('trennt die Vorkommen nicht'))).toBeTrue();
+      });
     });
   });
 });

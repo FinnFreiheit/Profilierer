@@ -36,6 +36,7 @@ describe('PruefberichtExcelService', () => {
     verstoesse: [],
     luecken: [],
     zuordnung: [],
+    kennzeichenLage: [],
     ...teile,
   });
 

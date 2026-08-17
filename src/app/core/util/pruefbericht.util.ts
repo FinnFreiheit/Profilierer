@@ -2,6 +2,7 @@ import { Pruefbericht, PruefberichtKopf } from '../../models/pruefbericht.model'
 import { Verstoss } from '../services/konformitaet.service';
 import { ReportEintrag } from '../../models/validation.model';
 import { ListenZuordnung } from '../vorkommen-matching';
+import { ListenLage } from '../kennzeichen-lage';
 import { blattName } from './pfad.util';
 import { pretty } from './pretty.util';
 
@@ -86,10 +87,13 @@ export function berichtKopfzeile(k: PruefberichtKopf): string {
         'Elemente — sie zählen nicht gegen die Nachricht',
     );
 
+  // Seit #116 ist das kein Naturgesetz mehr, sondern eine Folge fehlender
+  // Kennzeichen — der Satz nennt deshalb den Handgriff mit (#121), sonst liest
+  // er sich als unabaenderlich.
   if (k.vorkommenUnzuordenbar)
     teile.push(
-      'Benannte Vorkommen sind in einer XJustiz-Nachricht nicht kenntlich — geprüft wird ' +
-        'ihre Anzahl, nicht ihre Zuordnung',
+      'Benannte Vorkommen trägt eine XJustiz-Nachricht nicht — zugeordnet wird nur, wo die ' +
+        'Profilierung Festlegungen als kennzeichnend erklärt; sonst zählt allein die Anzahl',
     );
 
   return teile.join(' · ') + '.';
@@ -135,6 +139,15 @@ export function berichtEintraege(b: Pruefbericht): ReportEintrag[] {
   if (b.zuordnung.length) {
     const zeilen = b.zuordnung.flatMap(zuordnungZeilen);
     out.push({ text: abschnittTitel('Zuordnung der Vorkommen', zeilen.length), abschnitt: true });
+    out.push(...zeilen);
+  }
+
+  // Was die Reichweite heben wuerde (#121). Steht **nach** der Zuordnung: erst
+  // was gilt, dann was fehlt. Nur wo es etwas zu sagen gibt — an einer
+  // Profilierung, deren Kennzeichen sitzen, waere der Abschnitt Laerm.
+  if (b.kennzeichenLage.length) {
+    const zeilen = b.kennzeichenLage.flatMap(kennzeichenZeilen);
+    out.push({ text: abschnittTitel('Kennzeichen', zeilen.length), abschnitt: true });
     out.push(...zeilen);
   }
 
@@ -197,5 +210,40 @@ export function zuordnungZeilen(l: ListenZuordnung): ReportEintrag[] {
       pfad: l.listPfad,
     });
   }
+  return out;
+}
+
+/**
+ * Die Zeilen einer Kennzeichen-Lage (#121). Der Bericht **schlaegt vor**, er
+ * markiert nicht: die Aussage „dieser Wert macht das Vorkommen erkennbar" muss
+ * der Profilierer tragen — automatisch gesetzte Kennzeichen brachten die
+ * Autoritaetsfrage aus #107 durch die Hintertuer zurueck. Darum steht hier, was
+ * eine Markierung bewirken **wuerde**, und wo eine gesetzte nichts bewirkt.
+ */
+export function kennzeichenZeilen(l: ListenLage): ReportEintrag[] {
+  const name = pretty(blattName(l.listPfad));
+  const out: ReportEintrag[] = [];
+
+  for (const s of l.ohneTrennwirkung) {
+    out.push({
+      text:
+        `${name} (${l.listPfad}): Das Kennzeichen „${s}" trennt die Vorkommen nicht — ` +
+        'mindestens zwei Ausprägungen lassen dort denselben Wert zu. Allein ordnet es nichts zu.',
+      pfad: l.listPfad,
+    });
+  }
+
+  if (l.kandidaten.length) {
+    const kopf = l.markiert.length
+      ? `${name} (${l.listPfad}): Weitere Festlegungen kämen als Kennzeichen in Frage`
+      : `${name} (${l.listPfad}): Ohne Kennzeichen bleiben die Festlegungen an „${l.auspNamen.join('", „')}" ungeprüft. Als Kennzeichen käme in Frage`;
+    const teile = l.kandidaten.map((k) =>
+      k.trennung === 'vollstaendig'
+        ? `„${k.suffix}" (trennt alle Vorkommen)`
+        : `„${k.suffix}" (trennt teilweise — ${k.offen.join(', ')} blieben ununterscheidbar)`,
+    );
+    out.push({ text: `${kopf}: ${teile.join('; ')}.`, pfad: l.listPfad });
+  }
+
   return out;
 }
