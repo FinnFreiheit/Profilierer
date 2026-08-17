@@ -73,6 +73,15 @@ export interface ElementProfile {
   beispiel?: string;
   /** Auf diese Codelisten-Werte eingeschraenkt. */
   werte?: string[];
+  /**
+   * Diese Werte-Festlegung **kennzeichnet** ihr benanntes Vorkommen (#116):
+   * der Wert macht das Vorkommen in einer Nachricht erkennbar (Rollen-
+   * bezeichnung = Notar, Anschriftstyp = Kanzleianschrift). Nur kennzeichnende
+   * Festlegungen bilden Kanten im Vorkommen-Matching des Abgleichs; alle
+   * uebrigen werden am zugeordneten Paar geprueft. Sinnvoll nur an Pfaden
+   * unterhalb eines benannten Vorkommens und zusammen mit `werte`.
+   */
+  kennzeichnend?: boolean;
   /** Verweisziel-Pfad (Z.1179-1183). */
   refZiel?: string;
 }

@@ -26,6 +26,7 @@ describe('Pruefbericht-Aufbereitung', () => {
     kopf: kopf(),
     verstoesse: [],
     luecken: [],
+    zuordnung: [],
     ...teile,
   });
 

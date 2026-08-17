@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import type { Workbook, Worksheet } from 'exceljs';
 import { Pruefbericht } from '../../models/pruefbericht.model';
 import { Verstoss } from './konformitaet.service';
-import { abweichungen, nachbeauftragt } from '../util/pruefbericht.util';
+import { abweichungen, nachbeauftragt, zuordnungZeilen } from '../util/pruefbericht.util';
 import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
 
@@ -71,6 +71,16 @@ export class PruefberichtExcelService {
         erw.map((v) => [v.pfad, ART_TEXT[v.art], v.text]),
         'Diese Elemente gibt es im XJustiz-Schema nicht — eine gültige Nachricht kann sie ' +
           'nicht enthalten. Sie zählen nicht gegen die Nachricht.',
+      );
+    // Der Ausweis der Zuordnung (#116) — nur wo das Kennzeichen-Matching lief.
+    if (b.zuordnung.length)
+      this.schreibeBefundBlatt(
+        wb,
+        'Zuordnung der Vorkommen',
+        ['Pfad', 'Befund'],
+        b.zuordnung.flatMap(zuordnungZeilen).map((z) => [z.pfad ?? '', z.text]),
+        'Als was wurde jedes anonyme Vorkommen der Nachricht gelesen — belegt über die ' +
+          'kennzeichnenden Festlegungen der Profilierung, nie geraten.',
       );
     if (b.kopf.schemaFehler.length)
       this.schreibeBefundBlatt(

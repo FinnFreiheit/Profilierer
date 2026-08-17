@@ -35,6 +35,7 @@ describe('PruefberichtExcelService', () => {
     kopf: kopf(),
     verstoesse: [],
     luecken: [],
+    zuordnung: [],
     ...teile,
   });
 
