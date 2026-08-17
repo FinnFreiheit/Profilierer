@@ -1,7 +1,7 @@
 import { Pruefbericht, PruefberichtKopf } from '../../models/pruefbericht.model';
 import { Verstoss } from '../services/konformitaet.service';
 import { ReportEintrag } from '../../models/validation.model';
-import { ListenZuordnung } from '../vorkommen-matching';
+import { ListenZuordnung, ZuordnungsEintrag } from '../vorkommen-matching';
 import { ListenLage } from '../kennzeichen-lage';
 import { blattName } from './pfad.util';
 import { pretty } from './pretty.util';
@@ -186,7 +186,8 @@ export function zuordnungZeilen(l: ListenZuordnung): ReportEintrag[] {
         `${name} (${l.listPfad}): „${e.vorkommenName}" gelesen als „${e.auspName}"` +
         (e.kennzeichen.length
           ? ` — belegt über ${e.kennzeichen.join(', ')}.`
-          : ' — ohne Kennzeichen (günstigste Lesart, keine Identifikation).'),
+          : ' — ohne Kennzeichen (günstigste Lesart, keine Identifikation).') +
+        gleichwertig(e),
       pfad: `${l.listPfad}@${e.vorkommenId}`,
     });
   }
@@ -211,6 +212,23 @@ export function zuordnungZeilen(l: ListenZuordnung): ReportEintrag[] {
     });
   }
   return out;
+}
+
+/**
+ * Der Zusatz bei Gleichstand (#119). Ohne ihn liest sich die Zuordnung als
+ * festgestellt, obwohl sie nur **eine** unter gleichwertigen ist — und jeder
+ * Befund an diesem Vorkommen haengt an genau dieser Wahl. Fuer Fehlbetraege
+ * sagt das die Klasse `austauschbar` bereits; auf der Verstoss-Seite fehlte
+ * dieselbe Ehrlichkeit.
+ */
+function gleichwertig(e: ZuordnungsEintrag): string {
+  const teile = [...e.alternativen.map((a) => `„${a}"`)];
+  if (e.auchUnaufgenommen) teile.push('gar nicht aufgenommen');
+  if (!teile.length) return '';
+  return (
+    ` Gleichwertig lesbar auch als ${teile.join(', ')} — Befunde an diesem Vorkommen hängen ` +
+    'an der gewählten Lesart.'
+  );
 }
 
 /**

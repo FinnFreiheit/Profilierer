@@ -178,6 +178,60 @@ describe('Pruefbericht-Aufbereitung', () => {
       expect(mit.some((x) => x.text === 'Zeile 3: kaputt')).toBeTrue();
     });
 
+    it('sagt bei Gleichstand, dass die Lesart eine unter mehreren ist (#119)', () => {
+      const e = berichtEintraege(
+        bericht({
+          zuordnung: [
+            {
+              listPfad: 'm/beteiligung',
+              eintraege: [
+                {
+                  vorkommenId: 'v1',
+                  vorkommenName: 'Vorkommen 1',
+                  auspId: 'n1',
+                  auspName: 'Notar',
+                  kennzeichen: ['rolle = 22'],
+                  alternativen: ['Bevollmächtigter'],
+                  auchUnaufgenommen: false,
+                },
+              ],
+              fehlbetraege: [],
+              unaufgenommen: [],
+            },
+          ],
+        }),
+      );
+      const zeile = e.find((x) => x.text.includes('gelesen als'))!;
+      expect(zeile.text).toContain('Gleichwertig lesbar auch als „Bevollmächtigter"');
+      expect(zeile.text).toContain('hängen an der gewählten Lesart');
+    });
+
+    it('haengt bei eindeutiger Lesart nichts an', () => {
+      const e = berichtEintraege(
+        bericht({
+          zuordnung: [
+            {
+              listPfad: 'm/beteiligung',
+              eintraege: [
+                {
+                  vorkommenId: 'v1',
+                  vorkommenName: 'Vorkommen 1',
+                  auspId: 'n1',
+                  auspName: 'Notar',
+                  kennzeichen: ['rolle = 22'],
+                  alternativen: [],
+                  auchUnaufgenommen: false,
+                },
+              ],
+              fehlbetraege: [],
+              unaufgenommen: [],
+            },
+          ],
+        }),
+      );
+      expect(e.find((x) => x.text.includes('gelesen als'))!.text).not.toContain('Gleichwertig');
+    });
+
     describe('Kennzeichen-Abschnitt (#121)', () => {
       const lage = (teile: Partial<ListenLage> = {}): ListenLage => ({
         listPfad: 'm/beteiligung',
