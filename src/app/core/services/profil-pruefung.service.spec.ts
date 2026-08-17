@@ -18,6 +18,7 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
   </xs:sequence></xs:complexType>
   <xs:complexType name="Type.Test.Bet"><xs:sequence>
     <xs:element name="name" type="xs:string"/>
+    <xs:element name="rolle" type="xs:string" minOccurs="0"/>
   </xs:sequence></xs:complexType>
 </xs:schema>`;
 
@@ -251,6 +252,40 @@ describe('ProfilPruefungService', () => {
 
     expect(b.verstoesse).toEqual([]);
     expect(b.kopf.vorkommenUnzuordenbar).toBeTrue();
+  });
+
+  // #118: bei genau **einem** Vorkommen legte der Bind-Walk keine Liste an
+  // (ADR 0015) — die Werte lagen am generischen Pfad, und die Zuordnung ueber
+  // Kennzeichen (#116) fand nichts, wogegen sie zuordnen konnte. Genau das ist
+  // der Normalfall: eine Anschrift, eine Bankverbindung je Beteiligtem.
+  it('ordnet auch ein einzelnes Vorkommen zu und prueft dessen Festlegungen', async () => {
+    xml = `<?xml version="1.0" encoding="UTF-8"?>
+<nachricht.test.0001 xmlns="http://www.xjustiz.de"><beteiligung><name>Schmidt</name><rolle>notar</rolle></beteiligung></nachricht.test.0001>`;
+    profilDoc = doc({
+      elemente: {
+        // Das Kennzeichen: die Rolle macht das Vorkommen erkennbar.
+        [`${M}/beteiligung@n1/rolle`]: { werte: ['notar'], kennzeichnend: true },
+        // Eine weitere Festlegung am selben Vorkommen. Sie bildet keine Kante,
+        // sondern wird am zugeordneten Paar geprueft — die Nachricht haelt sie
+        // nicht ein. Ohne die Zuordnung bliebe sie schlicht ungeprueft.
+        [`${M}/beteiligung@n1/name`]: { werte: ['Mustermann'] },
+      },
+      auspraegungen: { [`${M}/beteiligung`]: [{ id: 'n1', name: 'Notar' }] },
+    });
+
+    const b = await svc.pruefe(eintrag(), profil(), null);
+
+    // Die Zuordnung steht im Bericht und nennt das Kennzeichen.
+    const zu = b.zuordnung.find((l) => l.listPfad === `${M}/beteiligung`);
+    expect(zu).toBeTruthy();
+    expect(zu!.eintraege.length).toBe(1);
+    expect(zu!.eintraege[0]!.auspName).toBe('Notar');
+    expect(zu!.eintraege[0]!.kennzeichen.join()).toContain('rolle');
+    expect(zu!.fehlbetraege).toEqual([]);
+    // Die Liste zaehlt nicht mehr als unzuordenbar …
+    expect(b.kopf.vorkommenUnzuordenbar).toBeFalse();
+    // … und die vorkommens-spezifische Festlegung wird jetzt durchgesetzt.
+    expect(b.verstoesse.some((v) => v.text.includes('Mustermann'))).toBeTrue();
   });
 
   it('prueft eine schema-invalide Nachricht weiter, nennt das Urteil aber im Kopf', async () => {

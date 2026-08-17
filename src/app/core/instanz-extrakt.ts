@@ -1,6 +1,7 @@
 import { TreeNode } from '../models/node.model';
 import { InstanzModell } from './vorgabe-sicht';
 import { byName, leafValue } from './util/xml.util';
+import { ohneVorkommen } from './util/pfad.util';
 import { REF_TARGETS, SGO_KENNUNG, refKindOf, refTraeger } from './refs';
 
 /**
@@ -69,12 +70,26 @@ export interface InstanzExtrakt {
   verweise: RohVerweis[];
 }
 
+/** Wahlweise Vorgaben an den Walk. */
+export interface ExtraktOptionen {
+  /**
+   * Pfade **ohne Vorkommen-ids**, an denen auch ein einzelnes Vorkommen als
+   * Auspraegung gefuehrt werden soll (#118). Gedacht fuer die Profilpruefung:
+   * dort steht die Vorgabe daneben, und wo sie benannte Vorkommen fuehrt,
+   * braucht die Zuordnung eine Liste. Der Editor-Import reicht die Menge
+   * **nicht** herein — dort wuerde eine Nachricht sonst „Vorkommen 1"-Kaesten
+   * zeigen, wo bisher ein schlichter Unterbaum stand.
+   */
+  vorkommenListen?: Set<string>;
+}
+
 /**
  * Liest die Instanz aus. `root` muss der Wurzelknoten zur Nachricht sein,
  * `rootEl` das Wurzelelement des Quell-Dokuments.
  *
  * Regeln (mit dem Nutzer abgestimmt, aus `InstanceImportService` uebernommen):
- * - Genau 1 Vorkommen eines wiederholbaren Elements → Werte direkt gefuellt.
+ * - Genau 1 Vorkommen eines wiederholbaren Elements → Werte direkt gefuellt
+ *   (Ausnahmen in `bindElement`: Verweisziel, `vorkommenListen`).
  * - Ab 2 Vorkommen → je eine Auspraegung „Vorkommen N".
  * - Kein Status wird gesetzt; nur Testwerte und Auspraegungen.
  *
@@ -87,6 +102,7 @@ export function extrahiereInstanz(
   baum: ExtraktBaum,
   root: TreeNode,
   rootEl: Element,
+  { vorkommenListen }: ExtraktOptionen = {},
 ): InstanzExtrakt {
   const elemente: InstanzModell['elemente'] = {};
   const auspraegungen: InstanzModell['auspraegungen'] = {};
@@ -119,12 +135,22 @@ export function extrahiereInstanz(
 
   const bindElement = (child: TreeNode, matches: Element[], depth: number): void => {
     // Ein einzelnes Vorkommen bleibt in der Regel ohne Auspraegung — es sei
-    // denn, ein Verweis der Nachricht zeigt darauf: ein Verweisziel *ist* ein
-    // Vorkommen, ohne Auspraegung gaebe es nichts, worauf `refZiel` zeigen
-    // koennte, und die Zielangabe ginge beim Oeffnen verloren.
+    // denn, es gibt einen Grund, es als Vorkommen fuehren zu muessen:
+    //
+    // 1. Ein Verweis der Nachricht zeigt darauf: ein Verweisziel *ist* ein
+    //    Vorkommen, ohne Auspraegung gaebe es nichts, worauf `refZiel` zeigen
+    //    koennte, und die Zielangabe ginge beim Oeffnen verloren.
+    // 2. Die Vorgabe fuehrt an diesem Pfad benannte Vorkommen (#118). Dann
+    //    liegen dort ihre vorkommens-spezifischen Festlegungen, und die
+    //    Erfuellbarkeits-Zuordnung (#116) braucht eine Liste, gegen die sie
+    //    zuordnen kann — am generischen Pfad findet sie nichts und laesst alles
+    //    ungeprueft. Das ist der Normalfall in der Tiefe: eine Anschrift, eine
+    //    Bankverbindung je Beteiligtem.
     if (
       baum.isRepeatable(child) &&
-      (matches.length >= 2 || istVerwiesen(refWerte, child.name, matches[0]!))
+      (matches.length >= 2 ||
+        istVerwiesen(refWerte, child.name, matches[0]!) ||
+        vorkommenListen?.has(ohneVorkommen(child.path)))
     ) {
       offen.add(child.path);
       const liste = (auspraegungen[child.path] ??= []);
