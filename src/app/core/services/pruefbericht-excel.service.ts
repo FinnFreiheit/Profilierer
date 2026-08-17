@@ -2,7 +2,12 @@ import { Injectable, inject } from '@angular/core';
 import type { Workbook, Worksheet } from 'exceljs';
 import { Pruefbericht } from '../../models/pruefbericht.model';
 import { Verstoss } from './konformitaet.service';
-import { abweichungen, nachbeauftragt, zuordnungZeilen } from '../util/pruefbericht.util';
+import {
+  abweichungen,
+  kennzeichenZeilen,
+  nachbeauftragt,
+  zuordnungZeilen,
+} from '../util/pruefbericht.util';
 import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
 
@@ -81,6 +86,16 @@ export class PruefberichtExcelService {
         b.zuordnung.flatMap(zuordnungZeilen).map((z) => [z.pfad ?? '', z.text]),
         'Als was wurde jedes anonyme Vorkommen der Nachricht gelesen — belegt über die ' +
           'kennzeichnenden Festlegungen der Profilierung, nie geraten.',
+      );
+    // Was die Reichweite heben wuerde (#121) — ein Vorschlag, keine Markierung.
+    if (b.kennzeichenLage.length)
+      this.schreibeBefundBlatt(
+        wb,
+        'Kennzeichen',
+        ['Pfad', 'Hinweis'],
+        b.kennzeichenLage.flatMap(kennzeichenZeilen).map((z) => [z.pfad ?? '', z.text]),
+        'Welche Werte-Festlegungen die Vorkommen auseinanderhalten wuerden. Markiert wird ' +
+          'nichts automatisch: die Aussage traegt die Profilierung.',
       );
     if (b.kopf.schemaFehler.length)
       this.schreibeBefundBlatt(

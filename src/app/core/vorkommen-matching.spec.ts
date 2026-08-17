@@ -239,6 +239,32 @@ describe('kennzeichenZuordnung', () => {
     expect(z.modell.auspraegungen[BET]![0]!.vonId).toBeUndefined();
   });
 
+  it('ignoriert ein Kennzeichen an einem nachbeauftragten Element', () => {
+    // Gefunden beim Bau von #121: die Erweiterungs-Pruefung sah nur den Suffix
+    // und griff daher erst ab der zweiten Ebene — ein `~`-Element direkt unter
+    // dem Vorkommen rutschte durch. Ein Kennzeichen dort waere **nie**
+    // erfuellbar (eine gueltige Nachricht kann das Element nicht enthalten),
+    // die Auspraegung damit unbelegbar und der Fehlbetrag eine falsche Anklage.
+    const doc = vorgabe({
+      elemente: {
+        [`${BET}@n1`]: { status: P },
+        [`${BET}@n1/~eigenes`]: { werte: ['x'], kennzeichnend: true },
+      },
+      auspraegungen: { [BET]: [{ id: 'n1', name: 'Notar' }] },
+    });
+    const inst = instanz({
+      elemente: { [`${BET}@v1/${ROLLE}`]: { beispiel: '22' } },
+      auspraegungen: { [BET]: [{ id: 'v1', name: 'Vorkommen 1' }] },
+    });
+
+    const z = kennzeichenZuordnung(inst, doc, nie);
+
+    // Kein Kennzeichen in der Liste → wie eine Bestandsprofilierung behandelt,
+    // statt die zwingende Auspraegung als fehlend anzuklagen.
+    expect(z.listen).toEqual([]);
+    expect(z.zugeordnet.size).toBe(0);
+  });
+
   it('ueberspringt Listen, die die Namens-Zuordnung bereits abdeckt', () => {
     const inst = instanz({
       elemente: { [`${BET}@v1/${ROLLE}`]: { beispiel: '22' } },

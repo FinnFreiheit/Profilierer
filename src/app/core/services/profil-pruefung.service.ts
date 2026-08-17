@@ -4,6 +4,7 @@ import { TestmessageEntry } from '../../models/testmessage.model';
 import { Pruefbericht, SchemaUrteil } from '../../models/pruefbericht.model';
 import { ordneVorkommenZu } from '../vorkommen-zuordnung';
 import { kennzeichenZuordnung } from '../vorkommen-matching';
+import { kennzeichenLage } from '../kennzeichen-lage';
 import { VorgabeSicht } from '../vorgabe-sicht';
 import { ohneVorkommen } from '../util/pfad.util';
 import { InstanceImportService } from './instance-import.service';
@@ -127,6 +128,7 @@ export class ProfilPruefungService {
       verstoesse: befunde.verstoesse,
       luecken: befunde.luecken,
       zuordnung: matching.listen,
+      kennzeichenLage: kennzeichenLage(doc),
     };
   }
 

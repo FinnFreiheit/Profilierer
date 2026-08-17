@@ -261,7 +261,7 @@ function kennzeichenVon(vorgabe: ProfileDoc, qList: string, auspId: string): Ken
     if (!e.kennzeichnend || !e.werte?.length) continue;
     if (!pfad.startsWith(praefix)) continue;
     const suffix = pfad.slice(praefix.length);
-    if (suffix.includes('@') || istErweiterungsPfad(suffix)) continue;
+    if (suffix.includes('@') || istErweiterungsPfad(pfad)) continue;
     out.push({ suffix, werte: e.werte });
   }
   return out.sort((a, b) => a.suffix.localeCompare(b.suffix));
@@ -338,7 +338,7 @@ function verstossZahl(
   for (const [pfad, e] of Object.entries(vorgabe.elemente)) {
     if (!pfad.startsWith(praefix)) continue;
     const suffix = pfad.slice(praefix.length);
-    if (suffix.includes('@') || istErweiterungsPfad(suffix)) continue;
+    if (suffix.includes('@') || istErweiterungsPfad(pfad)) continue;
     const pfade = instanzPfade(modell, basis, suffix);
     const wirkung = e.status && vorgabe.statuses.find((s) => s.id === e.status)?.wirkung;
     if (wirkung === 'pflicht' && umgebung.istEnthalten) {
