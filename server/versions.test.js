@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { openDb } from './db.js';
+import { oeffneTestDb } from './testhelfer.js';
 
 const docWith = (over = {}) => ({
   meta: { name: 'P', nachricht: 'nachricht.x', xjustizVersion: '3.6.2' },
@@ -17,8 +17,8 @@ const docWith = (over = {}) => ({
 /** Doc mit abweichendem Inhalt (anderer Beispielwert an Element a). */
 const docGeaendert = (n) => docWith({ elemente: { a: { status: 's1', beispiel: `w${n}` } } });
 
-test('versionCreate: fortlaufende Nummern, Kommentar, Liste ohne doc', () => {
-  const db = openDb(':memory:');
+test('versionCreate: fortlaufende Nummern, Kommentar, Liste ohne doc', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   const v1 = db.versionCreate(id, { kommentar: 'erster Stand' }, 100);
   assert.equal(v1.version.nr, 1);
@@ -34,19 +34,17 @@ test('versionCreate: fortlaufende Nummern, Kommentar, Liste ohne doc', () => {
   assert.equal(liste[1].nr, 1);
   assert.equal(liste[0].doc, undefined);
   assert.equal(liste[1].erstellt, 100);
-  db.close();
 });
 
-test('versionsList/versionCreate: unbekanntes Profil → null', () => {
-  const db = openDb(':memory:');
+test('versionsList/versionCreate: unbekanntes Profil → null', (t) => {
+  const db = oeffneTestDb(t);
   assert.equal(db.versionsList('fehlt'), null);
   assert.equal(db.versionCreate('fehlt', {}), null);
   assert.equal(db.versionRestore('fehlt', 'egal'), null);
-  db.close();
 });
 
-test('Entprellung: automatisch ohne Aenderung → skipped, manuell immer', () => {
-  const db = openDb(':memory:');
+test('Entprellung: automatisch ohne Aenderung → skipped, manuell immer', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   const a1 = db.versionCreate(id, { automatisch: true, kommentar: 'Stand beim Öffnen' });
   assert.equal(a1.version.nr, 1);
@@ -63,11 +61,10 @@ test('Entprellung: automatisch ohne Aenderung → skipped, manuell immer', () =>
   db.upsert(id, docGeaendert(1));
   const a3 = db.versionCreate(id, { automatisch: true });
   assert.equal(a3.version.nr, 3);
-  db.close();
 });
 
-test('geaendert/letzteVersionNr/nVersionen im Entry', () => {
-  const db = openDb(':memory:');
+test('geaendert/letzteVersionNr/nVersionen im Entry', (t) => {
+  const db = oeffneTestDb(t);
   const { id, entry } = db.create(docWith());
   // Ohne Versionen: keine Versions-Felder.
   assert.equal(entry.nVersionen, undefined);
@@ -89,11 +86,10 @@ test('geaendert/letzteVersionNr/nVersionen im Entry', () => {
   assert.equal(zeile.nVersionen, 1);
   assert.equal(zeile.letzteVersionNr, 1);
   assert.equal(zeile.geaendert, true);
-  db.close();
 });
 
-test('Deckel: Automatik-Versionen auf 10 begrenzt, manuelle bleiben', () => {
-  const db = openDb(':memory:');
+test('Deckel: Automatik-Versionen auf 10 begrenzt, manuelle bleiben', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   const m = db.versionCreate(id, { kommentar: 'manuell' }); // v1
   for (let i = 1; i <= 12; i++) {
@@ -110,11 +106,10 @@ test('Deckel: Automatik-Versionen auf 10 begrenzt, manuelle bleiben', () => {
   );
   // Die manuelle Version ueberlebt den Deckel.
   assert.ok(liste.some((v) => v.id === m.version.id));
-  db.close();
 });
 
-test('versionRestore: Sicherheits-Version, Versionsstand geladen, geaendert false', () => {
-  const db = openDb(':memory:');
+test('versionRestore: Sicherheits-Version, Versionsstand geladen, geaendert false', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   const v1 = db.versionCreate(id, { kommentar: 'guter Stand' });
   db.upsert(id, docGeaendert(1));
@@ -134,22 +129,20 @@ test('versionRestore: Sicherheits-Version, Versionsstand geladen, geaendert fals
   assert.deepEqual(db.load(id), docGeaendert(1));
   // Entprellt: der Stand vor diesem Restore war hash-gleich zu v1 → keine neue Sicherheits-Version.
   assert.equal(wieder.sicherheitsVersion, undefined);
-  db.close();
 });
 
-test('versionRestore: unbekannte Version → null', () => {
-  const db = openDb(':memory:');
+test('versionRestore: unbekannte Version → null', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   assert.equal(db.versionRestore(id, 'fehlt'), null);
   // Version eines anderen Profils ist nicht erreichbar.
   const { id: id2 } = db.create(docWith());
   const v = db.versionCreate(id2, {});
   assert.equal(db.versionRestore(id, v.version.id), null);
-  db.close();
 });
 
-test('versionDelete: idempotent, Nummern werden nicht recycelt', () => {
-  const db = openDb(':memory:');
+test('versionDelete: idempotent, Nummern werden nicht recycelt', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   const v1 = db.versionCreate(id, {});
   db.upsert(id, docGeaendert(1));
@@ -162,11 +155,10 @@ test('versionDelete: idempotent, Nummern werden nicht recycelt', () => {
   // Nummern starten nach Komplett-Loeschung bewusst neu; nach Teil-Loeschung nicht:
   const v3 = db.versionCreate(id, {});
   assert.equal(v3.version.nr, 1);
-  db.close();
 });
 
-test('delete kaskadiert auf profile_versions', () => {
-  const db = openDb(':memory:');
+test('delete kaskadiert auf profile_versions', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   db.versionCreate(id, {});
   db.upsert(id, docGeaendert(1));
@@ -174,29 +166,27 @@ test('delete kaskadiert auf profile_versions', () => {
   assert.equal(db.delete(id), true);
   const n = db._db.prepare('SELECT COUNT(*) AS n FROM profile_versions').get().n;
   assert.equal(n, 0);
-  db.close();
 });
 
-test('Migration: doc_hash wird an einer Alt-DB nachgezogen (Backfill)', () => {
+test('Migration: doc_hash wird an einer Alt-DB nachgezogen (Backfill)', (t) => {
   const file = join(mkdtempSync(join(tmpdir(), 'xjp-test-')), 'profil.db');
-  const db = openDb(file);
+  const db = oeffneTestDb(t, file);
   const { id } = db.create(docWith());
   // Alt-Schema simulieren: Spalte weg, Tabelle der Versionen weg.
   db._db.exec('ALTER TABLE profiles DROP COLUMN doc_hash');
   db._db.exec('DROP TABLE profile_versions');
   db.close();
-  const db2 = openDb(file);
+  const db2 = oeffneTestDb(t, file);
   const hash = db2._db.prepare('SELECT doc_hash FROM profiles WHERE id = ?').get(id).doc_hash;
   assert.ok(hash && hash.length === 40);
   // Entprellung funktioniert direkt nach dem Backfill.
   db2.versionCreate(id, { automatisch: true });
   const zweite = db2.versionCreate(id, { automatisch: true });
   assert.equal(zweite.skipped, true);
-  db2.close();
 });
 
-test('importAll laesst bestehende Versionen unberuehrt', () => {
-  const db = openDb(':memory:');
+test('importAll laesst bestehende Versionen unberuehrt', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   const v = db.versionCreate(id, { kommentar: 'bleibt' });
   db.importAll([{ id, doc: docGeaendert(1), aktualisiert: 999 }]);
@@ -205,13 +195,12 @@ test('importAll laesst bestehende Versionen unberuehrt', () => {
   assert.equal(liste[0].id, v.version.id);
   // Import hat den Stand geaendert → Kennzeichen an.
   assert.equal(db.list()[0].geaendert, true);
-  db.close();
 });
 
 // ── Versions-Dokument lesen (Vergleich "seit vX geaendert") ────────────
 
-test('versionGet: liefert das eingefrorene Dokument, unbekannte oder fremde vid → null', () => {
-  const db = openDb(':memory:');
+test('versionGet: liefert das eingefrorene Dokument, unbekannte oder fremde vid → null', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   const v = db.versionCreate(id, { kommentar: 'Stand A' }, 100);
   // Arbeitsstand weiterdrehen — die Version muss den alten Stand halten.
@@ -229,11 +218,10 @@ test('versionGet: liefert das eingefrorene Dokument, unbekannte oder fremde vid 
   // Fremdes Profil: dieselbe vid darf ueber die falsche Profil-id nicht lesbar sein.
   const { id: fremd } = db.create(docWith());
   assert.equal(db.versionGet(fremd, v.version.id), null);
-  db.close();
 });
 
-test('abnahmeVersion: folgt der Referenz, nicht der juengsten abnahme-Zeile', () => {
-  const db = openDb(':memory:');
+test('abnahmeVersion: folgt der Referenz, nicht der juengsten abnahme-Zeile', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   assert.equal(db.abnahmeVersion(id), null);
 
@@ -252,5 +240,4 @@ test('abnahmeVersion: folgt der Referenz, nicht der juengsten abnahme-Zeile', ()
   assert.equal(db.abnahmeVersion(id), null);
   assert.equal(db.versionsList(id).length, 2);
   assert.equal(db.abnahmeVersion('fehlt'), null);
-  db.close();
 });

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { openDb } from './db.js';
+import { oeffneTestDb } from './testhelfer.js';
 
 const input = (over = {}) => ({
   name: 'antrag.xml',
@@ -12,8 +12,8 @@ const input = (over = {}) => ({
   ...over,
 });
 
-test('tmCreate → tmList Roundtrip (Index ohne xml)', () => {
-  const db = openDb(':memory:');
+test('tmCreate → tmList Roundtrip (Index ohne xml)', (t) => {
+  const db = oeffneTestDb(t);
   const { id, entry } = db.tmCreate(input());
   assert.equal(entry.id, id);
   assert.equal(entry.name, 'antrag.xml');
@@ -23,30 +23,27 @@ test('tmCreate → tmList Roundtrip (Index ohne xml)', () => {
   assert.equal(list.length, 1);
   assert.equal(list[0].id, id);
   assert.equal(list[0].xml, undefined); // Liste enthält kein xml
-  db.close();
 });
 
-test('tmLoadXml gibt das Roh-XML byte-gleich zurück', () => {
-  const db = openDb(':memory:');
+test('tmLoadXml gibt das Roh-XML byte-gleich zurück', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.tmCreate(input());
   assert.equal(db.tmLoadXml(id), input().xml);
   assert.equal(db.tmLoadXml('gibtsnicht'), null);
-  db.close();
 });
 
-test('tmList ist nach aktualisiert absteigend sortiert', () => {
-  const db = openDb(':memory:');
+test('tmList ist nach aktualisiert absteigend sortiert', (t) => {
+  const db = oeffneTestDb(t);
   const a = db.tmCreate(input({ name: 'alt' }), 1000);
   const b = db.tmCreate(input({ name: 'neu' }), 2000);
   assert.deepEqual(
     db.tmList().map((e) => e.id),
     [b.id, a.id],
   );
-  db.close();
 });
 
-test('tmUpdate ändert Notiz und Name, setzt aktualisiert', () => {
-  const db = openDb(':memory:');
+test('tmUpdate ändert Notiz und Name, setzt aktualisiert', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.tmCreate(input(), 1000);
   const entry = db.tmUpdate(id, { notiz: 'Referenzfall' }, 3000);
   assert.equal(entry.notiz, 'Referenzfall');
@@ -56,11 +53,10 @@ test('tmUpdate ändert Notiz und Name, setzt aktualisiert', () => {
   assert.equal(umbenannt.name, 'Neu');
   assert.equal(umbenannt.notiz, 'Referenzfall'); // Notiz bleibt
   assert.equal(db.tmUpdate('gibtsnicht', { notiz: 'x' }), null);
-  db.close();
 });
 
-test('tmBackfillVersionen ergänzt fehlende Version aus dem XML', () => {
-  const db = openDb(':memory:');
+test('tmBackfillVersionen ergänzt fehlende Version aus dem XML', (t) => {
+  const db = oeffneTestDb(t);
   const xml =
     '<nachricht.dabag.antrag.2900001 xmlns="http://www.xjustiz.de">' +
     '<nachrichtenkopf xjustizVersion="3.6.2"/></nachricht.dabag.antrag.2900001>';
@@ -70,31 +66,28 @@ test('tmBackfillVersionen ergänzt fehlende Version aus dem XML', () => {
   assert.equal(db.tmList()[0].xjustizVersion, '3.6.2');
   assert.equal(db.tmBackfillVersionen(), 0); // idempotent
   assert.equal(id, db.tmList()[0].id);
-  db.close();
 });
 
-test('tmBackfillVersionen lässt Nachrichten ohne Versionsattribut unberührt', () => {
-  const db = openDb(':memory:');
+test('tmBackfillVersionen lässt Nachrichten ohne Versionsattribut unberührt', (t) => {
+  const db = oeffneTestDb(t);
   db.tmCreate(
     input({ xjustizVersion: undefined, xml: '<nachricht.x xmlns="http://www.xjustiz.de"/>' }),
   );
   assert.equal(db.tmBackfillVersionen(), 0);
   assert.equal(db.tmList()[0].xjustizVersion, undefined);
-  db.close();
 });
 
-test('tmDelete entfernt Nachricht und XML', () => {
-  const db = openDb(':memory:');
+test('tmDelete entfernt Nachricht und XML', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.tmCreate(input());
   assert.equal(db.tmDelete(id), true);
   assert.equal(db.tmLoadXml(id), null);
   assert.equal(db.tmList().length, 0);
   assert.equal(db.tmDelete(id), false);
-  db.close();
 });
 
-test('gefuehrte Erstellung: entwurf/fortschritt/entscheidungen Roundtrip', () => {
-  const db = openDb(':memory:');
+test('gefuehrte Erstellung: entwurf/fortschritt/entscheidungen Roundtrip', (t) => {
+  const db = oeffneTestDb(t);
   const stand = {
     msgName: 'nachricht.dabag.antrag.2900001',
     xjustizVersion: '3.6.2',
@@ -112,11 +105,10 @@ test('gefuehrte Erstellung: entwurf/fortschritt/entscheidungen Roundtrip', () =>
   assert.equal(row.entwurf, true);
   assert.equal(row.gefuehrt, true);
   assert.equal(row.entscheidungen, undefined);
-  db.close();
 });
 
-test('tmUpdate aktualisiert XML/Entwurf/Fortschritt/Entscheidungen selektiv', () => {
-  const db = openDb(':memory:');
+test('tmUpdate aktualisiert XML/Entwurf/Fortschritt/Entscheidungen selektiv', (t) => {
+  const db = oeffneTestDb(t);
   const stand = {
     msgName: 'n',
     profil: { meta: {}, statuses: [], elemente: {}, auspraegungen: {} },
@@ -135,31 +127,28 @@ test('tmUpdate aktualisiert XML/Entwurf/Fortschritt/Entscheidungen selektiv', ()
   assert.equal(e.groesse, '<neu/>'.length);
   assert.equal(db.tmLoadXml(id), '<neu/>');
   assert.deepEqual(db.tmLoadEntscheidungen(id), stand); // unberührt
-  db.close();
 });
 
-test('tmLoadEntscheidungen: null ohne Stand (hochgeladene Nachricht)', () => {
-  const db = openDb(':memory:');
+test('tmLoadEntscheidungen: null ohne Stand (hochgeladene Nachricht)', (t) => {
+  const db = oeffneTestDb(t);
   const { id, entry } = db.tmCreate(input());
   assert.equal(entry.gefuehrt, undefined);
   assert.equal(db.tmLoadEntscheidungen(id), null);
   assert.equal(db.tmLoadEntscheidungen('gibtsnicht'), null);
-  db.close();
 });
 
-test('Bezeichnungen: Roundtrip, ohne die Nachricht als gefuehrt zu markieren', () => {
-  const db = openDb(':memory:');
+test('Bezeichnungen: Roundtrip, ohne die Nachricht als gefuehrt zu markieren', (t) => {
+  const db = oeffneTestDb(t);
   const bez = { 'nachricht.dabag.antrag.2900001/beteiligter': ['Kläger', 'Beklagter'] };
   const { id, entry } = db.tmCreate(input({ bezeichnungen: bez }));
   assert.deepEqual(db.tmLoadBezeichnungen(id), bez);
   // Entscheidend: `gefuehrt` haengt am Entscheidungsstand, nicht hieran.
   assert.equal(entry.gefuehrt, undefined);
   assert.equal(db.tmList()[0].gefuehrt, undefined);
-  db.close();
 });
 
-test('tmUpdate: Bezeichnungen selektiv, leere Ablage raeumt auf', () => {
-  const db = openDb(':memory:');
+test('tmUpdate: Bezeichnungen selektiv, leere Ablage raeumt auf', (t) => {
+  const db = oeffneTestDb(t);
   const bez = { 'a/beteiligter': ['Kläger', 'Beklagter'] };
   const { id } = db.tmCreate(input({ bezeichnungen: bez }));
   // Nur XML ändern: die Namen bleiben stehen.
@@ -171,19 +160,17 @@ test('tmUpdate: Bezeichnungen selektiv, leere Ablage raeumt auf', () => {
   // Letztes Vorkommen entfernt: kein verwaister Rest.
   db.tmUpdate(id, { bezeichnungen: {} });
   assert.equal(db.tmLoadBezeichnungen(id), null);
-  db.close();
 });
 
-test('tmLoadBezeichnungen: null ohne Ablage (Upload/Altbestand)', () => {
-  const db = openDb(':memory:');
+test('tmLoadBezeichnungen: null ohne Ablage (Upload/Altbestand)', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.tmCreate(input());
   assert.equal(db.tmLoadBezeichnungen(id), null);
   assert.equal(db.tmLoadBezeichnungen('gibtsnicht'), null);
-  db.close();
 });
 
-test('Profil-Bindung: Herkunft im Index, eingefrorene Kopie separat lesbar', () => {
-  const db = openDb(':memory:');
+test('Profil-Bindung: Herkunft im Index, eingefrorene Kopie separat lesbar', (t) => {
+  const db = oeffneTestDb(t);
   const vorgabe = {
     meta: { name: 'Nachlass-Szenario', nachricht: 'nachricht.dabag.antrag.2900001' },
     statuses: [{ id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' }],
@@ -203,11 +190,10 @@ test('Profil-Bindung: Herkunft im Index, eingefrorene Kopie separat lesbar', () 
   assert.equal(row.fassung, 'v3');
   assert.equal(row.vorgabe, undefined); // Kopie nicht im Index
   assert.deepEqual(db.tmLoadVorgabe(id), vorgabe);
-  db.close();
 });
 
-test('eingefrorene Kopie bleibt lesbar, nachdem die Profilierung geloescht wurde', () => {
-  const db = openDb(':memory:');
+test('eingefrorene Kopie bleibt lesbar, nachdem die Profilierung geloescht wurde', (t) => {
+  const db = oeffneTestDb(t);
   const doc = { meta: { name: 'P' }, statuses: [], elemente: { 'a/b': {} }, auspraegungen: {} };
   const pid = db.create(doc).id;
   const { id } = db.tmCreate(
@@ -218,11 +204,10 @@ test('eingefrorene Kopie bleibt lesbar, nachdem die Profilierung geloescht wurde
   const entry = db.tmList()[0];
   assert.equal(entry.profilId, pid); // Herkunft bleibt als Historie
   assert.deepEqual(db.tmLoadVorgabe(id), doc);
-  db.close();
 });
 
-test('Bindung loesen: Kopie und Kennzeichen weg, Herkunft bleibt (#32)', () => {
-  const db = openDb(':memory:');
+test('Bindung loesen: Kopie und Kennzeichen weg, Herkunft bleibt (#32)', (t) => {
+  const db = oeffneTestDb(t);
   const doc = { meta: { name: 'P' }, statuses: [], elemente: { 'a/b': {} }, auspraegungen: {} };
   const pid = db.create(doc).id;
   const { id } = db.tmCreate(
@@ -239,22 +224,20 @@ test('Bindung loesen: Kopie und Kennzeichen weg, Herkunft bleibt (#32)', () => {
   assert.equal(entry.profilName, 'P');
   assert.equal(entry.fassung, 'v1');
   assert.equal(db.tmBindungLoesen('gibtsnicht'), null);
-  db.close();
 });
 
-test('tmUpdate laesst die eingefrorene Kopie und die Herkunft unberuehrt', () => {
-  const db = openDb(':memory:');
+test('tmUpdate laesst die eingefrorene Kopie und die Herkunft unberuehrt', (t) => {
+  const db = oeffneTestDb(t);
   const vorgabe = { meta: {}, statuses: [], elemente: { 'a/b': {} }, auspraegungen: {} };
   const { id } = db.tmCreate(input({ profilId: 'p1', profilName: 'P', fassung: 'v2', vorgabe }));
   const e = db.tmUpdate(id, { xml: '<neu/>', entwurf: false, profilId: 'p2', vorgabe: null });
   assert.equal(e.profilId, 'p1');
   assert.equal(e.fassung, 'v2');
   assert.deepEqual(db.tmLoadVorgabe(id), vorgabe);
-  db.close();
 });
 
-test('Alt-Eintraege ohne Bindung bleiben lesbar und aenderbar', () => {
-  const db = openDb(':memory:');
+test('Alt-Eintraege ohne Bindung bleiben lesbar und aenderbar', (t) => {
+  const db = oeffneTestDb(t);
   const { id, entry } = db.tmCreate(input());
   assert.equal(entry.profilId, undefined);
   assert.equal(entry.profilName, undefined);
@@ -263,7 +246,6 @@ test('Alt-Eintraege ohne Bindung bleiben lesbar und aenderbar', () => {
   const e = db.tmUpdate(id, { notiz: 'weiterhin änderbar' });
   assert.equal(e.notiz, 'weiterhin änderbar');
   assert.equal(e.profilId, undefined);
-  db.close();
 });
 
 // ── Badge "Profil weiterentwickelt" (Kennzeichen im schlanken Index) ────
@@ -278,19 +260,18 @@ const profilDoc = (over = {}) => ({
   ...over,
 });
 
-test('Kennzeichen: gebundene Fassung entspricht dem aktuellen Stand → kein Badge', () => {
-  const db = openDb(':memory:');
+test('Kennzeichen: gebundene Fassung entspricht dem aktuellen Stand → kein Badge', (t) => {
+  const db = oeffneTestDb(t);
   const doc = profilDoc();
   const { id: pid } = db.create(doc);
   db.tmCreate(
     input({ profilId: pid, profilName: 'Nachlass-Szenario', fassung: 'v1', vorgabe: doc }),
   );
   assert.equal(db.tmList()[0].profilWeiterentwickelt, undefined);
-  db.close();
 });
 
-test('Kennzeichen: Profilierung weiterentwickelt → Badge im Index', () => {
-  const db = openDb(':memory:');
+test('Kennzeichen: Profilierung weiterentwickelt → Badge im Index', (t) => {
+  const db = oeffneTestDb(t);
   const doc = profilDoc();
   const { id: pid } = db.create(doc);
   const { id } = db.tmCreate(input({ profilId: pid, fassung: 'v1', vorgabe: doc }));
@@ -302,11 +283,10 @@ test('Kennzeichen: Profilierung weiterentwickelt → Badge im Index', () => {
   );
   assert.equal(db.tmList()[0].profilWeiterentwickelt, true);
   assert.equal(db.tmUpdate(id, { notiz: 'x' }).profilWeiterentwickelt, true);
-  db.close();
 });
 
-test('Kennzeichen: erneutes Speichern ohne fachliche Aenderung ist keine Weiterentwicklung', () => {
-  const db = openDb(':memory:');
+test('Kennzeichen: erneutes Speichern ohne fachliche Aenderung ist keine Weiterentwicklung', (t) => {
+  const db = oeffneTestDb(t);
   const doc = profilDoc();
   const { id: pid } = db.create(doc);
   db.tmCreate(input({ profilId: pid, fassung: 'v1', vorgabe: doc }));
@@ -324,11 +304,10 @@ test('Kennzeichen: erneutes Speichern ohne fachliche Aenderung ist keine Weitere
     },
   });
   assert.equal(db.tmList()[0].profilWeiterentwickelt, undefined);
-  db.close();
 });
 
-test('Kennzeichen: keines ohne Bindung und keines nach dem Loeschen der Profilierung', () => {
-  const db = openDb(':memory:');
+test('Kennzeichen: keines ohne Bindung und keines nach dem Loeschen der Profilierung', (t) => {
+  const db = oeffneTestDb(t);
   const doc = profilDoc();
   const { id: pid } = db.create(doc);
   db.tmCreate(input({ name: 'ohne Bindung' }));
@@ -346,11 +325,10 @@ test('Kennzeichen: keines ohne Bindung und keines nach dem Loeschen der Profilie
   const nachher = db.tmList().find((e) => e.name === 'gebunden');
   assert.equal(nachher.profilId, pid);
   assert.equal(nachher.profilWeiterentwickelt, undefined);
-  db.close();
 });
 
-test('tmList filtert nach Profilierung', () => {
-  const db = openDb(':memory:');
+test('tmList filtert nach Profilierung', (t) => {
+  const db = oeffneTestDb(t);
   const doc = profilDoc();
   const { id: a } = db.create(doc);
   const { id: b } = db.create(profilDoc({ meta: { name: 'Anderes' } }));
@@ -363,14 +341,12 @@ test('tmList filtert nach Profilierung', () => {
   );
   assert.equal(db.tmList().length, 3); // ohne Filter unveraendert
   assert.deepEqual(db.tmList({ profil: 'gibtsnicht' }), []);
-  db.close();
 });
 
-test('testmessages und profiles teilen sich die DB ohne Kollision', () => {
-  const db = openDb(':memory:');
+test('testmessages und profiles teilen sich die DB ohne Kollision', (t) => {
+  const db = oeffneTestDb(t);
   db.create({ meta: { name: 'P' }, statuses: [], elemente: {}, auspraegungen: {} });
   db.tmCreate(input());
   assert.equal(db.list().length, 1);
   assert.equal(db.tmList().length, 1);
-  db.close();
 });
