@@ -77,19 +77,34 @@ describe('ProfileStoreService (HTTP)', () => {
       ],
     });
     const s = TestBed.inject(ProfileStoreService);
-    // Der Store aus dem beforeEach hat schon gefetcht (ohne Schluessel-Stub).
-    (window.fetch as jasmine.Spy).calls.reset();
     handlers['GET api/profiles/x'] = () => json(doc());
     handlers['GET api/profiles/x/abnahme'] = () => json({ nr: 1, doc: doc() });
-    const kopf = (): (string | null)[] =>
+
+    // Nur die beiden Wege dieses Tests bewerten. Der Spy liegt auf
+    // `window.fetch` und zeichnet jeden Request des Browsers auf — auch den
+    // des Stores aus dem beforeEach (ohne Schluessel-Stub) und alles, was ein
+    // anderer Spec-Lauf noch nachreicht. Ein `calls.reset()` half nur gegen
+    // Requests, die schon abgesetzt waren; ein spaeter eintreffender kippte
+    // die Zusicherung, unter Last in der CI (#124).
+    const WEGE = ['api/profiles/x', 'api/profiles/x/abnahme'];
+    const beobachtet = (): { weg: string; key: string | null }[] =>
       (window.fetch as jasmine.Spy).calls
         .allArgs()
-        .map((args) => new Headers((args[1] as RequestInit | undefined)?.headers).get('x-ag-key'));
+        .map((args) => ({
+          weg:
+            typeof args[0] === 'string' ? args[0] : ((args[0] as Request).url ?? String(args[0])),
+          key: new Headers((args[1] as RequestInit | undefined)?.headers).get('x-ag-key'),
+        }))
+        .filter((r) => WEGE.includes(r.weg));
 
     await s.load('x');
     await s.loadAbnahmeDoc('x');
 
-    expect(kopf().every((k) => k === 'geheim')).toBeTrue();
+    const eigene = beobachtet();
+    // Beide Wege wurden wirklich gegangen — sonst ginge die Zusicherung unten
+    // auch bei null Requests durch.
+    expect(eigene.map((r) => r.weg)).toEqual(WEGE);
+    expect(eigene.filter((r) => r.key !== 'geheim')).toEqual([]);
   });
 
   it('duplicate liefert neue id bzw. null bei 404', async () => {
