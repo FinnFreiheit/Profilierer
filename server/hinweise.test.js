@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { openDb } from './db.js';
+import { oeffneTestDb } from './testhelfer.js';
 import { createApp } from './app.js';
 
 /**
@@ -552,7 +553,7 @@ test('Einlieferung verdoppelt nichts und ueberschreibt keine neueren Hinweise', 
 // ── Migration des Altbestands ─────────────────────────────────────────
 
 test('Migration beim Serverstart: Hinweisfeld wird Listeneintrag, Feld verschwindet', async (t) => {
-  const db = openDb(':memory:');
+  const db = oeffneTestDb(t);
   t.after(() => db.close());
   // Altbestand direkt in die Tabelle schreiben (an der API vorbei, die strippt).
   const alt = doc({
@@ -597,7 +598,7 @@ test('Migration beim Serverstart: Hinweisfeld wird Listeneintrag, Feld verschwin
 });
 
 test('Migration: eingefrorene Versionen verlieren die Hinweisfelder, Kennzeichen bleiben ruhig', async (t) => {
-  const db = openDb(':memory:');
+  const db = oeffneTestDb(t);
   t.after(() => db.close());
   const alt = doc({ elemente: { a: { status: 's1', hinweis: 'klaeren' } } });
   const docStr = JSON.stringify(alt);

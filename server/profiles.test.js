@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { openDb } from './db.js';
+import { oeffneTestDb } from './testhelfer.js';
 import { zaehleFortschritt, toEntry, lesePunkte } from './fortschritt.js';
 
 const docWith = (over = {}) => ({
@@ -40,8 +40,8 @@ test('toEntry leitet die Index-Felder ab', () => {
   assert.equal(e.aktualisiert, 42);
 });
 
-test('create → list → load Roundtrip', () => {
-  const db = openDb(':memory:');
+test('create → list → load Roundtrip', (t) => {
+  const db = oeffneTestDb(t);
   const { id, entry } = db.create(docWith());
   assert.equal(entry.nStatus, 2);
   const list = db.list();
@@ -54,14 +54,13 @@ test('create → list → load Roundtrip', () => {
   const doc = db.load(id);
   assert.deepEqual(doc.elemente, docWith().elemente);
   assert.deepEqual(doc.erweiterungen, docWith().erweiterungen);
-  db.close();
 });
 
-test('Migration: n_erw-Spalte wird an einer Alt-DB nachgezogen', () => {
+test('Migration: n_erw-Spalte wird an einer Alt-DB nachgezogen', (t) => {
   // Alt-Schema ohne n_erw in einer Datei simulieren, dann erneut oeffnen —
   // die PRAGMA-Migration laeuft in openDb.
   const file = join(mkdtempSync(join(tmpdir(), 'xjp-test-')), 'profil.db');
-  const db = openDb(file);
+  const db = oeffneTestDb(t, file);
   db._db.exec('ALTER TABLE profiles DROP COLUMN n_erw');
   const cols = db._db
     .prepare('PRAGMA table_info(profiles)')
@@ -69,7 +68,7 @@ test('Migration: n_erw-Spalte wird an einer Alt-DB nachgezogen', () => {
     .map((c) => c.name);
   assert.ok(!cols.includes('n_erw'));
   db.close();
-  const db2 = openDb(file);
+  const db2 = oeffneTestDb(t, file);
   const cols2 = db2._db
     .prepare('PRAGMA table_info(profiles)')
     .all()
@@ -78,11 +77,10 @@ test('Migration: n_erw-Spalte wird an einer Alt-DB nachgezogen', () => {
   // Profil ohne erweiterungen-Feld (Altbestand) zaehlt 0.
   const { entry } = db2.create(docWith({ erweiterungen: undefined }));
   assert.equal(entry.nErw, 0);
-  db2.close();
 });
 
-test('upsert aktualisiert Index-Spalten und Fortschritt', () => {
-  const db = openDb(':memory:');
+test('upsert aktualisiert Index-Spalten und Fortschritt', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   const entry = db.upsert(
     id,
@@ -91,53 +89,48 @@ test('upsert aktualisiert Index-Spalten und Fortschritt', () => {
   assert.equal(entry.name, 'Neu');
   assert.equal(entry.nStatus, 1);
   assert.equal(db.list().length, 1); // kein Duplikat
-  db.close();
 });
 
-test('list ist nach aktualisiert absteigend sortiert', () => {
-  const db = openDb(':memory:');
+test('list ist nach aktualisiert absteigend sortiert', (t) => {
+  const db = oeffneTestDb(t);
   db.upsert('alt', docWith(), 1000);
   db.upsert('neu', docWith(), 2000);
   assert.deepEqual(
     db.list().map((e) => e.id),
     ['neu', 'alt'],
   );
-  db.close();
 });
 
-test('duplicate erzeugt neue id mit "(Kopie)"', () => {
-  const db = openDb(':memory:');
+test('duplicate erzeugt neue id mit "(Kopie)"', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   const dup = db.duplicate(id);
   assert.notEqual(dup.id, id);
   assert.equal(dup.entry.name, 'P (Kopie)');
   assert.equal(db.list().length, 2);
   assert.equal(db.duplicate('gibtsnicht'), null);
-  db.close();
 });
 
-test('rename ändert nur den Namen', () => {
-  const db = openDb(':memory:');
+test('rename ändert nur den Namen', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   const entry = db.rename(id, '  Umbenannt  ');
   assert.equal(entry.name, 'Umbenannt');
   assert.equal(db.load(id).meta.name, 'Umbenannt');
   assert.equal(db.rename('gibtsnicht', 'x'), null);
-  db.close();
 });
 
-test('delete entfernt Dokument und Indexeintrag', () => {
-  const db = openDb(':memory:');
+test('delete entfernt Dokument und Indexeintrag', (t) => {
+  const db = oeffneTestDb(t);
   const { id } = db.create(docWith());
   assert.equal(db.delete(id), true);
   assert.equal(db.load(id), null);
   assert.equal(db.list().length, 0);
   assert.equal(db.delete(id), false);
-  db.close();
 });
 
-test('importAll erhält id und aktualisiert-Zeitstempel', () => {
-  const db = openDb(':memory:');
+test('importAll erhält id und aktualisiert-Zeitstempel', (t) => {
+  const db = oeffneTestDb(t);
   const n = db.importAll([
     { id: 'fixed-1', doc: docWith(), aktualisiert: 1000 },
     { id: 'fixed-2', doc: docWith(), aktualisiert: 2000 },
@@ -150,16 +143,14 @@ test('importAll erhält id und aktualisiert-Zeitstempel', () => {
     ['fixed-2', 'fixed-1'],
   );
   assert.equal(list[0].aktualisiert, 2000);
-  db.close();
 });
 
-test('count spiegelt die Anzahl der Profile', () => {
-  const db = openDb(':memory:');
+test('count spiegelt die Anzahl der Profile', (t) => {
+  const db = oeffneTestDb(t);
   assert.equal(db.count(), 0);
   db.create(docWith());
   db.create(docWith());
   assert.equal(db.count(), 2);
-  db.close();
 });
 
 test('lesePunkte uebernimmt den Stand der Entscheidungspunkte (#93)', () => {
@@ -190,12 +181,12 @@ test('lesePunkte haelt x innerhalb von y', () => {
   });
 });
 
-test('der Fach-Hash ignoriert den Punktestand (#93)', () => {
+test('der Fach-Hash ignoriert den Punktestand (#93)', (t) => {
   // Ein Wechsel der Schemaversion aendert den Nenner. Wuerde er in den Hash
   // einfliessen, markierte er jede gebundene Testnachricht als
   // "Profil weiterentwickelt", ohne dass sich fachlich etwas geaendert hat.
   const dir = mkdtempSync(join(tmpdir(), 'xjp-'));
-  const db = openDb(join(dir, 'p.db'));
+  const db = oeffneTestDb(t, join(dir, 'p.db'));
   const a = db.upsert('p1', docWith({ fortschritt: { x: 1, y: 100 } }));
   const vorher = db._db.prepare('SELECT fach_hash FROM profiles WHERE id = ?').get('p1').fach_hash;
   db.upsert('p1', docWith({ fortschritt: { x: 77, y: 4829 } }));
@@ -211,9 +202,9 @@ test('der Fach-Hash ignoriert den Punktestand (#93)', () => {
   assert.notEqual(fachlich, nachher);
 });
 
-test('upsert schreibt den Punktestand in den Index und liest ihn zurueck', () => {
+test('upsert schreibt den Punktestand in den Index und liest ihn zurueck', (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'xjp-'));
-  const db = openDb(join(dir, 'p.db'));
+  const db = oeffneTestDb(t, join(dir, 'p.db'));
   db.upsert('p1', docWith({ fortschritt: { x: 12, y: 40 } }));
   db.upsert('p2', docWith());
   const liste = db.list();
@@ -225,17 +216,16 @@ test('upsert schreibt den Punktestand in den Index und liest ihn zurueck', () =>
   assert.equal(p2.nPunkte, undefined);
 });
 
-test('Migration: n_erw wird an einer Alt-DB nachgezogen (Backfill)', () => {
+test('Migration: n_erw wird an einer Alt-DB nachgezogen (Backfill)', (t) => {
   // Ohne den Backfill blieben Zeilen aus der Zeit vor der Spalte ohne
   // Erweiterungs-Kennzeichen — und damit an der Sperre der Pruefartefakte
   // (#98) vorbei, obwohl sie nachbeauftragte Elemente enthalten.
   const file = join(mkdtempSync(join(tmpdir(), 'xjp-test-')), 'profil.db');
-  const db = openDb(file);
+  const db = oeffneTestDb(t, file);
   const { id } = db.create(docWith());
   assert.equal(db.list()[0].nErw, 1);
   db._db.exec('ALTER TABLE profiles DROP COLUMN n_erw'); // Alt-Schema simulieren
   db.close();
-  const db2 = openDb(file);
+  const db2 = oeffneTestDb(t, file);
   assert.equal(db2.list().find((e) => e.id === id).nErw, 1);
-  db2.close();
 });
