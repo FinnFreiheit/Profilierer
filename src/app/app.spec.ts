@@ -23,7 +23,7 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.dashHead h1')?.textContent).toContain('Profilierer');
+    expect(compiled.querySelector('.dashHead h1')?.textContent).toContain('Pfadfinder');
   });
 
   describe('Escape hebt die Auswahl auf (#82)', () => {
