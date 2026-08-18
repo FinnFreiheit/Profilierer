@@ -132,6 +132,13 @@ app-root {
   flex: 1 1 auto;
   overflow: hidden;
 }
+/* Innerhalb der Zone gibt die Nachrichtenwahl zuerst nach — ihr Name steht
+   als Wurzel ohnehin im Pfad, der Pfad dagegen ist nirgends sonst zu sehen. */
+.zoneOrt app-message-picker {
+  display: block;
+  flex: 0 3 auto;
+  min-width: 0;
+}
 .zoneModus {
   flex: none;
   gap: 8px;
@@ -194,7 +201,12 @@ button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
+/* Eine Formensprache fuer alle Eingaben: Suchfelder und der Rollen-Schluessel
+   trugen sonst das Browser-Aussehen (groessere Systemschrift, eigener Rahmen,
+   eigene Rundung) und fielen aus der Reihe. */
 input[type='text'],
+input[type='search'],
+input[type='password'],
 textarea,
 select {
   font: inherit;
@@ -205,9 +217,16 @@ select {
   background: var(--panel);
   color: var(--text);
 }
+/* Nur das Suchfeld: ohne dies behaelt WebKit die eigene Innenhoehe. Beim
+   `select` bliebe sonst der Aufklapp-Pfeil auf der Strecke. */
+input[type='search'] {
+  appearance: none;
+}
 /* Der Fokus ist das eine Orange in der Kopfzone: er muss auf hellem wie auf
    gefuelltem Grund sofort auffindbar sein, ohne die Feldbreite zu aendern. */
 input[type='text']:focus,
+input[type='search']:focus,
+input[type='password']:focus,
 textarea:focus,
 select:focus {
   outline: 2px solid var(--signal);
@@ -580,6 +599,15 @@ label.menuItem:has(input:disabled) {
 /* Pfadleiste: seit #80 kein eigener Balken mehr, sondern die Fortsetzung der
    Nachrichtenwahl in Zeile 2. Das erspart den Sprung, den das Erscheinen der
    dritten Zeile beim ersten Klick ausloeste. */
+/* Der Wirt fuellt den Rest der Ortszone und laeuft nicht mehr aus ihr
+   heraus; wie der Pfad bei Enge zusammenrueckt, entscheidet die Komponente
+   (Auslassungs-Menue), nicht der Ueberlauf. */
+app-crumbs {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
 #crumbs {
   display: none;
   font-size: 12.5px;
@@ -591,6 +619,10 @@ label.menuItem:has(input:disabled) {
 #crumbs.open {
   display: flex;
 }
+#crumbs app-menu {
+  display: block;
+  flex: none;
+}
 .crumb {
   padding: 2px 9px;
   border-radius: 12px;
@@ -598,16 +630,27 @@ label.menuItem:has(input:disabled) {
   color: var(--accent);
   background: var(--accent-soft);
   white-space: nowrap;
-  /* Bei Enge kuerzt die Mitte des Pfades: die Wurzel bleibt als Anker, das
-     aktuelle Element bleibt vollstaendig lesbar. */
-  flex: 0 1 auto;
-  min-width: 2.2em;
+  /* Stationen kuerzen nicht von sich aus — ueberzaehlige wandern in die
+     Auslassung (crumbs.ts). Nur wenn ausser Wurzel und Ziel nichts mehr
+     auszulassen ist, duerfen beide kuerzen (Klasse `eng`). */
+  flex: none;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.crumb:first-of-type,
-.crumb.cur {
-  flex: none;
+/* Die Auslassung traegt das Chip-Kleid des Pfades, nicht das des Knopfes. */
+.crumbAus {
+  border: 0;
+  font-size: inherit;
+  line-height: inherit;
+  height: auto;
+  min-height: 0;
+}
+#crumbs.eng .crumb {
+  flex: 0 1 auto;
+  min-width: 2.2em;
+}
+#crumbs.eng .crumb.cur {
+  min-width: 4.5em;
 }
 .crumb:hover {
   background: var(--accent-soft-tief);
@@ -1516,12 +1559,40 @@ app-detail-panel {
 }
 // Auch ausserhalb des gefuehrten Blocks verwendet (Fassungswahl im
 // Erstellen-Dialog des Testdatenspeichers) — daher ohne Vorfahren-Bindung.
+/* Eine Auswahlzeile, keine Abschnittsueberschrift: die Versalien-Optik von
+   `.dsec > label` gilt hier nicht — sonst liest sich jede Alternative wie eine
+   Rubrik. Deshalb die hoehere Spezifitaet. */
+.dsec > label.gZweig,
 .gZweig {
   display: flex;
-  gap: 6px;
+  gap: 7px;
   align-items: center;
   font-size: 13px;
-  padding: 2px 0;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+  margin-bottom: 0;
+  padding: 3px 0;
+}
+/* Die Taste zur Option: sie soll die Zeile fuehren, nicht mit dem Radioknopf um
+   Aufmerksamkeit streiten — darum eine schmale Ziffernspalte statt eines
+   zweiten Merkers. */
+.optNr {
+  flex: none;
+  width: 12px;
+  text-align: right;
+  color: var(--muted-schwach);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.gZweig:has(input:checked) .optNr {
+  color: var(--accent);
+}
+.gZweig.gesperrt .optNr {
+  opacity: 0.5;
 }
 .guidedSec .gBestaetigen {
   margin-top: 6px;
@@ -2052,7 +2123,6 @@ app-dashboard {
 /* Freitextsuche beider Uebersichten (#92) — frueher `.tdSearch`, obwohl
    inzwischen beide Ansichten sie tragen. */
 .suchfeld {
-  padding: 6px 10px;
   min-width: 280px;
   flex: 1;
   max-width: 420px;
@@ -2166,6 +2236,86 @@ dialog::backdrop {
   grid-template-columns: 110px 1fr;
   gap: 8px;
   align-items: center;
+}
+/* Wizard „Neue Profilierung" (app-neues-profil-wizard). */
+#neuDlg {
+  max-width: 640px;
+}
+.wizSchritte {
+  display: flex;
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+  counter-reset: wiz;
+}
+.wizSchritte li {
+  counter-increment: wiz;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.wizSchritte li::before {
+  content: counter(wiz) '. ';
+}
+.wizSchritte li.aktiv {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text-stark);
+}
+.wizSchritte li.fertig {
+  opacity: 0.7;
+}
+.wizHint {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin: 0 0 10px;
+}
+.wizSuche {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+.wizListe {
+  max-height: 46vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 0;
+}
+/* Die Wahl ist ein Knopf, sieht aber aus wie ein Listeneintrag (.msgItem). */
+.wizWahl {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  font: inherit;
+  color: inherit;
+}
+.wizWahl.aktiv {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+}
+/* Fokusring nach innen: aussen umrahmte er die ganze Liste statt des Eintrags
+   (der Knopf fuellt sie in voller Breite). */
+.wizWahl:focus-visible {
+  outline-offset: -2px;
+}
+.wizLeer {
+  padding: 14px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.wizFuss {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
 }
 /* Erweiterungs-Dialog (app-erweiterung-dialog). */
 .erwHint {
@@ -2477,8 +2627,11 @@ app-tree-context-menu {
   #profilName {
     width: 110px;
   }
+  /* Der Pfad hat Vorrang: die Nachrichtenwahl behaelt nur noch so viel
+     Breite, dass ihr Anfang lesbar bleibt (voller Name im Tooltip). */
   #msgBtn {
-    max-width: 150px;
+    max-width: 120px;
+    min-width: 64px;
   }
   /* Der Fortschritt bleibt als Balken; die Zahl steht im Tooltip der Zone. */
   #fortschritt {

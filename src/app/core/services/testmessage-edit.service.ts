@@ -185,7 +185,7 @@ export class TestmessageEditService {
    */
   bearbeitenAnfordern(): boolean {
     if (this.state.abnahmeSchreibschutz()) {
-      this.toast.show('Von der BLK-AG abgenommen — nur betrachten (AG-Schlüssel nötig).');
+      this.toast.show('Von der BLK-AG freigegeben — nur betrachten (AG-Schlüssel nötig).');
       return false;
     }
     const id = this.state.messageEdit()?.entryId ?? null;
@@ -216,7 +216,7 @@ export class TestmessageEditService {
     const session = this.state.messageEdit();
     if (!session?.entryId) return false;
     if (this.state.abnahmeSchreibschutz()) {
-      this.toast.show('Von der BLK-AG abgenommen — Speichern nur mit AG-Schlüssel.');
+      this.toast.show('Von der BLK-AG freigegeben — Speichern nur mit AG-Schlüssel.');
       return false;
     }
     // Die Rueckfrage zu gefuehrt erstellten Nachrichten steht seit #105 am

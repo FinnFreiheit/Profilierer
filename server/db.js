@@ -271,6 +271,11 @@ export function openDb(path) {
         .map((c) => c.name),
     );
     if (!cols.has('abnahme')) db.exec('ALTER TABLE profile_versions ADD COLUMN abnahme INTEGER');
+    // Fach-Hash der eingefrorenen Fassung: Vergleichsbasis von "geaendert seit
+    // Freigabe". Der doc_hash taugt dafuer nicht — er haengt an der
+    // Serialisierung, und schon das blosse Oeffnen schreibt abgeleitete Felder
+    // (`fortschritt`) nach, ohne dass sich fachlich etwas geaendert haette.
+    if (!cols.has('fach_hash')) db.exec('ALTER TABLE profile_versions ADD COLUMN fach_hash TEXT');
   }
 
   // Migration: n_erw fuer Alt-Bestand nachziehen. Ohne die Zahl blieben Zeilen,
@@ -309,6 +314,13 @@ export function openDb(path) {
         for (const r of offen) set.run(fachHash(JSON.parse(r.doc)), r.id);
       })();
     }
+    const ver = db.prepare('SELECT id, doc FROM profile_versions WHERE fach_hash IS NULL').all();
+    if (ver.length) {
+      const set = db.prepare('UPDATE profile_versions SET fach_hash = ? WHERE id = ?');
+      db.transaction(() => {
+        for (const r of ver) set.run(fachHash(JSON.parse(r.doc)), r.id);
+      })();
+    }
     const tm = db
       .prepare(
         'SELECT id, vorgabe FROM testmessages WHERE vorgabe IS NOT NULL AND vorgabe_hash IS NULL',
@@ -326,13 +338,13 @@ export function openDb(path) {
     list: db.prepare(
       `SELECT profiles.id, profiles.name, nachricht, xjustiz_version, n_status, n_ausp, n_erw,
               n_entschieden, n_punkte,
-              gespeichert, aktualisiert, profiles.doc_hash,
+              gespeichert, aktualisiert, profiles.doc_hash, profiles.fach_hash,
               (SELECT COUNT(*) FROM profile_versions v WHERE v.profile_id = profiles.id) AS n_ver,
               (SELECT MAX(nr) FROM profile_versions v WHERE v.profile_id = profiles.id) AS letzte_nr,
               EXISTS(SELECT 1 FROM profile_versions v
                      WHERE v.profile_id = profiles.id AND v.doc_hash = profiles.doc_hash) AS bekannt,
               ab.nr AS abn_nr, ab.erstellt AS abn_zeit, ab.kommentar AS abn_kommentar,
-              ab.doc_hash AS abn_hash,
+              ab.fach_hash AS abn_fach_hash,
               (SELECT COUNT(*) FROM hinweise h
                WHERE h.profil_id = profiles.id AND h.erledigt IS NULL) AS hw_offen,
               (SELECT COUNT(*) FROM hinweise h
@@ -342,7 +354,7 @@ export function openDb(path) {
        ORDER BY aktualisiert DESC`,
     ),
     getDoc: db.prepare('SELECT doc FROM profiles WHERE id = ?'),
-    getRow: db.prepare('SELECT doc, doc_hash, aktualisiert FROM profiles WHERE id = ?'),
+    getRow: db.prepare('SELECT doc, doc_hash, fach_hash, aktualisiert FROM profiles WHERE id = ?'),
     exists: db.prepare('SELECT 1 FROM profiles WHERE id = ?'),
     count: db.prepare('SELECT COUNT(*) AS n FROM profiles'),
     del: db.prepare('DELETE FROM profiles WHERE id = ?'),
@@ -376,8 +388,8 @@ export function openDb(path) {
     ),
     verGet: db.prepare('SELECT * FROM profile_versions WHERE id = ? AND profile_id = ?'),
     verInsert: db.prepare(
-      `INSERT INTO profile_versions (id, profile_id, nr, kommentar, automatisch, abnahme, doc, doc_hash, erstellt)
-       VALUES (@id, @profileId, @nr, @kommentar, @automatisch, @abnahme, @doc, @docHash, @erstellt)`,
+      `INSERT INTO profile_versions (id, profile_id, nr, kommentar, automatisch, abnahme, doc, doc_hash, fach_hash, erstellt)
+       VALUES (@id, @profileId, @nr, @kommentar, @automatisch, @abnahme, @doc, @docHash, @fachHash, @erstellt)`,
     ),
     // Deckel: nur die juengsten AUTO_DECKEL Automatik-Versionen behalten.
     verPrune: db.prepare(
@@ -391,7 +403,7 @@ export function openDb(path) {
 
     // ── Abnahme (BLK-AG) ────────────────────────────────────────────────
     abnGet: db.prepare(
-      `SELECT v.nr, v.kommentar, v.erstellt, v.doc_hash
+      `SELECT v.nr, v.kommentar, v.erstellt, v.fach_hash
        FROM profiles p JOIN profile_versions v ON v.id = p.abnahme_version_id
        WHERE p.id = ?`,
     ),
@@ -551,14 +563,14 @@ export function openDb(path) {
     return { nHinweiseOffen: r.offen, nHinweiseExtern: r.extern || undefined };
   }
 
-  function versionsInfo(profileId, aktuellerHash) {
+  function versionsInfo(profileId, aktuellerHash, aktuellerFachHash) {
     const r = stmt.verInfo.get({ pid: profileId, hash: aktuellerHash });
     if (!r || !r.n) return {};
     return {
       nVersionen: r.n,
       letzteVersionNr: r.maxNr,
       geaendert: r.bekannt ? undefined : true,
-      ...abnahmeInfo(profileId, aktuellerHash),
+      ...abnahmeInfo(profileId, aktuellerFachHash),
     };
   }
 
@@ -566,8 +578,14 @@ export function openDb(path) {
    * Abnahme-Felder des LibraryEntry — abgeleitet aus der referenzierten
    * Abnahme-Version; "geaendert seit Abnahme" per Hash-Vergleich zwischen
    * Arbeitsstand und eingefrorenem Stand.
+   *
+   * Verglichen wird der **Fach**-Hash, nicht der doc_hash: das blosse Oeffnen
+   * einer Profilierung schreibt abgeleitete Felder nach (`fortschritt`, #93)
+   * und aendert damit die Serialisierung, ohne dass jemand etwas entschieden
+   * haette. Ein Kennzeichen "geaendert seit Freigabe" ohne Aenderung entwertet
+   * die Freigabe — hier ist falsch-positiv nicht harmlos.
    */
-  function abnahmeInfo(profileId, aktuellerHash) {
+  function abnahmeInfo(profileId, aktuellerFachHash) {
     const a = stmt.abnGet.get(profileId);
     if (!a) return {};
     return {
@@ -575,7 +593,7 @@ export function openDb(path) {
       abnahmeVersionNr: a.nr,
       abnahmeZeit: a.erstellt,
       abnahmeKommentar: a.kommentar ?? undefined,
-      geaendertSeitAbnahme: a.doc_hash === aktuellerHash ? undefined : true,
+      geaendertSeitAbnahme: a.fach_hash === aktuellerFachHash ? undefined : true,
     };
   }
 
@@ -601,11 +619,12 @@ export function openDb(path) {
     const entry = toEntry(id, doc, ts);
     const docStr = JSON.stringify(doc);
     const hash = docHash(docStr);
+    const fHash = fachHash(doc);
     stmt.upsert.run({
       id,
       doc: docStr,
       docHash: hash,
-      fachHash: fachHash(doc),
+      fachHash: fHash,
       name: entry.name,
       nachricht: entry.nachricht,
       xjustizVersion: entry.xjustizVersion ?? null,
@@ -617,7 +636,7 @@ export function openDb(path) {
       gespeichert: entry.gespeichert ?? null,
       aktualisiert: ts,
     });
-    return { ...entry, ...versionsInfo(id, hash), ...hinweisInfo(id) };
+    return { ...entry, ...versionsInfo(id, hash, fHash), ...hinweisInfo(id) };
   }
 
   const api = {
@@ -644,7 +663,8 @@ export function openDb(path) {
         abnahmeVersionNr: r.abn_nr ?? undefined,
         abnahmeZeit: r.abn_zeit ?? undefined,
         abnahmeKommentar: r.abn_kommentar ?? undefined,
-        geaendertSeitAbnahme: r.abn_nr != null && r.abn_hash !== r.doc_hash ? true : undefined,
+        geaendertSeitAbnahme:
+          r.abn_nr != null && r.abn_fach_hash !== r.fach_hash ? true : undefined,
         // Rueckmeldungen sichtbar machen (Issue #43): ohne offene Hinweise
         // bleiben beide Felder weg, die Karte zeigt dann kein Badge.
         nHinweiseOffen: r.hw_offen || undefined,
@@ -662,7 +682,7 @@ export function openDb(path) {
       if (!row) return null;
       return {
         ...toEntry(id, JSON.parse(row.doc), row.aktualisiert),
-        ...versionsInfo(id, row.doc_hash),
+        ...versionsInfo(id, row.doc_hash, row.fach_hash),
         ...hinweisInfo(id),
       };
     },
@@ -911,7 +931,7 @@ export function openDb(path) {
         if (!row) return null;
         const entry = () => ({
           ...toEntry(profileId, JSON.parse(row.doc), row.aktualisiert),
-          ...versionsInfo(profileId, row.doc_hash),
+          ...versionsInfo(profileId, row.doc_hash, row.fach_hash),
           ...hinweisInfo(profileId),
         });
         const info = stmt.verInfo.get({ pid: profileId, hash: row.doc_hash });
@@ -930,6 +950,7 @@ export function openDb(path) {
           abnahme: abnahme ? 1 : null,
           doc: row.doc,
           docHash: row.doc_hash,
+          fachHash: row.fach_hash,
           erstellt,
         });
         if (automatisch) stmt.verPrune.run({ pid: profileId });
@@ -970,7 +991,7 @@ export function openDb(path) {
           version: out.version,
           entry: {
             ...toEntry(profileId, JSON.parse(row.doc), row.aktualisiert),
-            ...versionsInfo(profileId, row.doc_hash),
+            ...versionsInfo(profileId, row.doc_hash, row.fach_hash),
           },
         };
       })();
@@ -986,7 +1007,7 @@ export function openDb(path) {
       stmt.abnSet.run(null, profileId);
       return {
         ...toEntry(profileId, JSON.parse(row.doc), row.aktualisiert),
-        ...versionsInfo(profileId, row.doc_hash),
+        ...versionsInfo(profileId, row.doc_hash, row.fach_hash),
         ...hinweisInfo(profileId),
       };
     },
@@ -1299,12 +1320,14 @@ export function openDb(path) {
             n++;
           }
         }
-        const setVer = db.prepare('UPDATE profile_versions SET doc = ?, doc_hash = ? WHERE id = ?');
+        const setVer = db.prepare(
+          'UPDATE profile_versions SET doc = ?, doc_hash = ?, fach_hash = ? WHERE id = ?',
+        );
         for (const r of db.prepare('SELECT id, doc FROM profile_versions').all()) {
           const doc = JSON.parse(r.doc);
           hinweiseHerausloesen(doc);
           const neu = JSON.stringify(doc);
-          if (neu !== r.doc) setVer.run(neu, docHash(neu), r.id);
+          if (neu !== r.doc) setVer.run(neu, docHash(neu), fachHash(doc), r.id);
         }
         const setVorgabe = db.prepare(
           'UPDATE testmessages SET vorgabe = ?, vorgabe_hash = ? WHERE id = ?',

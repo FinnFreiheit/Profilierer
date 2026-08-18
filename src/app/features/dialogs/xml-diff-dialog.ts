@@ -106,7 +106,7 @@ export class XmlDiffDialog {
       ]);
       if (!abnahme) {
         this.fehler.set(
-          'Diese Testnachricht ist nicht abgenommen — es gibt keine eingefrorene Vergleichsfassung.',
+          'Diese Testnachricht ist nicht freigegeben — es gibt keine eingefrorene Vergleichsfassung.',
         );
         return;
       }
@@ -145,7 +145,7 @@ export class XmlDiffDialog {
 
   protected kopiereAlles(): void {
     if (!this.result()) return;
-    const kopf = `Änderungen der Testnachricht „${this.nachrichtName()}" gegenüber der abgenommenen Fassung${this.abnahmeDatum() ? ' vom ' + this.abnahmeDatum() : ''}`;
+    const kopf = `Änderungen der Testnachricht „${this.nachrichtName()}" gegenüber der freigegebenen Fassung${this.abnahmeDatum() ? ' vom ' + this.abnahmeDatum() : ''}`;
     const text = [kopf, '', ...this.gefiltert().map((e) => this.alsText(e))].join('\n');
     this.inZwischenablage(text, `${this.gefiltert().length} Änderungen`);
   }

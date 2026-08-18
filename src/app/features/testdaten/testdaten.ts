@@ -300,7 +300,7 @@ export class Testdaten {
       this.createProfil.set(e);
       this.toast.show(
         e.abgenommen
-          ? 'Fassungen nicht ladbar — vorbelegt ist der Arbeitsstand, nicht die abgenommene Fassung.'
+          ? 'Fassungen nicht ladbar — vorbelegt ist der Arbeitsstand, nicht die freigegebene Fassung.'
           : 'Fassungen nicht ladbar — es steht nur der Arbeitsstand zur Wahl.',
       );
     } finally {
@@ -311,7 +311,7 @@ export class Testdaten {
   /** Beschriftung einer Version im Fassungs-Radio. */
   protected fassungLabel(v: ProfilVersion): string {
     const teile = [`v${v.nr}`];
-    if (v.abnahme) teile.push('Abnahme-Fassung');
+    if (v.abnahme) teile.push('Freigabe-Fassung');
     if (v.kommentar) teile.push(v.kommentar);
     return teile.join(' · ');
   }
@@ -661,7 +661,7 @@ export class Testdaten {
   protected remove(e: TestmessageEntry, ev: Event): void {
     ev.stopPropagation();
     const frage = e.abgenommen
-      ? `Testnachricht „${e.name}" ist von der BLK-AG ABGENOMMEN.\nLöschen entfernt den geschützten Stand samt eingefrorener Fassung unwiderruflich. Wirklich löschen?`
+      ? `Testnachricht „${e.name}" ist von der BLK-AG FREIGEGEBEN.\nLöschen entfernt den geschützten Stand samt eingefrorener Fassung unwiderruflich. Wirklich löschen?`
       : `Testnachricht „${e.name}" wirklich löschen?`;
     if (confirm(frage))
       void this.store
@@ -705,9 +705,11 @@ export class Testdaten {
     if (!id) return;
     try {
       await this.store.abnehmen(id, this.abnKommentar().trim() || undefined);
-      this.toast.show('Abgenommen — die aktuelle XML-Fassung ist als valide Fassung eingefroren.');
+      this.toast.show('Freigegeben — die aktuelle XML-Fassung ist als valide Fassung eingefroren.');
     } catch {
-      this.toast.show('Abnahme fehlgeschlagen — Backend nicht erreichbar oder Schlüssel ungültig.');
+      this.toast.show(
+        'Freigabe fehlgeschlagen — Backend nicht erreichbar oder Schlüssel ungültig.',
+      );
     }
     this.abnahmeDlg().nativeElement.close();
   }
@@ -717,7 +719,7 @@ export class Testdaten {
     if (!id) return;
     try {
       await this.store.abnahmeEntfernen(id);
-      this.toast.show('Abnahme-Kennzeichen samt eingefrorener Fassung entfernt.');
+      this.toast.show('Freigabe-Kennzeichen samt eingefrorener Fassung entfernt.');
     } catch {
       this.toast.show(
         'Kennzeichen konnte nicht entfernt werden — Backend nicht erreichbar oder Schlüssel ungültig.',
@@ -732,10 +734,10 @@ export class Testdaten {
     try {
       const xml = await this.store.loadAbnahmeXml(e.id);
       if (xml == null) {
-        this.toast.show('Keine abgenommene Fassung vorhanden.');
+        this.toast.show('Keine freigegebene Fassung vorhanden.');
         return;
       }
-      const name = this.dl.xmlFilename(e.name || (e.nachricht ?? ''), '.abgenommen');
+      const name = this.dl.xmlFilename(e.name || (e.nachricht ?? ''), '.freigegeben');
       this.dl.download(name, xml, 'application/xml');
     } catch {
       this.toast.show('Download fehlgeschlagen — Backend nicht erreichbar.');

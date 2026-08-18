@@ -65,11 +65,26 @@ Daraus folgt:
   Führung ab (`App.onKeydown`/`istZweigWahl`): sonst blieben sie nach einem Klick auf einen
   Zweig im Radio hängen, wo der Browser-Standard den Zweig weiterschaltet, statt den
   Durchlauf fortzusetzen. Per Tab erreichbar und mit Leertaste bedienbar bleiben sie.
-- **Pflichtangaben lassen sich nicht übergehen.** `ueberspringSperre` hält `↓` und „Weiter ›"
-  an einer offenen Pflichtangabe oder einer unbelegten Pflicht-Auswahl fest und nennt den
-  Grund. Festgehalten wird nur die Weiter-Bewegung: zurück, hinein/heraus, „Nächster offener"
-  und jeder Klick im Baum bleiben frei — sonst wäre der Durchlauf an einer Stelle gefangen,
-  die sich vielleicht erst später beantworten lässt.
+- **Die Hand bleibt auf der Tastatur.** Was zu wählen ist, trägt eine Ziffer: die Zweige einer
+  Auswahl und die Ziele eines Verweises stehen als **eine** nummerierte Liste
+  (`GuidedService.optionen`, `waehleOption`), aus der Anzeige und Taste dieselbe Nummer
+  beziehen — zwei getrennte Nummerierungen liefen unweigerlich auseinander. Mehr als neun
+  Optionen bekommen keine Nummer mehr (die Tastatur hat nur `1`…`9`); sie bleiben über Liste
+  und Auswahlfeld erreichbar. `Enter` springt zur nächsten **offenen** Angabe (mit Umlauf),
+  `↓` bleibt die Station-für-Station-Bewegung — Lücken schließen und durchblättern sind zwei
+  verschiedene Absichten. Im Wert-Feld übernimmt `Enter` zugleich den Wert; einen Absatz macht
+  dort `Shift+Enter`.
+- **Pflichtangaben lassen sich nicht übergehen.** `ueberspringSperre` hält `↓`, `Enter` und
+  „Weiter ›" an einer offenen Pflichtangabe oder einer unbelegten Pflicht-Auswahl fest und
+  nennt den Grund. Festgehalten wird nur die Weiter-Bewegung: zurück, hinein/heraus, „Nächster
+  offener" und jeder Klick im Baum bleiben frei — sonst wäre der Durchlauf an einer Stelle
+  gefangen, die sich vielleicht erst später beantworten lässt.
+- **Ein Verweis ohne Ziel wartet, statt zu blockieren.** Verweist die Nachricht auf ein
+  Vorkommen, das es noch nicht gibt, ist die Station nicht zu beantworten: `verweisOhneZiel`
+  nimmt ihr die Sperre, lässt sie aber **offen**. Weil „nächster offener" am Ende umläuft,
+  kommt der Durchlauf von selbst dorthin zurück, sobald das Ziel angelegt ist. Die Alternative
+  — festhalten, bis der Anwender den Durchlauf verlässt und das Ziel von Hand anlegt — machte
+  genau den Fall unbedienbar, für den die Führung gedacht ist.
 - **Die Verbindlichkeit ist sichtbar.** `stationArt(path)` ordnet jede Station ein und färbt
   sie in den Farben der Profilierung ein (`profile-defaults`): grün `#1D9E75`, wo die
   Nachricht die Angabe verlangt, orange `#BA7517`, wo sie frei ist. Getragen wird das im Baum

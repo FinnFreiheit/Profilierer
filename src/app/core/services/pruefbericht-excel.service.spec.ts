@@ -19,7 +19,7 @@ describe('PruefberichtExcelService', () => {
     name: 'lieferung.xml',
     msgName: 'nachricht.test.0001',
     profilName: 'Testprofil',
-    fassung: 'v4 (Abnahme)',
+    fassung: 'v4 (Freigabe)',
     xjustizVersion: '3.6.2',
     zeitpunkt: Date.parse('2026-08-11T10:00:00Z'),
     schema: 'valide',
@@ -106,7 +106,7 @@ describe('PruefberichtExcelService', () => {
       .map((z) => z.join(' | '))
       .join('\n');
 
-    expect(flach).toContain('Geprüfte Fassung | v4 (Abnahme)');
+    expect(flach).toContain('Geprüfte Fassung | v4 (Freigabe)');
     expect(flach).toContain('Profilierung | Testprofil');
     expect(flach).toContain('Geprüft am | ');
     expect(flach).toContain('Abweichungen der Nachricht | 3');
@@ -162,6 +162,6 @@ describe('PruefberichtExcelService', () => {
 
   it('baut einen sprechenden Dateinamen mit Nachricht, Profil, Fassung und Datum', async () => {
     await svc.exportiere(bericht());
-    expect(dateien[0]!.name).toBe('Pruefbericht_lieferung_Testprofil_v4_Abnahme_2026-08-11.xlsx');
+    expect(dateien[0]!.name).toBe('Pruefbericht_lieferung_Testprofil_v4_Freigabe_2026-08-11.xlsx');
   });
 });

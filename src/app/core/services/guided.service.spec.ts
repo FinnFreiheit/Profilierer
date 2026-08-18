@@ -225,6 +225,45 @@ describe('GuidedService', () => {
       expect(amBlatt.map((z) => z.path)).toEqual(ziele.map((z) => z.path));
     });
 
+    it('nummeriert die Verweisziele am Nummern-Blatt und waehlt sie per Ziffer', () => {
+      const id1 = state.addAusp(`${M3}/beteiligung`, 'Notar/in');
+      const id2 = state.addAusp(`${M3}/beteiligung`, 'Zeuge/Zeugin');
+      // Station des Durchlaufs ist das Nummern-Blatt, nicht der Traeger.
+      TestBed.inject(NavService).jumpTo(`${M3}/verweis/ref.rollennummer`);
+
+      const opts = svc.optionen();
+      expect(opts.map((o) => o.nr)).toEqual([1, 2]);
+      expect(opts.every((o) => o.art === 'verweis')).toBeTrue();
+      expect(opts.map((o) => o.ziel)).toEqual([
+        `${M3}/beteiligung@${id1}`,
+        `${M3}/beteiligung@${id2}`,
+      ]);
+
+      expect(svc.waehleOption(2)).toBeNull();
+      expect(state.refZielOf(`${M3}/verweis`)).toBe(`${M3}/beteiligung@${id2}`);
+      // Die Nummer vergibt das Werkzeug an beiden Enden — auch ueber die Ziffer.
+      expect(state.elemente()[`${M3}/verweis/ref.rollennummer`]?.beispiel).toBe('2');
+    });
+
+    it('ein Verweis ohne vorhandenes Ziel haelt die Spur nicht fest und bleibt offen', () => {
+      const blatt = `${M3}/verweis/ref.rollennummer`;
+      TestBed.inject(NavService).jumpTo(blatt);
+
+      // Noch keine Beteiligung angelegt: die Station ist nicht zu beantworten.
+      expect(svc.optionen()).toEqual([]);
+      expect(svc.verweisOhneZiel(blatt)).toBeTrue();
+      expect(svc.ueberspringSperre()).toBeNull();
+      // Offen bleibt sie trotzdem — `nextOpen` laeuft um und kommt zurueck.
+      expect(svc.offeneSet().has(blatt)).toBeTrue();
+      expect(svc.nextOpen(blatt)).toBe(blatt);
+
+      // Sobald es ein Ziel gibt, ist die Station wieder eine echte Frage.
+      state.addAusp(`${M3}/beteiligung`, 'Notar/in');
+      state.addAusp(`${M3}/beteiligung`, 'Zeuge/Zeugin');
+      expect(svc.verweisOhneZiel(blatt)).toBeFalse();
+      expect(svc.ueberspringSperre()).toContain('Pflichtangabe');
+    });
+
     it('vergibt mit der Zielwahl die Nummer an beiden Enden', () => {
       const id1 = state.addAusp(`${M3}/beteiligung`, 'Notar/in');
       state.addAusp(`${M3}/beteiligung`, 'Zeuge/Zeugin');
@@ -777,6 +816,30 @@ describe('GuidedService', () => {
       nav.jumpTo(`${M}/az`);
       expect(svc.ueberspringSperre()).toBeNull();
       expect(svc.ueberspringen()).toBeTrue();
+    });
+
+    it('nummeriert die Zweige der Auswahl und waehlt sie per Ziffer', () => {
+      const nav = TestBed.inject(NavService);
+      nav.jumpTo(`${M}/_auswahl`);
+
+      expect(svc.optionen().map((o) => [o.nr, o.label])).toEqual([
+        [1, 'Email'],
+        [2, 'Telefon'],
+      ]);
+
+      expect(svc.waehleOption(2)).toBeNull();
+      expect(state.wirkungOf(`${M}/_auswahl/telefon`)).toBe('pflicht');
+      expect(state.wirkungOf(`${M}/_auswahl/email`)).toBe('ausgeschlossen');
+      expect(svc.optionen()[1]!.gewaehlt).toBeTrue();
+
+      // Eine Nummer, die es an dieser Station nicht gibt, gehoert nicht der
+      // Fuehrung — der Aufrufer laesst die Taste dann durch.
+      expect(svc.waehleOption(3)).toBeUndefined();
+    });
+
+    it('bietet an einer Wert-Station keine Ziffern an — dort tippt man', () => {
+      TestBed.inject(NavService).jumpTo(`${M}/kopf`);
+      expect(svc.optionen()).toEqual([]);
     });
 
     it('stationArt faerbt Pflicht und Freies auseinander', () => {

@@ -187,7 +187,7 @@ export class ProfilDiffDialog {
         this.fehler.set(
           versionId
             ? 'Die Version wurde nicht gefunden.'
-            : 'Diese Profilierung ist nicht abgenommen — es gibt keinen eingefrorenen Vergleichsstand.',
+            : 'Diese Profilierung ist nicht freigegeben — es gibt keinen eingefrorenen Vergleichsstand.',
         );
         return;
       }
@@ -267,7 +267,7 @@ export class ProfilDiffDialog {
   protected versionLabel(v: ProfilVersion): string {
     const datum = new Date(v.erstellt).toLocaleDateString('de-DE', { dateStyle: 'short' });
     const teile = [`v${v.nr}`, datum];
-    if (v.abnahme) teile.push('✔ Abnahme');
+    if (v.abnahme) teile.push('✔ Freigabe');
     if (v.automatisch) teile.push('automatisch');
     if (v.kommentar) teile.push(v.kommentar);
     return teile.join(' · ');

@@ -17,6 +17,19 @@ import { TestmessageAutosaveService } from './testmessage-autosave.service';
 import { hinweiseAusDatei } from '../util/hinweis.util';
 import { defaultStatuses, newProfile } from '../profile-defaults';
 
+/**
+ * Vorgaben aus dem Wizard „Neue Profilierung": Nachricht und Angaben stehen
+ * fest, bevor der Bibliothekseintrag entsteht.
+ */
+export interface NeuesProfil {
+  /** Voller Name der Nachricht im geladenen Schema-Index. */
+  nachricht: string;
+  /** Titel der Profilierung (Name des Bibliothekseintrags). */
+  name: string;
+  autor: string;
+  beschreibung?: string;
+}
+
 /** localStorage-Prefix der Notfallkopien (Backend beim Autosave nicht erreichbar). */
 const NOTFALL_PREFIX = 'xjp.notfall.';
 
@@ -68,6 +81,13 @@ export class PersistenceService {
    * z. B. "Version anlegen" nicht den Stand von vor ~1 s einfriert.
    */
   private laufenderUpsert: Promise<void> | null = null;
+  /**
+   * Zuletzt bekannter Punktestand des aktiven Profils — aus dem geladenen
+   * Dokument bzw. der letzten eigenen Zaehlung. Rueckfallwert von
+   * `punkteStand()`; bewusst ein Feld und kein Signal, damit das Merken den
+   * Autosave-Effekt nicht erneut ausloest.
+   */
+  private letzterPunktestand: { x: number; y: number } | null = null;
 
   constructor() {
     // Autosave: bei jeder Profil-/Nachrichtenaenderung debounced in den aktiven
@@ -99,7 +119,7 @@ export class PersistenceService {
       if (schutz === this.state.abnahmeSchreibschutz()) return;
       this.state.abnahmeSchreibschutz.set(schutz);
       this.state.readOnly.set(schutz);
-      this.state.autosaveInfo.set(schutz ? 'von der BLK-AG abgenommen — schreibgeschützt' : '');
+      this.state.autosaveInfo.set(schutz ? 'von der BLK-AG freigegeben — schreibgeschützt' : '');
     });
     // Hinweise folgen dem offenen Profil: sie liegen in eigener Ablage (ADR 0014)
     // und laufen nicht ueber den Autosave. Ein Profilwechsel laedt sie nach, das
@@ -293,13 +313,19 @@ export class PersistenceService {
    * Bewusst zurueckhaltend: ohne geladenen Baum bliebe der Nenner geraten, und
    * im Instanz-Modus zaehlt `guided.fortschritt` die Pflichtangaben einer
    * Nachricht statt der Entscheidungen einer Profilierung. In beiden Faellen
-   * bleibt ein zuvor gespeicherter Stand unangetastet, statt ihn mit einer
-   * falschen Zahl zu ueberschreiben.
+   * wird der zuvor gespeicherte Stand **mitgeschrieben** statt weggelassen:
+   * `profileDoc` fuehrt das Feld nicht, ein blosses Auslassen loeschte es also
+   * aus dem Dokument — die Kachel verloere ihren Balken, und im Vergleich mit
+   * einer eingefrorenen Fassung zaehlte das als Unterschied.
    */
   private punkteStand(): Pick<ProfileDoc, 'fortschritt'> {
-    if (!this.state.hasRoot() || this.guided.instanzModus()) return {};
+    const bisher = this.letzterPunktestand;
+    if (!this.state.hasRoot() || this.guided.instanzModus())
+      return bisher ? { fortschritt: bisher } : {};
     const { x, y } = this.guided.fortschritt();
-    return y > 0 ? { fortschritt: { x, y } } : {};
+    if (y <= 0) return bisher ? { fortschritt: bisher } : {};
+    this.letzterPunktestand = { x, y };
+    return { fortschritt: { x, y } };
   }
 
   private autosaveNow(): Promise<void> {
@@ -350,6 +376,7 @@ export class PersistenceService {
       this.schreibeNotfallkopie(id, {
         ...doc,
         meta: { ...doc.meta, nachricht: msg, xjustizVersion: this.state.version() },
+        ...this.punkteStand(),
       });
       const zeit = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       this.state.autosaveInfo.set(`⚠ NICHT im Backend gesichert — Notfallkopie lokal ${zeit}`);
@@ -415,9 +442,9 @@ export class PersistenceService {
       // abgenommene Profile read-only — nach uebernehmeDoc setzen, da
       // loadProfile readOnly zuruecksetzt.
       this.state.readOnly.set(true);
-      this.state.autosaveInfo.set('von der BLK-AG abgenommen — schreibgeschützt');
+      this.state.autosaveInfo.set('von der BLK-AG freigegeben — schreibgeschützt');
       this.toast.show(
-        'Von der BLK-AG abgenommen — nur betrachten. Zum Bearbeiten als BLK-AG anmelden oder eine Kopie anlegen.',
+        'Von der BLK-AG freigegeben — nur betrachten. Zum Bearbeiten als BLK-AG anmelden oder eine Kopie anlegen.',
       );
     }
   }
@@ -454,6 +481,9 @@ export class PersistenceService {
    * restoreVersion.
    */
   private async uebernehmeDoc(doc: ProfileDoc): Promise<void> {
+    // Punktestand des geladenen Dokuments merken: bis der Baum steht, ist er
+    // der einzige, den wir haben (siehe punkteStand).
+    this.letzterPunktestand = doc.fortschritt ?? null;
     // Die Fusszeile zeigt den Autosave-Stand seit #105 in jedem Modus — die
     // Meldung der zuvor offenen Testnachricht gilt hier nicht mehr.
     this.state.autosaveInfo.set('');
@@ -511,22 +541,53 @@ export class PersistenceService {
     this.state.view.set('editor');
   }
 
-  /** Neues, leeres Profil anlegen und in den Editor wechseln. */
-  async createNew(): Promise<void> {
+  /**
+   * Neues, leeres Profil anlegen und in den Editor wechseln.
+   *
+   * Mit `vorgaben` (Wizard „Neue Profilierung"): Nachricht und Angaben stehen
+   * schon fest — der Bibliothekseintrag traegt Titel, Autor und Nachrichtentyp
+   * ab dem ersten Moment, und der Editor startet auf der gewaehlten Nachricht
+   * mit vorbelegten Pflichtelementen. Ohne Vorgaben bleibt es beim leeren
+   * Einstieg (Nachrichtenwahl in der Werkzeugleiste).
+   */
+  async createNew(vorgaben?: NeuesProfil): Promise<void> {
     await this.msgAutosave.flush();
     this.state.autosaveInfo.set('');
+    const doc = newProfile();
+    if (vorgaben)
+      doc.meta = {
+        name: vorgaben.name,
+        autor: vorgaben.autor,
+        beschreibung: vorgaben.beschreibung,
+        datum: new Date().toLocaleDateString('de-DE'),
+        nachricht: vorgaben.nachricht,
+        xjustizVersion: this.state.version(),
+      };
     let id: string;
     try {
-      id = await this.store.create(newProfile());
+      id = await this.store.create(doc);
     } catch {
       this.toast.show('Neues Profil konnte nicht angelegt werden — Backend nicht erreichbar.');
       return;
     }
     this.state.activeProfileId.set(id);
     this.state.abnahmeSchreibschutz.set(false);
+    // Frischer Einstieg: kein geerbter Punktestand des zuvor offenen Profils.
+    this.letzterPunktestand = null;
     this.state.resetProfile();
     this.state.msgName.set(null);
     this.state.root.set(null);
+    if (vorgaben) {
+      if (this.state.idx()?.el[vorgaben.nachricht]) {
+        this.nav.loadMessage(vorgaben.nachricht);
+        this.nav.prefillMandatoryStatus();
+      } else {
+        this.toast.show('Nachricht im geladenen Schema nicht gefunden: ' + vorgaben.nachricht);
+      }
+      // Nach loadMessage: die Nachrichtenwahl setzt das Profil zurueck (und
+      // damit die Meta), die Angaben des Wizards sollen aber stehen bleiben.
+      this.state.patchMeta(doc.meta);
+    }
     // Neue Profilierung startet gefuehrt (US "Profilierung gefuehrt erstellen");
     // nach resetProfile setzen, da loadProfile guided zuruecksetzt.
     this.state.guided.set(true);

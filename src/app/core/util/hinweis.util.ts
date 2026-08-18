@@ -36,7 +36,7 @@ export function hinweisHerkunft(h: Pick<Hinweis, 'autor' | 'rolle' | 'zeit'>): s
  */
 export function hinweisFehlerText(e: unknown): string {
   const status = (e as { status?: number } | null | undefined)?.status;
-  if (status === 403) return 'Von der BLK-AG abgenommen — Hinweise ändern nur mit AG-Schlüssel.';
+  if (status === 403) return 'Von der BLK-AG freigegeben — Hinweise ändern nur mit AG-Schlüssel.';
   if (status === 404) return 'Der Hinweis ist nicht mehr vorhanden — Ansicht neu laden.';
   return 'Hinweis konnte nicht gespeichert werden — Backend nicht erreichbar.';
 }

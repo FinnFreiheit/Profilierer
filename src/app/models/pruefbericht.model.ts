@@ -22,7 +22,7 @@ export interface PruefberichtKopf {
   /** Voller Nachrichtenname (`nachricht.*`). */
   msgName: string;
   profilName: string;
-  /** Bezeichnung der geprüften Fassung („Arbeitsstand", „v3", „v4 (Abnahme)"). */
+  /** Bezeichnung der geprüften Fassung („Arbeitsstand", „v3", „v4 (Freigabe)"). */
   fassung: string;
   xjustizVersion?: string;
   /** ms-Timestamp der Prüfung — ein Nachweis ohne Datum ist keiner. */

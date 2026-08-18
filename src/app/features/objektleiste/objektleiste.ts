@@ -123,7 +123,7 @@ export class Objektleiste {
 
   protected readonly primaerTitel = computed(() => {
     if (this.state.abnahmeSchreibschutz() && this.primaerLabel() === 'Speichern')
-      return 'Von der BLK-AG abgenommen — Speichern nur mit AG-Schlüssel';
+      return 'Von der BLK-AG freigegeben — Speichern nur mit AG-Schlüssel';
     if (this.isCreate())
       return 'Stand im Testdaten-Speicher sichern — unvollständige Nachrichten werden als Entwurf gekennzeichnet';
     if (this.isMessage() && this.hatEintrag())

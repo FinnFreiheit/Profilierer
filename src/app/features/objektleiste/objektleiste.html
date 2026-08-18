@@ -100,7 +100,7 @@
 
   <span class="zoneTrenner"></span>
 
-  <!-- Zone: Zustand (nur Handlungsrelevantes — Abnahme sperrt das Bearbeiten) -->
+  <!-- Zone: Zustand (nur Handlungsrelevantes — die Freigabe sperrt das Bearbeiten) -->
   <div class="zone zoneZustand">
     @if (abnahme(); as a) {
       <button
@@ -109,15 +109,17 @@
         [class.pillAbnWarn]="a.warn"
         [title]="
           a.warn
-            ? 'Anzeigen, was sich seit der Abnahme geändert hat'
-            : 'Von der BLK-AG abgenommen — dieser Stand ist die valide Fassung' +
+            ? 'Anzeigen, was sich seit der Freigabe geändert hat'
+            : 'Von der BLK-AG freigegeben — dieser Stand ist die valide Fassung' +
               (a.kommentar ? ' · ' + a.kommentar : '') +
               ' · mit dem Arbeitsstand vergleichen'
         "
         (click)="abnahmeDiffClick.emit()"
       >
         <span aria-hidden="true">{{ a.warn ? '⚠' : '✔' }}</span>
-        <span class="lbl-lang">{{ a.warn ? ' seit Abnahme geändert' : ' BLK-AG abgenommen' }}</span>
+        <span class="lbl-lang">{{
+          a.warn ? ' seit Freigabe geändert' : ' BLK-AG freigegeben'
+        }}</span>
       </button>
     }
   </div>

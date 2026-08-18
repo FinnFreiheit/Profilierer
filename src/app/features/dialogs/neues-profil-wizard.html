@@ -1,0 +1,123 @@
+<dialog #dlg id="neuDlg">
+  <h3 style="margin-top: 0">Neue Profilierung</h3>
+  <ol class="wizSchritte">
+    <li [class.aktiv]="schritt() === 'version'" [class.fertig]="schritt() !== 'version'">
+      XJustiz-Version
+    </li>
+    <li [class.aktiv]="schritt() === 'nachricht'" [class.fertig]="schritt() === 'angaben'">
+      Nachricht
+    </li>
+    <li [class.aktiv]="schritt() === 'angaben'">Angaben</li>
+  </ol>
+
+  @switch (schritt()) {
+    @case ('version') {
+      <p class="wizHint">
+        Auf welcher Fassung des Standards beruht das Szenario? Die Wahl bestimmt die
+        Nachrichtenauswahl im nächsten Schritt.
+      </p>
+      <div class="wizListe">
+        @for (v of versionen(); track v.dir) {
+          <button
+            type="button"
+            class="msgItem wizWahl"
+            [class.aktiv]="v.dir === verDir()"
+            (click)="verDir.set(v.dir)"
+          >
+            <div class="mn">XJustiz {{ v.label }}{{ v.default ? ' (Standard)' : '' }}</div>
+            @if (v.zipUrl) {
+              <div class="md">von xjustiz.de</div>
+            }
+          </button>
+        }
+        @if (!versionen().length) {
+          <div class="wizLeer">
+            Keine hinterlegten Schemata verfügbar — es wird mit dem geladenen Schema fortgefahren.
+          </div>
+        }
+      </div>
+      <div class="wizFuss">
+        <button type="button" (click)="abbrechen()">Abbrechen</button>
+        <button
+          type="button"
+          class="primary"
+          [disabled]="!weiterOk() || laedt()"
+          (click)="weiterZuNachricht()"
+        >
+          {{ laedt() ? 'Lade Schemata…' : 'Weiter' }}
+        </button>
+      </div>
+    }
+
+    @case ('nachricht') {
+      <p class="wizHint">
+        Welche Nachricht wird profiliert? Grundlage ist XJustiz {{ verLabel() }}.
+      </p>
+      <input
+        type="text"
+        class="wizSuche"
+        placeholder="Nachricht suchen (Name oder Beschreibung)…"
+        [value]="filter()"
+        (input)="onFilter($event)"
+      />
+      <div class="wizListe">
+        @for (g of groups(); track g.modul) {
+          <div class="msgGroup" [title]="g.dateien">{{ modulTitel(g.modul) }}</div>
+          @for (m of g.messages; track m.name) {
+            <button type="button" class="msgItem wizWahl" (click)="waehleNachricht(m.name)">
+              <div class="mn">{{ m.name }}</div>
+              @if (m.doc) {
+                <div class="md">{{ firstLine(m.doc) }}</div>
+              }
+            </button>
+          }
+        }
+        @if (!groups().length) {
+          <div class="wizLeer">keine Treffer</div>
+        }
+      </div>
+      <div class="wizFuss">
+        <button type="button" (click)="zurueck('version')">Zurück</button>
+        <button type="button" (click)="abbrechen()">Abbrechen</button>
+      </div>
+    }
+
+    @case ('angaben') {
+      <p class="wizHint">
+        XJustiz {{ verLabel() }} · <code>{{ nachricht() }}</code>
+      </p>
+      <div class="metaGrid">
+        <label for="wizTitel">Titel</label>
+        <input
+          id="wizTitel"
+          type="text"
+          placeholder="z. B. Entscheidungsübermittlung an die Staatsanwaltschaft"
+          [value]="titel()"
+          (input)="titel.set($any($event.target).value)"
+        />
+        <label for="wizAutor">Autor</label>
+        <input
+          id="wizAutor"
+          type="text"
+          placeholder="Name oder Stelle"
+          [value]="autor()"
+          (input)="autor.set($any($event.target).value)"
+        />
+        <label for="wizBeschr">Beschreibung</label>
+        <textarea
+          id="wizBeschr"
+          placeholder="optional — Zweck des Kommunikationsszenarios"
+          [value]="beschreibung()"
+          (input)="beschreibung.set($any($event.target).value)"
+        ></textarea>
+      </div>
+      <div class="wizFuss">
+        <button type="button" (click)="zurueck('nachricht')">Zurück</button>
+        <button type="button" (click)="abbrechen()">Abbrechen</button>
+        <button type="button" class="primary" [disabled]="!angabenOk()" (click)="anlegen()">
+          Anlegen
+        </button>
+      </div>
+    }
+  }
+</dialog>

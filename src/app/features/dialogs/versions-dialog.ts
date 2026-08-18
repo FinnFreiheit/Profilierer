@@ -125,9 +125,9 @@ export class VersionsDialog {
       const msg = e instanceof Error ? e.message : '';
       this.toast.show(
         msg.includes('409')
-          ? 'Abnahme-Version — zuerst das Abnahme-Kennzeichen entfernen.'
+          ? 'Freigabe-Version — zuerst das Freigabe-Kennzeichen entfernen.'
           : msg.includes('403')
-            ? 'Von der BLK-AG abgenommen — Löschen nur mit AG-Schlüssel.'
+            ? 'Von der BLK-AG freigegeben — Löschen nur mit AG-Schlüssel.'
             : 'Version konnte nicht gelöscht werden — Backend nicht erreichbar.',
       );
     } finally {

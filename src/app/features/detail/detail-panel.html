@@ -226,9 +226,13 @@
               @if (g.art === 'auswahl') {
                 <div class="gHint">
                   Genau eine Alternative wählen — nur der gewählte Zweig wird Teil der Nachricht.
+                  Die Ziffer davor wählt sie auch auf der Tastatur.
                 </div>
                 @for (z of g.zweige; track z.path) {
                   <label class="gZweig" [class.gesperrt]="!!z.sperre" [title]="z.sperre ?? ''">
+                    @if (optNr().get(z.path); as nr) {
+                      <span class="optNr">{{ nr }}</span>
+                    }
                     <input
                       type="radio"
                       name="givZweig"
@@ -238,6 +242,34 @@
                     />
                     {{ z.label }}
                   </label>
+                }
+              }
+
+              <!-- Verweisziel: im Durchlauf eine nummerierte Liste statt des
+           Auswahlfeldes weiter unten — dieselbe Bedienung wie die Zweige. -->
+              @if (verweisStation()) {
+                <div class="gHint">
+                  Auf welches Vorkommen wird verwiesen? Ziffer drücken oder anklicken — die
+                  Verweisnummer vergibt das Werkzeug an beiden Enden.
+                </div>
+                @for (o of verweisOptionen(); track o.ziel) {
+                  <label class="gZweig">
+                    <span class="optNr">{{ o.nr }}</span>
+                    <input
+                      type="radio"
+                      name="givVerweis"
+                      [checked]="o.gewaehlt"
+                      (change)="waehleOption(o.nr)"
+                    />
+                    {{ o.label }}
+                  </label>
+                }
+                @if (verweisOffen()) {
+                  <div class="gHint gSperre">
+                    Das Ziel gibt es in dieser Nachricht noch nicht — erst das Zielelement anlegen
+                    (z. B. eine weitere Beteiligung). Enter geht weiter; der Verweis bleibt offen
+                    und kommt am Ende noch einmal.
+                  </div>
                 }
               }
 
@@ -313,22 +345,31 @@
               }
 
               <div class="gNav">
-                <button title="Taste ↑" (click)="guidedPrev()">‹ Zurück</button>
+                <button title="Taste ↑" (mousedown)="haltFokus($event)" (click)="guidedPrev()">
+                  ‹ Zurück
+                </button>
                 <button
                   class="primary"
                   [class.gesperrt]="!!g.ueberspringSperre"
                   [title]="g.ueberspringSperre || 'Taste ↓'"
+                  (mousedown)="haltFokus($event)"
                   (click)="guidedNext()"
                 >
                   Weiter ›
                 </button>
-                <button [disabled]="!g.nOffen" (click)="guidedNextOpen()">
+                <button
+                  [disabled]="!g.nOffen"
+                  (mousedown)="haltFokus($event)"
+                  (click)="guidedNextOpen()"
+                >
                   Nächster offener ({{ g.nOffen }})
                 </button>
               </div>
               <div class="gKbdHint">
                 Tastatur: ↓ weiter (Pflichtangaben halten fest) · ↑ zurück · ← Teilbaum angeben und
-                betreten · → wieder heraus
+                betreten · → wieder heraus · 1…9 wählt die Option der Station · Enter übernimmt den
+                Wert und springt zur nächsten offenen Angabe (Shift+Enter macht einen Absatz im
+                Feld)
               </div>
             </div>
           }
@@ -659,11 +700,14 @@
                     <span
                       >Vorschlag der Profilierung: <em>{{ v.vorschlag }}</em></span
                     >
-                    <button (click)="uebernehmeVorschlag()">übernehmen</button>
+                    <button (mousedown)="haltFokus($event)" (click)="uebernehmeVorschlag()">
+                      übernehmen
+                    </button>
                   </div>
                 }
                 <div class="wertRow">
                   <textarea
+                    #wertFeld
                     style="min-height: 40px"
                     [placeholder]="
                       v.wertGesperrt
@@ -680,12 +724,14 @@
                         : ''
                     "
                     [value]="v.beispiel"
-                    (change)="setField('beispiel', $event)"
+                    (keydown)="onWertKeydown($event)"
+                    (change)="onWert($event)"
                   ></textarea>
                   @if (msgMode() && v.leaf) {
                     <button
                       class="wuerfel"
                       title="Typkonformen Dummy-Wert erzeugen (UUID, Datum, Pattern, Codeliste)"
+                      (mousedown)="haltFokus($event)"
                       (click)="wuerfeln()"
                     >
                       Würfeln
@@ -768,6 +814,15 @@
                     <button title="Zum Ziel springen" (click)="refJump()">→ Ziel</button>
                   }
                 </div>
+              } @else if (verweisStation()) {
+                <!-- Im Durchlauf faellt die Wahl oben an der Station; hier steht
+             nur noch, was gewaehlt ist, samt Sprung zum Ziel. -->
+                <div style="display: flex; gap: 6px; align-items: center">
+                  <span class="docbox" style="flex: 1">{{ ref.curLabel }}</span>
+                  @if (ref.cur) {
+                    <button title="Zum Ziel springen" (click)="refJump()">→ Ziel</button>
+                  }
+                </div>
               } @else {
                 <div style="display: flex; gap: 6px">
                   <select style="flex: 1" (change)="setRefZiel($event)">
@@ -790,7 +845,7 @@
           }
 
           <!-- Hinweise sind der Rueckmeldekanal (#42): sie bleiben auch im
-         schreibgeschuetzten Editor einer abgenommenen Profilierung bedienbar —
+         schreibgeschuetzten Editor einer freigegebenen Profilierung bedienbar —
          als einziges Feld. Ausserhalb dieses Falls gilt die alte Regel
          (bearbeitbar, kein Nachrichten-Modus). -->
           @if (hinweiseBedienbar()) {
@@ -798,8 +853,8 @@
               <label>Hinweise</label>
               @if (roEff()) {
                 <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px">
-                  Von der BLK-AG abgenommen — nur dieses Feld ist bedienbar. Ihre Rückmeldung bleibt
-                  am Element hängen; die Profilierung selbst bleibt unverändert.
+                  Von der BLK-AG freigegeben — nur dieses Feld ist bedienbar. Ihre Rückmeldung
+                  bleibt am Element hängen; die Profilierung selbst bleibt unverändert.
                 </div>
               }
               @for (h of v.hinweise; track h.id) {

@@ -162,7 +162,7 @@ export class ProfilPruefungService {
       if (!ver) throw new Error('Fassung der Profilierung nicht gefunden.');
       return {
         doc: ver.doc,
-        fassung: 'v' + ver.nr + (ver.abnahme ? ' (Abnahme)' : ''),
+        fassung: 'v' + ver.nr + (ver.abnahme ? ' (Freigabe)' : ''),
       };
     }
     const doc = await this.profiles.load(profil.id);

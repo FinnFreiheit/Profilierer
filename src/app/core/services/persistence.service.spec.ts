@@ -574,3 +574,178 @@ describe('PersistenceService.openFromLibrary (Abnahme-Schreibschutz)', () => {
     expect(state.readOnly()).toBeFalse();
   });
 });
+
+/**
+ * Der Wizard „Neue Profilierung" reicht Nachricht und Angaben durch: der
+ * Bibliothekseintrag traegt sie sofort, und der Editor startet auf der
+ * gewaehlten Nachricht statt leer.
+ */
+describe('PersistenceService.createNew (Vorgaben des Wizards)', () => {
+  const XSD_MSG = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0001" type="Type.Test.Root"/>
+  <xs:complexType name="Type.Test.Root"><xs:sequence>
+    <xs:element name="datum" type="xs:date"/>
+  </xs:sequence></xs:complexType>
+</xs:schema>`;
+
+  let svc: PersistenceService;
+  let state: StateService;
+  let createdDocs: ProfileDoc[];
+  let toasts: string[];
+
+  beforeEach(async () => {
+    createdDocs = [];
+    toasts = [];
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: ProfileStoreService,
+          useValue: {
+            create: async (doc: ProfileDoc) => {
+              createdDocs.push(doc);
+              return 'neu1';
+            },
+          },
+        },
+        { provide: ToastService, useValue: { show: (m: string) => toasts.push(m) } },
+      ],
+    });
+    svc = TestBed.inject(PersistenceService);
+    state = TestBed.inject(StateService);
+    await svc.loadXsdFiles([
+      new File([XSD_MSG], 'xjustiz_0000_test.xsd', { type: 'application/xml' }),
+    ]);
+  });
+
+  it('legt mit Nachricht und Angaben an und oeffnet die Nachricht gefuehrt', async () => {
+    await svc.createNew({
+      nachricht: 'nachricht.test.0001',
+      name: 'Szenario A',
+      autor: 'BLK-AG',
+      beschreibung: 'Testfall',
+    });
+
+    expect(createdDocs[0]!.meta).toEqual(
+      jasmine.objectContaining({
+        name: 'Szenario A',
+        autor: 'BLK-AG',
+        beschreibung: 'Testfall',
+        nachricht: 'nachricht.test.0001',
+        xjustizVersion: '3.6.2',
+      }),
+    );
+    expect(state.activeProfileId()).toBe('neu1');
+    expect(state.msgName()).toBe('nachricht.test.0001');
+    // Die Nachrichtenwahl setzt das Profil zurueck — die Angaben ueberleben.
+    expect(state.meta().name).toBe('Szenario A');
+    expect(state.meta().autor).toBe('BLK-AG');
+    expect(state.guided()).toBeTrue();
+    expect(state.view()).toBe('editor');
+    // Pflichtelemente sind wie bei der Nachrichtenwahl vorbelegt.
+    expect(Object.keys(state.elemente()).length).toBeGreaterThan(0);
+  });
+
+  it('ohne Vorgaben bleibt es beim leeren Einstieg', async () => {
+    await svc.createNew();
+    expect(createdDocs[0]!.meta).toEqual({});
+    expect(state.msgName()).toBeNull();
+    expect(state.guided()).toBeTrue();
+  });
+});
+
+describe('PersistenceService Autosave (Punktestand)', () => {
+  /** Entprellung des Autosaves (800 ms) mit Reserve. */
+  const NACH_ENTPRELLUNG = 900;
+
+  /** Schema mit echten Entscheidungspunkten (optionales Element, Wiederholung). */
+  const XSD_PUNKTE = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0001" type="Type.Test.Root"/>
+  <xs:complexType name="Type.Test.Root"><xs:sequence>
+    <xs:element name="datum" type="xs:date"/>
+    <xs:element name="spitzname" type="xs:string" minOccurs="0"/>
+    <xs:element name="beteiligter" minOccurs="0" maxOccurs="unbounded"><xs:complexType><xs:sequence>
+      <xs:element name="rolle" type="xs:string"/>
+    </xs:sequence></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType>
+</xs:schema>`;
+
+  let upserted: ProfileDoc[];
+  let svc: PersistenceService;
+  let state: StateService;
+
+  const doc = (over: Partial<ProfileDoc> = {}): ProfileDoc => ({
+    meta: { name: 'Test', nachricht: 'nachricht.test.0001', xjustizVersion: '3.6.2' },
+    statuses: [],
+    elemente: {},
+    auspraegungen: {},
+    erweiterungen: {},
+    ...over,
+  });
+
+  /** Entprellung ablaufen lassen und den ausgeloesten Schreibvorgang abwarten. */
+  async function entprellen(): Promise<void> {
+    TestBed.tick(); // Effekt ausfuehren -> Timer planen
+    jasmine.clock().tick(NACH_ENTPRELLUNG);
+    await svc.flushAutosave();
+  }
+
+  /** Das zuletzt gesicherte Dokument (schlaegt fehl, wenn gar nichts lief). */
+  function zuletzt(): ProfileDoc {
+    const d = upserted.at(-1);
+    if (!d) throw new Error('kein Autosave ausgeloest');
+    return d;
+  }
+
+  const setup = async (geladen: ProfileDoc): Promise<void> => {
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: ProfileStoreService,
+          useValue: {
+            entries: () => [],
+            load: async () => geladen,
+            upsert: async (_id: string, d: ProfileDoc) => {
+              upserted.push(d);
+            },
+            createVersion: async () => ({ skipped: true }),
+          },
+        },
+        { provide: ToastService, useValue: { show: () => {} } },
+        { provide: HinweisStoreService, useValue: { hinweise: () => [], lade: async () => {} } },
+      ],
+    });
+    svc = TestBed.inject(PersistenceService);
+    state = TestBed.inject(StateService);
+    await svc.loadXsdFiles([
+      new File([XSD_PUNKTE], 'xjustiz_0000_test.xsd', { type: 'application/xml' }),
+    ]);
+    await svc.openFromLibrary('p1');
+  };
+
+  beforeEach(() => {
+    upserted = [];
+    jasmine.clock().install();
+  });
+
+  afterEach(() => jasmine.clock().uninstall());
+
+  it('behaelt den gespeicherten Punktestand, wenn er nicht neu gezaehlt werden kann', async () => {
+    await setup(doc({ fortschritt: { x: 3, y: 9 } }));
+    // Baum weg (z. B. Datenbasis ohne diese Nachricht), Nachricht bleibt gewaehlt.
+    state.root.set(null);
+    state.patchMeta({ beschreibung: 'geaendert' });
+    await entprellen();
+    // `profileDoc` fuehrt das Feld nicht — ohne Rueckfall verschwaende es hier.
+    expect(zuletzt().fortschritt).toEqual({ x: 3, y: 9 });
+  });
+
+  it('zaehlt bei geladenem Baum neu und schreibt den eigenen Stand', async () => {
+    await setup(doc({ fortschritt: { x: 3, y: 9 } }));
+    state.patchMeta({ beschreibung: 'geaendert' });
+    await entprellen();
+    // Der frisch gezaehlte Stand ersetzt den geladenen.
+    expect(zuletzt().fortschritt).toEqual({ x: 0, y: 2 });
+  });
+});

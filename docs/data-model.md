@@ -104,9 +104,9 @@ Profilierungen werden in einer SQLite-Datenbank des Backends (`server/`) gehalte
 ### Versionen (`profile_versions`)
 
 [US Profilierung versionieren](user-stories/profilierung-versionieren.md): Tabelle
-`profile_versions` = `{ id, profile_id, nr, kommentar, automatisch, doc, doc_hash, erstellt }`
+`profile_versions` = `{ id, profile_id, nr, kommentar, automatisch, doc, doc_hash, fach_hash, erstellt }`
 mit `UNIQUE(profile_id, nr)` — `nr` läuft je Profil fortlaufend und wird nie recycelt;
-`doc`/`doc_hash` werden beim Anlegen **verbatim** aus der `profiles`-Zeile kopiert
+`doc`/`doc_hash`/`fach_hash` werden beim Anlegen **verbatim** aus der `profiles`-Zeile kopiert
 (Snapshot des gespeicherten Stands, kein Request-Body). `doc_hash` (sha1 über den
 doc-String, auch auf `profiles` mit Backfill-Migration) macht zwei Prüfungen zu
 Spaltenvergleichen: die **Entprellung** der Automatik-Versionen (Öffnen-Snapshot,
@@ -116,6 +116,12 @@ manuelle unbegrenzt) und das Kennzeichen **`geaendert`** im `LibraryEntry`
 _keiner_ Version eingefroren ist. Profil-Löschen kaskadiert (Transaktion, kein FK);
 `importAll` fasst Versionen nie an. Bewusst akzeptiert: der Hash vergleicht die
 Serialisierung, nicht die Semantik — falsch-positive „geändert" sind harmlos.
+
+Für das Kennzeichen **`geaendertSeitAbnahme`** gilt das gerade nicht: dort entscheidet
+der `fach_hash` (kanonisch, ohne `meta.gespeichert` und ohne `fortschritt`). Der
+doc-Hash würde schon das bloße Öffnen als Änderung melden, weil der Autosave den
+abgeleiteten Punktestand nachschreibt — siehe Nachtrag in
+[ADR 0012](adr/0012-abnahme-rollenkonzept.md).
 
 Das eingefrorene `doc` ist über `GET /api/profiles/:id/versions/:vid` bzw. — für die
 referenzierte Abnahme-Version — über `GET /api/profiles/:id/abnahme` lesbar (Metadaten plus

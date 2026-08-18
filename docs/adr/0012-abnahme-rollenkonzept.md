@@ -48,3 +48,44 @@ hinter dem Reverse-Proxy voraus.
   ausgeklammert, siehe Out-of-Scope des Issues.
 - Der Schutzvertrag ist über die HTTP-Naht getestet (`server/abnahme.test.js`, In-Process-App
   gegen In-Memory-SQLite); der Client-Rollenzustand über Service-Specs (`rolle.service.spec.ts`).
+
+## Nachtrag 26.08.18: In der Oberfläche heißt es „Freigabe"
+
+Auf Wunsch aus der Fachseite spricht die Oberfläche durchgängig von **Freigabe** statt
+Abnahme: Badge „✔ BLK-AG freigegeben", Knopf „Freigeben" / „Erneut freigeben", Filter
+„nur freigegebene", Warnzeichen „⚠ seit Freigabe geändert", Dialog „Freigabe durch die
+BLK-AG". Geändert wurden ausschließlich **sichtbare Texte** (Templates, Toasts,
+Dialogtexte, Tooltips, geführte Anleitung, README) sowie der Zusatz im Dateinamen der
+heruntergeladenen eingefrorenen Fassung (`….freigegeben.xml`).
+
+**Unverändert bleiben** Code-Bezeichner (`abgenommen`, `abnahme`, `abnahmeSchreibschutz`),
+die API-Pfade (`/profiles/:id/abnahme`, `/testmessages/:id/abnahme`), die DB-Spalten und
+die Fehlertexte der Serverantworten — sie sind kein Oberflächentext und ihre Umbenennung
+wäre ein Bruch am Datenbestand. Die Entwicklerdokumentation (dieser ADR, ADR 0013,
+`docs/services.md`) führt den Begriff **Abnahme** darum weiter; gemeint ist dasselbe.
+
+## Nachtrag 26.08.18: „Geändert seit Freigabe" ist eine fachliche Aussage, kein doc-Hash
+
+Der oben festgelegte doc-Hash-Vergleich war zu grob. Der Autosave schreibt nach dem
+bloßen Öffnen einer Profilierung abgeleitete Felder nach — vor allem den Punktestand
+`fortschritt` (#93), den erst der Client mit geladenem Schema kennt und den die
+Abnahme-Version nicht trug. Das änderte die Serialisierung, nicht die Aussage: jede
+freigegebene Profilierung trug nach dem ersten Ansehen „⚠ seit Freigabe geändert",
+ohne dass jemand etwas entschieden hatte. Der begleitende Vergleich (ADR 0013) wies
+folgerichtig keine Unterschiede aus — Badge und Liste widersprachen sich.
+
+Verglichen wird darum jetzt der **Fach-Hash** (`fachHash`, kanonische Serialisierung
+ohne `meta.gespeichert` und ohne `fortschritt`) — dieselbe Größe, die „Profil
+weiterentwickelt" an gebundenen Testnachrichten entscheidet. `profile_versions` trägt
+dafür die Spalte `fach_hash`, beim Anlegen verbatim aus der `profiles`-Zeile kopiert
+und für den Altbestand per Backfill nachgezogen; bestehende Schein-Kennzeichen
+verschwinden damit beim nächsten Serverstart. Für die **Entprellung** der
+Automatik-Versionen und das Kennzeichen `geaendert` bleibt es beim `doc_hash`: dort
+ist falsch-positiv harmlos, hier entwertet es die Freigabe.
+
+Auf Client-Seite hört der Autosave gleichzeitig auf, das Feld überhaupt zu verlieren:
+`punkteStand()` schrieb es nur, wenn es frisch gezählt werden konnte (geladener Baum,
+kein Instanz-Modus, Nenner > 0), und ließ es sonst weg — `profileDoc` führt es nicht,
+also verschwand es aus dem Dokument und mit ihm der Balken der Kachel. Der zuletzt
+bekannte Stand wird jetzt gemerkt und mitgeschrieben, bis eine eigene Zählung ihn
+ersetzt.

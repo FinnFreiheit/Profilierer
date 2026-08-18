@@ -3,8 +3,10 @@ import { DetailPanel } from './detail-panel';
 import { StateService } from '../../core/services/state.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { NavService } from '../../core/services/nav.service';
+import { TreeService } from '../../core/services/tree.service';
+import { XsdParserService } from '../../core/services/xsd-parser.service';
 import { DatentypQuelle } from '../../models/profile.model';
-import { TreeNode } from '../../models/node.model';
+import { TreeNode, itemPath } from '../../models/node.model';
 import { signal } from '@angular/core';
 import { erwTypwechselFrage } from '../../core/util/erweiterung.util';
 
@@ -302,5 +304,146 @@ describe('DetailPanel — Datentyp einer Schema-Erweiterung', () => {
       expect(frage).toHaveBeenCalledTimes(1);
       expect(frage.calls.mostRecent().args[0]).toContain('3 Festlegungen');
     });
+  });
+});
+
+/**
+ * Wert-Feld im gefuehrten Durchlauf: Enter beendet die Eingabe (statt einen
+ * Absatz zu setzen), der Fokus liegt beim Betreten einer Wert-Station schon im
+ * Feld, und der Klick auf „Weiter" uebernimmt den offenen Text beim **ersten**
+ * Klick — vorher fiel der erste Klick dem Layout-Sprung nach dem Blur zum
+ * Opfer und man musste zweimal klicken.
+ */
+describe('DetailPanel — Wert-Feld im gefuehrten Durchlauf', () => {
+  const XSD = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0009" type="Type.Test9.Root"/>
+  <xs:complexType name="Type.Test9.Root"><xs:sequence>
+    <xs:element name="kopf" type="xs:string"/>
+    <xs:element name="az" type="xs:string"/>
+    <xs:element name="bemerkung" type="xs:string"/>
+  </xs:sequence></xs:complexType>
+</xs:schema>`;
+  const M = 'nachricht.test.0009';
+
+  let fixture: ComponentFixture<DetailPanel>;
+  let state: StateService;
+  let nav: NavService;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [DetailPanel] }).compileComponents();
+    state = TestBed.inject(StateService);
+    nav = TestBed.inject(NavService);
+    const tree = TestBed.inject(TreeService);
+    const parser = TestBed.inject(XsdParserService);
+    const dom = new DOMParser().parseFromString(XSD, 'application/xml');
+    const idx = parser.buildIndexFrom([{ file: 'xjustiz_0000_test9.xsd', dom }]).idx;
+    state.idx.set(idx);
+    state.root.set(tree.buildRoot(M, idx));
+    state.guided.set(true);
+    state.messageCreate.set({ msgName: M, entryId: null, name: null });
+
+    fixture = TestBed.createComponent(DetailPanel);
+    nav.jumpTo(`${M}/kopf`);
+    fixture.detectChanges();
+  });
+
+  const feld = (): HTMLTextAreaElement =>
+    (fixture.nativeElement as HTMLElement).querySelector('.wertRow textarea')!;
+
+  const knopf = (text: string): HTMLButtonElement =>
+    [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.gNav button'),
+    ].find((b) => b.textContent?.includes(text))!;
+
+  const taste = (key: string, shift = false): KeyboardEvent => {
+    const e = new KeyboardEvent('keydown', { key, shiftKey: shift, cancelable: true });
+    feld().dispatchEvent(e);
+    fixture.detectChanges();
+    return e;
+  };
+
+  it('setzt den Cursor beim Betreten der Wert-Station ins Feld', async () => {
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(feld());
+  });
+
+  it('Enter uebernimmt den Wert und blaettert zur naechsten Station', () => {
+    feld().value = 'A 1';
+    const e = taste('Enter');
+
+    expect(e.defaultPrevented).toBeTrue(); // kein Absatz im Feld
+    expect(state.elemente()[`${M}/kopf`]?.beispiel).toBe('A 1');
+    expect(state.selItem() && itemPath(state.selItem()!)).toBe(`${M}/az`);
+  });
+
+  it('leert das Feld an der naechsten Station — der getippte Text bleibt nicht stehen', async () => {
+    feld().value = 'A 1';
+    taste('Enter');
+    await fixture.whenStable();
+
+    // `[value]` schreibt nur bei geaendertem Ausdruck: an beiden Stationen ist
+    // er leer, der eingetippte Text stuende also weiter im Feld.
+    expect(state.selItem() && itemPath(state.selItem()!)).toBe(`${M}/az`);
+    expect(feld().value).toBe('');
+  });
+
+  it('zeigt an der naechsten Station deren gespeicherten Wert', async () => {
+    // Mit ↓ Station fuer Station: `az` ist schon belegt und darum nicht mehr
+    // offen — Enter spraenge daran vorbei.
+    state.setElementProfile(`${M}/az`, { beispiel: 'B 2' });
+    feld().value = 'A 1';
+    taste('ArrowDown');
+    await fixture.whenStable();
+
+    expect(state.selItem() && itemPath(state.selItem()!)).toBe(`${M}/az`);
+    expect(feld().value).toBe('B 2');
+  });
+
+  it('Enter springt zur naechsten **offenen** Angabe, nicht nur zur naechsten Station', () => {
+    // Zwischenstation `az` ist beantwortet; offen ist erst `bemerkung`.
+    state.setElementProfile(`${M}/az`, { beispiel: 'B 2' });
+    feld().value = 'A 1';
+    taste('Enter');
+
+    expect(state.selItem() && itemPath(state.selItem()!)).toBe(`${M}/bemerkung`);
+  });
+
+  it('Shift+Enter laesst den Absatz im Feld zu', () => {
+    feld().value = 'A 1';
+    const e = taste('Enter', true);
+
+    expect(e.defaultPrevented).toBeFalse();
+    expect(state.selItem() && itemPath(state.selItem()!)).toBe(`${M}/kopf`);
+  });
+
+  it('haelt die Spur auch mit Cursor im Feld: einzeiliger Wert, Pfeil runter blaettert', () => {
+    feld().value = 'A 1';
+    const e = taste('ArrowDown');
+
+    expect(e.defaultPrevented).toBeTrue();
+    expect(state.elemente()[`${M}/kopf`]?.beispiel).toBe('A 1');
+    expect(state.selItem() && itemPath(state.selItem()!)).toBe(`${M}/az`);
+  });
+
+  it('laesst dem mehrzeiligen Wert seine Pfeiltasten', () => {
+    feld().value = 'A\n1';
+    const e = taste('ArrowDown');
+
+    expect(e.defaultPrevented).toBeFalse();
+    expect(state.selItem() && itemPath(state.selItem()!)).toBe(`${M}/kopf`);
+  });
+
+  it('uebernimmt den offenen Text beim ersten Klick auf „Weiter"', () => {
+    feld().value = 'A 1';
+    // Der Knopf haelt den Fokus im Feld — ohne Blur faellt kein `change`.
+    const md = new MouseEvent('mousedown', { cancelable: true, bubbles: true });
+    knopf('Weiter').dispatchEvent(md);
+    knopf('Weiter').click();
+    fixture.detectChanges();
+
+    expect(md.defaultPrevented).toBeTrue();
+    expect(state.elemente()[`${M}/kopf`]?.beispiel).toBe('A 1');
+    expect(state.selItem() && itemPath(state.selItem()!)).toBe(`${M}/az`);
   });
 });

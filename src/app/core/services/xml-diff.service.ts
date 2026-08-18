@@ -84,7 +84,7 @@ export class XmlDiffService {
    * @throws Error bei nicht parsebarem XML
    */
   vergleiche(basis: string, vergleich: string): XmlDiffResult {
-    const a = this.parse(basis, 'abgenommene Fassung');
+    const a = this.parse(basis, 'freigegebene Fassung');
     const b = this.parse(vergleich, 'aktueller Stand');
 
     if (a.localName !== b.localName) {
