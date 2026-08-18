@@ -26,6 +26,45 @@ describe('App', () => {
     expect(compiled.querySelector('.dashHead h1')?.textContent).toContain('Pfadfinder');
   });
 
+  describe('Rueckweg der Kopfzeile', () => {
+    /** Der Knopf ist `protected`; die Spec ruft ihn ueber die Schnittstelle. */
+    function zurueck(app: App): void {
+      (app as unknown as { zurUebersicht(): void }).zurUebersicht();
+    }
+
+    it('fuehrt aus einer Profilierung in die Profil-Bibliothek', () => {
+      const app = TestBed.createComponent(App).componentInstance;
+      const state = TestBed.inject(StateService);
+      state.view.set('editor');
+
+      zurueck(app);
+
+      expect(state.view()).toBe('dashboard');
+    });
+
+    it('fuehrt aus einer geoeffneten Testnachricht in den Testdatenspeicher', () => {
+      const app = TestBed.createComponent(App).componentInstance;
+      const state = TestBed.inject(StateService);
+      state.view.set('editor');
+      state.messageEdit.set({ msgName: 'm', entryId: 'e1' } as never);
+
+      zurueck(app);
+
+      expect(state.view()).toBe('testdaten');
+    });
+
+    it('fuehrt auch aus der gefuehrten Erstellung in den Testdatenspeicher', () => {
+      const app = TestBed.createComponent(App).componentInstance;
+      const state = TestBed.inject(StateService);
+      state.view.set('editor');
+      state.messageCreate.set({ msgName: 'm', entryId: null, name: null });
+
+      zurueck(app);
+
+      expect(state.view()).toBe('testdaten');
+    });
+  });
+
   describe('Escape hebt die Auswahl auf (#82)', () => {
     it('leert selItem und macht damit die Liste der offenen Punkte erreichbar', () => {
       const fixture = TestBed.createComponent(App);
