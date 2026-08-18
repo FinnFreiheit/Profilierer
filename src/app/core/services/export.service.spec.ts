@@ -27,6 +27,11 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
     <xs:sequence minOccurs="0">
       <xs:element name="detail" type="xs:string"/>
     </xs:sequence>
+    <xs:element name="beteiligung" type="Type.Test.Bet" minOccurs="0" maxOccurs="unbounded"/>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="Type.Test.Bet"><xs:sequence>
+    <xs:element name="rolle" type="xs:string"/>
+    <xs:element name="anschrift" type="xs:string" minOccurs="0"/>
   </xs:sequence></xs:complexType>
   <xs:complexType name="Code.Test.Farbe">
     <xs:annotation><xs:appinfo>
@@ -145,6 +150,70 @@ describe('ExportService (Schematron)', () => {
     svc.exportSchematron();
     expect(sch()).not.toContain('xj:titel');
     expect(sch()).not.toContain('schlummert');
+  });
+
+  describe('Vorkommens-Festlegungen (#120)', () => {
+    /** Zwei benannte Vorkommen mit trennenden Rollen-Kennzeichen. */
+    const zweiBeteiligte = (): { n1: string; n2: string } => {
+      const n1 = state.addAusp(`${M}/beteiligung`, 'Notar');
+      const n2 = state.addAusp(`${M}/beteiligung`, 'Betreuer');
+      state.setElementProfile(`${M}/beteiligung@${n1}/rolle`, {
+        werte: ['22'],
+        kennzeichnend: true,
+      });
+      state.setElementProfile(`${M}/beteiligung@${n2}/rolle`, {
+        werte: ['07'],
+        kennzeichnend: true,
+      });
+      return { n1, n2 };
+    };
+
+    it('benennt das Vorkommen über sein Kennzeichen und prüft dessen Festlegung', () => {
+      const { n1 } = zweiBeteiligte();
+      state.setElementProfile(`${M}/beteiligung@${n1}/anschrift`, { status: 's1' });
+
+      svc.exportSchematron();
+
+      expect(sch()).toContain(`context="/xj:${M}/xj:beteiligung[xj:rolle = ('22')]"`);
+      expect(sch()).toContain('xj:anschrift');
+      // Das schliessende Anfuehrungszeichen steht escaped im XML.
+      expect(sch()).toContain('„Notar&quot; → anschrift');
+    });
+
+    it('verlangt für ein zwingendes Vorkommen eines mit seinen Kennzeichen', () => {
+      const { n1 } = zweiBeteiligte();
+      state.setElementProfile(`${M}/beteiligung@${n1}`, { status: 's1' });
+
+      svc.exportSchematron();
+
+      expect(sch()).toContain("count(xj:beteiligung[xj:rolle = ('22')]) &gt;= 1");
+    });
+
+    it('schweigt und benennt die Lücke, wo die Kennzeichen nicht trennen', () => {
+      const n1 = state.addAusp(`${M}/beteiligung`, 'Notar');
+      const n2 = state.addAusp(`${M}/beteiligung`, 'Zweitnotar');
+      for (const id of [n1, n2])
+        state.setElementProfile(`${M}/beteiligung@${id}/rolle`, {
+          werte: ['22'],
+          kennzeichnend: true,
+        });
+      state.setElementProfile(`${M}/beteiligung@${n1}/anschrift`, { status: 's1' });
+
+      svc.exportSchematron();
+
+      // Keine Regel, die eines der beiden benennt — aber die Lücke steht drin.
+      expect(sch()).not.toContain("xj:beteiligung[xj:rolle = ('22')]");
+      expect(sch()).toContain('Nicht ausgedrueckt');
+      expect(sch()).toContain('Zweitnotar');
+      expect(toasts.join(' ')).toContain('nicht ausdrücken');
+    });
+
+    it('lässt eine Profilierung ohne Vorkommen unverändert', () => {
+      state.setElementProfile(`${M}/az`, { status: 's1' });
+      svc.exportSchematron();
+      expect(sch()).not.toContain('Nicht ausgedrueckt');
+      expect(sch()).toContain('<sch:assert test="xj:az">');
+    });
   });
 
   it('Hinweise tauchen weder im Schematron noch im Beispiel-XML auf', () => {
