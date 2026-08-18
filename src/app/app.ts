@@ -107,9 +107,14 @@ export class App implements OnInit {
   /** Reine Schema-Ansicht (US "Schema ansehen") — eigener Empty-State-Text. */
   protected readonly schemaView = this.state.schemaView;
 
-  /** Zurueck zur Uebersicht (Topbar-Button). */
-  protected goDashboard(): void {
-    this.state.view.set('dashboard');
+  /**
+   * Zurueck zur Uebersicht (Topbar-Button). Wohin, entscheidet das offene
+   * Objekt: eine Testnachricht — geoeffnet oder gefuehrt erstellt — gehoert in
+   * den Testdatenspeicher, alles andere in die Profil-Bibliothek. Sonst landet
+   * der Rueckweg in einer Liste, in der das eben Bearbeitete gar nicht steht.
+   */
+  protected zurUebersicht(): void {
+    this.state.view.set(this.state.msgMode() ? 'testdaten' : 'dashboard');
   }
 
   /** Fehlerprotokoll (Logger-Ringpuffer) als Textdatei herunterladen. */

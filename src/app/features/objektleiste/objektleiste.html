@@ -9,10 +9,11 @@
   <!-- Zone: zurueck -->
   <button
     class="homeBtn zone"
-    title="Zurück zur Übersicht der Profilierungen"
+    [title]="msgMode() ? 'Zurück zum Testdatenspeicher' : 'Zurück zur Übersicht der Profilierungen'"
     (click)="homeClick.emit()"
   >
-    <span aria-hidden="true">←</span> <span class="lbl-lang">Übersicht</span>
+    <span aria-hidden="true">←</span>
+    <span class="lbl-lang">{{ msgMode() ? 'Testnachrichten' : 'Übersicht' }}</span>
   </button>
 
   <!-- Zone: Objekt-Identitaet -->

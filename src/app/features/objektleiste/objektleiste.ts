@@ -68,6 +68,8 @@ export class Objektleiste {
   protected readonly isMessage = this.state.isMessageEdit;
   protected readonly isCreate = this.state.isMessageCreate;
   protected readonly isSchemaView = this.state.schemaView;
+  /** Testnachricht offen (geladen oder gefuehrt erstellt) — bestimmt den Rueckweg. */
+  protected readonly msgMode = this.state.msgMode;
 
   /** Profil-Modus im engeren Sinn: eine Profilierung wird bearbeitet. */
   protected readonly isProfil = computed(
