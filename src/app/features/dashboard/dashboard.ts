@@ -24,6 +24,7 @@ import { fachmodulOf, nachFachmodul } from '../../core/util/fachmodul.util';
 import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiterung-sperre';
 import { nachrichtTeile } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
+import { NeuesProfilWizard } from '../dialogs/neues-profil-wizard';
 
 /**
  * Ein Abschnitt der Bibliothek: seit #88 je Fachmodul einer. Die Abnahme
@@ -47,7 +48,7 @@ interface Sektion {
 @Component({
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu, KeinAutofillDirective],
+  imports: [RolleBadge, Menu, KeinAutofillDirective, NeuesProfilWizard],
   templateUrl: './dashboard.html',
 })
 export class Dashboard {
@@ -62,6 +63,7 @@ export class Dashboard {
   private readonly testnachrichtStart = inject(TestnachrichtStartService);
   private readonly teilenService = inject(TeilenService);
   private readonly renameDlg = viewChild.required<ElementRef<HTMLDialogElement>>('renameDlg');
+  private readonly neuWizard = viewChild.required<NeuesProfilWizard>('neuWizard');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
 
   /**
@@ -195,12 +197,12 @@ export class Dashboard {
 
   protected open(id: string): void {
     // Warnhinweis der AG-Rolle: ein geschuetzter Stand wird nie versehentlich
-    // angefasst — Aenderungen erzeugen das Kennzeichen "geaendert seit Abnahme".
+    // angefasst — Aenderungen erzeugen das Kennzeichen "geaendert seit Freigabe".
     const e = this.store.entries().find((x) => x.id === id);
     if (e?.abgenommen && this.rolle.agAktiv()) {
       const ok = confirm(
-        `„${e.name || '(ohne Namen)'}" ist von der BLK-AG abgenommen.\n` +
-          'Änderungen betreffen den geschützten Stand und kennzeichnen ihn als „geändert seit Abnahme“.\n' +
+        `„${e.name || '(ohne Namen)'}" ist von der BLK-AG freigegeben.\n` +
+          'Änderungen betreffen den geschützten Stand und kennzeichnen ihn als „geändert seit Freigabe“.\n' +
           'Trotzdem öffnen und bearbeiten?',
       );
       if (!ok) return;
@@ -213,8 +215,12 @@ export class Dashboard {
     return !!e.abgenommen && !this.rolle.agAktiv();
   }
 
+  /**
+   * „Neues Profil": der gefuehrte Anlege-Durchlauf (Version → Nachricht →
+   * Angaben). Der Bibliothekseintrag entsteht erst am Ende des Wizards.
+   */
   protected createNew(): void {
-    void this.persistence.createNew();
+    this.neuWizard().open();
   }
 
   protected duplicate(id: string, e: Event): void {
@@ -229,7 +235,7 @@ export class Dashboard {
     const entry = this.store.entries().find((x) => x.id === id);
     const name = entry?.name || '(ohne Namen)';
     const frage = entry?.abgenommen
-      ? `Profil „${name}" ist von der BLK-AG ABGENOMMEN.\nLöschen entfernt den geschützten Stand samt Abnahme-Version unwiderruflich. Wirklich löschen?`
+      ? `Profil „${name}" ist von der BLK-AG FREIGEGEBEN.\nLöschen entfernt den geschützten Stand samt Freigabe-Version unwiderruflich. Wirklich löschen?`
       : `Profil „${name}" wirklich löschen?`;
     if (confirm(frage))
       void this.store
@@ -268,9 +274,11 @@ export class Dashboard {
     if (!id) return;
     try {
       const v = await this.store.abnehmen(id, this.abnKommentar().trim() || undefined);
-      this.toast.show(`Abgenommen — Stand als Version v${v.nr} eingefroren.`);
+      this.toast.show(`Freigegeben — Stand als Version v${v.nr} eingefroren.`);
     } catch {
-      this.toast.show('Abnahme fehlgeschlagen — Backend nicht erreichbar oder Schlüssel ungültig.');
+      this.toast.show(
+        'Freigabe fehlgeschlagen — Backend nicht erreichbar oder Schlüssel ungültig.',
+      );
     }
     this.abnahmeDlg().nativeElement.close();
   }
@@ -280,7 +288,7 @@ export class Dashboard {
     if (!id) return;
     try {
       await this.store.abnahmeEntfernen(id);
-      this.toast.show('Abnahme-Kennzeichen entfernt — die Abnahme-Version bleibt erhalten.');
+      this.toast.show('Freigabe-Kennzeichen entfernt — die Freigabe-Version bleibt erhalten.');
     } catch {
       this.toast.show(
         'Kennzeichen konnte nicht entfernt werden — Backend nicht erreichbar oder Schlüssel ungültig.',

@@ -113,7 +113,7 @@ export class Werkzeugleiste {
     if (this.isSchemaView())
       return 'Schema-Ansicht — es wird nichts entschieden und nichts gespeichert';
     if (this.state.abnahmeSchreibschutz())
-      return 'Von der BLK-AG abgenommen — Bearbeiten nur mit AG-Schlüssel';
+      return 'Von der BLK-AG freigegeben — Bearbeiten nur mit AG-Schlüssel';
     return '';
   });
 

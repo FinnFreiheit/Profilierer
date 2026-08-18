@@ -1,7 +1,15 @@
 import { Injectable, Signal, computed, inject } from '@angular/core';
 import { Auspraegung } from '../../models/profile.model';
 import { TreeNode, itemPath } from '../../models/node.model';
-import { RefSchluessel, istSgoKennung, refKindEff, refSchluesselArt, refTraeger } from '../refs';
+import {
+  RefSchluessel,
+  istSgoKennung,
+  refKindEff,
+  refKindOf,
+  refSchluesselArt,
+  refTraeger,
+} from '../refs';
+import { pretty } from '../util/pretty.util';
 import { segmentKette, unterPfad, vorfahren } from '../util/pfad.util';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
@@ -20,6 +28,25 @@ import { PlaceholderNode, ValueService } from './value.service';
  *   hinaus (offene Welt, siehe Spec "Testnachricht aus einer Profilierung").
  */
 export type PunktMarker = 'zuklaeren' | 'nichtprofiliert';
+
+/**
+ * Eine per Ziffer waehlbare Option der ausgewaehlten Station: die Zweige einer
+ * Auswahl bzw. die Ziele eines Verweises. Die Nummer **ist** die Taste — der
+ * gefuehrte Durchlauf soll sich ohne Maus fuehren lassen. Mehr als neun
+ * Optionen bekommen keine Nummer mehr (die Tastatur hat nur 1..9); sie bleiben
+ * ueber die Liste bzw. das Auswahlfeld erreichbar.
+ */
+export interface StationOption {
+  /** 1..9 — die zu drueckende Ziffer. */
+  nr: number;
+  label: string;
+  art: 'zweig' | 'verweis';
+  /** Zweigpfad bzw. Pfad des Ziel-Vorkommens. */
+  ziel: string;
+  gewaehlt: boolean;
+  /** Grund, warum die Wahl nicht moeglich ist (Kardinalitaet der Profilierung). */
+  sperre: string | null;
+}
 
 /**
  * Ein Entscheidungspunkt des gefuehrten Durchlaufs. Im Profil-Modus: ein
@@ -522,6 +549,9 @@ export class GuidedService {
     if (path == null) return null;
     const p = this.punktAt(path);
     if (!p || this.istEntschiedenPunkt(p) || !this.istKritisch(p)) return null;
+    // Ein Verweis ohne vorhandenes Ziel ist nicht zu beantworten — er haelt
+    // niemanden fest, sondern kommt am Ende noch einmal (`verweisOhneZiel`).
+    if (this.verweisOhneZiel(path)) return null;
     return p.art === 'auswahl'
       ? 'Pflicht-Auswahl — erst einen Zweig wählen, dann weiter.'
       : 'Pflichtangabe — erst einen typkonformen Wert eintragen, dann weiter.';
@@ -866,6 +896,98 @@ export class GuidedService {
     return null;
   }
 
+  // ── Optionen der Station: Wahl per Ziffer ───────────────────────────
+
+  /** Die Tastatur hat nur 1..9 — mehr Optionen bekommen keine Nummer. */
+  private static readonly MAX_OPTIONEN = 9;
+
+  /**
+   * Was an der ausgewaehlten Station per Ziffer waehlbar ist: die Zweige einer
+   * Auswahl oder die Ziele eines Verweises. Eine Liste fuer beides, damit
+   * Anzeige (Nummer am Eintrag) und Tastatur (`waehleOption`) dieselbe
+   * Nummerierung benutzen und nicht auseinanderlaufen koennen.
+   */
+  readonly optionen: Signal<StationOption[]> = computed(() => {
+    if (!this.instanzModus() || this.state.readOnly()) return [];
+    const path = this.selPath();
+    if (path == null) return [];
+    const p = this.punktAt(path);
+    if (p?.art === 'auswahl') {
+      const it = this.nav.findItemByPath(path);
+      if (!it) return [];
+      const node = it.kind === 'el' ? it.node : this.tree.ctxNode(it.parentNode, it.ausp.id);
+      this.tree.expandNode(node);
+      // Bewusst `children` und nicht `tree.kinder`: die Zweige einer Auswahl
+      // sind genau die, die `waehleZweig` gegeneinander abwaegt (`p.kinder`) —
+      // Schema-Erweiterungen gehoeren nicht dazu.
+      return (node.children ?? []).slice(0, GuidedService.MAX_OPTIONEN).map((c, i) => ({
+        nr: i + 1,
+        label: c.synthetic ? c.name : pretty(c.name),
+        art: 'zweig' as const,
+        ziel: c.path,
+        gewaehlt: this.state.wirkungOf(c.path) === 'pflicht',
+        sperre: this.kardSperreZweigwechsel(path, c.path),
+      }));
+    }
+    const traeger = this.verweisTraeger(path);
+    if (!traeger) return [];
+    const cur = this.state.refZielOf(traeger);
+    return this.verweisZiele(traeger)
+      .slice(0, GuidedService.MAX_OPTIONEN)
+      .map((z, i) => ({
+        nr: i + 1,
+        label: z.label,
+        art: 'verweis' as const,
+        ziel: z.path,
+        gewaehlt: z.path === cur,
+        sperre: null,
+      }));
+  });
+
+  /**
+   * Option per Ziffer waehlen. Gibt den **Sperrgrund** zurueck, `null` bei
+   * Erfolg und `undefined`, wenn es die Nummer an dieser Station nicht gibt —
+   * dann gehoert die Taste nicht der Fuehrung.
+   */
+  waehleOption(nr: number): string | null | undefined {
+    const o = this.optionen().find((x) => x.nr === nr);
+    if (!o) return undefined;
+    if (o.sperre) return o.sperre;
+    const path = this.selPath();
+    if (path == null) return undefined;
+    if (o.art === 'zweig') this.waehleZweig(path, o.ziel);
+    else {
+      const traeger = this.verweisTraeger(path);
+      if (traeger) this.waehleVerweisZiel(traeger, o.ziel);
+    }
+    return null;
+  }
+
+  /**
+   * Der Verweis-Traeger zur ausgewaehlten Station — auch vom Nummern-Blatt
+   * `ref.…` aus, an dem die Station im Durchlauf haengt. `null`, wo kein
+   * Verweis im Spiel ist.
+   */
+  verweisTraeger(path: string): string | null {
+    const it = this.nav.findItemByPath(path);
+    if (!it || it.kind !== 'el') return null;
+    const t = refTraeger(it.node) ?? (refKindOf(it.node) ? it.node : null);
+    return t ? t.path : null;
+  }
+
+  /**
+   * Verweis, dessen Ziel es in dieser Nachricht noch nicht gibt: die Station
+   * ist jetzt nicht zu beantworten. Sie haelt die Spur darum **nicht** fest
+   * (`ueberspringSperre`), bleibt aber offen — und weil „nächster offener" am
+   * Ende umlaeuft, kommt der Durchlauf von selbst hierher zurueck, wenn das
+   * Ziel inzwischen angelegt ist.
+   */
+  verweisOhneZiel(path: string): boolean {
+    const traeger = this.verweisTraeger(path);
+    if (!traeger || this.state.refZielOf(traeger)) return false;
+    return this.verweisZiele(traeger).length === 0;
+  }
+
   // ── Spur-Navigation ─────────────────────────────────────────────────
 
   /**
@@ -883,10 +1005,15 @@ export class GuidedService {
     return (offen.find((p) => p.seq > fromSeq) ?? offen[0]!).path;
   }
 
-  /** Zum naechsten offenen Punkt springen (ab aktueller Auswahl). */
-  gotoNextOpen(): void {
+  /**
+   * Zum naechsten offenen Punkt springen (ab aktueller Auswahl, mit Umlauf).
+   * Meldet `false`, wenn nichts mehr offen ist — der Aufrufer sagt es dann.
+   */
+  gotoNextOpen(): boolean {
     const p = this.nextOpen(this.selPath());
-    if (p) this.nav.jumpTo(p);
+    if (!p) return false;
+    this.nav.jumpTo(p);
+    return true;
   }
 
   /**

@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   computed,
+  effect,
   inject,
   linkedSignal,
   signal,
@@ -116,6 +117,9 @@ export class DetailPanel {
 
   /** Eingabefeld „Hinweis hinzufuegen" — Fokusziel der Entscheidung „zu klären" (#41). */
   private readonly hinweisFeld = viewChild<ElementRef<HTMLTextAreaElement>>('hinweisFeld');
+
+  /** Eingabefeld „Wert" — Fokusziel jeder Wert-Station des gefuehrten Durchlaufs. */
+  private readonly wertFeld = viewChild<ElementRef<HTMLTextAreaElement>>('wertFeld');
 
   /** Betrachtungsmodus: Editier-Controls werden im Template ausgeblendet. */
   protected readonly ro = this.state.readOnly;
@@ -432,6 +436,48 @@ export class DetailPanel {
   });
 
   /**
+   * Pfad der aktuellen Wert-Station, sonst `null`. Bewusst nur der Pfad (kein
+   * Objekt): der Fokus-Effekt darf allein am **Stationswechsel** haengen, nicht
+   * an jeder Aenderung des Wertes — sonst spraenge der Cursor beim Tippen.
+   */
+  private readonly wertStation = computed(() => (this.giv()?.art === 'wert' ? this.path() : null));
+
+  constructor() {
+    // Das Feld dem Modell nachziehen. `[value]` schreibt nur, wenn sich der
+    // **gebundene Ausdruck** aendert — was der Nutzer selbst eingetippt hat,
+    // sieht die Bindung nicht. Uebernehmen und Weiterblaettern passieren in
+    // einem Durchgang; an der naechsten Station ist der Ausdruck derselbe (in
+    // aller Regel leer wie zuvor), also bliebe der getippte Text des vorigen
+    // Feldes stehen. Bewusst am Pfad **und** am Wert haengend: der Pfad allein
+    // wechselt ohne Wertaenderung, der Wert allein bleibt beim Stationswechsel
+    // oft gleich.
+    effect(() => {
+      const pfad = this.path();
+      const wert = this.state.elemente()[pfad]?.beispiel ?? '';
+      queueMicrotask(() => {
+        const el = this.wertFeld()?.nativeElement;
+        if (el && el.value !== wert) el.value = wert;
+      });
+    });
+
+    // Wert-Station betreten = Cursor ins Wert-Feld. Ohne das begann jede Angabe
+    // mit einem Mausklick ins Feld; mit Enter (siehe `onWertKeydown`) laeuft der
+    // Durchlauf jetzt Feld fuer Feld ueber die Tastatur. Haengt allein am
+    // Stationswechsel — sonst risse jede Modelaenderung den Fokus an sich.
+    effect(() => {
+      if (this.wertStation() === null) return;
+      queueMicrotask(() => {
+        const el = this.wertFeld()?.nativeElement;
+        if (!el || el.readOnly) return;
+        if (document.activeElement !== el) el.focus();
+        // Cursor ans Ende — `focus()` setzt ihn sonst an den Anfang, und beim
+        // Weiterblaettern steht er noch an der Stelle des vorigen Feldes.
+        el.setSelectionRange(el.value.length, el.value.length);
+      });
+    });
+  }
+
+  /**
    * Sichtbarkeitsregel der eingeschraenkten Werteliste (ValueService) samt
    * Umschalter-Zustand — das Panel entscheidet nur noch ueber den Modus.
    */
@@ -500,25 +546,91 @@ export class DetailPanel {
     this.state.setElementProfile(path, { status: entfernt ? undefined : ex.id });
   }
 
-  protected setField(key: 'min' | 'max' | 'anmerkung' | 'beispiel', e: Event): void {
+  protected setField(key: 'min' | 'max' | 'anmerkung', e: Event): void {
     const el = e.target as HTMLInputElement | HTMLTextAreaElement;
+    this.state.setElementProfile(this.path(), { [key]: el.value.trim() || undefined });
+  }
+
+  /** Wert-/Beispielfeld verlassen (Blur, Enter, Weiterblaettern). */
+  protected onWert(e: Event): void {
+    this.schreibeWert(e.target as HTMLTextAreaElement);
+  }
+
+  /**
+   * Wert des Feldes ins Modell schreiben. Meldet `false`, wenn die
+   * Werte-Einschraenkung greift und das Feld zurueckgesetzt wurde.
+   *
+   * Die Einschraenkung wird hier ebenso geprueft wie im Baum
+   * (`tree-node.onValue`). Vorher hing sie im Detailbereich allein am
+   * `readOnly` des Feldes, das nur bei `codelist?.restricted` gesetzt wird —
+   * eine `werte`-Einschraenkung an einem Blatt *ohne* Codeliste (ueber Import
+   * oder Migration erreichbar) blockierte im Baum, hier nicht. Die Invariante
+   * "nur freigegebene Werte landen im Modell" darf nicht an einem
+   * Template-Attribut haengen.
+   */
+  private schreibeWert(el: HTMLTextAreaElement): boolean {
+    const path = this.path();
     const v = el.value.trim();
-    // Die Werte-Einschraenkung wird hier ebenso geprueft wie im Baum
-    // (`tree-node.onValueChange`). Vorher hing sie im Detailbereich allein am
-    // `readOnly` des Feldes, das nur bei `codelist?.restricted` gesetzt wird —
-    // eine `werte`-Einschraenkung an einem Blatt *ohne* Codeliste (ueber Import
-    // oder Migration erreichbar) blockierte im Baum, hier nicht. Die Invariante
-    // "nur freigegebene Werte landen im Modell" darf nicht an einem
-    // Template-Attribut haengen.
-    if (key === 'beispiel' && this.msgMode()) {
-      const verstoss = this.values.werteVerstoss(this.path(), v);
+    if (v === (this.state.elemente()[path]?.beispiel ?? '')) return true;
+    if (this.msgMode()) {
+      const verstoss = this.values.werteVerstoss(path, v);
       if (verstoss) {
         this.toast.show(verstoss + ' Zulässig sind nur die Werte aus der Liste.');
-        el.value = this.state.elemente()[this.path()]?.beispiel ?? '';
-        return;
+        el.value = this.state.elemente()[path]?.beispiel ?? '';
+        return false;
       }
     }
-    this.state.setElementProfile(this.path(), { [key]: v || undefined });
+    this.state.setElementProfile(path, { beispiel: v || undefined });
+    return true;
+  }
+
+  /**
+   * Enter im Wert-Feld beendet die Eingabe, statt einen Absatz zu setzen: im
+   * gefuehrten Durchlauf uebernimmt es den Wert und blaettert zur naechsten
+   * Station (deren Feld der Fokus-Effekt aufnimmt), sonst verlaesst es nur das
+   * Feld — wie das Wertfeld im Baum (`tree-node.onValueKeydown`).
+   * Mehrzeiliges bleibt mit Shift+Enter moeglich.
+   */
+  protected onWertKeydown(e: KeyboardEvent): void {
+    const el = e.target as HTMLTextAreaElement;
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!this.schreibeWert(el)) return;
+      if (this.giv()) this.zumNaechstenOffenen();
+      else el.blur();
+      return;
+    }
+    // ↓/↑ bleiben die Spur des Durchlaufs, auch waehrend der Cursor im Feld
+    // steht (ADR 0016). Nur solange der Wert einzeilig ist — sonst gehoeren sie
+    // dem Zeilenwechsel im Feld; bewegen wuerden sie den Cursor dort ohnehin
+    // nicht, weil es keine zweite Zeile gibt.
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !el.value.includes('\n') && this.giv()) {
+      e.preventDefault();
+      if (!this.schreibeWert(el)) return;
+      if (e.key === 'ArrowDown') this.guidedNext();
+      else this.guidedPrev();
+    }
+  }
+
+  /**
+   * Knopf gedrueckt, ohne dass das Wert-Feld den Fokus verliert: sonst faellt
+   * beim Mausklick erst der Blur, die Uebernahme laesst die Hinweiszeilen ueber
+   * den Knoepfen verschwinden — und der Knopf ist unter dem Zeiger weggerutscht,
+   * bevor der Klick ankommt (der beruechtigte "zweite Klick"). Die Aktionen
+   * uebernehmen den offenen Text stattdessen selbst (`uebernimmOffenenWert`).
+   *
+   * Nur an den Knoepfen der **Instanz**-Fuehrung und am Wert-Feld: dort ist das
+   * Wert-Feld das einzige Feld mit offener Eingabe. Im Profil-Modus stuende
+   * auch die fachliche Anmerkung offen, die niemand mit uebernaehme.
+   */
+  protected haltFokus(e: MouseEvent): void {
+    e.preventDefault();
+  }
+
+  /** Offenen Text des Wert-Feldes uebernehmen, bevor eine Aktion greift. */
+  private uebernimmOffenenWert(): void {
+    const el = this.wertFeld()?.nativeElement;
+    if (el && !el.readOnly) this.schreibeWert(el);
   }
 
   protected onNeuerHinweis(e: Event): void {
@@ -897,7 +1009,56 @@ export class DetailPanel {
     this.state.setElementProfile(this.path(), { anmerkung: text });
   }
 
+  /**
+   * Enter: zur naechsten **offenen** Angabe (mit Umlauf am Ende), nicht nur
+   * zur naechsten Station — so laeuft der Durchlauf ohne Maus von Luecke zu
+   * Luecke. Eine offene Pflichtangabe haelt fest wie bei ↓, sonst bliebe ein
+   * typwidriger Wert unbemerkt liegen; ein Verweis ohne vorhandenes Ziel haelt
+   * nicht fest (`GuidedService.verweisOhneZiel`).
+   */
+  private zumNaechstenOffenen(): void {
+    const grund = this.guided.ueberspringSperre();
+    if (grund) {
+      this.toast.show(grund);
+      return;
+    }
+    if (!this.guided.gotoNextOpen())
+      this.toast.show('Keine offene Angabe mehr in dieser Nachricht.');
+  }
+
+  /** Per Ziffer waehlbare Optionen der Station (Auswahl-Zweige, Verweisziele). */
+  protected readonly optionen = this.guided.optionen;
+
+  /** Nummer je Ziel — die Zweigliste zeigt damit dieselbe Ziffer wie die Tastatur. */
+  protected readonly optNr = computed(() => new Map(this.optionen().map((o) => [o.ziel, o.nr])));
+
+  /** Nur die Verweisziele: sie bekommen im Durchlauf eine eigene, nummerierte Liste. */
+  protected readonly verweisOptionen = computed(() =>
+    this.optionen().filter((o) => o.art === 'verweis'),
+  );
+
+  /**
+   * Station, an der ein Verweisziel zu waehlen ist. Im gefuehrten Durchlauf
+   * faellt die Wahl hier oben statt unten im Auswahlfeld — dort bleibt sie fuer
+   * das freie Bearbeiten und das Profilieren.
+   */
+  protected readonly verweisStation = computed(
+    () => !!this.giv() && !!this.guided.verweisTraeger(this.path()),
+  );
+
+  /** Verweis, dessen Ziel es noch nicht gibt — er kommt am Ende noch einmal. */
+  protected readonly verweisOffen = computed(
+    () => this.verweisStation() && this.guided.verweisOhneZiel(this.path()),
+  );
+
+  /** Option per Klick waehlen — derselbe Weg wie die Ziffer auf der Tastatur. */
+  protected waehleOption(nr: number): void {
+    const grund = this.guided.waehleOption(nr);
+    if (grund) this.toast.show(grund);
+  }
+
   protected guidedPrev(): void {
+    this.uebernimmOffenenWert();
     this.guided.gotoPrev();
   }
 
@@ -906,6 +1067,7 @@ export class DetailPanel {
    * offene Pflichtangabe haelt die Spur fest und nennt den Grund.
    */
   protected guidedNext(): void {
+    this.uebernimmOffenenWert();
     const grund = this.guided.ueberspringSperre();
     if (grund) {
       this.toast.show(grund);
@@ -915,6 +1077,7 @@ export class DetailPanel {
   }
 
   protected guidedNextOpen(): void {
+    this.uebernimmOffenenWert();
     this.guided.gotoNextOpen();
   }
 

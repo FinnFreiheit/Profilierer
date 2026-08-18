@@ -662,7 +662,7 @@ export class StateService {
 
   /**
    * Die Lage eines Knotens fuer `istEnthalten` — **hier** und nur hier werden
-   * die vier Angaben aufgeloest. Genau diese Aufloesung ist zwischen
+   * die Angaben aufgeloest. Genau diese Aufloesung ist zwischen
    * Serialisierung und Abgleich auseinandergelaufen (siehe `core/enthalten.ts`):
    *
    * - Wirkung: eigene Entscheidung (pfadgenau, `wirkungOf`), sonst die Vorgabe
@@ -670,6 +670,8 @@ export class StateService {
    * - Mindestanzahl: ueber `effKard`, also inklusive Vorgabe — nicht roh.
    * - Inhalt: allein aus der Entscheidungsschicht. Ein Beispielwert der Vorgabe
    *   wird angeboten, nicht gesetzt (#29) und ist darum kein Inhalt.
+   * - Auswahl: `inChoice` aus dem Schema — der Zweig einer `xs:choice` traegt
+   *   `minOccurs="1"`, ohne dass das etwas ueber seine Aufnahme sagt.
    */
   enthaltenLage(node: TreeNode): EnthaltenLage {
     const p = this.elemente()[node.path] ?? {};
@@ -678,6 +680,7 @@ export class StateService {
       min: parseInt(this.effKard(node).min, 10) || 0,
       eigenerInhalt: !!(p.beispiel || p.werte?.length),
       inhaltDarunter: this.inhaltDarunter(node.path),
+      inAuswahl: node.inChoice,
     };
   }
 

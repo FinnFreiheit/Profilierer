@@ -58,7 +58,7 @@ export class Howto {
           titel: 'Profilierung anlegen',
           text: [
             'Die Startseite „Profile" ist die Bibliothek aller Profilierungen, nach Fachmodul gruppiert. Jede ' +
-              'Kachel nennt Nachrichtentyp, Fortschritt und — sofern vorhanden — Abnahme und offene Hinweise.',
+              'Kachel nennt Nachrichtentyp, Fortschritt und — sofern vorhanden — Freigabe und offene Hinweise.',
             '„+ Neues Profil" legt einen Eintrag an und öffnet den Baum-Editor. Der Eintrag steht ab sofort in ' +
               'der Bibliothek; ein gesondertes erstes Speichern ist nicht nötig.',
           ],
@@ -189,7 +189,7 @@ export class Howto {
           titel: 'Profilierung wählen',
           text: [
             'Schritt 1 von 2: Die Liste führt alle Profilierungen mit Nachrichtentyp, dazu XJustiz-Version und ' +
-              'Abnahme-Kennzeichen.',
+              'Freigabe-Kennzeichen.',
             'Profilierungen mit Schema-Erweiterungen sind gesperrt — aus einem Schema, das es so nicht gibt, lässt ' +
               'sich keine valide Nachricht erzeugen.',
           ],
@@ -201,7 +201,7 @@ export class Howto {
           titel: 'Fassung binden',
           text: [
             'Schritt 2 von 2: Gewählt wird die Fassung — der Arbeitsstand oder eine nummerierte Version. Bei ' +
-              'abgenommenen Profilierungen ist die Abnahme-Fassung vorbelegt.',
+              'freigegebenen Profilierungen ist die Freigabe-Fassung vorbelegt.',
             'Die Fassung wird als eingefrorene Kopie an der Testnachricht gespeichert. Sie ändert sich nicht mehr, ' +
               'auch wenn die Profilierung später weiterentwickelt oder gelöscht wird.',
           ],
@@ -241,6 +241,13 @@ export class Howto {
               'tragen den Hinweis „zu klären", Elemente ohne Festlegung den Hinweis „nicht profiliert".',
             'Pflichtangaben halten den Durchlauf fest: ↓ übergeht eine Station erst, wenn ein typkonformer Wert ' +
               'steht. Zurück, hinein und heraus bleiben jederzeit frei.',
+            'An einer Wert-Station steht der Cursor gleich im Feld: tippen, Enter — der Wert ist übernommen und ' +
+              'die nächste offene Angabe steht bereit. ↓ und ↑ blättern auch aus dem Feld heraus, Station für ' +
+              'Station; einen Absatz im Wert macht Shift+Enter.',
+            'Wo etwas zu wählen ist — die Zweige einer Auswahl, das Ziel eines Verweises —, steht vor jedem ' +
+              'Eintrag eine Ziffer: 1…9 wählt ihn ohne Maus. Verweist die Nachricht auf ein Vorkommen, das es noch ' +
+              'nicht gibt, hält der Durchlauf nicht an: Enter geht weiter, der Verweis bleibt offen und kommt am ' +
+              'Ende noch einmal — dann ist das Ziel angelegt.',
           ],
           bild: '12-gefuehrte-angabe',
           bildText:

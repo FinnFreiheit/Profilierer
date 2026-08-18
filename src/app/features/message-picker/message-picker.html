@@ -1,4 +1,10 @@
-<button id="msgBtn" [disabled]="!hasIdx()" (click)="toggle(btn); $event.stopPropagation()" #btn>
+<button
+  id="msgBtn"
+  [disabled]="!hasIdx()"
+  [title]="label()"
+  (click)="toggle(btn); $event.stopPropagation()"
+  #btn
+>
   {{ label() }}
 </button>
 

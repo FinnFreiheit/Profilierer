@@ -1,10 +1,26 @@
-<div id="crumbs" [class.open]="chain().length > 0">
-  @for (it of chain(); track keyOf(it); let i = $index; let last = $last) {
+<div id="crumbs" [class.open]="chain().length > 0" [class.eng]="eng()" #leiste>
+  @for (g of glieder(); track g.key; let i = $index; let last = $last) {
     @if (i > 0) {
       <span class="crumbSep">›</span>
     }
-    <span class="crumb" [class.cur]="last" [title]="titleOf(it)" (click)="last ? null : pick(it)">
-      {{ label(it) }}
-    </span>
+    @if (g.aus; as ausgelassen) {
+      <app-menu
+        label="…"
+        [pfeil]="false"
+        btnClass="crumb crumbAus"
+        [titel]="ausTitel(ausgelassen)"
+        #ausMenu
+      >
+        @for (it of ausgelassen; track keyOf(it)) {
+          <button class="menuItem" [title]="titleOf(it)" (click)="ausMenu.close(); pick(it)">
+            {{ label(it) }}
+          </button>
+        }
+      </app-menu>
+    } @else if (g.it; as it) {
+      <span class="crumb" [class.cur]="last" [title]="titleOf(it)" (click)="last ? null : pick(it)">
+        {{ label(it) }}
+      </span>
+    }
   }
 </div>

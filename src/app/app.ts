@@ -324,6 +324,23 @@ export class App implements OnInit {
         e.preventDefault();
         return;
       }
+      // Enter springt zur naechsten **offenen** Angabe (Umlauf am Ende) —
+      // dieselbe Bewegung wie Enter im Wert-Feld, damit der Durchlauf ohne
+      // Maus und ohne Tastenwechsel laeuft.
+      if (e.key === 'Enter') {
+        this.zumNaechstenOffenen();
+        e.preventDefault();
+        return;
+      }
+      // Ziffer waehlt die Option der Station (Auswahl-Zweig, Verweisziel).
+      if (/^[1-9]$/.test(e.key)) {
+        const grund = this.guided.waehleOption(Number(e.key));
+        if (grund !== undefined) {
+          if (grund) this.toast.show(grund);
+          e.preventDefault();
+        }
+        return;
+      }
       if (e.key === 'ArrowUp') {
         this.guided.gotoPrev();
         e.preventDefault();
@@ -382,6 +399,22 @@ export class App implements OnInit {
 
     if (!e.key.startsWith('Arrow')) return;
     if (this.nav.arrowNavigate(e.key)) e.preventDefault();
+  }
+
+  /**
+   * Enter im Instanz-Durchlauf: zur naechsten offenen Angabe. Eine offene
+   * **Pflicht**angabe haelt fest (derselbe Grund wie bei ↓) — sonst bliebe ein
+   * typwidriger Wert unbemerkt liegen. Ein Verweis ohne vorhandenes Ziel haelt
+   * nicht fest; er kommt am Ende noch einmal.
+   */
+  private zumNaechstenOffenen(): void {
+    const grund = this.guided.ueberspringSperre();
+    if (grund) {
+      this.toast.show(grund);
+      return;
+    }
+    if (!this.guided.gotoNextOpen())
+      this.toast.show('Keine offene Angabe mehr in dieser Nachricht.');
   }
 
   async onXsdFiles(files: FileList | File[]): Promise<void> {

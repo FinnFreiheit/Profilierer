@@ -131,6 +131,35 @@ test('Profil abnehmen: ohne bzw. mit falschem Schluessel abgewiesen, ohne Konfig
   );
 });
 
+test('Oeffnen allein aendert nichts: abgeleitete Felder setzen das Kennzeichen nicht', async (t) => {
+  const { api } = await start(t, { agKey: AG_KEY });
+  const id = await neuesProfil(api);
+  await api('POST', `/profiles/${id}/abnahme`, { body: {}, key: AG_KEY });
+  // Genau das schreibt der Autosave nach dem blossen Oeffnen zurueck: dieselbe
+  // fachliche Aussage, dazu der abgeleitete Punktestand (#93) und eine andere
+  // Schluesselreihenfolge. Beides ist keine Aenderung der Profilierung.
+  const nachOeffnen = {
+    statuses: [],
+    elemente: { a: { status: 's1' } },
+    meta: { nachricht: 'nachricht.x', name: 'P', xjustizVersion: '3.6.2' },
+    auspraegungen: {},
+    fortschritt: { x: 0, y: 731 },
+  };
+  const put = await api('PUT', `/profiles/${id}`, { body: nachOeffnen, key: AG_KEY });
+  assert.equal(put.status, 200);
+  assert.equal(put.body.entry.abgenommen, true);
+  assert.equal(put.body.entry.geaendertSeitAbnahme, undefined);
+  // Der Index muss dasselbe sagen wie der Entry der Schreibantwort.
+  const list = await api('GET', '/profiles');
+  assert.equal(list.body.find((e) => e.id === id).geaendertSeitAbnahme, undefined);
+  // Eine echte Entscheidung setzt das Kennzeichen weiterhin.
+  const echt = await api('PUT', `/profiles/${id}`, {
+    body: { ...nachOeffnen, elemente: { a: { status: 's2' } } },
+    key: AG_KEY,
+  });
+  assert.equal(echt.body.entry.geaendertSeitAbnahme, true);
+});
+
 test('geaendert seit Abnahme: Hash-Vergleich, Neuabnahme verschiebt die Referenz', async (t) => {
   const { api } = await start(t, { agKey: AG_KEY });
   const id = await neuesProfil(api);

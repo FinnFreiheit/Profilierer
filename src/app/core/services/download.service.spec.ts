@@ -25,9 +25,9 @@ describe('DownloadService.xmlFilename', () => {
   });
 
   it('setzt den Zusatz vor die Endung', () => {
-    expect(dl.xmlFilename('nachricht.xml', '.abgenommen')).toBe('nachricht.abgenommen.xml');
-    expect(dl.xmlFilename('Quelle (bearbeitet)', '.abgenommen')).toBe(
-      'Quelle (bearbeitet).abgenommen.xml',
+    expect(dl.xmlFilename('nachricht.xml', '.freigegeben')).toBe('nachricht.freigegeben.xml');
+    expect(dl.xmlFilename('Quelle (bearbeitet)', '.freigegeben')).toBe(
+      'Quelle (bearbeitet).freigegeben.xml',
     );
   });
 });

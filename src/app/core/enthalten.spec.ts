@@ -11,6 +11,7 @@ describe('istEnthalten', () => {
     min: 0,
     eigenerInhalt: false,
     inhaltDarunter: false,
+    inAuswahl: false,
     ...teile,
   });
 
@@ -36,6 +37,18 @@ describe('istEnthalten', () => {
     expect(istEnthalten(lage())).toBe(false);
     expect(istEnthalten(lage({ eigenerInhalt: true }))).toBe(true);
     expect(istEnthalten(lage({ inhaltDarunter: true }))).toBe(true);
+  });
+
+  it('in einer Auswahl traegt die Mindestanzahl nicht — nur die Wahl', () => {
+    // Ein Zweig hat im Schema `minOccurs="1"`, gemeint ist aber „einer der
+    // Zweige". Ohne diese Ausnahme galt jeder uebergangene Zweig als betreten,
+    // und der Konformitaets-Abgleich meldete jede zwingende Festlegung darunter
+    // als fehlenden Wert.
+    expect(istEnthalten(lage({ min: 1, inAuswahl: true }))).toBe(false);
+    // Gewaehlt wird ausdruecklich (die Fuehrung setzt `pflicht` am Zweig) …
+    expect(istEnthalten(lage({ min: 1, inAuswahl: true, wirkung: 'pflicht' }))).toBe(true);
+    // … oder ueber den Inhalt (ADR 0016).
+    expect(istEnthalten(lage({ min: 1, inAuswahl: true, inhaltDarunter: true }))).toBe(true);
   });
 
   it('optional und markierung sind fuer sich genommen keine Aufnahme', () => {

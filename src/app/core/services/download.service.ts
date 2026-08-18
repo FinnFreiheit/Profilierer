@@ -18,7 +18,7 @@ export class DownloadService {
    * Dateiname einer heruntergeladenen Testnachricht. Namen im Testspeicher sind
    * frei vergeben („Quelle (bearbeitet 26.08.06)") und tragen die Endung nicht
    * zwingend — heruntergeladen wird aber immer eine `.xml`. Ein `zusatz` (z. B.
-   * `.abgenommen`) haengt vor der Endung, nicht dahinter.
+   * `.freigegeben`) haengt vor der Endung, nicht dahinter.
    */
   xmlFilename(name: string, zusatz = ''): string {
     const basis =

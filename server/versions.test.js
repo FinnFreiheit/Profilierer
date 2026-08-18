@@ -185,6 +185,23 @@ test('Migration: doc_hash wird an einer Alt-DB nachgezogen (Backfill)', (t) => {
   assert.equal(zweite.skipped, true);
 });
 
+test('Migration: Fach-Hash der Versionen wird nachgezogen und loescht Schein-Kennzeichen', (t) => {
+  const file = join(mkdtempSync(join(tmpdir(), 'xjp-test-')), 'profil.db');
+  const db = oeffneTestDb(t, file);
+  const { id } = db.create(docWith());
+  db.abnahmeSetzen(id, {});
+  // Stand nach dem Oeffnen: derselbe Inhalt, dazu die abgeleitete Zaehlung.
+  db.upsert(id, docWith({ fortschritt: { x: 0, y: 731 } }));
+  // Alt-Schema simulieren: die Versionen kannten den Fach-Hash noch nicht.
+  db._db.exec('ALTER TABLE profile_versions DROP COLUMN fach_hash');
+  db.close();
+  const db2 = oeffneTestDb(t, file);
+  assert.equal(db2.list()[0].geaendertSeitAbnahme, undefined);
+  // Eine echte Aenderung wird weiterhin erkannt.
+  db2.upsert(id, docGeaendert(1));
+  assert.equal(db2.list()[0].geaendertSeitAbnahme, true);
+});
+
 test('importAll laesst bestehende Versionen unberuehrt', (t) => {
   const db = oeffneTestDb(t);
   const { id } = db.create(docWith());

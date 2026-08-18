@@ -40,14 +40,14 @@
       }
       <label
         class="abnFilter"
-        title="Nur von der BLK-AG abgenommene (valide) Testnachrichten zeigen"
+        title="Nur von der BLK-AG freigegebene (valide) Testnachrichten zeigen"
       >
         <input
           type="checkbox"
           [checked]="nurAbgenommene()"
           (change)="nurAbgenommene.set($any($event.target).checked)"
         />
-        nur abgenommene
+        nur freigegebene
       </label>
     </div>
   </div>
@@ -78,7 +78,7 @@
               >
                 @if (rolle.agAktiv()) {
                   <button class="menuItem" (click)="werkzeuge.close(); openAbnahme(e, $event)">
-                    Abnahme…
+                    Freigabe…
                   </button>
                 }
                 <button
@@ -86,7 +86,7 @@
                   [disabled]="gesperrt(e)"
                   [title]="
                     gesperrt(e)
-                      ? 'Von der BLK-AG abgenommen — Bearbeiten nur mit AG-Schlüssel'
+                      ? 'Von der BLK-AG freigegeben — Bearbeiten nur mit AG-Schlüssel'
                       : e.gefuehrt
                         ? 'Geführt fortsetzen'
                         : 'Werte ändern, Angaben hinzufügen oder entfernen, Vorkommen anlegen'
@@ -100,7 +100,7 @@
                   [disabled]="gesperrt(e)"
                   [title]="
                     gesperrt(e)
-                      ? 'Von der BLK-AG abgenommen — Umbenennen nur mit AG-Schlüssel'
+                      ? 'Von der BLK-AG freigegeben — Umbenennen nur mit AG-Schlüssel'
                       : 'Name und Beschreibung ändern'
                   "
                   (click)="werkzeuge.close(); openEdit(e, $event)"
@@ -134,15 +134,15 @@
                 @if (e.abgenommen) {
                   <button
                     class="menuItem"
-                    title="Die eingefrorene abgenommene (valide) Fassung herunterladen"
+                    title="Die eingefrorene freigegebene (valide) Fassung herunterladen"
                     (click)="werkzeuge.close(); downloadAbnahme(e, $event)"
                   >
-                    Abnahme-XML
+                    Freigabe-XML
                   </button>
                   @if (e.geaendertSeitAbnahme) {
                     <button
                       class="menuItem"
-                      title="Feldgenau anzeigen, was sich gegenüber der abgenommenen Fassung geändert hat"
+                      title="Feldgenau anzeigen, was sich gegenüber der freigegebenen Fassung geändert hat"
                       (click)="werkzeuge.close(); zeigeAbnahmeDiff(e, $event)"
                     >
                       Änderungen…
@@ -154,7 +154,7 @@
                   class="menuItem del"
                   [disabled]="gesperrt(e)"
                   [title]="
-                    gesperrt(e) ? 'Von der BLK-AG abgenommen — Löschen nur mit AG-Schlüssel' : ''
+                    gesperrt(e) ? 'Von der BLK-AG freigegeben — Löschen nur mit AG-Schlüssel' : ''
                   "
                   (click)="werkzeuge.close(); remove(e, $event)"
                 >
@@ -177,18 +177,18 @@
                 @if (e.geaendertSeitAbnahme) {
                   <button
                     class="pill pillBtn pillAbnWarn"
-                    title="Anzeigen, was sich gegenüber der abgenommenen Fassung geändert hat"
+                    title="Anzeigen, was sich gegenüber der freigegebenen Fassung geändert hat"
                     (click)="zeigeAbnahmeDiff(e, $event)"
                   >
-                    ⚠ seit Abnahme geändert
+                    ⚠ seit Freigabe geändert
                   </button>
                 } @else {
                   <span
                     class="pill pillAbn"
-                    title="Von der BLK-AG abgenommen am {{ abnDatum(e) }}{{
+                    title="Von der BLK-AG freigegeben am {{ abnDatum(e) }}{{
                       e.abnahmeKommentar ? ' · ' + e.abnahmeKommentar : ''
                     }}"
-                    >✔ abgenommen</span
+                    >✔ freigegeben</span
                   >
                 }
               }
@@ -311,7 +311,7 @@
                 <span class="pill">XJustiz {{ e.xjustizVersion }}</span>
               }
               @if (e.abgenommen) {
-                <span class="pill pillAbn">✔ BLK-AG abgenommen</span>
+                <span class="pill pillAbn">✔ BLK-AG freigegeben</span>
               }
               @if (erwSperre(e)) {
                 <span class="pill pillExt">{{ e.nErw }} Erw. — gesperrt</span>
@@ -415,15 +415,15 @@
 </dialog>
 
 <dialog #abnahmeDlg id="abnahmeDlg">
-  <h3 style="margin-top: 0">Abnahme durch die BLK-AG</h3>
+  <h3 style="margin-top: 0">Freigabe durch die BLK-AG</h3>
   @if (abnEntry(); as e) {
     <p class="dashSub" style="margin-top: 0">
       „{{ e.name }}“
       @if (e.abgenommen) {
-        — abgenommen am {{ abnDatum(e) }}.
+        — freigegeben am {{ abnDatum(e) }}.
         @if (e.geaendertSeitAbnahme) {
-          Die XML wurde <b>seit der Abnahme verändert</b> — eine erneute Abnahme friert die aktuelle
-          Fassung als neue valide Fassung ein.
+          Die XML wurde <b>seit der Freigabe verändert</b> — eine erneute Freigabe friert die
+          aktuelle Fassung als neue valide Fassung ein.
           <button
             style="padding: 2px 8px; font-size: 12px"
             title="Feldgenau anzeigen, was sich geändert hat"
@@ -433,14 +433,14 @@
           </button>
         }
       } @else {
-        — die Abnahme friert die aktuelle XML-Fassung ein und schützt die Testnachricht vor
+        — die Freigabe friert die aktuelle XML-Fassung ein und schützt die Testnachricht vor
         Änderungen Externer.
       }
     </p>
     <input
       type="text"
       style="width: 100%; box-sizing: border-box"
-      placeholder="Abnahme-Kommentar (optional)"
+      placeholder="Freigabe-Kommentar (optional)"
       [value]="abnKommentar()"
       (input)="abnKommentar.set($any($event.target).value)"
       (keydown.enter)="abnehmen()"
@@ -453,7 +453,7 @@
         </button>
       }
       <button class="primary" (click)="abnehmen()">
-        {{ e.abgenommen ? 'Erneut abnehmen' : 'Abnehmen' }}
+        {{ e.abgenommen ? 'Erneut freigeben' : 'Freigeben' }}
       </button>
     </div>
   }
@@ -504,7 +504,7 @@
               <span class="pill">XJustiz {{ p.xjustizVersion }}</span>
             }
             @if (p.abgenommen) {
-              <span class="pill pillAbn">✔ BLK-AG abgenommen</span>
+              <span class="pill pillAbn">✔ BLK-AG freigegeben</span>
             }
             @if (p.nErw) {
               <span class="pill pillExt">{{ p.nErw }} Schema-Erweiterungen</span>

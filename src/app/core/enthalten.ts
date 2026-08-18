@@ -25,13 +25,21 @@ import { Wirkung } from '../models/profile.model';
  *
  * Die Regel folgt ADR 0016 („der Wert entscheidet"): in der Nachricht sind
  * „bewusst weggelassen" und „nicht angegeben" dasselbe.
+ *
+ * **Auswahl-Zweige** (`inAuswahl`) waren die zweite erreichbare Luecke: die
+ * Serialisierung fragt diese Regel dort gar nicht (sie waehlt den Zweig ueber
+ * `gewaehlterZweig`), der Abgleich aber schon — und bekam „ja" fuer *jeden*
+ * Zweig, weil ein Zweig im Schema `minOccurs="1"` traegt. Damit galt der
+ * uebergangene Zweig als betreten, die Elternabhaengigkeit (ADR 0016) griff
+ * nicht, und jede zwingende Festlegung darunter wurde als fehlender Wert
+ * gemeldet.
  */
 
 /**
- * Die vier Angaben, aus denen sich die Antwort ergibt — aufgeloest von der
+ * Die Angaben, aus denen sich die Antwort ergibt — aufgeloest von der
  * Schicht, die Schema und Profil kennt (`StateService.enthaltenLage`). Bewusst
- * ein Datensatz statt vier Aufrufe: die **Aufloesung** ist der Ort, an dem die
- * beiden Kopien auseinandergelaufen sind, und ein benannter Typ macht sie
+ * ein Datensatz statt einzelner Aufrufe: die **Aufloesung** ist der Ort, an dem
+ * die beiden Kopien auseinandergelaufen sind, und ein benannter Typ macht sie
  * einzeln pruefbar.
  */
 export interface EnthaltenLage {
@@ -47,6 +55,14 @@ export interface EnthaltenLage {
   eigenerInhalt: boolean;
   /** Liegt **unter** dem Pfad Inhalt (Eintraege oder benannte Vorkommen)? */
   inhaltDarunter: boolean;
+  /**
+   * Der Pfad ist ein **Zweig einer Auswahl** (`xs:choice`). Dann sagt die
+   * Schema-Mindestanzahl nichts ueber das Enthaltensein: ein Zweig traegt
+   * `minOccurs="1"` (der Vorgabewert), gemeint ist aber „einer der Zweige",
+   * nicht „dieser Zweig". Ueber die Aufnahme entscheidet allein die Wahl —
+   * ausdruecklich (Wirkung am Zweig) oder ueber den Inhalt.
+   */
+  inAuswahl: boolean;
 }
 
 /**
@@ -54,7 +70,9 @@ export interface EnthaltenLage {
  *
  * 1. ausgeschlossen — nein, unabhaengig von allem Uebrigen;
  * 2. zwingend — ja;
- * 3. Mindestanzahl >= 1 — ja (Schema **oder** Profilierung, siehe `min`);
+ * 3. Mindestanzahl >= 1 — ja (Schema **oder** Profilierung, siehe `min`),
+ *    **ausser** in einer Auswahl: dort ist die Untergrenze kein Grund
+ *    (siehe `inAuswahl`);
  * 4. sonst entscheidet der Inhalt: am Element selbst oder darunter.
  *
  * Schema-Erweiterungen und erzwungene Verweis-Kennungen stehen bewusst
@@ -64,6 +82,6 @@ export interface EnthaltenLage {
 export function istEnthalten(l: EnthaltenLage): boolean {
   if (l.wirkung === 'ausgeschlossen') return false;
   if (l.wirkung === 'pflicht') return true;
-  if (l.min >= 1) return true;
+  if (l.min >= 1 && !l.inAuswahl) return true;
   return l.eigenerInhalt || l.inhaltDarunter;
 }

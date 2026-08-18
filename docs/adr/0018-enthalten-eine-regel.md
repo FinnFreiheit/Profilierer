@@ -82,3 +82,36 @@ dort wird nur über den Abstieg entschieden.
   `export.service.spec.ts` (die Untergrenze bringt das Element ins XML),
   `vorgabe-sicht.spec.ts` und `konformitaet.service.spec.ts` (Auskunft schlägt Rückfall,
   `null` fällt zurück).
+
+## Nachtrag 26.08.18: Auswahl-Zweige tragen keine Mindestanzahl
+
+Am laufenden System gemeldet: eine aus einer Profilierung erstellte Testnachricht wurde
+beim Speichern als „nicht profilkonform" abgewiesen, weil in **nicht gewählten** Zweigen
+einer Auswahl Werte fehlten, die die Profilierung dort zwingend setzt.
+
+Ursache war die dritte Regelstufe. Ein Zweig einer `xs:choice` trägt im Schema
+`minOccurs="1"` (der Vorgabewert) — gemeint ist „einer der Zweige", nicht „dieser Zweig".
+Die Regel las das als „enthalten" und antwortete für **jeden** Zweig mit ja. Die
+Serialisierung merkte davon nichts (sie fragt an dieser Stelle gar nicht, sondern wählt
+den Zweig über `GuidedService.gewaehlterZweig`); der Konformitäts-Abgleich fragt jedoch
+über die Vorfahrenkette, und weil kein Vorfahr mehr „nein" sagte, griff die
+Elternabhängigkeit aus ADR 0016 nicht: jede zwingende Festlegung unter einem übergangenen
+Zweig wurde als fehlender Wert gemeldet. In XJustiz ist `auswahl_*` der Regelfall, der
+Befund also kein Randfall — es ist derselbe Fehlerbild, den der Abgleich für die
+Vorfahrenkette bereits kannte, nur eine Ebene tiefer.
+
+**Entscheidung:** `EnthaltenLage` trägt zusätzlich `inAuswahl` (aufgelöst aus
+`TreeNode.inChoice`); die Mindestanzahl begründet das Enthaltensein **nicht**, solange der
+Pfad ein Auswahl-Zweig ist. Über die Aufnahme entscheidet dort allein die Wahl —
+ausdrücklich (die Führung setzt `pflicht` am gewählten Zweig, `ausgeschlossen` an den
+Geschwistern) oder über den Inhalt (ADR 0016). Dieselbe Lesart hat die Kardinalitäts-Sperre
+`kardSperreZweigwechsel` schon vorher vertreten: der schema-eigene `min=1` eines Zweigs
+zählt nicht mit, sonst wäre jede Auswahl unveränderlich.
+
+**Konsequenzen:** Die Serialisierung ändert sich nicht (sie fragt für Zweige nicht).
+Eine **Mindestanzahl der Profilierung** an einem Zweig wirkt weiterhin — sie ist eine
+Aussage über genau diesen Zweig und wird jetzt auch als Verstoß gemeldet, wenn die
+Nachricht einen anderen Zweig wählt. Abgesichert in `enthalten.spec.ts` (die Regel) und
+`konformitaet-sitzung.spec.ts` (der Sitzungs-Adapter am **echten** Baum — dort fällt die
+Auskunft, die `konformitaet.service.spec.ts` nur simuliert; genau deshalb blieb die Lücke
+unentdeckt).
