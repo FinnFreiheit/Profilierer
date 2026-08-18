@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { TreeNode } from '../../models/node.model';
 import { XsdParserService } from './xsd-parser.service';
 import { ERW_SPERRE_GRUND, erweiterungsWarnung } from '../util/erweiterung-sperre';
-import { Auspraegung } from '../../models/profile.model';
+import { Auspraegung, ElementProfile } from '../../models/profile.model';
 import { StateService } from './state.service';
 import { TreeService } from './tree.service';
 import { ValueService } from './value.service';
@@ -15,6 +15,8 @@ import { ValidationReportService } from './validation-report.service';
 import { ValidationMarkerService } from './validation-marker.service';
 import { esc, XJNS, XSI_NS } from '../util/xml.util';
 import { pretty } from '../util/pretty.util';
+import { auspTeile, letztesVorkommenPfad } from '../util/pfad.util';
+import { VorkommenAusp, VorkommenGruppe, vorkommenRegeln } from '../schematron-vorkommen';
 
 interface WalkItem {
   kind: 'el' | 'ausp';
@@ -143,21 +145,46 @@ export class ExportService {
     };
     const xpath = (segs: string[]): string => '/' + segs.map((s) => 'xj:' + s).join('/');
     const auspMin = new Map<string, number>();
+    // Vorkommens-Festlegungen (#120): frueher verworfen, jetzt eingesammelt und
+    // nach dem Walk zu Regeln mit Kennzeichen-Praedikat verdichtet. `listSegs`
+    // merkt sich je Listenpfad die Segmente, damit der relative Pfad einer
+    // Festlegung unter dem Vorkommen bestimmbar ist.
+    const gruppen = new Map<string, { g: VorkommenGruppe; ausps: Map<string, VorkommenAusp> }>();
+    const listSegs = new Map<string, string[]>();
+    const tiefeLuecken = new Set<string>();
     this.walkFull((x) => {
       if (x.node === this.state.root()) return;
       if (this.state.inheritedExcluded(x.path)) return;
       const p = this.state.elemente()[x.path];
       if (x.kind === 'ausp') {
         const st = this.state.statusOf(x.path);
+        const key = xpath(x.segs);
         if (p && st && st.wirkung === 'pflicht') {
-          const key = xpath(x.segs);
           auspMin.set(key, (auspMin.get(key) || 0) + parseInt(p.min || '1', 10));
+        }
+        const teile = x.ausp ? auspTeile(x.path) : null;
+        if (teile && x.ausp) {
+          listSegs.set(teile.listPfad, x.segs);
+          const eintrag = gruppen.get(key) ?? {
+            g: { listXPath: key, listLabel: x.segs.slice(1).join('/'), auspraegungen: [] },
+            ausps: new Map<string, VorkommenAusp>(),
+          };
+          gruppen.set(key, eintrag);
+          eintrag.ausps.set(x.ausp.id, {
+            id: x.ausp.id,
+            name: x.ausp.name,
+            zwingend: st?.wirkung === 'pflicht',
+            festlegungen: [],
+          });
         }
         return;
       }
       if (x.node.synthetic) return;
       if (!p) return;
-      if (x.path.includes('@')) return;
+      if (x.path.includes('@')) {
+        this.sammleVorkommenFestlegung(x, p, gruppen, listSegs, tiefeLuecken);
+        return;
+      }
       const w = this.state.wirkungOf(x.path);
       const parentCtx = xpath(x.segs.slice(0, -1));
       const selfCtx = xpath(x.segs);
@@ -206,6 +233,14 @@ export class ExportService {
         );
       }
     });
+    // Vorkommens-Regeln (#120) — je Liste, und nur wo die Kennzeichen die
+    // Auspraegungen vollstaendig trennen. Sonst bleibt es bei der Luecke.
+    const luecken: string[] = [...tiefeLuecken];
+    for (const { g, ausps } of gruppen.values()) {
+      const erg = vorkommenRegeln({ ...g, auspraegungen: [...ausps.values()] });
+      for (const r of erg.regeln) addAssert(r.ctx, r.test, r.msg);
+      luecken.push(...erg.luecken);
+    }
     for (const [selfCtx, minSum] of auspMin) {
       const segs = selfCtx.split('/xj:');
       const name = segs[segs.length - 1];
@@ -236,6 +271,12 @@ export class ExportService {
   </sch:pattern>
   <sch:pattern id="profil">
 `;
+    // Was der Export nicht ausdruecken kann, steht drin — ein Schematron, das
+    // seine Luecken verschweigt, liest sich als vollstaendige Zusage.
+    if (luecken.length) {
+      sch += `    <!-- Nicht ausgedrueckt (${luecken.length}): -->\n`;
+      for (const l of luecken) sch += `    <!-- ${this.escComment(l)} -->\n`;
+    }
     for (const [ctx, asserts] of rules) {
       for (const c of comments.get(ctx) ?? []) sch += `    <!-- ${this.escComment(c)} -->\n`;
       comments.delete(ctx);
@@ -252,11 +293,57 @@ export class ExportService {
     sch += `  </sch:pattern>\n</sch:schema>\n`;
     this.dl.download(this.dl.profilFilename('sch'), sch, 'application/xml');
     const cnt = [...rules.values()].reduce((s, a) => s + a.length, 0);
+    const nachsatz = luecken.length
+      ? ` ${luecken.length} Festlegung${luecken.length === 1 ? '' : 'en'} ließ${luecken.length === 1 ? '' : 'en'} sich nicht ausdrücken — siehe Kommentare.`
+      : '';
     this.toast.show(
-      cnt
+      (cnt
         ? `Schematron exportiert (${cnt} Regeln).`
-        : 'Schematron exportiert (noch keine prüfbaren Festlegungen).',
+        : 'Schematron exportiert (noch keine prüfbaren Festlegungen).') + nachsatz,
     );
+  }
+
+  /**
+   * Eine Festlegung unterhalb eines benannten Vorkommens einsammeln (#120).
+   *
+   * Geschachtelte Vorkommen (mehr als ein `@` im Pfad) bleiben aussen vor: ihr
+   * Praedikat haengt an der Zuordnung der aeusseren Ebene, die knotenweise
+   * nicht feststeht. Statt zu raten wird die Luecke benannt.
+   */
+  private sammleVorkommenFestlegung(
+    x: { path: string; segs: string[]; node: TreeNode },
+    p: ElementProfile,
+    gruppen: Map<string, { g: VorkommenGruppe; ausps: Map<string, VorkommenAusp> }>,
+    listSegs: Map<string, string[]>,
+    tiefeLuecken: Set<string>,
+  ): void {
+    const vk = letztesVorkommenPfad(x.path);
+    const teile = vk ? auspTeile(vk) : null;
+    if (!teile) return;
+    if ((x.path.match(/@/g) ?? []).length > 1) {
+      tiefeLuecken.add(
+        `${pretty(x.node.name)}: liegt in einem geschachtelten Vorkommen — welches Vorkommen ` +
+          'gemeint ist, entscheidet erst die Zuordnung des Prüfberichts; knotenweise Regeln ' +
+          'würden hier raten.',
+      );
+      return;
+    }
+    const segs = listSegs.get(teile.listPfad);
+    const eintrag = segs ? gruppen.get('/' + segs.map((t) => 'xj:' + t).join('/')) : null;
+    const ausp = eintrag?.ausps.get(teile.auspId);
+    if (!segs || !ausp) return;
+    const rel = x.segs.slice(segs.length);
+    if (!rel.length) return;
+    ausp.festlegungen.push({
+      rel,
+      label: rel.join('/'),
+      wirkung: this.state.wirkungOf(x.path),
+      werte: p.werte,
+      kennzeichnend: p.kennzeichnend,
+      min: p.min,
+      max: p.max,
+      codelist: !!x.node.codelist,
+    });
   }
 
   /** Text fuer XML-Kommentare entschaerfen: `--` ist dort verboten, `-` am Ende ebenso. */
