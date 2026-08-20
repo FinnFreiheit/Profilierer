@@ -30,6 +30,12 @@
         {{ p.nProfile }} Kommunikationsszenari{{ p.nProfile === 1 ? 'o' : 'en' }} ·
         {{ p.nTestnachrichten }} Testnachricht{{ p.nTestnachrichten === 1 ? '' : 'en' }}
       </p>
+      <!-- Ohne diesen Knopf war die Seite eine Sackgasse: sie zeigte, was
+           zugeordnet ist, liess aber nichts herein. -->
+      <div class="dashActions">
+        <button class="primary" (click)="openHinzu()">+ Szenario</button>
+        <button (click)="openBearbeitenOffenes($event)">Projekt bearbeiten…</button>
+      </div>
       @if (p.tags?.length) {
         <div class="dcTags">
           @for (t of p.tags; track t) {
@@ -85,6 +91,13 @@
             }
           </div>
           <div class="szenarioAktionen">
+            <button
+              class="szenarioAktion"
+              title="Aus diesem Projekt nehmen — die Profilierung selbst bleibt erhalten"
+              (click)="entferneSzenario(s.profil, $event)"
+            >
+              Entfernen
+            </button>
             @if (s.nachrichten.length > 1) {
               <button
                 class="szenarioAktion"
@@ -173,8 +186,8 @@
 
     @if (!szenarien().length && !ohneSzenario().length) {
       <p class="leerHinweis">
-        Diesem Projekt ist noch nichts zugeordnet. In der Profil-Übersicht führt „Einsortieren…" im
-        ⋯-Menü einer Kachel hierher; die Testnachrichten folgen ihrer Profilierung von selbst.
+        Diesem Projekt ist noch nichts zugeordnet. <b>„+ Szenario"</b> wählt die Profilierungen aus,
+        die dazugehören — die Testnachrichten folgen ihrer Profilierung von selbst.
       </p>
     }
   } @else if (store.entries().length) {
@@ -275,5 +288,55 @@
   <div style="text-align: right; margin-top: 12px">
     <button (click)="bearbeitenDlg.close()">Abbrechen</button>
     <button class="primary" (click)="submitBearbeiten()">Übernehmen</button>
+  </div>
+</dialog>
+
+<!-- Szenarien hinzufügen (#145): Mehrfachauswahl, weil ein Vorhaben selten
+     genau ein Szenario mitbringt. -->
+<dialog #hinzuDlg id="hinzuDlg">
+  <h3 style="margin-top: 0">Szenarien hinzufügen</h3>
+  <p class="eoKopf">
+    Welche Profilierungen gehören zu <b>{{ offenes()?.name }}</b
+    >?
+  </p>
+
+  @if (hinzuKandidaten().length > 8) {
+    <input
+      class="eoSuche"
+      type="search"
+      appKeinAutofill
+      placeholder="Profilierung suchen…"
+      [value]="hinzuSuche()"
+      (input)="hinzuSuche.set($any($event.target).value)"
+    />
+  }
+
+  <div class="eoListe">
+    @for (p of hinzuKandidaten(); track p.id) {
+      <button
+        type="button"
+        class="eoEintrag"
+        [class.eoAktiv]="hinzuAktiv(p.id)"
+        (click)="hinzuSchalte(p.id)"
+      >
+        <span class="eoHaken">{{ hinzuAktiv(p.id) ? '✓' : '' }}</span>
+        <span class="eoName">{{ p.name || '(ohne Namen)' }}</span>
+        @if (fremdesProjekt(p); as fremd) {
+          <span class="eoTyp">liegt in {{ fremd }}</span>
+        }
+        <span class="eoTyp">{{ p.nachricht }}</span>
+      </button>
+    } @empty {
+      <p class="eoLeer">
+        Alle Profilierungen liegen bereits in diesem Projekt — oder es gibt noch keine.
+      </p>
+    }
+  </div>
+
+  <div style="text-align: right; margin-top: 12px">
+    <button (click)="hinzuDlg.close()">Abbrechen</button>
+    <button class="primary" [disabled]="!hinzuGewaehlt().length" (click)="submitHinzu()">
+      {{ hinzuGewaehlt().length || '' }} hinzufügen
+    </button>
   </div>
 </dialog>

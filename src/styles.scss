@@ -2318,17 +2318,6 @@ dialog::backdrop {
 /* Einsortieren-Dialog (#134): bei gebundenen Testnachrichten steht statt des
    Auswahlfelds der Satz, wohin die Zuordnung gehoert — dieselbe Zeilenhoehe
    wie ein Feld, damit das Raster nicht springt. */
-#ablageDlg {
-  min-width: 420px;
-}
-.ablageLabel {
-  font-size: 13px;
-}
-.ablageGeerbt {
-  padding: 6px 0;
-  font-size: 13px;
-  color: var(--muted);
-}
 /* Wizard „Neue Profilierung" (app-neues-profil-wizard). */
 #neuDlg {
   max-width: 640px;
@@ -3250,36 +3239,46 @@ app-tree-context-menu {
   font-weight: 400;
 }
 
-/* ── Dialog "Szenario zuordnen" (#141) ──────────────────────────────────
-   Eine Liste zum Anklicken statt eines <select>: die Wahl haengt an mehr als
-   dem Namen (Nachrichtentyp, Projekt, Passung), und das traegt eine Option
-   nicht. Die passenden Profilierungen stehen oben. */
-#szenarioDlg {
-  min-width: 520px;
-  max-width: 640px;
+/* ── Dialog "Einordnen" (#145) ──────────────────────────────────────────
+   Ein Dialog statt dreier Menuepunkte, die dasselbe zu bedeuten schienen.
+   Abschnitte mit Titeln statt eines Rasters aus Label/Feld: die drei Fragen
+   (welches Szenario, welches Projekt, welche Schlagworte) sind verschieden
+   gross — eine Liste, ein Auswahlfeld, ein Textfeld. */
+#einordnenDlg,
+#hinzuDlg {
+  min-width: 540px;
+  max-width: 660px;
 }
-.szDlgKopf {
-  margin: 0 0 10px;
+.eoKopf {
+  margin: 0 0 12px;
   font-size: 13px;
 }
-.szDlgTyp {
-  font-family: var(--mono, ui-monospace, monospace);
-  font-size: 11px;
-  color: var(--muted);
-  overflow-wrap: anywhere;
+.eoAbschnitt {
+  margin-bottom: 14px;
 }
-.szDlgSuche {
+.eoTitel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.eoFeld {
   width: 100%;
   box-sizing: border-box;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
-.szDlgListe {
-  max-height: 40vh;
+.eoSuche {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+}
+.eoListe {
+  max-height: 32vh;
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
 }
-.szDlgEintrag {
+.eoEintrag {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3293,36 +3292,41 @@ app-tree-context-menu {
   font: inherit;
   cursor: pointer;
 }
-.szDlgEintrag:last-child {
+.eoEintrag:last-child {
   border-bottom: 0;
 }
-.szDlgEintrag:hover {
+.eoEintrag:hover {
   background: var(--flaeche);
 }
-/* Die Auswahl ist am Rahmen erkennbar, nicht nur an der Fuellung — ein
-   Farbfeld allein traegt die Aussage nicht bei schwachem Kontrast. */
-/* Die Auswahl traegt die Hausfarbe (Preussischblau aufgehellt), nicht noch ein
-   Grau — sie ist der einzige Zustand in dieser Liste, der auffallen soll. */
-.szDlgAktiv {
+/* Die Auswahl ist am Streifen erkennbar, nicht nur an der Fuellung — ein
+   Farbfeld allein traegt die Aussage bei schwachem Kontrast nicht. */
+.eoAktiv {
   background: var(--accent-soft);
   box-shadow: inset 3px 0 0 var(--accent);
   font-weight: 600;
 }
-.szDlgName {
+.eoHaken {
+  width: 12px;
+  color: var(--accent);
+}
+.eoName {
   flex: 1;
   min-width: 140px;
 }
-.szDlgProjekt,
-.szDlgLeer {
+.eoTyp {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.eoLeer {
+  margin: 0;
+  padding: 10px;
   font-size: 12px;
   color: var(--muted);
 }
-.szDlgLeer {
-  margin: 0;
-  padding: 10px;
-}
-.szDlgHinweis {
-  margin: 10px 0 0;
+.eoHinweis {
+  margin: 6px 0 0;
   font-size: 12px;
   color: var(--muted);
   line-height: 1.45;

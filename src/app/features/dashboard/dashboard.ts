@@ -27,8 +27,8 @@ import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { NeuesProfilWizard } from '../dialogs/neues-profil-wizard';
 import { TagFilter } from '../../shared/tag-filter/tag-filter';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
-import { Einsortieren, PROJEKT_NEU } from '../../shared/einsortieren/einsortieren';
 import { ProjektStoreService } from '../../core/services/projekt-store.service';
+import { EinordnenService } from '../../core/services/einordnen.service';
 import {
   hatAlleTags,
   normalisiereTags,
@@ -59,20 +59,13 @@ interface Sektion {
 @Component({
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    RolleBadge,
-    Menu,
-    KeinAutofillDirective,
-    NeuesProfilWizard,
-    TagFilter,
-    TagEingabe,
-    Einsortieren,
-  ],
+  imports: [RolleBadge, Menu, KeinAutofillDirective, NeuesProfilWizard, TagFilter, TagEingabe],
   templateUrl: './dashboard.html',
 })
 export class Dashboard {
   protected readonly store = inject(ProfileStoreService);
   protected readonly projekte = inject(ProjektStoreService);
+  private readonly einordnen = inject(EinordnenService);
   protected readonly rolle = inject(RolleService);
   private readonly persistence = inject(PersistenceService);
   private readonly toast = inject(ToastService);
@@ -85,7 +78,6 @@ export class Dashboard {
   private readonly renameDlg = viewChild.required<ElementRef<HTMLDialogElement>>('renameDlg');
   private readonly neuWizard = viewChild.required<NeuesProfilWizard>('neuWizard');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
-  private readonly ablageDlg = viewChild.required<ElementRef<HTMLDialogElement>>('ablageDlg');
 
   /**
    * Freitextsuche ueber die Bibliothek (#92) — wie im Testdaten-Speicher.
@@ -267,53 +259,10 @@ export class Dashboard {
     this.nav.openSchemaView();
   }
 
-  // ── Einsortieren (#134) ──────────────────────────────────────────────
-
-  /** Einsortieren-Dialog: aktive id + Puffer der drei Felder. */
-  protected readonly ablId = signal<string | null>(null);
-  protected readonly ablProjekt = signal('');
-  protected readonly ablNeu = signal('');
-  protected readonly ablTags = signal('');
-
-  /**
-   * Einsortieren: Projekt und Schlagworte — die Ablage, nicht die fachliche
-   * Aussage. Bewusst **auch bei freigegebenen** Profilierungen offen: der
-   * Fach-Hash laesst beide aussen vor, eine Freigabe wird durch Einsortieren
-   * nicht entwertet. Ohne diese Ausnahme liesse sich genau der Bestand nicht
-   * ordnen, der am ehesten in ein Projekt gehoert.
-   */
+  /** Einordnen (#145): ein Dialog fuer Projekt und Schlagworte, global. */
   protected openAblage(e: LibraryEntry, ev: Event): void {
     ev.stopPropagation();
-    this.ablId.set(e.id);
-    this.ablProjekt.set(e.projektId ?? '');
-    this.ablNeu.set('');
-    this.ablTags.set(tagsAlsText(e.tags));
-    this.ablageDlg().nativeElement.showModal();
-  }
-
-  /**
-   * Uebernehmen: ggf. erst das neue Projekt anlegen, dann zuordnen. Beides in
-   * einem Zug, damit "einsortieren und dabei merken, dass es den Behaelter noch
-   * nicht gibt" ein Weg bleibt und nicht zwei.
-   */
-  protected async submitAblage(): Promise<void> {
-    const id = this.ablId();
-    this.ablageDlg().nativeElement.close();
-    if (!id) return;
-    try {
-      let projektId: string | null = this.ablProjekt() || null;
-      if (projektId === PROJEKT_NEU) {
-        const name = this.ablNeu().trim();
-        // Ohne Namen kein Projekt — die Zuordnung bleibt dann, wie sie war.
-        projektId = name ? await this.projekte.create({ name }) : null;
-      }
-      await this.store.einsortieren(id, { projektId, tags: normalisiereTags(this.ablTags()) });
-      // Die Zahlen am Projekt (Szenarien/Testnachrichten) leitet der Server aus
-      // den Zuordnungen ab — nach dem Einsortieren sind sie veraltet.
-      await this.projekte.refresh();
-    } catch (err) {
-      this.toast.showError(err, 'Einsortieren fehlgeschlagen.');
-    }
+    this.einordnen.oeffneProfil(e.id);
   }
 
   /** Metadaten-Dialog der Kachel: aktive id + Puffer der vier Felder. */

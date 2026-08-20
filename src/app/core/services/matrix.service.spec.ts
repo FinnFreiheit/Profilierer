@@ -43,7 +43,7 @@ describe('MatrixService', () => {
     const sichtbareZeilen = r.zeilen.filter((z) => !z.unterhalb && !z.technisch);
     expect(sichtbareZeilen.length).toBe(1);
     expect(sichtbareZeilen[0]?.art).toBe('anzahl');
-    expect(sichtbareZeilen[0]?.label).toBe('grunddaten / beteiligung');
+    expect(sichtbareZeilen[0]?.label).toBe('Beteiligung');
     expect(sichtbareZeilen[0]?.werte).toEqual(['1', '2']);
 
     // Die Angaben des zweiten Beteiligten liegen eingeklappt darunter, statt
@@ -110,6 +110,56 @@ describe('MatrixService', () => {
   it('braucht mindestens zwei verwertbare Nachrichten', () => {
     const r = svc.vergleiche([quelle('a', nachricht([{ name: 'A' }]))]);
     expect(r.zeilen).toEqual([]);
+  });
+
+  it('bezeichnet Merkmale so, wie ein Mensch sie liest', () => {
+    const r = svc.vergleiche([
+      quelle('einer', nachricht([{ name: 'A' }])),
+      quelle('zwei', nachricht([{ name: 'A' }, { name: 'B', rolle: 'Notar' }])),
+    ]);
+
+    // Die Vorkommen-Nummer steht hinter dem Namen, nicht als Klammerindex
+    // mittendrin — dass es der ZWEITE Beteiligte ist, ist die halbe Aussage.
+    const zweite = r.zeilen.find((z) => z.pfad.includes('beteiligung[2]/rolle'));
+    expect(zweite?.label).toBe('Beteiligung 2 › Rolle');
+
+    // Wo es nur ein Vorkommen gibt, faellt die Nummer weg.
+    const einzeln = svc.vergleiche([
+      quelle('a', nachricht([{ name: 'Meier' }])),
+      quelle('b', nachricht([{ name: 'Schulze' }])),
+    ]);
+    expect(einzeln.zeilen.find((z) => z.pfad.endsWith('/name[1]'))?.label).toBe(
+      'Beteiligung › Name',
+    );
+  });
+
+  it('kuerzt lange Ketten und blendet Choice-Container aus', () => {
+    const tief = (typ: string, wert: string): string =>
+      `<nachricht.x xmlns="http://www.xjustiz.de"><grunddaten><verfahrensdaten>
+         <beteiligung><beteiligter><auswahl_beteiligter><natuerlichePerson>
+           <anschrift><anschriftstyp>${typ}</anschriftstyp></anschrift>
+           <geschlecht>${wert}</geschlecht>
+         </natuerlichePerson></auswahl_beteiligter></beteiligter></beteiligung>
+         <beteiligung><beteiligter><auswahl_beteiligter><natuerlichePerson>
+           <geschlecht>x</geschlecht>
+         </natuerlichePerson></auswahl_beteiligter></beteiligter></beteiligung>
+       </verfahrensdaten></grunddaten></nachricht.x>`;
+    const r = svc.vergleiche([quelle('a', tief('H', 'm')), quelle('b', tief('P', 'w'))]);
+
+    const zeile = r.zeilen.find((z) => z.pfad.includes('anschriftstyp'));
+    // `auswahl_beteiligter` ist ein technischer Choice-Container und faellt weg;
+    // die Vorkommen-Nummer bleibt, dazwischen weist "…" das Gekuerzte aus.
+    expect(zeile?.label).toBe('Beteiligung 1 › … › Anschrift › Anschriftstyp');
+    expect(zeile?.label).not.toContain('Auswahl');
+  });
+
+  it('weist Attribute als solche aus', () => {
+    const mit = (az: string): string =>
+      `<nachricht.x xmlns="http://www.xjustiz.de"><fachdaten><akte aktenzeichen="${az}"><nr>1</nr></akte></fachdaten></nachricht.x>`;
+    const r = svc.vergleiche([quelle('a', mit('AZ-1')), quelle('b', mit('AZ-2'))]);
+    expect(r.zeilen.find((z) => z.pfad.includes('@aktenzeichen'))?.label).toBe(
+      'Akte · Attribut aktenzeichen',
+    );
   });
 
   it('gliedert die Unterschiede nach fachlichem Bereich', () => {

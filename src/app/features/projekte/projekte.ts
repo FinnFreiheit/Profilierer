@@ -13,7 +13,7 @@ import { TestmessageStoreService } from '../../core/services/testmessage-store.s
 import { StateService } from '../../core/services/state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { VergleichService } from '../../core/services/vergleich.service';
-import { SzenarioZuordnenService } from '../../core/services/szenario-zuordnen.service';
+import { EinordnenService } from '../../core/services/einordnen.service';
 import { PersistenceService } from '../../core/services/persistence.service';
 import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
 import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
@@ -61,7 +61,7 @@ export class Projekte {
   private readonly state = inject(StateService);
   private readonly toast = inject(ToastService);
   private readonly vergleich = inject(VergleichService);
-  private readonly szenario = inject(SzenarioZuordnenService);
+  private readonly einordnen = inject(EinordnenService);
   private readonly persistence = inject(PersistenceService);
   private readonly edit = inject(TestmessageEditService);
   private readonly testnachrichtStart = inject(TestnachrichtStartService);
@@ -203,7 +203,7 @@ export class Projekte {
    */
   protected zuordne(e: TestmessageEntry, ev: Event): void {
     ev.stopPropagation();
-    this.szenario.oeffne(e);
+    this.einordnen.oeffneTestnachricht(e.id);
   }
 
   /**
@@ -227,6 +227,101 @@ export class Projekte {
     this.state.view.set('testdaten');
   }
 
+  // ── Szenarien hinzufuegen (#145) ─────────────────────────────────────
+
+  /**
+   * Ohne diesen Weg war die Projektseite eine Sackgasse: sie zeigte, was
+   * zugeordnet ist, liess aber nichts herein — zuordnen ging nur im ⋯-Menue
+   * einer Kachel in der Profil-Uebersicht. Ein leeres Projekt konnte sich
+   * selbst nicht fuellen.
+   */
+  private readonly hinzuDlg = viewChild.required<ElementRef<HTMLDialogElement>>('hinzuDlg');
+  protected readonly hinzuSuche = signal('');
+  protected readonly hinzuGewaehlt = signal<string[]>([]);
+  protected readonly hinzuLaeuft = signal(false);
+
+  /**
+   * Waehlbar ist, was noch nicht in **diesem** Projekt liegt. Profilierungen
+   * aus einem anderen Projekt bleiben in der Liste — sie umzuhaengen ist ein
+   * gueltiger Wunsch —, tragen aber den Hinweis, wo sie herkommen.
+   */
+  protected readonly hinzuKandidaten = computed<LibraryEntry[]>(() => {
+    const id = this.offenesId();
+    const q = this.hinzuSuche().trim().toLowerCase();
+    return this.profile
+      .entries()
+      .filter((e) => e.projektId !== id)
+      .filter(
+        (e) =>
+          !q ||
+          [e.name, e.nachricht, e.beschreibung].some((v) => (v || '').toLowerCase().includes(q)),
+      )
+      .sort(
+        (a, b) =>
+          (a.nachricht || '').localeCompare(b.nachricht || '', 'de') ||
+          a.name.localeCompare(b.name, 'de'),
+      );
+  });
+
+  /** Projektname einer Profilierung, die bereits woanders liegt. */
+  protected fremdesProjekt(e: LibraryEntry): string | undefined {
+    return e.projektId ? this.store.name(e.projektId) : undefined;
+  }
+
+  protected hinzuAktiv(id: string): boolean {
+    return this.hinzuGewaehlt().includes(id);
+  }
+
+  protected hinzuSchalte(id: string): void {
+    const g = this.hinzuGewaehlt();
+    this.hinzuGewaehlt.set(g.includes(id) ? g.filter((x) => x !== id) : [...g, id]);
+  }
+
+  protected openHinzu(): void {
+    this.hinzuSuche.set('');
+    this.hinzuGewaehlt.set([]);
+    this.hinzuDlg().nativeElement.showModal();
+  }
+
+  /**
+   * Mehrere auf einmal: ein Vorhaben bringt selten genau ein Szenario mit, und
+   * ein Dialog je Profilierung waere genau die Klickerei, die den Weg vorher
+   * unbrauchbar machte.
+   */
+  protected async submitHinzu(): Promise<void> {
+    const projektId = this.offenesId();
+    const ids = this.hinzuGewaehlt();
+    this.hinzuDlg().nativeElement.close();
+    if (!projektId || !ids.length) return;
+    this.hinzuLaeuft.set(true);
+    try {
+      for (const id of ids) await this.profile.einsortieren(id, { projektId });
+      await this.store.refresh();
+      this.toast.show(
+        ids.length === 1 ? 'Szenario hinzugefügt.' : `${ids.length} Szenarien hinzugefügt.`,
+      );
+    } catch (err) {
+      this.toast.showError(err, 'Hinzufügen fehlgeschlagen.');
+    } finally {
+      this.hinzuLaeuft.set(false);
+    }
+  }
+
+  /** Ein Szenario aus dem Projekt nehmen (die Profilierung bleibt bestehen). */
+  protected async entferneSzenario(e: LibraryEntry, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    if (
+      !confirm(`„${e.name}" aus diesem Projekt nehmen?\n\nDie Profilierung selbst bleibt erhalten.`)
+    )
+      return;
+    try {
+      await this.profile.einsortieren(e.id, { projektId: null });
+      await this.store.refresh();
+    } catch (err) {
+      this.toast.showError(err, 'Entfernen fehlgeschlagen.');
+    }
+  }
+
   // ── Projekt anlegen und pflegen ──────────────────────────────────────
 
   /** Bearbeiten-Dialog: aktive id (null = neues Projekt) + Puffer der Felder. */
@@ -241,6 +336,12 @@ export class Projekte {
     this.bearbBeschr.set('');
     this.bearbTags.set('');
     this.bearbeitenDlg().nativeElement.showModal();
+  }
+
+  /** Das offene Projekt bearbeiten — von der Projektseite aus. */
+  protected openBearbeitenOffenes(ev: Event): void {
+    const p = this.offenes();
+    if (p) this.openBearbeiten(p, ev);
   }
 
   protected openBearbeiten(p: Projekt, ev: Event): void {

@@ -1,0 +1,101 @@
+<dialog #dlg id="einordnenDlg">
+  <h3 style="margin-top: 0">Einordnen</h3>
+
+  @if (ziel(); as z) {
+    <p class="eoKopf">
+      {{ z.art === 'profil' ? 'Profilierung' : 'Testnachricht' }} <b>{{ name() }}</b>
+    </p>
+
+    <!-- Szenario nur für Testnachrichten: eine Profilierung IST ein Szenario. -->
+    @if (z.art === 'testnachricht') {
+      <div class="eoAbschnitt">
+        <div class="eoTitel">Kommunikationsszenario</div>
+        @if (szenarioGebunden()) {
+          <p class="eoHinweis">
+            An eine Profilfassung gebunden — das Szenario steht fest. Zum Wechseln erst die Bindung
+            lösen.
+          </p>
+        } @else {
+          @if (szenarien().length > 8) {
+            <input
+              class="eoSuche"
+              type="search"
+              appKeinAutofill
+              placeholder="Profilierung suchen…"
+              [value]="szenarioSuche()"
+              (input)="szenarioSuche.set($any($event.target).value)"
+            />
+          }
+          <div class="eoListe">
+            @for (p of szenarien(); track p.id) {
+              <button
+                type="button"
+                class="eoEintrag"
+                [class.eoAktiv]="szenarioId() === p.id"
+                (click)="waehleSzenario(p.id)"
+              >
+                <span class="eoName">{{ p.name || '(ohne Namen)' }}</span>
+                @if (passt(p)) {
+                  <span class="pill pillAbn">passt zum Nachrichtentyp</span>
+                }
+                <span class="eoTyp">{{ p.nachricht }}</span>
+              </button>
+            } @empty {
+              <p class="eoLeer">Keine Profilierung gefunden.</p>
+            }
+          </div>
+          <p class="eoHinweis">
+            Zugeordnet wird nur die Herkunft; es wird keine Profilfassung gebunden. Ob die Nachricht
+            die Festlegungen einhält, beantwortet „Gegen Profilierung prüfen".
+          </p>
+        }
+      </div>
+    }
+
+    <div class="eoAbschnitt">
+      <div class="eoTitel">Projekt</div>
+      @if (erbtVon(); as profil) {
+        <!-- Kein Auswahlfeld: die Nachricht folgt ihrer Profilierung. -->
+        <p class="eoHinweis">
+          folgt dem gewählten Szenario <b>{{ profil }}</b> — dort wird das Projekt gepflegt
+        </p>
+      } @else {
+        <select
+          class="eoFeld"
+          [value]="projektId()"
+          (change)="projektId.set($any($event.target).value)"
+        >
+          <option value="">(keinem Projekt zugeordnet)</option>
+          @for (p of projekte.entries(); track p.id) {
+            <option [value]="p.id">{{ p.name }}</option>
+          }
+          <option [value]="neu">neues Projekt anlegen…</option>
+        </select>
+        @if (legtNeuesAn()) {
+          <input
+            class="eoFeld"
+            type="text"
+            appKeinAutofill
+            placeholder="Name des Projekts, z. B. GenUVA"
+            [value]="neuerName()"
+            (input)="neuerName.set($any($event.target).value)"
+          />
+        }
+      }
+    </div>
+
+    <div class="eoAbschnitt">
+      <div class="eoTitel">Schlagworte</div>
+      <app-tag-eingabe
+        feldId="eoTags"
+        [(text)]="tags"
+        [vorschlaege]="verfuegbareTags()"
+      ></app-tag-eingabe>
+    </div>
+  }
+
+  <div style="text-align: right; margin-top: 14px">
+    <button (click)="schliesse()">Abbrechen</button>
+    <button class="primary" (click)="uebernimm()">Übernehmen</button>
+  </div>
+</dialog>
