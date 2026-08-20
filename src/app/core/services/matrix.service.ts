@@ -111,6 +111,25 @@ function istTechnisch(pfad: string): boolean {
 }
 
 /**
+ * Fachlicher Bereich eines Pfads: das 2. Segment, lesbar gemacht
+ * (`/nachricht.x/grunddaten[1]/…` → "Grunddaten"). XJustiz-Nachrichten sind
+ * dort klar gegliedert — Nachrichtenkopf, Grunddaten, Fachdaten,
+ * Schriftgutobjekte —, und genau diese Gliederung braucht der Vergleich.
+ *
+ * Was direkt an der Wurzel haengt (Attribute der Nachricht selbst), kommt unter
+ * "Nachricht": eine eigene Gruppe ist ehrlicher als es dem Nachrichtenkopf
+ * zuzuschlagen, wo es nicht steht.
+ */
+function bereichVon(pfad: string): string {
+  const segmente = pfad.replace(/^\//, '').split('/');
+  const roh = (segmente[1] ?? '').replace(/\[\d+\].*$/, '').replace(/@.*$/, '');
+  if (!roh) return 'Nachricht';
+  // lowerCamelCase der Schemanamen in Worte trennen: "datenDerUrkunde".
+  const worte = roh.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+  return worte.charAt(0).toLocaleUpperCase('de') + worte.slice(1);
+}
+
+/**
  * Lesbare Kurzform eines Instanzpfads: die letzten beiden Segmente reichen,
  * um die Zeile zu erkennen; der volle Pfad steht im Tooltip.
  */
@@ -143,7 +162,7 @@ export class MatrixService {
       spalten.push({ id: q.id, name: q.name });
       extrakte.push(e);
     }
-    if (extrakte.length < 2) return { spalten, zeilen: [] };
+    if (extrakte.length < 2) return { spalten, zeilen: [], bereiche: [] };
 
     // ── Anzahl-Zeilen ────────────────────────────────────────────────
     // Ein fehlender Listenpfad ist eine Null, kein Loch: "hat keinen
@@ -166,6 +185,7 @@ export class MatrixService {
       if (new Set(zahlen).size <= 1) continue;
       anzahlZeilen.push({
         art: 'anzahl',
+        bereich: bereichVon(pfad),
         pfad,
         label: kurz(ohneEinerIndex(pfad, mehrfach)),
         werte: zahlen.map((n) => String(n)),
@@ -181,6 +201,7 @@ export class MatrixService {
       if (new Set(werte).size <= 1) continue;
       wertZeilen.push({
         art: 'wert',
+        bereich: bereichVon(pfad),
         pfad,
         label: kurz(ohneEinerIndex(pfad, mehrfach)),
         werte,
@@ -189,13 +210,40 @@ export class MatrixService {
       });
     }
 
-    const sortiert = [
-      ...anzahlZeilen.sort((a, b) => a.pfad.localeCompare(b.pfad)),
-      ...wertZeilen.sort((a, b) => a.pfad.localeCompare(b.pfad)),
-    ];
+    // Nach Bereich, darin Anzahl-Zeilen vor Wert-Zeilen (die Anzahl traegt die
+    // groebere Aussage), darin nach Pfad. Die Reihenfolge der Bereiche folgt
+    // dem Aufbau der Nachricht — sie ergibt sich aus dem Pfad und muss nicht
+    // gepflegt werden.
+    // Reihenfolge des ersten Auftretens = Dokumentreihenfolge: die Maps in
+    // `extrahiere` werden beim Durchlauf gefuellt und bewahren sie. Alphabetisch
+    // stuenden die Fachdaten vor dem Nachrichtenkopf, was dem Aufbau einer
+    // XJustiz-Nachricht widerspricht.
+    const rang = new Map<string, number>();
+    for (const z of [...wertZeilen, ...anzahlZeilen])
+      if (!rang.has(z.bereich)) rang.set(z.bereich, rang.size);
+    const bereichsRang = (name: string): number => rang.get(name) ?? Number.MAX_SAFE_INTEGER;
+
+    const sortiert = [...anzahlZeilen, ...wertZeilen].sort(
+      (a, b) =>
+        bereichsRang(a.bereich) - bereichsRang(b.bereich) ||
+        (a.art === b.art ? 0 : a.art === 'anzahl' ? -1 : 1) ||
+        a.pfad.localeCompare(b.pfad),
+    );
     const zeilen = sortiert.slice(0, MATRIX_MAX_ZEILEN);
     const abgeschnitten = sortiert.length - zeilen.length;
-    return { spalten, zeilen, abgeschnitten: abgeschnitten || undefined };
+
+    // Gezaehlt wird, was der Leser sieht: technische Angaben sind
+    // standardmaessig aus, ihr Bereich soll deswegen keinen Zaehler auswerfen,
+    // der zu nichts fuehrt.
+    const bereiche: { name: string; n: number }[] = [];
+    for (const z of zeilen) {
+      if (z.technisch || z.unterhalb) continue;
+      const treffer = bereiche.find((b) => b.name === z.bereich);
+      if (treffer) treffer.n++;
+      else bereiche.push({ name: z.bereich, n: 1 });
+    }
+
+    return { spalten, zeilen, bereiche, abgeschnitten: abgeschnitten || undefined };
   }
 
   /**

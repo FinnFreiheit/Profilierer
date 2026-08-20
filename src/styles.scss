@@ -3327,3 +3327,59 @@ app-tree-context-menu {
   color: var(--muted);
   line-height: 1.45;
 }
+
+/* Gliederung der Matrix nach Bereichen (#143): die erste Frage beim Vergleich
+   lautet, WO sich die Nachrichten unterscheiden — die Verteilung im Kopf und
+   die Gruppen in der Tabelle beantworten sie, bevor es ums Wie geht. */
+.matrixVerteilung {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.matrixBereichChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.matrixBereichChip:hover {
+  border-color: var(--accent);
+}
+/* Zugeklappt: die Zahl bleibt, die Fuellung geht — der Chip sagt weiterhin, wie
+   viel dort liegt, ohne den Platz zu beanspruchen. */
+.matrixBereichZu {
+  background: none;
+  color: var(--muted);
+}
+.matrixChipN {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.matrixFilter {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+.matrixGruppe > th {
+  position: sticky;
+  left: 0;
+  background: var(--flaeche);
+  padding: 0;
+}
+.matrixGruppeKnopf {
+  width: 100%;
+  padding: 5px 10px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}

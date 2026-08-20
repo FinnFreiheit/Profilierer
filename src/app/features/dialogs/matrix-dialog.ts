@@ -55,6 +55,19 @@ export class MatrixDialog {
   /** Aufgeklappte Anzahl-Zeilen (Pfad des Listenpfads). */
   private readonly aufgeklappt = signal<string[]>([]);
 
+  /** Textfilter ueber Merkmal und Werte — wie im XML-Vergleich. */
+  protected readonly filter = signal('');
+
+  /** Zugeklappte Bereiche. */
+  private readonly zu = signal<string[]>([]);
+
+  /**
+   * Ab wie vielen Unterschieden die Bereiche zunaechst zugeklappt sind. Bis
+   * dahin ist die Liste selbst noch die Uebersicht; darueber ist es die
+   * Verteilung auf die Bereiche.
+   */
+  private static readonly ZUGEKLAPPT_AB = 20;
+
   /**
    * Die sichtbaren Zeilen: Anzahl-Unterschiede und die Werte gemeinsamer
    * Vorkommen; die Angaben ueberzaehliger Vorkommen erst, wenn ihre Anzahl-
@@ -64,10 +77,42 @@ export class MatrixDialog {
     const r = this.result();
     if (!r) return [];
     const offen = new Set(this.aufgeklappt());
+    const f = this.filter().trim().toLowerCase();
     return r.zeilen.filter(
-      (z) => (!z.technisch || this.zeigeTechnisch()) && (!z.unterhalb || offen.has(z.unterhalb)),
+      (z) =>
+        (!z.technisch || this.zeigeTechnisch()) &&
+        (!z.unterhalb || offen.has(z.unterhalb)) &&
+        (!f || `${z.label} ${z.pfad} ${z.werte.join(' ')}`.toLowerCase().includes(f)),
     );
   });
+
+  /**
+   * Die sichtbaren Zeilen nach Bereich gebuendelt — die Gliederung, die die
+   * Frage "wo unterscheiden sie sich?" vor der Frage "wie?" beantwortet.
+   */
+  protected readonly gruppen = computed<{ name: string; zeilen: MatrixZeile[] }[]>(() => {
+    const out: { name: string; zeilen: MatrixZeile[] }[] = [];
+    for (const z of this.zeilen()) {
+      const treffer = out.find((g) => g.name === z.bereich);
+      if (treffer) treffer.zeilen.push(z);
+      else out.push({ name: z.bereich, zeilen: [z] });
+    }
+    return out;
+  });
+
+  /**
+   * Ein Bereich ist offen, wenn er nicht zugeklappt wurde — und bei einem
+   * laufenden Filter immer: wer sucht, will die Treffer sehen, nicht erst
+   * Gruppen oeffnen.
+   */
+  protected bereichOffen(name: string): boolean {
+    return !!this.filter().trim() || !this.zu().includes(name);
+  }
+
+  protected klappeBereich(name: string): void {
+    const zu = this.zu();
+    this.zu.set(zu.includes(name) ? zu.filter((n) => n !== name) : [...zu, name]);
+  }
 
   /** Anzahl der Zeilen, die hinter einer Anzahl-Zeile eingeklappt liegen. */
   protected verborgen(zeile: MatrixZeile): number {
@@ -120,6 +165,8 @@ export class MatrixDialog {
     this.result.set(null);
     this.aufgeklappt.set([]);
     this.zeigeTechnisch.set(false);
+    this.filter.set('');
+    this.zu.set([]);
     try {
       this.szenarioName.set(
         this.profile.entries().find((p) => p.id === profilId)?.name ?? 'Kommunikationsszenario',
@@ -138,7 +185,14 @@ export class MatrixDialog {
         const xml = await this.store.loadXml(e.id);
         if (xml) quellen.push({ id: e.id, name: e.name, xml });
       }
-      this.result.set(this.matrix.vergleiche(quellen));
+      const ergebnis = this.matrix.vergleiche(quellen);
+      this.result.set(ergebnis);
+      // Bei vielen Unterschieden sind die Gruppen zunaechst zu: die Uebersicht
+      // ist dann die Verteilung auf die Bereiche, nicht die Zeilenwueste.
+      const sichtbar = ergebnis.bereiche.reduce((n, b) => n + b.n, 0);
+      this.zu.set(
+        sichtbar > MatrixDialog.ZUGEKLAPPT_AB ? ergebnis.bereiche.map((b) => b.name) : [],
+      );
     } catch (e) {
       this.fehler.set(
         'Die Testnachrichten konnten nicht geladen werden: ' +
