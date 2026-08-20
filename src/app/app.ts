@@ -41,6 +41,7 @@ import { MatrixDialog } from './features/dialogs/matrix-dialog';
 import { EinordnenDialog } from './features/dialogs/einordnen-dialog';
 import { VergleichService } from './core/services/vergleich.service';
 import { TeilenService } from './core/services/teilen.service';
+import { UeberlagerungService } from './core/services/ueberlagerung.service';
 import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
 
 /**
@@ -106,6 +107,7 @@ export class App implements OnInit {
   private readonly download = inject(DownloadService);
   private readonly vergleich = inject(VergleichService);
   private readonly teilen = inject(TeilenService);
+  private readonly ueberlagerung = inject(UeberlagerungService);
 
   protected readonly hasRoot = this.state.hasRoot;
   /** Dashboard (Bibliothek) vs. Baum-Editor. */
@@ -120,6 +122,14 @@ export class App implements OnInit {
    * der Rueckweg in einer Liste, in der das eben Bearbeitete gar nicht steht.
    */
   protected zurUebersicht(): void {
+    // Die Nachrichten-Ueberlagerung (#147) kommt aus einem Projekt und gehoert
+    // dorthin zurueck — in der Bibliothek stuende keines der ueberlagerten
+    // Objekte. Sie endet dabei: der Baum daneben ist ohne sie nur ein Schema.
+    if (this.ueberlagerung.aktiv()) {
+      this.ueberlagerung.beende();
+      this.state.view.set('projekte');
+      return;
+    }
     this.state.view.set(this.state.msgMode() ? 'testdaten' : 'dashboard');
   }
 

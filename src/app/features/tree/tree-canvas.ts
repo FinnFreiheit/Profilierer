@@ -13,6 +13,7 @@ import { TreeNode } from './tree-node';
 import { TreeService } from '../../core/services/tree.service';
 import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
+import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
 import { itemPath } from '../../models/node.model';
 import { istErweiterungsPfad, unterPfad } from '../../core/util/pfad.util';
 import { REF_TARGETS } from '../../core/refs';
@@ -59,6 +60,7 @@ export class TreeCanvas {
   private readonly tree = inject(TreeService);
   private readonly state = inject(StateService);
   private readonly nav = inject(NavService);
+  private readonly ueberlagerung = inject(UeberlagerungService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly rootItem = computed(() => this.tree.rootItem());
@@ -83,6 +85,10 @@ export class TreeCanvas {
       this.state.showTech();
       this.state.focusMode();
       this.state.alignLeaves();
+      // Ueberlagerung: An-/Abwaehlen einer Nachricht und der Filter „nur
+      // Abweichungen" aendern die Zahl der Kaesten — die Linien muessen mit.
+      this.ueberlagerung.nachrichten();
+      this.ueberlagerung.nurAbweichungen();
       this.scheduleRedraw();
     });
 
@@ -279,6 +285,9 @@ export class TreeCanvas {
       const targets = [
         ...Array.from(kids.querySelectorAll(':scope > .ntree > .box')),
         ...Array.from(kids.querySelectorAll(':scope > .box.addBox')),
+        // Wert-Kaesten der Nachrichten-Ueberlagerung (#147): sie haengen ohne
+        // eigenen `.ntree` direkt in der Kinderspalte ihres Blattes.
+        ...Array.from(kids.querySelectorAll(':scope > .box.wertBox')),
       ] as HTMLElement[];
       for (const to of targets) {
         const tr = to.getBoundingClientRect();
@@ -309,12 +318,16 @@ export class TreeCanvas {
             `Q ${busX} ${y2} ${busX + r} ${y2} ` +
             `H ${x2}`;
         }
+        // Ueberlagerung: die Linie traegt die Farbe ihrer Nachricht — sonst
+        // waere die Zuordnung von Kasten zu Nachricht nur ueber die Beschriftung
+        // zu lesen, und genau das soll die Farbe abnehmen.
+        const wertFarbe = to.dataset['farbe'] ?? null;
         out.push({
           d,
-          stroke: onP ? 'var(--accent)' : imErw ? '#7f77dd' : 'var(--border-stark)',
+          stroke: wertFarbe ?? (onP ? 'var(--accent)' : imErw ? '#7f77dd' : 'var(--border-stark)'),
           width: onP ? '2.2' : '1.4',
-          dash: excl ? '4 4' : imErw ? '5 4' : null,
-          opacity: null,
+          dash: excl ? '4 4' : imErw ? '5 4' : to.classList.contains('wertFehlt') ? '3 3' : null,
+          opacity: wertFarbe ? '0.75' : null,
           markerEnd: null,
         });
 

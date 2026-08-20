@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
+import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
 import { DispositionService } from '../../core/services/disposition.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -31,6 +32,8 @@ export class Objektleiste {
   private readonly toast = inject(ToastService);
   private readonly store = inject(ProfileStoreService);
   protected readonly hinweise = inject(HinweisStoreService);
+  /** Nachrichten-Ueberlagerung (#147): eigene Identitaet, eigener Rueckweg. */
+  protected readonly ueberlagerung = inject(UeberlagerungService);
 
   /** Zurueck zur Dashboard-Uebersicht. */
   readonly homeClick = output<void>();
@@ -75,6 +78,18 @@ export class Objektleiste {
   protected readonly isProfil = computed(
     () => !this.isMessage() && !this.isCreate() && !this.isSchemaView(),
   );
+
+  /**
+   * Beschriftung der Ueberlagerung in der Identitaets-Zone: welches Szenario mit
+   * wie vielen Nachrichten. Die Zahl steht dort, weil der Filter sie aendert.
+   */
+  protected readonly ueberlagerungText = computed(() => {
+    const alle = this.ueberlagerung.nachrichten().length;
+    const n = this.ueberlagerung.gewaehlt().length;
+    const szenario = this.ueberlagerung.szenario();
+    const zahl = n === alle ? `${alle} Testnachrichten` : `${n} von ${alle} Testnachrichten`;
+    return szenario ? `${szenario} — ${zahl}` : zahl;
+  });
 
   /**
    * Die geoeffnete Nachricht stammt aus dem Testdaten-Speicher — nur dann laesst

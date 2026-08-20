@@ -104,8 +104,11 @@ function extrahiere(xml: string): Extrakt | null {
 /**
  * Technische Kopfangabe? Verglichen wird ohne Vorkommens-Indizes: im Pfad steht
  * `nachrichtenkopf[1]/erstellungszeitpunkt[1]`, in der Liste die nackte Form.
+ *
+ * Exportiert, weil die Nachrichten-Ueberlagerung (#147) dieselbe Frage stellt:
+ * was sich zwangslaeufig unterscheidet, ist dort wie hier kein Unterschied.
  */
-function istTechnisch(pfad: string): boolean {
+export function istTechnischeAngabe(pfad: string): boolean {
   const nackt = pfad.replace(/\[\d+\]/g, '');
   return TECHNISCHE_ANGABEN.some((t) => nackt.includes(t));
 }
@@ -268,7 +271,7 @@ export class MatrixService {
         label: bezeichnung(pfad, mehrfach),
         werte,
         unterhalb: this.ueberzaehligesVorkommen(pfad, minAnzahl),
-        technisch: istTechnisch(pfad) || undefined,
+        technisch: istTechnischeAngabe(pfad) || undefined,
       });
     }
 

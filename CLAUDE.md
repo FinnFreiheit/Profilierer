@@ -28,15 +28,16 @@ xjustiz-profilierer/
 │   │   │                      ExcelExportService, DiffService, PersistenceService, ProfileStoreService,
 │   │   │                      MigrationService, InstanceImportService, InstanceExportService,
 │   │   │                      TestmessageStoreService, TestmessageCreateService, GuidedService, BundledSchemaService,
+│   │   │                      UeberlagerungService (alle Testnachrichten eines Szenarios im Baum),
 │   │   │                      XmlValidationService, ValidationReportService,
 │   │   │                      DownloadService, ToastService, SearchService, TeilenService,
 │   │   │                      BackendClient (der eine Weg ans Backend)
 │   │   ├── ansicht/           Anzeige-Ableitungen (BaumkastenAnsicht, DetailAnsicht, sperrgrund)
 │   │   ├── util/              xml.util, pretty.util, testmessage.util, pattern-sample.util,
-│   │   │                      eintragsliste.util
+│   │   │                      eintragsliste.util, positions-pfad.util
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
 │   │   └── profile-defaults.ts
-│   ├── features/              Objektleiste, Werkzeugleiste, Crumbs, Search, MessagePicker, Tree (TreeCanvas +
+│   ├── features/              Objektleiste, Werkzeugleiste, Crumbs, Search, MessagePicker, Ueberlagerung, Tree (TreeCanvas +
 │   │                          rekursive TreeNode), Detail, Dialoge (Status/Meta/Diff), Legend, Print,
 │   │                          Dashboard, Testdaten, Howto (bebilderte Anleitung, Bilder in public/howto/)
 │   ├── shared/                Toast, FileDropDirective

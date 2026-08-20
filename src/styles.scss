@@ -467,6 +467,50 @@ label.menuItem:has(input:disabled) {
   margin: 4px 0;
 }
 
+/* Kopf, Zwei-Knopf-Zeile und Farbpunkt — bisher nur im Filter der
+   Nachrichten-Überlagerung (#147) gebraucht, aber Menü-Grammatik. */
+.menuKopf {
+  padding: 6px 14px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.menuKopfZusatz {
+  display: block;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted-schwach);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menuHinweis {
+  padding: 2px 14px 6px;
+  font-size: 11.5px;
+  color: #b45309;
+}
+.menuZeile {
+  display: flex;
+}
+.menuZeile .menuItem {
+  text-align: center;
+}
+.menuText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.farbPunkt {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
 /* Validierungsbericht (app-validation-dialog) */
 .validFehler {
   border: 1px solid var(--border);
@@ -1284,6 +1328,102 @@ app-crumbs {
   bottom: 0;
   width: 5px;
   border-radius: 9px 0 0 9px;
+}
+
+/* ── Nachrichten-Überlagerung (#147) ────────────────────────────────────
+   Je Testnachricht ein Kasten unter dem Blatt. Die Farbe steht für die
+   Nachricht (Streifen links, dieselbe im Filter), der Zustand für die
+   Aussage: gedämpft = alle sagen dasselbe, Signalfarbe = weicht ab,
+   gestrichelt = keine Angabe. */
+.nkids.nwerte {
+  gap: 5px;
+}
+.box.wertBox {
+  width: 232px;
+  padding: 5px 9px 6px 12px;
+  margin-bottom: 4px;
+  cursor: default;
+  background: var(--flaeche);
+}
+.box.wertBox:hover {
+  border-color: var(--border);
+}
+.wertKopf {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.wertName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wertAbwMark {
+  flex: none;
+  margin-left: auto;
+  font-weight: 700;
+  color: #b45309;
+}
+.wertZeile {
+  margin-top: 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.wertZeile code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.wertLabel {
+  font-size: 11px;
+  color: var(--muted-schwach);
+}
+.wertZeile.wertLeer {
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--muted-schwach);
+}
+.box.wertBox.wertFehlt {
+  background: transparent;
+  border-style: dashed;
+}
+.box.wertBox.wertAbw {
+  background: var(--signal-soft);
+  border-color: var(--signal);
+}
+.box.wertBox.wertAbw .wertZeile code {
+  color: var(--text-stark);
+  font-weight: 600;
+}
+.box.wertBox.mini {
+  padding: 2px 8px 3px 12px;
+  opacity: 0.9;
+}
+.box.wertBox.mini .wertLabel {
+  display: none;
+}
+/* Kurzfassung am Blatt: trägt die Aussage auch im zugeklappten Ast. */
+.wbilanz {
+  margin-left: auto;
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--muted);
+  background: var(--flaeche-tief);
+  border-radius: 999px;
+  padding: 2px 6px;
+}
+.wbilanz.wbilanzAbw {
+  color: #b45309;
+  background: var(--signal-soft);
 }
 
 /* Host aufloesen, damit #detail direktes Flex-Item von #main ist (Hoehe = Main-Hoehe,

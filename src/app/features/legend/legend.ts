@@ -3,6 +3,7 @@ import { StateService } from '../../core/services/state.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { UiSettingsService } from '../../core/services/ui-settings.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
+import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
 
 /**
  * Fusszeile (renderLegend, Profilierer.html Z.1458-1466). Seit #80 immer genau
@@ -29,6 +30,12 @@ export class Legend {
   protected readonly durchlauf = computed(
     () => this.state.guided() && !this.state.readOnly() && this.guidedSvc.instanzModus(),
   );
+
+  /**
+   * Nachrichten-Ueberlagerung (#147): eigene Bildsprache unter den Blaettern —
+   * die Legende erklaert sie, solange sie laeuft.
+   */
+  protected readonly ueberlagerung = inject(UeberlagerungService);
 
   /** Aufgeklappte Erklaerungen ueberleben den Reload (Workshop-Betrieb). */
   protected readonly offen = this.ui.flagge('legendeOffen', false);

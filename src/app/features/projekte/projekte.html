@@ -106,6 +106,14 @@
               >
                 Vergleichen
               </button>
+              <button
+                class="szenarioAktion"
+                [disabled]="ueberlagerung.laedt()"
+                title="Alle Testnachrichten gemeinsam im Baum: unter jedem Blatt steht der Wert jeder Nachricht"
+                (click)="ueberlagere(s.profil, $event)"
+              >
+                Überlagern
+              </button>
             }
             <button
               class="szenarioAktion"

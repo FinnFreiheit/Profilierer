@@ -12,6 +12,8 @@ import { TestmessageStoreService } from '../../core/services/testmessage-store.s
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { VergleichService } from '../../core/services/vergleich.service';
 import { MatrixService, MatrixQuelle } from '../../core/services/matrix.service';
+import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
+import { ToastService } from '../../core/services/toast.service';
 import { MatrixResult, MatrixZeile } from '../../models/matrix.model';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
@@ -38,12 +40,16 @@ export class MatrixDialog {
   private readonly profile = inject(ProfileStoreService);
   private readonly matrix = inject(MatrixService);
   private readonly vergleich = inject(VergleichService);
+  private readonly ueberlagerung = inject(UeberlagerungService);
+  private readonly toast = inject(ToastService);
   private readonly dlg = viewChild.required<ElementRef<HTMLDialogElement>>('dlg');
 
   protected readonly laedt = signal(false);
   protected readonly fehler = signal('');
   protected readonly result = signal<MatrixResult | null>(null);
   protected readonly szenarioName = signal('');
+  /** Die geladenen Nachrichten — Grundlage des Wechsels in die Ueberlagerung. */
+  private readonly quellen = signal<MatrixQuelle[]>([]);
 
   /**
    * Technische Kopfangaben einblenden. Standardmaessig aus: zwischen gefuehrt
@@ -155,6 +161,23 @@ export class MatrixDialog {
   }
 
   /**
+   * Dieselbe Frage, andere Darstellung (#147): die geladenen Nachrichten im
+   * Baum ueberlagern. Die XMLs liegen hier schon — sie noch einmal zu holen
+   * waere ein Rundgang zum Server fuer Daten, die im Dialog stehen.
+   */
+  protected imBaum(): void {
+    const quellen = this.quellen();
+    this.vergleich.schliesse();
+    try {
+      this.ueberlagerung.baue(quellen, this.szenarioName());
+    } catch (e) {
+      this.toast.showError(e, 'Die Testnachrichten konnten nicht überlagert werden.');
+    }
+  }
+
+  protected readonly imBaumMoeglich = computed(() => this.quellen().length > 1);
+
+  /**
    * Spalten sind alle Testnachrichten mit dieser `profilId` — sie wurden gegen
    * dieselbe Vorgabe gebaut, ihre Unterschiede sind also echte Auspraegungen.
    * Das XML wird je Nachricht einzeln geladen (der Index traegt es nicht).
@@ -163,6 +186,7 @@ export class MatrixDialog {
     this.laedt.set(true);
     this.fehler.set('');
     this.result.set(null);
+    this.quellen.set([]);
     this.aufgeklappt.set([]);
     this.zeigeTechnisch.set(false);
     this.filter.set('');
@@ -185,6 +209,7 @@ export class MatrixDialog {
         const xml = await this.store.loadXml(e.id);
         if (xml) quellen.push({ id: e.id, name: e.name, xml });
       }
+      this.quellen.set(quellen);
       const ergebnis = this.matrix.vergleiche(quellen);
       this.result.set(ergebnis);
       // Bei vielen Unterschieden sind die Gruppen zunaechst zu: die Uebersicht

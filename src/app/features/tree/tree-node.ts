@@ -8,6 +8,8 @@ import { GuidedService } from '../../core/services/guided.service';
 import { ValueService } from '../../core/services/value.service';
 import { ToastService } from '../../core/services/toast.service';
 import { BaumkastenAnsicht, Kennzeichen } from '../../core/ansicht/baumkasten-ansicht';
+import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
+import { Wertbilanz, Wertblatt } from '../../models/ueberlagerung.model';
 import { erwLoeschFrage } from '../../core/util/erweiterung.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { TreeContextMenu } from './tree-context-menu';
@@ -49,6 +51,7 @@ export class TreeNode {
   private readonly guided = inject(GuidedService);
   private readonly values = inject(ValueService);
   private readonly toast = inject(ToastService);
+  private readonly ueberlagerung = inject(UeberlagerungService);
 
   /** Der fuer Aktionen massgebliche Knoten (Element bzw. Traeger des Vorkommens). */
   private readonly node = computed<TNode>(() => {
@@ -77,6 +80,44 @@ export class TreeNode {
   protected readonly showAddErweiterung = computed(() =>
     this.ansicht.zeigtErweiterungHinzu(this.item()),
   );
+
+  // ── Nachrichten-Ueberlagerung (#147) ────────────────────────────────
+
+  /**
+   * Die Wert-Kaesten der ueberlagerten Testnachrichten — je Nachricht einer,
+   * unterhalb des Blattes. Leer, solange keine Ueberlagerung laeuft und an
+   * jedem Blatt, an dem keine gewaehlte Nachricht etwas sagt.
+   */
+  protected readonly wertblaetter = computed<Wertblatt[]>(() =>
+    this.vm().isValueBox ? this.ueberlagerung.blaetter(this.path(), this.node().codelist) : [],
+  );
+
+  /** Kurzfassung am Blatt selbst ("3 von 4 · 2 Werte"). */
+  protected readonly bilanz = computed<Wertbilanz | null>(() =>
+    this.wertblaetter().length ? this.ueberlagerung.bilanz(this.path()) : null,
+  );
+
+  /** Beschriftung der Kurzfassung. */
+  protected bilanzText(b: Wertbilanz): string {
+    const belegt = b.belegt === b.gesamt ? `${b.gesamt}×` : `${b.belegt} von ${b.gesamt}`;
+    return b.verschieden > 1 ? `${belegt} · ${b.verschieden} Werte` : belegt;
+  }
+
+  protected bilanzTitel(b: Wertbilanz): string {
+    const teile = [
+      b.belegt === b.gesamt
+        ? `Alle ${b.gesamt} Nachrichten haben hier eine Angabe`
+        : `${b.belegt} von ${b.gesamt} Nachrichten haben hier eine Angabe`,
+      b.verschieden > 1 ? `${b.verschieden} verschiedene Werte` : 'derselbe Wert',
+    ];
+    return teile.join(' · ');
+  }
+
+  /** Tooltip eines Wert-Kastens: Nachricht, Wert, Bedeutung. */
+  protected wertTitel(w: Wertblatt): string {
+    if (!w.wert) return `${w.name}: keine Angabe an dieser Stelle`;
+    return [w.name, w.label ? `${w.wert} · ${w.label}` : w.wert].join(': ');
+  }
 
   // ── Aktionen ────────────────────────────────────────────────────────
 

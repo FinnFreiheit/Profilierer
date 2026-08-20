@@ -59,6 +59,10 @@
 
     <app-search></app-search>
 
+    @if (ueberlagerung.aktiv()) {
+      <app-ueberlagerung-menu></app-ueberlagerung-menu>
+    }
+
     <app-menu label="Ansicht" kurz="≡" btnClass="mAnsicht" #ansicht>
       <label class="menuItem" title="Versionsunterschiede im Baum markieren">
         <input

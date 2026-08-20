@@ -32,6 +32,11 @@
     @if (v.belegt) {
       <span class="wmark" title="Angabe ist belegt — der Wert steht in der Nachricht">✓</span>
     }
+    @if (bilanz(); as b) {
+      <span class="wbilanz" [class.wbilanzAbw]="b.abweichend" [title]="bilanzTitel(b)">{{
+        bilanzText(b)
+      }}</span>
+    }
     @if (v.belegtSub; as n) {
       <span
         class="wsub"
@@ -216,6 +221,47 @@
       </div>
     }
   </div>
+}
+
+<!--
+  Nachrichten-Ueberlagerung (#147): je gewaehlter Testnachricht ein Kasten mit
+  ihrem Wert an dieser Stelle. Sie haengen in derselben Kinderspalte wie echte
+  Kinder (`.nkids`), damit der TreeCanvas seine Verbindungslinien zieht — ein
+  Wert-Blatt hat keine eigenen Kinder, die beiden Bloecke schliessen sich aus.
+-->
+@if (wertblaetter(); as werte) {
+  @if (werte.length) {
+    <div class="nkids nwerte">
+      @for (w of werte; track w.id) {
+        <div
+          class="box wertBox"
+          [class.mini]="v.mini"
+          [class.wertFehlt]="!w.wert"
+          [class.wertAbw]="w.abweichend"
+          [attr.data-farbe]="w.farbe"
+          [title]="wertTitel(w)"
+        >
+          <div class="statusStrip" [style.background]="w.farbe"></div>
+          <div class="wertKopf">
+            <span class="wertName">{{ w.name }}</span>
+            @if (w.abweichend) {
+              <span class="wertAbwMark" title="weicht von den übrigen Nachrichten ab">≠</span>
+            }
+          </div>
+          @if (w.wert) {
+            <div class="wertZeile">
+              <code>{{ w.wert }}</code>
+              @if (w.label; as lbl) {
+                <span class="wertLabel">{{ lbl }}</span>
+              }
+            </div>
+          } @else {
+            <div class="wertZeile wertLeer">— keine Angabe</div>
+          }
+        </div>
+      }
+    </div>
+  }
 }
 
 @if (menu(); as m) {

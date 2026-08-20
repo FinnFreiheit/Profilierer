@@ -131,7 +131,14 @@
     }
   }
 
-  <div style="text-align: right; margin-top: 12px">
+  <div style="display: flex; justify-content: space-between; gap: 8px; margin-top: 12px">
+    <button
+      [disabled]="!imBaumMoeglich()"
+      title="Dieselben Nachrichten im Baum überlagern: unter jedem Blatt steht der Wert jeder Nachricht — auch dort, wo sie übereinstimmen."
+      (click)="imBaum()"
+    >
+      Im Baum ansehen
+    </button>
     <button class="primary" (click)="schliesse()">Schließen</button>
   </div>
 </dialog>

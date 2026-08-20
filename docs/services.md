@@ -22,6 +22,7 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `ProfilDiffService`        | Feldgenauer Vergleich zweier Profil-Dokumente (Arbeitsstand ↔ Version/Abnahme)                                               |
 | `XmlDiffService`           | Struktureller Vergleich zweier XJustiz-Instanzen (Testnachricht ↔ Abnahme-Fassung)                                           |
 | `MatrixService`            | n-Wege-Vergleich mehrerer Testnachrichten eines Szenarios (Merkmals-Matrix, #136)                                            |
+| `UeberlagerungService`     | Nachrichten-Überlagerung: alle Testnachrichten eines Szenarios gleichzeitig im Baum (#147)                                   |
 | `ProjektStoreService`      | Projekte: Behälter über den Profilierungen (`/api/projekte`)                                                                 |
 | `VergleichService`         | Zustand der beiden Vergleichsdialoge (Ziel: Profil+Version bzw. Testnachricht)                                               |
 | `BundledSchemaService`     | Im Projekt hinterlegte Schemaversionen (public/schemas/) per fetch laden                                                     |
@@ -138,6 +139,24 @@ Zentrale Statusänderung (`setzeStatus(path, statusId)`): Erhält ein Element ei
 `XmlDiffService.vergleiche(basis, vergleich)` vergleicht zwei XJustiz-Instanzen **strukturell** (Elementpfade, Attribute, Blattwerte) statt zeilenweise — die Abnahme-Fassung ist verbatim eingefroren, der Arbeitsstand neu serialisiert, ein Zeilendiff bestünde fast nur aus Formatierungsrauschen. Wiederholungen werden über `SCHLUESSEL_KINDER` (`id`, `uuid`, `nummer`, …) zugeordnet, sonst positionsweise; einseitige Teilbäume ergeben einen Eintrag mit Nachfahren-Zahl.
 
 Beide sind reine Funktionen ohne State-Zugriff. Der `VergleichService` hält nur das Ziel (`{ art: 'profil', profilId, versionId? }`, `{ art: 'xml', testmessageId }` bzw. `{ art: 'vorgabe', testmessageId, profilId }`); die beiden Dialoge hängen global in der Shell und laden selbst — Muster `ValidationReportService`. Das Ziel `vorgabe` ist der Einstieg aus dem Kachel-Badge **„Profil weiterentwickelt"**: Basis ist die am Testspeicher-Eintrag eingefrorene Profilkopie, rechte Seite der aktuelle Stand der Profilierung — dieselbe Vergleichslogik, nur ohne Versions-Auswahl. Die Testnachricht wird dabei nicht nachgezogen; der Vergleich beantwortet nur, ob die Änderungen sie überhaupt betreffen. Serverseitig liefern `GET /api/profiles/:id/versions/:vid` und `GET /api/profiles/:id/abnahme` das eingefrorene Dokument (bewusst ohne Schlüsselprüfung, siehe ADR 0013).
+
+## UeberlagerungService
+
+Die **Nachrichten-Überlagerung** (#147): alle Testnachrichten eines Kommunikationsszenarios gleichzeitig im Baum — unter jedem Wert-Blatt ein Kasten je Nachricht. Dieselbe Frage wie die Merkmals-Matrix, an anderem Ort beantwortet: die Matrix sagt _worin_ sie sich unterscheiden, die Überlagerung sagt es _dort, wo der Wert in der Nachricht steht_ — samt der Übereinstimmungen, die die Matrix bewusst weglässt.
+
+Der Baum ist dabei **nicht** die Profilierung, sondern der nackte Nachrichtenbaum in der Schema-Ansicht (`schemaView` + `readOnly`, kein `activeProfileId` und damit kein Autosave): die Überlagerung sagt, was die Nachrichten sagen, nicht was das Szenario vorschreibt. `state.elemente` bleibt leer — es gibt an einer Stelle keinen _einen_ Wert —, und `BaumkastenAnsicht` blendet in der Überlagerung den Platzhalter des Blattes aus, der sonst wie ein Wert aussähe.
+
+**Ausgelesen** wird über `InstanceImportService.auswerten` (eigener Baum je Nachricht, ohne den Editor anzufassen), und zwar **zweimal**: der erste Durchgang findet die Listen, die irgendeine Nachricht mehrfach führt, der zweite liest mit dieser Menge als `vorkommenListen` erneut — sonst trüge dieselbe Angabe in einer Nachricht mit einem und einer mit zwei Beteiligten verschiedene Pfade und erschiene als Unterschied, wo keiner ist (dieselbe Regel wie in der Matrix).
+
+**Zugeordnet** wird positionsweise über den **Positionspfad** (`core/util/positions-pfad.util.ts`): ein Baumpfad, in dem jedes Vorkommen statt seiner id seine Stellung trägt (`…/beteiligung@v7/name` → `…/beteiligung[2]/name`). Vorkommen-ids sind je Dokument neu vergeben; die `@v1` der einen Nachricht hat mit der `@v1` der anderen nichts zu tun. Der Baum führt die **Vereinigung**: so viele Vorkommen-Kästen, wie die Nachricht mit den meisten hat (Zählkonvention wie [ADR 0015](adr/0015-vorkommen-zaehlkonvention.md)). Wo eine Nachricht weniger hat, steht ein Geisterkasten — „hat keinen zweiten Beteiligten" ist die Aussage, kein Loch.
+
+Gefragt wird der Dienst von der Anzeige: `blaetter(pfad, codelist?)` liefert die Kästen (Wert, Farbe der Nachricht, `abweichend`), `bilanz(pfad)` die Kurzfassung am Blatt („3 von 4 · 2 Werte"), `verdeckt(pfad)` beantwortet den Filter „nur Abweichungen". Drei Festlegungen tragen die Lesbarkeit:
+
+- **Referenzwert**: markiert wird die Abweichung gegen den _häufigsten_ belegten Wert (bei Gleichstand der zuerst genannte). Sonst blinkten bei zwei verschiedenen Werten beide Seiten, und die Ausnahme stäche nicht heraus. Die fehlende Angabe zählt als Abweichung.
+- **Technische Kopfangaben** (`istTechnischeAngabe` aus dem `MatrixService`) gelten nicht als Abweichung — sie unterscheiden sich zwangsläufig. Eine Liste für beide Ansichten.
+- **Der Filter bleibt wirkungslos, wo es nichts zu filtern gibt** (eine einzeln gewählte Nachricht, zwei gleiche): ein leergeräumter Baum sähe wie ein Fehler aus statt wie die Antwort „es gibt keinen Unterschied", die das Menü mit „nur Abweichungen (0)" ausdrücklich gibt.
+
+Ein Wechsel der Nachricht (MessagePicker, neues Profil) **beendet** die Überlagerung — ihre Werte gehörten zur alten Nachricht. Einstiege: „Überlagern" in der Szenario-Zeile der Projektseite (`starteFuerProfil`, lädt die XMLs selbst) und „Im Baum ansehen" in der Merkmals-Matrix (`baue`, die XMLs liegen dort schon).
 
 ## BundledSchemaService
 
