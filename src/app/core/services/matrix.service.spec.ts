@@ -112,6 +112,51 @@ describe('MatrixService', () => {
     expect(r.zeilen).toEqual([]);
   });
 
+  it('gliedert die Unterschiede nach fachlichem Bereich', () => {
+    const mit = (absender: string, name: string): string =>
+      `<nachricht.genuva.ersuchen xmlns="http://www.xjustiz.de">
+         <nachrichtenkopf><absender>${absender}</absender></nachrichtenkopf>
+         <grunddaten><beteiligung><name>${name}</name></beteiligung></grunddaten>
+         <fachdaten><datenDerUrkunde><nr>${name}</nr></datenDerUrkunde></fachdaten>
+       </nachricht.genuva.ersuchen>`;
+    const r = svc.vergleiche([
+      quelle('a', mit('Notar', 'Meier')),
+      quelle('b', mit('Gericht', 'Schulze')),
+    ]);
+
+    // Die Verteilung ist die eigentliche Uebersicht — sie steht im Kopf der
+    // Matrix, bevor es um einzelne Werte geht.
+    expect(r.bereiche).toEqual([
+      { name: 'Nachrichtenkopf', n: 1 },
+      { name: 'Grunddaten', n: 1 },
+      { name: 'Fachdaten', n: 1 },
+    ]);
+    // Die Zeilen stehen in derselben Reihenfolge wie die Bereiche.
+    expect(r.zeilen.map((z) => z.bereich)).toEqual(['Nachrichtenkopf', 'Grunddaten', 'Fachdaten']);
+  });
+
+  it('trennt lowerCamelCase-Bereiche in Worte und faengt die Wurzel ab', () => {
+    const mit = (v: string): string =>
+      `<nachricht.x xmlns="http://www.xjustiz.de" version="${v}"><datenDerUrkunde><nr>${v}</nr></datenDerUrkunde></nachricht.x>`;
+    const r = svc.vergleiche([quelle('a', mit('1')), quelle('b', mit('2'))]);
+    const bereiche = r.bereiche.map((b) => b.name);
+    // Attribute der Nachricht selbst haengen an keinem Bereich — eigene Gruppe,
+    // statt sie dem Nachrichtenkopf zuzuschlagen, wo sie nicht stehen.
+    expect(bereiche).toContain('Nachricht');
+    expect(bereiche).toContain('Daten Der Urkunde');
+  });
+
+  it('zaehlt technische und eingeklappte Zeilen nicht in die Bereiche', () => {
+    const r = svc.vergleiche([
+      quelle('a', nachricht([{ name: 'A' }], 'zeit-1')),
+      quelle('b', nachricht([{ name: 'A' }], 'zeit-2')),
+    ]);
+    // Nur der Zeitstempel unterscheidet sie, und der ist technisch: kein
+    // Bereich soll einen Zaehler auswerfen, der zu nichts fuehrt.
+    expect(r.zeilen.length).toBeGreaterThan(0);
+    expect(r.bereiche).toEqual([]);
+  });
+
   it('vergleicht auch Attribute', () => {
     const mit = (az: string): string =>
       `<nachricht.x xmlns="http://www.xjustiz.de"><akte aktenzeichen="${az}"><nr>1</nr></akte></nachricht.x>`;

@@ -23,6 +23,13 @@ export type MatrixZeilenArt = 'anzahl' | 'wert';
 
 export interface MatrixZeile {
   art: MatrixZeilenArt;
+  /**
+   * Fachlicher Bereich der Nachricht, in dem der Unterschied liegt
+   * (Nachrichtenkopf, Grunddaten, Fachdaten …) — das 2. Pfadsegment, lesbar
+   * gemacht. Die Matrix gliedert danach: die erste Frage beim Vergleich lautet
+   * *wo* sich die Nachrichten unterscheiden, nicht *wie*.
+   */
+  bereich: string;
   /** Vollstaendiger Instanzpfad (Tooltip, Sortierung). */
   pfad: string;
   /** Lesbare Kurzform fuer die erste Spalte. */
@@ -49,9 +56,21 @@ export interface MatrixZeile {
   technisch?: boolean;
 }
 
+/** Ein Bereich mit der Anzahl seiner Unterschiede (Kopfzeile der Matrix). */
+export interface MatrixBereich {
+  name: string;
+  n: number;
+}
+
 export interface MatrixResult {
   spalten: MatrixSpalte[];
   zeilen: MatrixZeile[];
+  /**
+   * Die Bereiche in Pfadreihenfolge mit ihren Zaehlern — die Verteilung ist
+   * die eigentliche Uebersicht: 31 in den Grunddaten und 1 in den
+   * Schriftgutobjekten ist eine andere Aussage als "53 Unterschiede".
+   */
+  bereiche: MatrixBereich[];
   /**
    * Anzahl der Zeilen, die der Deckel verworfen hat — ausgewiesen, statt still
    * abzuschneiden.

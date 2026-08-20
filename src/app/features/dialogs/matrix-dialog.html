@@ -28,7 +28,21 @@
             Kopfangaben.
           </span>
         } @else {
-          <span>{{ zeilen().length }} Unterschied(e)</span>
+          <!-- Die Verteilung, nicht nur die Summe: "31 in den Grunddaten, 1 in
+               den Schriftgutobjekten" ist eine andere Aussage als "53". -->
+          <span class="matrixVerteilung">
+            @for (b of r.bereiche; track b.name) {
+              <button
+                type="button"
+                class="matrixBereichChip"
+                [class.matrixBereichZu]="!bereichOffen(b.name)"
+                [title]="bereichOffen(b.name) ? b.name + ' zuklappen' : b.name + ' aufklappen'"
+                (click)="klappeBereich(b.name)"
+              >
+                {{ b.name }} <span class="matrixChipN">{{ b.n }}</span>
+              </button>
+            }
+          </span>
         }
         <label class="matrixSchalter">
           <input
@@ -40,6 +54,15 @@
         </label>
       </div>
 
+      <input
+        class="matrixFilter"
+        type="search"
+        appKeinAutofill
+        placeholder="Filter nach Merkmal oder Wert"
+        [value]="filter()"
+        (input)="filter.set($any($event.target).value)"
+      />
+
       <div class="matrixRahmen">
         <table class="matrixTabelle">
           <thead>
@@ -50,41 +73,53 @@
               }
             </tr>
           </thead>
-          <tbody>
-            @for (z of zeilen(); track z.pfad) {
-              <tr [class.matrixAnzahl]="z.art === 'anzahl'" [class.matrixTief]="z.unterhalb">
-                <th class="matrixMerkmal" [title]="z.pfad">
-                  @if (verborgen(z); as n) {
-                    <!-- Der Inhalt des zusätzlichen Vorkommens erscheint erst
+          @for (g of gruppen(); track g.name) {
+            <tbody>
+              <tr class="matrixGruppe">
+                <th [attr.colspan]="r.spalten.length + 1">
+                  <button type="button" class="matrixGruppeKnopf" (click)="klappeBereich(g.name)">
+                    {{ bereichOffen(g.name) ? '▾' : '▸' }} {{ g.name }}
+                    <span class="matrixChipN">{{ g.zeilen.length }}</span>
+                  </button>
+                </th>
+              </tr>
+              @if (bereichOffen(g.name)) {
+                @for (z of g.zeilen; track z.pfad) {
+                  <tr [class.matrixAnzahl]="z.art === 'anzahl'" [class.matrixTief]="z.unterhalb">
+                    <th class="matrixMerkmal" [title]="z.pfad">
+                      @if (verborgen(z); as n) {
+                        <!-- Der Inhalt des zusätzlichen Vorkommens erscheint erst
                          auf Wunsch: sonst wäre der eine Unterschied wieder
                          viele. -->
-                    <button
-                      class="matrixKlapp"
-                      [title]="
-                        istOffen(z)
-                          ? 'Angaben des zusätzlichen Vorkommens ausblenden'
-                          : n + ' Angabe(n) des zusätzlichen Vorkommens zeigen'
-                      "
-                      (click)="klappe(z)"
-                    >
-                      {{ istOffen(z) ? '▾' : '▸' }} {{ z.label }}
-                      <span class="matrixKlappN">{{ n }}</span>
-                    </button>
-                  } @else {
-                    {{ z.label }}
-                  }
-                  @if (z.technisch) {
-                    <span class="pill pillMuted">technisch</span>
-                  }
-                </th>
-                @for (w of z.werte; track $index) {
-                  <td [class.matrixLeer]="w === undefined" [title]="w ?? 'nicht vorhanden'">
-                    {{ w ?? '—' }}
-                  </td>
+                        <button
+                          class="matrixKlapp"
+                          [title]="
+                            istOffen(z)
+                              ? 'Angaben des zusätzlichen Vorkommens ausblenden'
+                              : n + ' Angabe(n) des zusätzlichen Vorkommens zeigen'
+                          "
+                          (click)="klappe(z)"
+                        >
+                          {{ istOffen(z) ? '▾' : '▸' }} {{ z.label }}
+                          <span class="matrixKlappN">{{ n }}</span>
+                        </button>
+                      } @else {
+                        {{ z.label }}
+                      }
+                      @if (z.technisch) {
+                        <span class="pill pillMuted">technisch</span>
+                      }
+                    </th>
+                    @for (w of z.werte; track $index) {
+                      <td [class.matrixLeer]="w === undefined" [title]="w ?? 'nicht vorhanden'">
+                        {{ w ?? '—' }}
+                      </td>
+                    }
+                  </tr>
                 }
-              </tr>
-            }
-          </tbody>
+              }
+            </tbody>
+          }
         </table>
       </div>
 
