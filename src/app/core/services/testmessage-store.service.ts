@@ -15,6 +15,8 @@ import { mitEintrag, neuesteZuerst, ohneEintrag } from '../util/eintragsliste.ut
 export interface TestmessagePatch {
   name?: string;
   notiz?: string;
+  /** Schlagworte der Ablage; ersetzen die bestehende Liste vollstaendig. */
+  tags?: string[];
   xml?: string;
   entwurf?: boolean;
   fortschritt?: TestmessageFortschritt;

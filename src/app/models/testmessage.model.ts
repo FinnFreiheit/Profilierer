@@ -29,6 +29,8 @@ export interface TestmessageEntry {
   /** Byte-Länge des XML. */
   groesse: number;
   notiz?: string;
+  /** Schlagworte der Ablage (normalisiert vom Server, siehe tags.util). */
+  tags?: string[];
   /** ms-Timestamp des Uploads. */
   hochgeladen: number;
   /** ms-Timestamp der letzten Änderung (Sortierschlüssel). */

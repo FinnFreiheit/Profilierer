@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { toEntry, zaehleFortschritt } from './fortschritt.js';
+import { normalisiereTags } from './tags.js';
 
 /** Wie viele Automatik-Versionen (Oeffnen-Snapshot, Sicherheits-Version) je Profil bleiben. */
 const AUTO_DECKEL = 10;
@@ -59,6 +60,11 @@ function fachHash(doc) {
   if (d && typeof d === 'object' && d.meta && typeof d.meta === 'object') {
     const meta = { ...d.meta };
     delete meta.gespeichert;
+    // Schlagworte sind eine Ablage-Hilfe, keine fachliche Festlegung: wer eine
+    // freigegebene Profilierung nachtraeglich einsortiert, soll damit weder die
+    // Freigabe entwerten noch gebundene Testnachrichten als "Profil
+    // weiterentwickelt" markieren.
+    delete meta.tags;
     d = { ...d, meta };
   }
   // `fortschritt` ist eine abgeleitete Zaehlung, keine fachliche Aussage (#93):
@@ -104,7 +110,7 @@ function hinweiseHerausloesen(doc) {
  * `fach_hash` zu vergleichen) bleibt es aus; ein positives "profilkonform" gibt
  * es bewusst nicht.
  */
-const TM_COLS = `t.id, t.name, t.nachricht, t.fachmodul, t.xjustiz_version, t.groesse, t.notiz,
+const TM_COLS = `t.id, t.name, t.nachricht, t.fachmodul, t.xjustiz_version, t.groesse, t.notiz, t.tags,
               t.hochgeladen, t.aktualisiert, t.entwurf, t.fortschritt,
               (t.entscheidungen IS NOT NULL) AS gefuehrt,
               t.abnahme_ts, t.abnahme_kommentar, (t.abnahme_xml IS NOT NULL) AS abgenommen,
@@ -225,6 +231,10 @@ export function openDb(path) {
     // Nachricht truege sonst Badge und Fortsetzen-Aktion des gefuehrten Wegs.
     if (!cols.has('bezeichnungen'))
       db.exec('ALTER TABLE testmessages ADD COLUMN bezeichnungen TEXT');
+    // Schlagworte als JSON-Array. Bewusst keine eigene Tabelle: die Liste ist
+    // kurz, wird immer ganz gelesen und ganz geschrieben, und der Filter
+    // arbeitet im Client auf dem ohnehin geladenen Index.
+    if (!cols.has('tags')) db.exec('ALTER TABLE testmessages ADD COLUMN tags TEXT');
   }
 
   // Migration: Urheber-Merkmal am Hinweis (Issue #42). Wer einen Hinweis ohne
@@ -257,6 +267,12 @@ export function openDb(path) {
     if (!cols.has('n_punkte')) db.exec('ALTER TABLE profiles ADD COLUMN n_punkte INTEGER');
     if (!cols.has('doc_hash')) db.exec('ALTER TABLE profiles ADD COLUMN doc_hash TEXT');
     if (!cols.has('fach_hash')) db.exec('ALTER TABLE profiles ADD COLUMN fach_hash TEXT');
+    // Autor, Beschreibung und Schlagworte stehen auf der Kachel; sie liegen im
+    // Dokument, werden aber wie Name/Nachricht als Index-Spalte gefuehrt —
+    // sonst muesste die Liste jedes doc deserialisieren.
+    if (!cols.has('autor')) db.exec('ALTER TABLE profiles ADD COLUMN autor TEXT');
+    if (!cols.has('beschreibung')) db.exec('ALTER TABLE profiles ADD COLUMN beschreibung TEXT');
+    if (!cols.has('tags')) db.exec('ALTER TABLE profiles ADD COLUMN tags TEXT');
     // Abnahme durch die BLK-AG: Referenz auf die eingefrorene Abnahme-Version.
     if (!cols.has('abnahme_version_id'))
       db.exec('ALTER TABLE profiles ADD COLUMN abnahme_version_id TEXT');
@@ -303,6 +319,42 @@ export function openDb(path) {
     }
   }
 
+  // Migration: Autor, Beschreibung und Schlagworte aus den Dokumenten in die
+  // Index-Spalten heben. Ohne den Lauf blieben die Kacheln des Altbestands leer,
+  // bis das Profil das naechste Mal gespeichert wird. Gescannt wird nur, was
+  // noch nichts davon traegt — Zeilen ohne diese Angaben kosten je Start einen
+  // JSON-Parse, was bei der Groessenordnung der Bibliothek nicht ins Gewicht
+  // faellt und dafuer ohne Schema-Zaehler auskommt.
+  {
+    const offen = db
+      .prepare(
+        'SELECT id, doc FROM profiles WHERE autor IS NULL AND beschreibung IS NULL AND tags IS NULL',
+      )
+      .all();
+    if (offen.length) {
+      const set = db.prepare(
+        'UPDATE profiles SET autor = @autor, beschreibung = @beschreibung, tags = @tags WHERE id = @id',
+      );
+      db.transaction(() => {
+        for (const r of offen) {
+          let meta = {};
+          try {
+            meta = JSON.parse(r.doc)?.meta ?? {};
+          } catch {
+            continue;
+          }
+          const tags = normalisiereTags(meta.tags);
+          set.run({
+            id: r.id,
+            autor: (meta.autor || '').trim() || null,
+            beschreibung: (meta.beschreibung || '').trim() || null,
+            tags: tags.length ? JSON.stringify(tags) : null,
+          });
+        }
+      })();
+    }
+  }
+
   // Migration: Fach-Hashes nachziehen — an den Profilen und an den bereits
   // gebundenen Testnachrichten. Ohne sie bliebe das Kennzeichen "Profil
   // weiterentwickelt" an Alt-Bestand stumm.
@@ -336,7 +388,8 @@ export function openDb(path) {
 
   const stmt = {
     list: db.prepare(
-      `SELECT profiles.id, profiles.name, nachricht, xjustiz_version, n_status, n_ausp, n_erw,
+      `SELECT profiles.id, profiles.name, profiles.autor, profiles.beschreibung, profiles.tags,
+              nachricht, xjustiz_version, n_status, n_ausp, n_erw,
               n_entschieden, n_punkte,
               gespeichert, aktualisiert, profiles.doc_hash, profiles.fach_hash,
               (SELECT COUNT(*) FROM profile_versions v WHERE v.profile_id = profiles.id) AS n_ver,
@@ -360,12 +413,13 @@ export function openDb(path) {
     del: db.prepare('DELETE FROM profiles WHERE id = ?'),
     upsert: db.prepare(
       `INSERT INTO profiles
-         (id, doc, doc_hash, fach_hash, name, nachricht, xjustiz_version, n_status, n_ausp, n_erw, n_entschieden, n_punkte, gespeichert, aktualisiert)
+         (id, doc, doc_hash, fach_hash, name, autor, beschreibung, tags, nachricht, xjustiz_version, n_status, n_ausp, n_erw, n_entschieden, n_punkte, gespeichert, aktualisiert)
        VALUES
-         (@id, @doc, @docHash, @fachHash, @name, @nachricht, @xjustizVersion, @nStatus, @nAusp, @nErw, @nEntschieden, @nPunkte, @gespeichert, @aktualisiert)
+         (@id, @doc, @docHash, @fachHash, @name, @autor, @beschreibung, @tags, @nachricht, @xjustizVersion, @nStatus, @nAusp, @nErw, @nEntschieden, @nPunkte, @gespeichert, @aktualisiert)
        ON CONFLICT(id) DO UPDATE SET
          doc = excluded.doc, doc_hash = excluded.doc_hash, fach_hash = excluded.fach_hash,
-         name = excluded.name, nachricht = excluded.nachricht,
+         name = excluded.name, autor = excluded.autor, beschreibung = excluded.beschreibung,
+         tags = excluded.tags, nachricht = excluded.nachricht,
          xjustiz_version = excluded.xjustiz_version, n_status = excluded.n_status,
          n_ausp = excluded.n_ausp, n_erw = excluded.n_erw,
          n_entschieden = excluded.n_entschieden, n_punkte = excluded.n_punkte,
@@ -450,17 +504,17 @@ export function openDb(path) {
     tmGetRow: db.prepare('SELECT * FROM testmessages WHERE id = ?'),
     tmInsert: db.prepare(
       `INSERT INTO testmessages
-         (id, xml, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, hochgeladen, aktualisiert,
+         (id, xml, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, tags, hochgeladen, aktualisiert,
           entwurf, fortschritt, entscheidungen, bezeichnungen,
           profil_id, profil_name, fassung, vorgabe, vorgabe_hash)
        VALUES
-         (@id, @xml, @name, @nachricht, @fachmodul, @xjustizVersion, @groesse, @notiz, @ts, @ts,
+         (@id, @xml, @name, @nachricht, @fachmodul, @xjustizVersion, @groesse, @notiz, @tags, @ts, @ts,
           @entwurf, @fortschritt, @entscheidungen, @bezeichnungen,
           @profilId, @profilName, @fassung, @vorgabe, @vorgabeHash)`,
     ),
     tmUpdate: db.prepare(
       `UPDATE testmessages SET
-         xml = @xml, notiz = @notiz, name = @name, groesse = @groesse,
+         xml = @xml, notiz = @notiz, name = @name, tags = @tags, groesse = @groesse,
          entwurf = @entwurf, fortschritt = @fortschritt, entscheidungen = @entscheidungen,
          bezeichnungen = @bezeichnungen, aktualisiert = @aktualisiert
        WHERE id = @id`,
@@ -480,6 +534,23 @@ export function openDb(path) {
     ),
   };
 
+  /** Schlagwortspalte (JSON-Array) als Liste; fehlerhafte Altbestaende fallen weg. */
+  function leseTags(roh) {
+    if (!roh) return undefined;
+    try {
+      const tags = normalisiereTags(JSON.parse(roh));
+      return tags.length ? tags : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Schlagworte normalisiert in die Spalte; leere Liste = NULL. */
+  function schreibeTags(tags) {
+    const norm = normalisiereTags(tags);
+    return norm.length ? JSON.stringify(norm) : null;
+  }
+
   /** Baut die schlanke Index-Zeile (ohne xml/entscheidungen) aus einer DB-Zeile. */
   function tmEntry(r) {
     let fortschritt;
@@ -498,6 +569,7 @@ export function openDb(path) {
       xjustizVersion: r.xjustiz_version ?? undefined,
       groesse: r.groesse,
       notiz: r.notiz ?? undefined,
+      tags: leseTags(r.tags),
       hochgeladen: r.hochgeladen,
       aktualisiert: r.aktualisiert,
       entwurf: !!r.entwurf || undefined,
@@ -626,6 +698,9 @@ export function openDb(path) {
       docHash: hash,
       fachHash: fHash,
       name: entry.name,
+      autor: entry.autor ?? null,
+      beschreibung: entry.beschreibung ?? null,
+      tags: entry.tags?.length ? JSON.stringify(entry.tags) : null,
       nachricht: entry.nachricht,
       xjustizVersion: entry.xjustizVersion ?? null,
       nStatus: entry.nStatus,
@@ -647,6 +722,9 @@ export function openDb(path) {
       return stmt.list.all().map((r) => ({
         id: r.id,
         name: r.name,
+        autor: r.autor ?? undefined,
+        beschreibung: r.beschreibung ?? undefined,
+        tags: leseTags(r.tags),
         nachricht: r.nachricht,
         xjustizVersion: r.xjustiz_version ?? undefined,
         nStatus: r.n_status,
@@ -740,9 +818,25 @@ export function openDb(path) {
 
     /** Nur den Namen aendern. Gibt den aktualisierten entry oder null. */
     rename(id, name) {
+      return this.patchMeta(id, { name });
+    },
+
+    /**
+     * Kachel-Metadaten aendern, ohne das Profil zu oeffnen: Name, Autor,
+     * Beschreibung, Schlagworte. Nur die im Patch **gesetzten** Felder werden
+     * uebernommen (undefined = unberuehrt) — der Aufrufer schickt das Dokument
+     * nicht mit, es wird hier gelesen und zurueckgeschrieben. Gibt den
+     * LibraryEntry oder null.
+     */
+    patchMeta(id, { name, autor, beschreibung, tags }) {
       const doc = this.load(id);
       if (!doc) return null;
-      doc.meta = { ...(doc.meta ?? {}), name: (name || '').trim() };
+      const meta = { ...(doc.meta ?? {}) };
+      if (name !== undefined) meta.name = String(name || '').trim();
+      if (autor !== undefined) meta.autor = String(autor || '').trim();
+      if (beschreibung !== undefined) meta.beschreibung = String(beschreibung || '').trim();
+      if (tags !== undefined) meta.tags = normalisiereTags(tags);
+      doc.meta = meta;
       return upsert(id, doc);
     },
 
@@ -1171,6 +1265,7 @@ export function openDb(path) {
         fortschritt,
         entscheidungen,
         bezeichnungen,
+        tags,
         profilId,
         profilName,
         fassung,
@@ -1189,6 +1284,7 @@ export function openDb(path) {
         xjustizVersion: xjustizVersion ?? null,
         groesse: groesse ?? (xml ? String(xml).length : 0),
         notiz: null,
+        tags: schreibeTags(tags),
         entwurf: entwurf ? 1 : null,
         fortschritt: fortschritt ? JSON.stringify(fortschritt) : null,
         entscheidungen: entscheidungen ? JSON.stringify(entscheidungen) : null,
@@ -1209,7 +1305,11 @@ export function openDb(path) {
      * Herkunft und eingefrorene Kopie der Profil-Bindung sind bewusst nicht
      * änderbar — die gebundene Fassung ist unveränderliche Vorgabe.
      */
-    tmUpdate(id, { notiz, name, xml, entwurf, fortschritt, entscheidungen, bezeichnungen }, ts) {
+    tmUpdate(
+      id,
+      { notiz, name, tags, xml, entwurf, fortschritt, entscheidungen, bezeichnungen },
+      ts,
+    ) {
       const row = stmt.tmGetRow.get(id);
       if (!row) return null;
       const nextXml = xml !== undefined ? String(xml) : row.xml;
@@ -1218,6 +1318,7 @@ export function openDb(path) {
         groesse: xml !== undefined ? nextXml.length : row.groesse,
         notiz: notiz !== undefined ? notiz || null : row.notiz,
         name: name !== undefined ? name || null : row.name,
+        tags: tags !== undefined ? schreibeTags(tags) : row.tags,
         entwurf: entwurf !== undefined ? (entwurf ? 1 : null) : row.entwurf,
         fortschritt:
           fortschritt !== undefined

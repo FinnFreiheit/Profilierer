@@ -1,0 +1,23 @@
+<input
+  type="text"
+  [id]="feldId()"
+  placeholder="z. B. Pilot, eNoVA, Schulung"
+  title="Mehrere Schlagworte durch Komma trennen"
+  [value]="text()"
+  (input)="text.set($any($event.target).value)"
+/>
+@if (offeneVorschlaege().length) {
+  <div class="tagVorschlaege">
+    <span class="tagLeisteTitel">vorhanden:</span>
+    @for (o of offeneVorschlaege(); track o.tag) {
+      <button
+        type="button"
+        class="tagChip"
+        [title]="'„' + o.tag + '“ übernehmen'"
+        (click)="uebernimm(o.tag)"
+      >
+        {{ o.tag }}
+      </button>
+    }
+  </div>
+}

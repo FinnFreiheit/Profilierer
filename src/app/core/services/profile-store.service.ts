@@ -1,5 +1,13 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { LibraryEntry, ProfileDoc, ProfilVersion } from '../../models/profile.model';
+
+/** Patch fuer PATCH /api/profiles/:id — nur gesetzte Felder werden geaendert. */
+export interface ProfilMetaPatch {
+  name?: string;
+  autor?: string;
+  beschreibung?: string;
+  tags?: string[];
+}
 import { LoggerService } from './logger.service';
 import { BackendClient } from './backend-client.service';
 import { mitEintrag, neuesteZuerst, ohneEintrag } from '../util/eintragsliste.util';
@@ -84,13 +92,23 @@ export class ProfileStoreService {
     return out.id;
   }
 
-  /** Nur den Namen aendern (Umbenennen im Dashboard ohne Oeffnen). */
-  async rename(id: string, name: string): Promise<void> {
+  /**
+   * Kachel-Metadaten aendern, ohne das Profil zu oeffnen (Name, Autor,
+   * Beschreibung, Schlagworte). Nur die gesetzten Felder werden gesendet; der
+   * Server laesst weggelassene unberuehrt und schreibt sie ins Dokument
+   * zurueck — das grosse `doc` wandert dafuer nicht durch die Leitung.
+   */
+  async patchMeta(id: string, patch: ProfilMetaPatch): Promise<void> {
     const { entry } = await this.http.json<{ entry: LibraryEntry }>(
       `/profiles/${encodeURIComponent(id)}`,
-      { method: 'PATCH', body: JSON.stringify({ name }) },
+      { method: 'PATCH', body: JSON.stringify(patch) },
     );
     this.putEntry(entry);
+  }
+
+  /** Nur den Namen aendern (Sonderfall von patchMeta). */
+  async rename(id: string, name: string): Promise<void> {
+    await this.patchMeta(id, { name });
   }
 
   /** Profil aus der Bibliothek entfernen. */

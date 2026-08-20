@@ -40,6 +40,29 @@ test('toEntry leitet die Index-Felder ab', () => {
   assert.equal(e.aktualisiert, 42);
 });
 
+test('toEntry traegt Autor, Beschreibung und normalisierte Schlagworte', () => {
+  const e = toEntry(
+    'id1',
+    docWith({
+      meta: {
+        name: 'P',
+        autor: '  Freiheit  ',
+        beschreibung: ' Szenario fuer den Pilotbetrieb ',
+        tags: ['Pilot', 'pilot', ' eNoVA '],
+      },
+    }),
+    42,
+  );
+  assert.equal(e.autor, 'Freiheit');
+  assert.equal(e.beschreibung, 'Szenario fuer den Pilotbetrieb');
+  assert.deepEqual(e.tags, ['eNoVA', 'Pilot']);
+  // Leere Angaben fallen weg, statt als leerer String auf der Kachel zu stehen.
+  const ohne = toEntry('id2', docWith(), 42);
+  assert.equal(ohne.autor, undefined);
+  assert.equal(ohne.beschreibung, undefined);
+  assert.equal(ohne.tags, undefined);
+});
+
 test('create → list → load Roundtrip', (t) => {
   const db = oeffneTestDb(t);
   const { id, entry } = db.create(docWith());
@@ -228,4 +251,57 @@ test('Migration: n_erw wird an einer Alt-DB nachgezogen (Backfill)', (t) => {
   db.close();
   const db2 = oeffneTestDb(t, file);
   assert.equal(db2.list().find((e) => e.id === id).nErw, 1);
+});
+
+test('list liefert Autor, Beschreibung und Schlagworte aus den Index-Spalten', (t) => {
+  const db = oeffneTestDb(t);
+  db.create(
+    docWith({
+      meta: { name: 'P', autor: 'Freiheit', beschreibung: 'Pilotbetrieb', tags: ['Pilot'] },
+    }),
+  );
+  const [zeile] = db.list();
+  assert.equal(zeile.autor, 'Freiheit');
+  assert.equal(zeile.beschreibung, 'Pilotbetrieb');
+  assert.deepEqual(zeile.tags, ['Pilot']);
+});
+
+test('Altbestand ohne Index-Spalten wird beim Oeffnen nachgezogen', (t) => {
+  const pfad = join(mkdtempSync(join(tmpdir(), 'xjp-tags-')), 'p.db');
+  const db = oeffneTestDb(t, pfad);
+  const { id } = db.create(docWith());
+  // Zustand vor der Migration nachstellen: Dokument gepflegt, Spalten leer.
+  db._db
+    .prepare(
+      'UPDATE profiles SET doc = ?, autor = NULL, beschreibung = NULL, tags = NULL WHERE id = ?',
+    )
+    .run(
+      JSON.stringify(
+        docWith({ meta: { name: 'P', autor: 'AG', beschreibung: 'alt', tags: ['Muster'] } }),
+      ),
+      id,
+    );
+  db.close();
+  const wieder = oeffneTestDb(t, pfad);
+  const [zeile] = wieder.list();
+  assert.equal(zeile.autor, 'AG');
+  assert.equal(zeile.beschreibung, 'alt');
+  assert.deepEqual(zeile.tags, ['Muster']);
+});
+
+test('patchMeta aendert nur die gesetzten Felder', (t) => {
+  const db = oeffneTestDb(t);
+  const { id } = db.create(
+    docWith({ meta: { name: 'P', autor: 'AG', beschreibung: 'alt', nachricht: 'nachricht.x' } }),
+  );
+  const entry = db.patchMeta(id, { beschreibung: '  neu  ', tags: 'Pilot, pilot' });
+  assert.equal(entry.name, 'P'); // unberührt
+  assert.equal(entry.autor, 'AG'); // unberührt
+  assert.equal(entry.beschreibung, 'neu');
+  assert.deepEqual(entry.tags, ['Pilot']);
+  // Der Nachrichtentyp im Dokument bleibt stehen — gepatcht wird nur die Kachel.
+  assert.equal(db.load(id).meta.nachricht, 'nachricht.x');
+  // Leerer String raeumt ein Feld weg.
+  assert.equal(db.patchMeta(id, { autor: '' }).autor, undefined);
+  assert.equal(db.patchMeta('gibtsnicht', { name: 'x' }), null);
 });

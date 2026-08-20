@@ -42,12 +42,14 @@ Wichtig: Die Klassen `.ntree/.nkids/.box/.addBox/.excluded/.phantom` und die `da
 
 ## Fuß & Querschnitt
 
-| Komponente          | Selector        | Zweck                                                                                                                                               |
-| ------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Legend`            | `app-legend`    | Statuslegende + Symbol-Hinweise (Z.1458-1466).                                                                                                      |
-| `PrintDoc`          | `app-print-doc` | Druckansicht `#printDoc` (nur `@media print`). `print()` befüllt Zeilen via `ExportService.buildPrintRows` und ruft `window.print()` (Z.2334-2365). |
-| `Toast`             | `app-toast`     | Kurzmeldung, liest `ToastService.text`.                                                                                                             |
-| `FileDropDirective` | `[appFileDrop]` | Drag&Drop; meldet abgelegte Dateien, Zuordnung (XSD/Profil/Codelisten) erledigt die Shell (Z.2433-2442).                                            |
+| Komponente          | Selector          | Zweck                                                                                                                                                                        |
+| ------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Legend`            | `app-legend`      | Statuslegende + Symbol-Hinweise (Z.1458-1466).                                                                                                                               |
+| `PrintDoc`          | `app-print-doc`   | Druckansicht `#printDoc` (nur `@media print`). `print()` befüllt Zeilen via `ExportService.buildPrintRows` und ruft `window.print()` (Z.2334-2365).                          |
+| `Toast`             | `app-toast`       | Kurzmeldung, liest `ToastService.text`.                                                                                                                                      |
+| `FileDropDirective` | `[appFileDrop]`   | Drag&Drop; meldet abgelegte Dateien, Zuordnung (XSD/Profil/Codelisten) erledigt die Shell (Z.2433-2442).                                                                     |
+| `TagFilter`         | `app-tag-filter`  | Schlagwort-Filter als Chip-Leiste über Profil-Übersicht und Testdatenspeicher; `optionen` aus `tagOptionen`, `gewaehlt` zweiweg — mehrere Schlagworte wirken zusammen (UND). |
+| `TagEingabe`        | `app-tag-eingabe` | Eingabe der Schlagworte (kommagetrennt) mit anklickbaren Vorschlägen aus dem Bestand; genutzt im Profil-Detail- und im Umbenennen-Dialog.                                    |
 
 ## App-Shell (`app.ts`)
 

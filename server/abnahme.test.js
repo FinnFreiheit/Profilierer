@@ -160,6 +160,22 @@ test('Oeffnen allein aendert nichts: abgeleitete Felder setzen das Kennzeichen n
   assert.equal(echt.body.entry.geaendertSeitAbnahme, true);
 });
 
+test('Schlagworte entwerten die Freigabe nicht', async (t) => {
+  const { api } = await start(t, { agKey: AG_KEY });
+  const id = await neuesProfil(api);
+  await api('POST', `/profiles/${id}/abnahme`, { body: {}, key: AG_KEY });
+  // Nachtraeglich einsortieren ist Ablage, keine fachliche Entscheidung.
+  const put = await api('PUT', `/profiles/${id}`, {
+    body: doc({
+      meta: { name: 'P', nachricht: 'nachricht.x', xjustizVersion: '3.6.2', tags: ['Pilot'] },
+    }),
+    key: AG_KEY,
+  });
+  assert.equal(put.status, 200);
+  assert.deepEqual(put.body.entry.tags, ['Pilot']);
+  assert.equal(put.body.entry.geaendertSeitAbnahme, undefined);
+});
+
 test('geaendert seit Abnahme: Hash-Vergleich, Neuabnahme verschiebt die Referenz', async (t) => {
   const { api } = await start(t, { agKey: AG_KEY });
   const id = await neuesProfil(api);

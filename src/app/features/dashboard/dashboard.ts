@@ -25,6 +25,15 @@ import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiter
 import { nachrichtTeile } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { NeuesProfilWizard } from '../dialogs/neues-profil-wizard';
+import { TagFilter } from '../../shared/tag-filter/tag-filter';
+import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
+import {
+  hatAlleTags,
+  normalisiereTags,
+  schalteTag,
+  tagOptionen,
+  tagsAlsText,
+} from '../../core/util/tags.util';
 
 /**
  * Ein Abschnitt der Bibliothek: seit #88 je Fachmodul einer. Die Abnahme
@@ -48,7 +57,7 @@ interface Sektion {
 @Component({
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu, KeinAutofillDirective, NeuesProfilWizard],
+  imports: [RolleBadge, Menu, KeinAutofillDirective, NeuesProfilWizard, TagFilter, TagEingabe],
   templateUrl: './dashboard.html',
 })
 export class Dashboard {
@@ -84,9 +93,20 @@ export class Dashboard {
   protected readonly nurMitHinweisen = signal(false);
 
   /**
-   * Ein Abschnitt je Fachmodul (#88). Die beiden Filter greifen davor, sodass
-   * nur Module mit Treffern erscheinen — eine leere Gruppenueberschrift waere
-   * beim Filtern nur Rauschen.
+   * Gewaehlte Schlagworte der Filterleiste. Mehrere wirken zusammen (UND) —
+   * jeder Klick grenzt weiter ein.
+   */
+  protected readonly gewaehlteTags = signal<string[]>([]);
+
+  /** Vergebene Schlagworte der Bibliothek mit Haeufigkeit (Filterleiste). */
+  protected readonly verfuegbareTags = computed(() =>
+    tagOptionen(this.store.entries(), (e) => e.tags),
+  );
+
+  /**
+   * Ein Abschnitt je Fachmodul (#88). Die Filter greifen davor, sodass nur
+   * Module mit Treffern erscheinen — eine leere Gruppenueberschrift waere beim
+   * Filtern nur Rauschen.
    */
   protected readonly sektionen = computed<Sektion[]>(() => {
     const q = this.search().trim().toLowerCase();
@@ -94,18 +114,47 @@ export class Dashboard {
     if (q) alle = alle.filter((e) => this.trifft(e, q));
     if (this.nurMitHinweisen()) alle = alle.filter((e) => !!e.nHinweiseOffen);
     if (this.nurAbgenommene()) alle = alle.filter((e) => !!e.abgenommen);
+    const tags = this.gewaehlteTags();
+    if (tags.length) alle = alle.filter((e) => hatAlleTags(e.tags, tags));
     return nachFachmodul(alle, (e) => e.nachricht).map((g) => ({ modul: g.modul, items: g.items }));
   });
 
   /**
-   * Sucht in Name, Nachrichtenname und Fachmodul. Das Fachmodul steckt zwar
+   * Sucht in Name, Nachrichtenname, Fachmodul und dem, was neuerdings auf der
+   * Kachel steht (Autor, Beschreibung, Schlagworte). Das Fachmodul steckt zwar
    * schon im Nachrichtennamen, wird aber eigens geprueft: es ist die
    * Gruppenueberschrift, und wer "enova" tippt, meint die Gruppe.
    */
   private trifft(e: LibraryEntry, q: string): boolean {
-    return [e.name, e.nachricht, fachmodulOf(e.nachricht)].some((v) =>
-      (v || '').toLowerCase().includes(q),
-    );
+    return [
+      e.name,
+      e.nachricht,
+      fachmodulOf(e.nachricht),
+      e.autor,
+      e.beschreibung,
+      ...(e.tags ?? []),
+    ].some((v) => (v || '').toLowerCase().includes(q));
+  }
+
+  /** Tooltip der Kachelzeile: Autor und vollstaendige Beschreibung. */
+  protected beschreibungTitel(e: LibraryEntry): string {
+    return [e.autor, e.beschreibung].filter(Boolean).join(' · ');
+  }
+
+  /** Ist das Schlagwort gerade als Filter gesetzt (Kachel-Chip hervorheben)? */
+  protected tagAktiv(tag: string): boolean {
+    const schluessel = tag.toLocaleLowerCase('de');
+    return this.gewaehlteTags().some((t) => t.toLocaleLowerCase('de') === schluessel);
+  }
+
+  /**
+   * Klick auf ein Schlagwort der Kachel: dasselbe wie ein Klick in der
+   * Filterleiste — an- bzw. abwaehlen. `stopPropagation`, sonst oeffnete der
+   * Klick die Profilierung darunter.
+   */
+  protected filtereNachTag(tag: string, ev: Event): void {
+    ev.stopPropagation();
+    this.gewaehlteTags.set(schalteTag(this.gewaehlteTags(), tag));
   }
 
   /** Ueberschrift eines Abschnitts; ohne erkennbares Modul eine Sammelgruppe. */
@@ -192,8 +241,12 @@ export class Dashboard {
     this.nav.openSchemaView();
   }
 
+  /** Metadaten-Dialog der Kachel: aktive id + Puffer der vier Felder. */
   protected readonly renId = signal<string | null>(null);
   protected readonly renName = signal('');
+  protected readonly renAutor = signal('');
+  protected readonly renBeschr = signal('');
+  protected readonly renTags = signal('');
 
   protected open(id: string): void {
     // Warnhinweis der AG-Rolle: ein geschuetzter Stand wird nie versehentlich
@@ -322,11 +375,19 @@ export class Dashboard {
     void this.teilenService.kopiereProfilLink(id);
   }
 
+  /**
+   * Metadaten-Dialog der Kachel: Name, Autor, Beschreibung und Schlagworte,
+   * ohne die Profilierung zu oeffnen. Derselbe Satz Felder wie „Details…" im
+   * Editor — wer nur einsortieren will, muss dafuer kein Schema laden.
+   */
   protected openRename(id: string, e: Event): void {
     e.stopPropagation();
     const entry = this.store.entries().find((x) => x.id === id);
     this.renId.set(id);
     this.renName.set(entry?.name || '');
+    this.renAutor.set(entry?.autor || '');
+    this.renBeschr.set(entry?.beschreibung || '');
+    this.renTags.set(tagsAlsText(entry?.tags));
     this.renameDlg().nativeElement.showModal();
   }
 
@@ -334,8 +395,13 @@ export class Dashboard {
     const id = this.renId();
     if (id)
       void this.store
-        .rename(id, this.renName())
-        .catch(this.toast.fail('Umbenennen fehlgeschlagen — Backend nicht erreichbar.'));
+        .patchMeta(id, {
+          name: this.renName().trim(),
+          autor: this.renAutor().trim(),
+          beschreibung: this.renBeschr().trim(),
+          tags: normalisiereTags(this.renTags()),
+        })
+        .catch(this.toast.fail('Speichern fehlgeschlagen — Backend nicht erreichbar.'));
     this.renameDlg().nativeElement.close();
   }
 

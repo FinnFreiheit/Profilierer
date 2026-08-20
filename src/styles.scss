@@ -2160,16 +2160,94 @@ app-dashboard {
   border-radius: 6px;
   padding: 5px 8px;
 }
-/* Notiz auf der Kachel: eine reservierte Zeile, gekuerzt — der volle Text
-   steht im Tooltip. Mehrzeilige Notizen liessen die Kacheln sonst um bis zu
-   190px auseinanderlaufen (#91). */
+/* ── Schlagworte (Tags) ──────────────────────────────────────────────
+   Dieselben Chips in Filterleiste, Kachel und Eingabefeld: ein Schlagwort
+   sieht ueberall gleich aus, egal ob es gerade filtert oder nur beschreibt. */
+.tagLeiste,
+.tagVorschlaege {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+/* Das Eingabefeld fuegt sich in die Dialoge ein wie die Felder darueber. */
+app-tag-eingabe {
+  display: block;
+}
+app-tag-eingabe input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.tagLeisteTitel {
+  font-size: 12px;
+  color: var(--muted);
+}
+.tagChip {
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 2px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--flaeche);
+  color: var(--text);
+  cursor: pointer;
+}
+.tagChip:hover {
+  border-color: var(--border-stark);
+}
+/* Gewaehlt = der Filter greift: dieselbe Farbe wie die Primaeraktion, damit
+   auf einen Blick klar ist, warum die Uebersicht weniger zeigt. */
+.tagChipAktiv {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--weiss);
+}
+.tagChipN {
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+.tagReset {
+  font-size: 12px;
+  padding: 2px 8px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+/* Schlagworte umbrechen auf der Kachel: sie sollen vollstaendig lesbar sein.
+   Das laesst Kacheln unterschiedlich hoch werden — innerhalb einer Zeile
+   gleicht das Grid sie aus, ueber Zeilen hinweg nicht (bewusst, vgl. #91). */
+.dcTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.dcTags .tagChip {
+  padding: 1px 8px;
+}
+/* Autor vor der Beschreibung: dieselbe Zeile, aber abgesetzt. */
+.dcAutor {
+  color: var(--text);
+  font-weight: 600;
+}
+.dcTrenner {
+  color: var(--muted);
+}
+
+/* Beschreibung/Notiz auf der Kachel: vollstaendig, mit Umbruch. Frueher stand
+   hier eine gekuerzte Zeile mit dem vollen Text im Tooltip (#91) — der Text ist
+   aber das, was eine Profilierung von der naechsten unterscheidet, und ein
+   Tooltip zeigt sich weder beim Ueberfliegen noch auf dem Tablet. Lange Texte
+   machen ihre Kachelzeile jetzt hoeher; `overflow-wrap` haelt Bandwurmwoerter
+   (Pfade, IDs) im Kasten. */
 .dcNotiz {
   font-size: 12px;
   color: var(--muted);
   min-height: 17px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 .pillMuted {
   background: var(--bg);

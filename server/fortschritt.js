@@ -1,3 +1,5 @@
+import { normalisiereTags } from './tags.js';
+
 /**
  * Leitet die Fortschrittszaehler eines Profils ab — maßgebliche Server-Quelle
  * fuer die Index-Spalten (n_status/n_ausp). Spiegelt `zaehleFortschritt` aus
@@ -42,9 +44,16 @@ export function toEntry(id, doc, aktualisiert) {
   const meta = doc?.meta ?? {};
   const { nStatus, nAusp, nErw } = zaehleFortschritt(doc);
   const { nEntschieden, nPunkte } = lesePunkte(doc);
+  const tags = normalisiereTags(meta.tags);
   return {
     id,
     name: (meta.name || '').trim(),
+    // Autor und Beschreibung stehen auf der Kachel — sie kommen aus den
+    // Profil-Details und liegen darum schon im Dokument; der Index spart der
+    // Uebersicht das Nachladen der grossen doc-Maps.
+    autor: (meta.autor || '').trim() || undefined,
+    beschreibung: (meta.beschreibung || '').trim() || undefined,
+    tags: tags.length ? tags : undefined,
     nachricht: meta.nachricht ?? null,
     xjustizVersion: meta.xjustizVersion,
     nStatus,

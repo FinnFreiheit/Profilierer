@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { ProfileStoreService } from '../../core/services/profile-store.service';
+import { ProfilMetaPatch, ProfileStoreService } from '../../core/services/profile-store.service';
 import { Dashboard } from './dashboard';
 import { LibraryEntry } from '../../models/profile.model';
 import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
@@ -136,5 +136,149 @@ describe('Dashboard — gesperrter Menuepunkt im DOM', () => {
     const knopf = punkt(host);
     expect(knopf.disabled).toBeFalse();
     expect(knopf.textContent).not.toContain('gesperrt');
+  });
+});
+
+/**
+ * Schlagwort-Filter der Uebersicht (Ablage-Ordnung neben dem Fachmodul).
+ * Mehrere gewaehlte Schlagworte grenzen zusammen ein (UND).
+ */
+describe('Dashboard — Filter nach Schlagworten', () => {
+  let dash: {
+    gewaehlteTags: { set: (v: string[]) => void; (): string[] };
+    verfuegbareTags: () => { tag: string; n: number }[];
+    sektionen: () => { items: LibraryEntry[] }[];
+    search: { set: (v: string) => void };
+    filtereNachTag: (tag: string, ev: Event) => void;
+    tagAktiv: (tag: string) => boolean;
+  };
+
+  const eintrag = (over: Partial<LibraryEntry> = {}): LibraryEntry =>
+    ({
+      id: 'x',
+      name: 'P',
+      nachricht: 'nachricht.test.0001',
+      nStatus: 0,
+      nAusp: 0,
+      aktualisiert: 0,
+      ...over,
+    }) as LibraryEntry;
+
+  /** Alle Treffer ueber die Fachmodul-Abschnitte hinweg. */
+  const treffer = (): string[] => dash.sektionen().flatMap((s) => s.items.map((e) => e.id));
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [Dashboard] }).compileComponents();
+    TestBed.inject(ProfileStoreService).entries.set([
+      eintrag({ id: 'a', tags: ['Pilot', 'eNoVA'] }),
+      eintrag({ id: 'b', tags: ['Pilot'] }),
+      eintrag({ id: 'c' }),
+    ]);
+    dash = TestBed.createComponent(Dashboard).componentInstance as unknown as typeof dash;
+  });
+
+  it('bietet die vergebenen Schlagworte mit Haeufigkeit an', () => {
+    expect(dash.verfuegbareTags()).toEqual([
+      { tag: 'Pilot', n: 2 },
+      { tag: 'eNoVA', n: 1 },
+    ]);
+  });
+
+  it('grenzt auf ein Schlagwort ein, mehrere wirken zusammen', () => {
+    dash.gewaehlteTags.set(['Pilot']);
+    expect(treffer()).toEqual(['a', 'b']);
+    dash.gewaehlteTags.set(['Pilot', 'eNoVA']);
+    expect(treffer()).toEqual(['a']);
+  });
+
+  it('zeigt ohne Auswahl alles', () => {
+    expect(treffer()).toEqual(['a', 'b', 'c']);
+  });
+
+  it('findet Schlagworte auch ueber die Freitextsuche', () => {
+    dash.search.set('enova');
+    expect(treffer()).toEqual(['a']);
+  });
+
+  it('schaltet den Filter ueber das Schlagwort auf der Kachel', () => {
+    const ev = new MouseEvent('click');
+    dash.filtereNachTag('Pilot', ev);
+    expect(dash.tagAktiv('pilot')).toBeTrue();
+    expect(treffer()).toEqual(['a', 'b']);
+    dash.filtereNachTag('Pilot', ev);
+    expect(dash.tagAktiv('Pilot')).toBeFalse();
+  });
+});
+
+/**
+ * Metadaten-Dialog der Kachel: dieselben Felder wie „Details…" im Editor,
+ * aber ohne die Profilierung zu oeffnen — gepatcht wird nur, was der Dialog
+ * fuehrt (der Server laesst den Rest des Dokuments stehen).
+ */
+describe('Dashboard — Metadaten an der Kachel', () => {
+  let dash: {
+    openRename: (id: string, e: Event) => void;
+    submitRename: () => void;
+    renName: () => string;
+    renAutor: () => string;
+    renBeschr: () => string;
+    renTags: { (): string; set: (v: string) => void };
+  };
+  let patches: { id: string; patch: ProfilMetaPatch }[];
+
+  const eintrag: LibraryEntry = {
+    id: 'p1',
+    name: 'Notar an Justiz',
+    autor: 'Freiheit',
+    beschreibung: 'Pilotbetrieb',
+    tags: ['eNoVA', 'Pilot'],
+    nStatus: 0,
+    nAusp: 0,
+    aktualisiert: 0,
+  } as LibraryEntry;
+
+  beforeEach(async () => {
+    patches = [];
+    await TestBed.configureTestingModule({ imports: [Dashboard] }).compileComponents();
+    const store = TestBed.inject(ProfileStoreService);
+    store.entries.set([eintrag]);
+    spyOn(store, 'patchMeta').and.callFake(async (id: string, patch: ProfilMetaPatch) => {
+      patches.push({ id, patch });
+    });
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    dash = fixture.componentInstance as unknown as typeof dash;
+  });
+
+  it('fuellt den Dialog aus dem Bibliothekseintrag', () => {
+    dash.openRename('p1', new MouseEvent('click'));
+    expect(dash.renName()).toBe('Notar an Justiz');
+    expect(dash.renAutor()).toBe('Freiheit');
+    expect(dash.renBeschr()).toBe('Pilotbetrieb');
+    expect(dash.renTags()).toBe('eNoVA, Pilot');
+  });
+
+  it('schreibt die vier Felder normalisiert zurueck', () => {
+    dash.openRename('p1', new MouseEvent('click'));
+    dash.renTags.set('Pilot, pilot, Schulung');
+    dash.submitRename();
+    expect(patches).toEqual([
+      {
+        id: 'p1',
+        patch: {
+          name: 'Notar an Justiz',
+          autor: 'Freiheit',
+          beschreibung: 'Pilotbetrieb',
+          tags: ['Pilot', 'Schulung'],
+        },
+      },
+    ]);
+  });
+
+  it('haelt den Klick an der Kachel auf — der Dialog oeffnet, das Profil nicht', () => {
+    const ev = new MouseEvent('click', { cancelable: true });
+    spyOn(ev, 'stopPropagation');
+    dash.openRename('p1', ev);
+    expect(ev.stopPropagation).toHaveBeenCalled();
   });
 });

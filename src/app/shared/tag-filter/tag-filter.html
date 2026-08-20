@@ -1,0 +1,29 @@
+<div class="tagLeiste" role="group" aria-label="Nach Schlagworten filtern">
+  <span class="tagLeisteTitel">Schlagworte:</span>
+  @for (o of optionen(); track o.tag) {
+    <button
+      type="button"
+      class="tagChip"
+      [class.tagChipAktiv]="istGewaehlt(o.tag)"
+      [attr.aria-pressed]="istGewaehlt(o.tag)"
+      [title]="
+        istGewaehlt(o.tag)
+          ? 'Schlagwort „' + o.tag + '“ nicht mehr fordern'
+          : 'Nur Einträge mit „' + o.tag + '“ zeigen (mehrere Schlagworte gelten zusammen)'
+      "
+      (click)="schalte(o.tag)"
+    >
+      {{ o.tag }} <span class="tagChipN">{{ o.n }}</span>
+    </button>
+  }
+  @if (hatAuswahl()) {
+    <button
+      type="button"
+      class="tagReset"
+      title="Alle gewählten Schlagworte aufheben"
+      (click)="zuruecksetzen()"
+    >
+      zurücksetzen
+    </button>
+  }
+</div>

@@ -64,10 +64,12 @@ export function profilesRouter(db, auth) {
     res.status(201).json(out);
   });
 
-  // rename.
+  // Kachel-Metadaten aendern (Name, Autor, Beschreibung, Schlagworte), ohne das
+  // Profil zu oeffnen. Nur gesetzte Felder wirken; ein Body mit nur `name` ist
+  // weiterhin das Umbenennen von frueher.
   r.patch('/profiles/:id', schutz, (req, res) => {
-    const name = req.body?.name;
-    const entry = db.rename(req.params.id, name ?? '');
+    const { name, autor, beschreibung, tags } = req.body ?? {};
+    const entry = db.patchMeta(req.params.id, { name, autor, beschreibung, tags });
     if (!entry) return res.status(404).json({ error: 'nicht gefunden' });
     res.json({ entry });
   });
