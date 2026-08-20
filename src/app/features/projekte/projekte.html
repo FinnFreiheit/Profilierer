@@ -72,6 +72,15 @@
             <span class="szenarioProg">{{ a }} % entschieden</span>
           }
           <span class="szenarioSpacer"></span>
+          @if (s.nachrichten.length > 1) {
+            <button
+              class="szenarioAktion"
+              title="Alle Testnachrichten dieses Szenarios nebeneinander: worin unterscheiden sie sich?"
+              (click)="vergleiche(s.profil, $event)"
+            >
+              Vergleichen
+            </button>
+          }
           <button
             class="szenarioAktion"
             title="Weitere Testnachricht zu diesem Szenario erstellen (geführter Durchlauf mit Bindung)"

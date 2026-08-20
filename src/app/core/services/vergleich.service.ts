@@ -12,7 +12,13 @@ export type VergleichZiel =
    * Stand derselben Profilierung ("Profil weiterentwickelt" — was hat sich
    * geaendert, und ist meine Testnachricht davon ueberhaupt betroffen?).
    */
-  | { art: 'vorgabe'; testmessageId: string; profilId: string };
+  | { art: 'vorgabe'; testmessageId: string; profilId: string }
+  /**
+   * Merkmals-Matrix (#136): alle Testnachrichten einer Profilierung
+   * nebeneinander — worin unterscheiden sich die Auspraegungen dieses
+   * Kommunikationsszenarios?
+   */
+  | { art: 'matrix'; profilId: string };
 
 /**
  * Steuert die beiden Vergleichsdialoge ("was hat sich seit der Abnahme
@@ -44,6 +50,14 @@ export class VergleichService {
    */
   oeffneVorgabe(testmessageId: string, profilId: string): void {
     this.ziel.set({ art: 'vorgabe', testmessageId, profilId });
+  }
+
+  /**
+   * Merkmals-Matrix eines Kommunikationsszenarios oeffnen: Spalten sind alle
+   * Testnachrichten mit dieser `profilId`.
+   */
+  oeffneMatrix(profilId: string): void {
+    this.ziel.set({ art: 'matrix', profilId });
   }
 
   schliesse(): void {

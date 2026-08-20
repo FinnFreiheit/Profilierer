@@ -37,6 +37,7 @@ import { DownloadService } from './core/services/download.service';
 import { ValidationDialog } from './features/dialogs/validation-dialog';
 import { ProfilDiffDialog } from './features/dialogs/profil-diff-dialog';
 import { XmlDiffDialog } from './features/dialogs/xml-diff-dialog';
+import { MatrixDialog } from './features/dialogs/matrix-dialog';
 import { VergleichService } from './core/services/vergleich.service';
 import { TeilenService } from './core/services/teilen.service';
 import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
@@ -76,6 +77,7 @@ function istZweigWahl(el: HTMLElement): boolean {
     ValidationDialog,
     ProfilDiffDialog,
     XmlDiffDialog,
+    MatrixDialog,
     ErweiterungDialog,
   ],
   templateUrl: './app.html',

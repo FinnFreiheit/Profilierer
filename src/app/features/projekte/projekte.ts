@@ -12,6 +12,7 @@ import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { TestmessageStoreService } from '../../core/services/testmessage-store.service';
 import { StateService } from '../../core/services/state.service';
 import { ToastService } from '../../core/services/toast.service';
+import { VergleichService } from '../../core/services/vergleich.service';
 import { PersistenceService } from '../../core/services/persistence.service';
 import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
 import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
@@ -58,6 +59,7 @@ export class Projekte {
   private readonly testmessages = inject(TestmessageStoreService);
   private readonly state = inject(StateService);
   private readonly toast = inject(ToastService);
+  private readonly vergleich = inject(VergleichService);
   private readonly persistence = inject(PersistenceService);
   private readonly edit = inject(TestmessageEditService);
   private readonly testnachrichtStart = inject(TestnachrichtStartService);
@@ -181,6 +183,16 @@ export class Projekte {
     } catch (err) {
       this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
     }
+  }
+
+  /**
+   * Merkmals-Matrix (#136): alle Testnachrichten dieses Szenarios
+   * nebeneinander. Der Knopf erscheint erst ab zwei Nachrichten — mit einer
+   * gibt es nichts zu vergleichen.
+   */
+  protected vergleiche(e: LibraryEntry, ev: Event): void {
+    ev.stopPropagation();
+    this.vergleich.oeffneMatrix(e.id);
   }
 
   /**

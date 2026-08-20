@@ -1,0 +1,102 @@
+<dialog #dlg id="matrixDlg" style="max-width: 1100px; width: 96vw">
+  <h3 style="margin-top: 0">Worin unterscheiden sich die Testnachrichten?</h3>
+
+  <div style="font-size: 13px; margin-bottom: 8px">
+    Kommunikationsszenario <b>{{ szenarioName() }}</b> — alle Testnachrichten dieser Profilierung
+    nebeneinander
+  </div>
+
+  @if (laedt()) {
+    <div style="color: var(--muted); font-size: 13px; padding: 10px 0">wird verglichen …</div>
+  }
+
+  @if (fehler()) {
+    <div style="color: #b23a3a; font-size: 13px; padding: 10px 0">{{ fehler() }}</div>
+  }
+
+  @if (result(); as r) {
+    @if (!r.zeilen.length) {
+      <div style="font-size: 13px; padding: 10px 0">
+        <b>Die Testnachrichten sind inhaltlich gleich.</b> Abweichen können nur Formatierung oder
+        Namensraum-Präfixe.
+      </div>
+    } @else {
+      <div class="matrixKopfzeile">
+        @if (nurTechnisch()) {
+          <span>
+            <b>Fachlich gleich</b> — die Nachrichten unterscheiden sich nur in technischen
+            Kopfangaben.
+          </span>
+        } @else {
+          <span>{{ zeilen().length }} Unterschied(e)</span>
+        }
+        <label class="matrixSchalter">
+          <input
+            type="checkbox"
+            [checked]="zeigeTechnisch()"
+            (change)="zeigeTechnisch.set($any($event.target).checked)"
+          />
+          technische Angaben zeigen
+        </label>
+      </div>
+
+      <div class="matrixRahmen">
+        <table class="matrixTabelle">
+          <thead>
+            <tr>
+              <th class="matrixMerkmal">Merkmal</th>
+              @for (s of r.spalten; track s.id) {
+                <th [title]="s.name">{{ s.name }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (z of zeilen(); track z.pfad) {
+              <tr [class.matrixAnzahl]="z.art === 'anzahl'" [class.matrixTief]="z.unterhalb">
+                <th class="matrixMerkmal" [title]="z.pfad">
+                  @if (verborgen(z); as n) {
+                    <!-- Der Inhalt des zusätzlichen Vorkommens erscheint erst
+                         auf Wunsch: sonst wäre der eine Unterschied wieder
+                         viele. -->
+                    <button
+                      class="matrixKlapp"
+                      [title]="
+                        istOffen(z)
+                          ? 'Angaben des zusätzlichen Vorkommens ausblenden'
+                          : n + ' Angabe(n) des zusätzlichen Vorkommens zeigen'
+                      "
+                      (click)="klappe(z)"
+                    >
+                      {{ istOffen(z) ? '▾' : '▸' }} {{ z.label }}
+                      <span class="matrixKlappN">{{ n }}</span>
+                    </button>
+                  } @else {
+                    {{ z.label }}
+                  }
+                  @if (z.technisch) {
+                    <span class="pill pillMuted">technisch</span>
+                  }
+                </th>
+                @for (w of z.werte; track $index) {
+                  <td [class.matrixLeer]="w === undefined" [title]="w ?? 'nicht vorhanden'">
+                    {{ w ?? '—' }}
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (r.abgeschnitten) {
+        <div style="font-size: 12px; color: var(--muted); margin-top: 6px">
+          {{ r.abgeschnitten }} weitere Zeile(n) nicht angezeigt.
+        </div>
+      }
+    }
+  }
+
+  <div style="text-align: right; margin-top: 12px">
+    <button class="primary" (click)="schliesse()">Schließen</button>
+  </div>
+</dialog>

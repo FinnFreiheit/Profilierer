@@ -129,7 +129,7 @@ mehrere gewählte Schlagworte wirken **zusammen** (UND).
 
 ### Projekte (`projekte`)
 
-Der Behälter über den Profilierungen (#134): ein Vorhaben bündelt mehrere
+Der Behälter über den Profilierungen (#134, [ADR 0019](adr/0019-projekt-als-behaelter.md)): ein Vorhaben bündelt mehrere
 Kommunikationsszenarien auf derselben Nachricht. Tabelle
 `projekte = { id, name, beschreibung, tags, angelegt, aktualisiert }`, bedient über
 `/api/projekte`. Die Zahlen der Kachel (`nProfile`, `nTestnachrichten`) kommen als
