@@ -116,6 +116,7 @@ const TM_COLS = `t.id, t.name, t.nachricht, t.fachmodul, t.xjustiz_version, t.gr
               t.abnahme_ts, t.abnahme_kommentar, (t.abnahme_xml IS NOT NULL) AS abgenommen,
               (t.abnahme_xml IS NOT NULL AND t.xml != t.abnahme_xml) AS geaendert_seit_abnahme,
               t.profil_id, t.profil_name, t.fassung,
+              COALESCE(t.projekt_id, p.projekt_id) AS projekt_id,
               (t.vorgabe_hash IS NOT NULL AND p.fach_hash IS NOT NULL
                AND p.fach_hash != t.vorgabe_hash) AS profil_weiterentwickelt`;
 
@@ -193,6 +194,21 @@ export function openDb(path) {
       aktualisiert INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_testmessages_fachmodul ON testmessages(fachmodul);
+
+    -- Projekte (#134): der Behaelter ueber den Profilierungen. Ein Vorhaben wie
+    -- GenUVA buendelt mehrere Kommunikationsszenarien auf derselben Nachricht;
+    -- dafuer gab es bisher keine Ordnung -- das Fachmodul ist nur aus dem
+    -- Nachrichtennamen abgeleitet, Schlagworte sind ein Querschnitt ohne
+    -- Innenleben. Bewusst ohne Fremdschluessel: die Zuordnung ist Ablage, sie
+    -- soll das Loeschen eines Projekts ueberleben (siehe prjDelete).
+    CREATE TABLE IF NOT EXISTS projekte (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      beschreibung TEXT,
+      tags TEXT,            -- JSON-Array, wie an Profil und Testnachricht
+      angelegt INTEGER,
+      aktualisiert INTEGER
+    );
   `);
 
   // Migration: Spalten der gefuehrten Testnachricht-Erstellung nachziehen
@@ -235,6 +251,10 @@ export function openDb(path) {
     // kurz, wird immer ganz gelesen und ganz geschrieben, und der Filter
     // arbeitet im Client auf dem ohnehin geladenen Index.
     if (!cols.has('tags')) db.exec('ALTER TABLE testmessages ADD COLUMN tags TEXT');
+    // Eigene Projektzuordnung (#134). Gebundene Nachrichten **erben** das
+    // Projekt ihrer Profilierung (COALESCE in TM_COLS); diese Spalte traegt nur
+    // den Fall ohne Bindung -- Uploads -- und den Rest einer geloesten Bindung.
+    if (!cols.has('projekt_id')) db.exec('ALTER TABLE testmessages ADD COLUMN projekt_id TEXT');
   }
 
   // Migration: Urheber-Merkmal am Hinweis (Issue #42). Wer einen Hinweis ohne
@@ -273,6 +293,11 @@ export function openDb(path) {
     if (!cols.has('autor')) db.exec('ALTER TABLE profiles ADD COLUMN autor TEXT');
     if (!cols.has('beschreibung')) db.exec('ALTER TABLE profiles ADD COLUMN beschreibung TEXT');
     if (!cols.has('tags')) db.exec('ALTER TABLE profiles ADD COLUMN tags TEXT');
+    // Projektzuordnung (#134). Sie liegt in der Spalte, nicht im ProfileDoc:
+    // anders als die Schlagworte ist sie keine Eigenschaft des Dokuments,
+    // sondern eine Kante zwischen zwei Zeilen -- und eine eingefrorene Version
+    // soll die Zuordnung des Originals nicht konservieren.
+    if (!cols.has('projekt_id')) db.exec('ALTER TABLE profiles ADD COLUMN projekt_id TEXT');
     // Abnahme durch die BLK-AG: Referenz auf die eingefrorene Abnahme-Version.
     if (!cols.has('abnahme_version_id'))
       db.exec('ALTER TABLE profiles ADD COLUMN abnahme_version_id TEXT');
@@ -389,6 +414,7 @@ export function openDb(path) {
   const stmt = {
     list: db.prepare(
       `SELECT profiles.id, profiles.name, profiles.autor, profiles.beschreibung, profiles.tags,
+              profiles.projekt_id,
               nachricht, xjustiz_version, n_status, n_ausp, n_erw,
               n_entschieden, n_punkte,
               gespeichert, aktualisiert, profiles.doc_hash, profiles.fach_hash,
@@ -407,7 +433,15 @@ export function openDb(path) {
        ORDER BY aktualisiert DESC`,
     ),
     getDoc: db.prepare('SELECT doc FROM profiles WHERE id = ?'),
-    getRow: db.prepare('SELECT doc, doc_hash, fach_hash, aktualisiert FROM profiles WHERE id = ?'),
+    getProjekt: db.prepare('SELECT projekt_id FROM profiles WHERE id = ?'),
+    setProjekt: db.prepare('UPDATE profiles SET projekt_id = @projektId WHERE id = @id'),
+    tmErbeFestschreiben: db.prepare(
+      `UPDATE testmessages SET projekt_id = (SELECT projekt_id FROM profiles WHERE id = ?)
+       WHERE profil_id = ? AND projekt_id IS NULL`,
+    ),
+    getRow: db.prepare(
+      'SELECT doc, doc_hash, fach_hash, aktualisiert, projekt_id FROM profiles WHERE id = ?',
+    ),
     exists: db.prepare('SELECT 1 FROM profiles WHERE id = ?'),
     count: db.prepare('SELECT COUNT(*) AS n FROM profiles'),
     del: db.prepare('DELETE FROM profiles WHERE id = ?'),
@@ -520,6 +554,49 @@ export function openDb(path) {
        WHERE id = @id`,
     ),
     tmDel: db.prepare('DELETE FROM testmessages WHERE id = ?'),
+    // ── Projekte (#134) ──────────────────────────────────────────────────
+    // Die Zahlen kommen als korrelierte Unterabfragen mit: `n_profile` zaehlt
+    // die zugeordneten Profilierungen, `n_tm` die Testnachrichten mit eigener
+    // ODER geerbter Zuordnung. Die COALESCE-Regel muss dieselbe sein wie in
+    // TM_COLS, sonst zaehlt die Kachel anders, als die Projektseite auflistet.
+    prjList: db.prepare(
+      `SELECT pr.*,
+              (SELECT COUNT(*) FROM profiles f WHERE f.projekt_id = pr.id) AS n_profile,
+              (SELECT COUNT(*) FROM testmessages t
+                 LEFT JOIN profiles f2 ON f2.id = t.profil_id
+               WHERE COALESCE(t.projekt_id, f2.projekt_id) = pr.id) AS n_tm
+       FROM projekte pr ORDER BY pr.aktualisiert DESC`,
+    ),
+    prjGet: db.prepare(
+      `SELECT pr.*,
+              (SELECT COUNT(*) FROM profiles f WHERE f.projekt_id = pr.id) AS n_profile,
+              (SELECT COUNT(*) FROM testmessages t
+                 LEFT JOIN profiles f2 ON f2.id = t.profil_id
+               WHERE COALESCE(t.projekt_id, f2.projekt_id) = pr.id) AS n_tm
+       FROM projekte pr WHERE pr.id = ?`,
+    ),
+    prjGetRow: db.prepare('SELECT * FROM projekte WHERE id = ?'),
+    prjInsert: db.prepare(
+      `INSERT INTO projekte (id, name, beschreibung, tags, angelegt, aktualisiert)
+       VALUES (@id, @name, @beschreibung, @tags, @ts, @ts)`,
+    ),
+    prjUpdate: db.prepare(
+      `UPDATE projekte SET name = @name, beschreibung = @beschreibung, tags = @tags,
+              aktualisiert = @aktualisiert
+       WHERE id = @id`,
+    ),
+    prjDel: db.prepare('DELETE FROM projekte WHERE id = ?'),
+    prjLoesenProfile: db.prepare('UPDATE profiles SET projekt_id = NULL WHERE projekt_id = ?'),
+    prjLoesenTm: db.prepare('UPDATE testmessages SET projekt_id = NULL WHERE projekt_id = ?'),
+    tmSetProjekt: db.prepare('UPDATE testmessages SET projekt_id = @projektId WHERE id = @id'),
+    // Erbt die Nachricht gerade ein Projekt? Nur mit noch existierender
+    // Profilierung — nach deren Loeschen erbt nichts mehr und die eigene
+    // Zuordnung wird wieder der Weg.
+    tmBindung: db.prepare(
+      `SELECT t.projekt_id AS eigen, p.id AS profil, p.projekt_id AS geerbt
+       FROM testmessages t LEFT JOIN profiles p ON p.id = t.profil_id
+       WHERE t.id = ?`,
+    ),
     tmAbn: db.prepare('SELECT abnahme_xml FROM testmessages WHERE id = ?'),
     tmAbnSet: db.prepare(
       `UPDATE testmessages SET abnahme_xml = xml, abnahme_ts = @ts, abnahme_kommentar = @kommentar
@@ -549,6 +626,20 @@ export function openDb(path) {
   function schreibeTags(tags) {
     const norm = normalisiereTags(tags);
     return norm.length ? JSON.stringify(norm) : null;
+  }
+
+  /** Eine projekte-Zeile als API-Objekt; leere Felder fallen weg. */
+  function prjZeile(r) {
+    return {
+      id: r.id,
+      name: r.name,
+      beschreibung: r.beschreibung ?? undefined,
+      tags: leseTags(r.tags),
+      angelegt: r.angelegt,
+      aktualisiert: r.aktualisiert,
+      nProfile: r.n_profile ?? 0,
+      nTestnachrichten: r.n_tm ?? 0,
+    };
   }
 
   /** Baut die schlanke Index-Zeile (ohne xml/entscheidungen) aus einer DB-Zeile. */
@@ -587,6 +678,10 @@ export function openDb(path) {
       // Badge "Profil weiterentwickelt" — die Nachricht wird NICHT nachgezogen,
       // das Kennzeichen sagt nur, dass die Bindung veraltet ist.
       profilWeiterentwickelt: !!r.profil_weiterentwickelt || undefined,
+      // Effektives Projekt: eigene Zuordnung, sonst die der gebundenen
+      // Profilierung (COALESCE in TM_COLS). Die Kachel unterscheidet nicht,
+      // woher sie kommt — im Projekt liegt die Nachricht so oder so.
+      projektId: r.projekt_id ?? undefined,
     };
   }
 
@@ -711,7 +806,11 @@ export function openDb(path) {
       gespeichert: entry.gespeichert ?? null,
       aktualisiert: ts,
     });
-    return { ...entry, ...versionsInfo(id, hash, fHash), ...hinweisInfo(id) };
+    // Die Projektzuordnung steht in der Spalte und wird von `upsert` nicht
+    // geschrieben (sie ist keine Eigenschaft des Dokuments). Sie muss trotzdem
+    // im Entry stehen: sonst verloere der Client sie bei jedem Autosave.
+    const projektId = stmt.getProjekt.get(id)?.projekt_id ?? undefined;
+    return { ...entry, projektId, ...versionsInfo(id, hash, fHash), ...hinweisInfo(id) };
   }
 
   const api = {
@@ -725,6 +824,7 @@ export function openDb(path) {
         autor: r.autor ?? undefined,
         beschreibung: r.beschreibung ?? undefined,
         tags: leseTags(r.tags),
+        projektId: r.projekt_id ?? undefined,
         nachricht: r.nachricht,
         xjustizVersion: r.xjustiz_version ?? undefined,
         nStatus: r.n_status,
@@ -762,6 +862,9 @@ export function openDb(path) {
         ...toEntry(id, JSON.parse(row.doc), row.aktualisiert),
         ...versionsInfo(id, row.doc_hash, row.fach_hash),
         ...hinweisInfo(id),
+        // Projektzuordnung steht in der Spalte, nicht im Dokument — toEntry
+        // kann sie daher nicht kennen.
+        projektId: row.projekt_id ?? undefined,
       };
     },
 
@@ -841,14 +944,105 @@ export function openDb(path) {
     },
 
     /**
+     * Einsortieren (#134): Projekt und Schlagworte einer Profilierung — die
+     * **Ablage**, nicht die fachliche Aussage. Bewusst getrennt von `patchMeta`
+     * (Name/Autor/Beschreibung), weil dieser Weg auch bei freigegebenen
+     * Profilierungen offen steht: der `fach_hash` laesst beide aussen vor, eine
+     * Freigabe wird durch Einsortieren also nicht entwertet.
+     *
+     * Die Projektzuordnung liegt in der Spalte, nicht im Dokument — sie ist
+     * eine Kante zwischen zwei Zeilen, und eine eingefrorene Version soll die
+     * Zuordnung des Originals nicht konservieren. Deshalb ruehrt das Setzen des
+     * Projekts den `doc_hash` nicht an; ein Schlagwort-Wechsel tut es weiterhin
+     * (die Schlagworte stehen in `meta.tags`).
+     *
+     * Nur gesetzte Felder wirken. Gibt den LibraryEntry oder null.
+     */
+    einsortieren(id, { projektId, tags }) {
+      if (!stmt.exists.get(id)) return null;
+      if (projektId !== undefined) stmt.setProjekt.run({ id, projektId: projektId || null });
+      if (tags !== undefined) return this.patchMeta(id, { tags });
+      return this.entry(id);
+    },
+
+    /**
      * Loeschen inkl. aller Versionen und Hinweise (Kaskade). Gibt true, wenn
      * eine Zeile entfernt wurde.
      */
     delete(id) {
       return db.transaction(() => {
+        // Erbe festschreiben (#134): mit der Profilierung faellt der LEFT JOIN
+        // weg, ueber den ihre Testnachrichten das Projekt erben. Ohne diesen
+        // Schritt verschwaenden sie lautlos aus dem Projekt — die Nachrichten
+        // selbst ueberleben das Loeschen ja (eingefrorene Vorgabe).
+        stmt.tmErbeFestschreiben.run(id, id);
         stmt.verDelAll.run(id);
         stmt.hwDelAll.run(id);
         return stmt.del.run(id).changes > 0;
+      })();
+    },
+
+    // ── Projekte (#134) ─────────────────────────────────────────────────
+
+    /**
+     * Projektliste mit abgeleiteten Zahlen: wie viele Profilierungen
+     * (Kommunikationsszenarien) haengen daran, und wie viele Testnachrichten
+     * insgesamt — eigene Zuordnung **oder** ueber ihre Profilierung geerbt.
+     * Die Zahlen stehen auf der Kachel, deshalb kommen sie mit dem Index statt
+     * per Zusatz-Request je Projekt.
+     */
+    prjList() {
+      return stmt.prjList.all().map(prjZeile);
+    },
+
+    /** Ein Projekt (mit Zahlen) oder null. */
+    prjGet(id) {
+      const r = stmt.prjGet.get(id);
+      return r ? prjZeile(r) : null;
+    },
+
+    /** Neues Projekt; id serverseitig. Gibt { id, entry }. */
+    prjCreate({ name, beschreibung, tags }, ts) {
+      const id = randomUUID();
+      const stamp = ts ?? Date.now();
+      stmt.prjInsert.run({
+        id,
+        name: String(name || '').trim() || '(ohne Namen)',
+        beschreibung: String(beschreibung || '').trim() || null,
+        tags: schreibeTags(tags),
+        ts: stamp,
+      });
+      return { id, entry: this.prjGet(id) };
+    },
+
+    /**
+     * Felder aendern; nur gesetzte wirken (undefined = unberuehrt).
+     * Gibt den Eintrag oder null.
+     */
+    prjUpdate(id, { name, beschreibung, tags }, ts) {
+      const row = stmt.prjGetRow.get(id);
+      if (!row) return null;
+      stmt.prjUpdate.run({
+        id,
+        name: name !== undefined ? String(name || '').trim() || '(ohne Namen)' : row.name,
+        beschreibung:
+          beschreibung !== undefined ? String(beschreibung || '').trim() || null : row.beschreibung,
+        tags: tags !== undefined ? schreibeTags(tags) : row.tags,
+        aktualisiert: ts ?? Date.now(),
+      });
+      return this.prjGet(id);
+    },
+
+    /**
+     * Projekt loeschen. Entfernt **nur die Zuordnungen**, nie Inhalte: die
+     * Profilierungen und Testnachrichten bleiben, sie liegen danach in keinem
+     * Projekt mehr. Gibt true, wenn eine Zeile entfernt wurde.
+     */
+    prjDelete(id) {
+      return db.transaction(() => {
+        stmt.prjLoesenProfile.run(id);
+        stmt.prjLoesenTm.run(id);
+        return stmt.prjDel.run(id).changes > 0;
       })();
     },
 
@@ -1249,6 +1443,9 @@ export function openDb(path) {
     tmBindungLoesen(id) {
       if (!stmt.tmGetRow.get(id)) return null;
       stmt.tmVorgabeClear.run(id);
+      // Die Projektzugehoerigkeit bleibt: sie haengt an `profil_id`, und die
+      // steht als Herkunft weiterhin da. Erst das **Loeschen** der Profilierung
+      // kappt das Erbe — dort wird es festgeschrieben (siehe `delete`).
       return tmEntry(stmt.tmGet.get(id));
     },
 
@@ -1392,6 +1589,28 @@ export function openDb(path) {
       };
       stmt.tmUpdate.run({ id, ...next });
       return tmEntry(stmt.tmGet.get(id));
+    },
+
+    /**
+     * Einsortieren einer Testnachricht (#134): Schlagworte immer, das Projekt
+     * nur, solange die Nachricht **nicht** an eine noch existierende
+     * Profilierung gebunden ist. Gebundene Nachrichten erben das Projekt ihrer
+     * Profilierung — ein zweiter Pflegeort erzeugte nur Widersprueche
+     * ("Nachricht in Projekt A, Profil in Projekt B").
+     *
+     * Gibt `{ entry }`, `null` bei unbekannter id oder `{ fehler: 'gebunden' }`,
+     * wenn ein Projekt an einer gebundenen Nachricht gesetzt werden sollte.
+     */
+    tmEinsortieren(id, { projektId, tags }, ts) {
+      const bindung = stmt.tmBindung.get(id);
+      if (!bindung) return null;
+      if (projektId !== undefined && bindung.profil) return { fehler: 'gebunden' };
+      if (projektId !== undefined) stmt.tmSetProjekt.run({ id, projektId: projektId || null });
+      // Schlagworte laufen ueber den regulaeren Weg; er stempelt `aktualisiert`.
+      // Ohne sie bleibt der Zeitstempel stehen: Einsortieren ist keine
+      // Bearbeitung und soll die Nachricht nicht an die Spitze der Liste heben.
+      if (tags !== undefined) return { entry: this.tmUpdate(id, { tags }, ts) };
+      return { entry: tmEntry(stmt.tmGet.get(id)) };
     },
 
     /** Löschen. Gibt true, wenn eine Zeile entfernt wurde. */

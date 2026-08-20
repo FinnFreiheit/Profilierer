@@ -74,6 +74,19 @@ export function profilesRouter(db, auth) {
     res.json({ entry });
   });
 
+  // Einsortieren (#134): Projekt und Schlagworte -- die **Ablage**, nicht die
+  // fachliche Aussage. Bewusst ohne `schutz`: der `fach_hash` laesst beide
+  // aussen vor, eine Freigabe wird durch Einsortieren nicht entwertet. Ohne
+  // diese Ausnahme liesse sich genau der Bestand nicht ordnen, der am ehesten
+  // in ein Projekt gehoert -- der freigegebene. Name, Autor und Beschreibung
+  // bleiben dem geschuetzten PATCH vorbehalten.
+  r.patch('/profiles/:id/ablage', (req, res) => {
+    const { projektId, tags } = req.body ?? {};
+    const entry = db.einsortieren(req.params.id, { projektId, tags });
+    if (!entry) return res.status(404).json({ error: 'nicht gefunden' });
+    res.json({ entry });
+  });
+
   // delete.
   r.delete('/profiles/:id', schutz, (req, res) => {
     db.delete(req.params.id);

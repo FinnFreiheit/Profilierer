@@ -2,6 +2,7 @@ import express from 'express';
 import { agAuth } from './auth.js';
 import { profilesRouter } from './routes/profiles.js';
 import { testmessagesRouter } from './routes/testmessages.js';
+import { projekteRouter } from './routes/projekte.js';
 import { errorMiddleware } from './log.js';
 
 /**
@@ -24,6 +25,7 @@ export function createApp(db, { agKey } = {}) {
 
   app.use('/api', profilesRouter(db, auth));
   app.use('/api', testmessagesRouter(db, auth));
+  app.use('/api', projekteRouter(db));
 
   // Zentrale Error-Middleware (Stack auf die Konsole, JSON-Antwort).
   app.use(errorMiddleware);

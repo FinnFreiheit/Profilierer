@@ -170,6 +170,13 @@ export interface LibraryEntry {
   beschreibung?: string;
   /** Schlagworte der Ablage (normalisiert vom Server). */
   tags?: string[];
+  /**
+   * Projekt, in dem die Profilierung liegt (#134) — der Behaelter ueber den
+   * Kommunikationsszenarien. Steht in der Server-Spalte, nicht im `ProfileDoc`:
+   * die Zuordnung ist eine Kante zwischen zwei Zeilen, und eine eingefrorene
+   * Version soll die Zuordnung des Originals nicht konservieren.
+   */
+  projektId?: string;
   nachricht?: string | null;
   xjustizVersion?: string;
   /** Fortschritt-Snapshot: Elemente mit gesetztem Status. */

@@ -2315,6 +2315,20 @@ dialog::backdrop {
   gap: 8px;
   align-items: center;
 }
+/* Einsortieren-Dialog (#134): bei gebundenen Testnachrichten steht statt des
+   Auswahlfelds der Satz, wohin die Zuordnung gehoert — dieselbe Zeilenhoehe
+   wie ein Feld, damit das Raster nicht springt. */
+#ablageDlg {
+  min-width: 420px;
+}
+.ablageLabel {
+  font-size: 13px;
+}
+.ablageGeerbt {
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
 /* Wizard „Neue Profilierung" (app-neues-profil-wizard). */
 #neuDlg {
   max-width: 640px;

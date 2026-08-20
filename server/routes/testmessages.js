@@ -115,6 +115,21 @@ export function testmessagesRouter(db, auth) {
     res.json({ entry });
   });
 
+  // Einsortieren (#134): Schlagworte immer, das Projekt nur bei ungebundenen
+  // Nachrichten -- gebundene erben es von ihrer Profilierung, ein zweiter
+  // Pflegeort erzeugte nur Widersprueche. Ohne `schutz`, aus demselben Grund
+  // wie bei den Profilierungen: Ablage ist keine fachliche Aussage.
+  r.patch('/testmessages/:id/ablage', (req, res) => {
+    const { projektId, tags } = req.body ?? {};
+    const out = db.tmEinsortieren(req.params.id, { projektId, tags });
+    if (!out) return res.status(404).json({ error: 'nicht gefunden' });
+    if (out.fehler === 'gebunden')
+      return res.status(409).json({
+        error: 'an eine Profilierung gebunden — das Projekt folgt der Profilierung',
+      });
+    res.json({ entry: out.entry });
+  });
+
   // Löschen.
   r.delete('/testmessages/:id', schutz, (req, res) => {
     db.tmDelete(req.params.id);

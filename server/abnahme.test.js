@@ -461,3 +461,55 @@ test('Variante anlegen: auch aus einer abgenommenen Nachricht, Kopie unmarkiert'
 
   assert.equal((await api('POST', '/testmessages/gibtsnicht/duplicate')).status, 404);
 });
+
+test('Einsortieren: bei freigegebenen Eintraegen offen, Umbenennen bleibt gesperrt', async (t) => {
+  const { api } = await start(t, { agKey: AG_KEY });
+
+  // Profilierung freigeben, dann ohne Schluessel einsortieren.
+  const pid = await neuesProfil(api);
+  await api('POST', `/profiles/${pid}/abnahme`, { body: {}, key: AG_KEY });
+  const prj = await api('POST', '/projekte', { body: { name: 'GenUVA' } });
+  assert.equal(prj.status, 201);
+
+  const einsortiert = await api('PATCH', `/profiles/${pid}/ablage`, {
+    body: { projektId: prj.body.id, tags: ['Pilot'] },
+  });
+  assert.equal(einsortiert.status, 200);
+  assert.equal(einsortiert.body.entry.projektId, prj.body.id);
+  assert.deepEqual(einsortiert.body.entry.tags, ['Pilot']);
+  // Die Freigabe haelt: Ablage ist keine fachliche Aussage.
+  assert.equal(einsortiert.body.entry.abgenommen, true);
+  assert.equal(einsortiert.body.entry.geaendertSeitAbnahme, undefined);
+
+  // Name/Autor/Beschreibung bleiben dem geschuetzten PATCH vorbehalten.
+  assert.equal((await api('PATCH', `/profiles/${pid}`, { body: { name: 'Neu' } })).status, 403);
+
+  // Dasselbe an der Testnachricht.
+  const tid = await neueTm(api);
+  await api('POST', `/testmessages/${tid}/abnahme`, { body: {}, key: AG_KEY });
+  const tmAblage = await api('PATCH', `/testmessages/${tid}/ablage`, {
+    body: { projektId: prj.body.id, tags: ['Pilot'] },
+  });
+  assert.equal(tmAblage.status, 200);
+  assert.equal(tmAblage.body.entry.projektId, prj.body.id);
+  assert.equal(tmAblage.body.entry.abgenommen, true);
+
+  assert.equal((await api('PATCH', '/profiles/fehlt/ablage', { body: {} })).status, 404);
+});
+
+test('Projekt loeschen laesst Profilierungen und Nachrichten stehen', async (t) => {
+  const { api } = await start(t);
+  const prj = await api('POST', '/projekte', { body: { name: 'GenUVA' } });
+  const pid = await neuesProfil(api);
+  await api('PATCH', `/profiles/${pid}/ablage`, { body: { projektId: prj.body.id } });
+
+  assert.equal((await api('GET', '/projekte')).body.length, 1);
+  assert.equal((await api('DELETE', `/projekte/${prj.body.id}`)).status, 204);
+  assert.equal((await api('GET', `/projekte/${prj.body.id}`)).status, 404);
+
+  const liste = await api('GET', '/profiles');
+  assert.equal(liste.body.length, 1);
+  assert.equal(liste.body[0].projektId, undefined);
+
+  assert.equal((await api('POST', '/projekte', { body: { name: '  ' } })).status, 400);
+});

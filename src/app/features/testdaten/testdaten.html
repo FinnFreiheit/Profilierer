@@ -25,6 +25,19 @@
         [value]="search()"
         (input)="search.set($any($event.target).value)"
       />
+      @if (projekte.entries().length) {
+        <select
+          class="abnFilter"
+          title="Nur Testdaten eines Projekts zeigen"
+          [value]="nurProjekt()"
+          (change)="nurProjekt.set($any($event.target).value)"
+        >
+          <option value="">alle Projekte</option>
+          @for (p of projekte.entries(); track p.id) {
+            <option [value]="p.id">{{ p.name }} ({{ p.nTestnachrichten }})</option>
+          }
+        </select>
+      }
       @if (profilFilterOptionen().length) {
         <select
           class="abnFilter"
@@ -109,6 +122,13 @@
                   (click)="werkzeuge.close(); openEdit(e, $event)"
                 >
                   Metadaten bearbeiten…
+                </button>
+                <button
+                  class="menuItem"
+                  title="Projekt und Schlagworte ändern — die Ablage, nicht die fachliche Aussage. Auch bei freigegebenen Nachrichten möglich."
+                  (click)="werkzeuge.close(); openAblage(e, $event)"
+                >
+                  Einsortieren…
                 </button>
                 <button
                   class="menuItem"
@@ -591,4 +611,22 @@
       </button>
     </div>
   }
+</dialog>
+
+<!-- Einsortieren (#134): Projekt und Schlagworte. Bei gebundenen Nachrichten
+     entfällt das Projektfeld — sie folgen ihrer Profilierung. -->
+<dialog #ablageDlg id="ablageDlg">
+  <h3 style="margin-top: 0">Einsortieren</h3>
+  <app-einsortieren
+    [projekte]="projekte.entries()"
+    [(projektId)]="ablProjekt"
+    [(neuerName)]="ablNeu"
+    [(tags)]="ablTags"
+    [tagVorschlaege]="verfuegbareTags()"
+    [geerbtVon]="ablGeerbtVon()"
+  ></app-einsortieren>
+  <div style="text-align: right; margin-top: 12px">
+    <button (click)="ablageDlg.close()">Abbrechen</button>
+    <button class="primary" (click)="submitAblage()">Übernehmen</button>
+  </div>
 </dialog>
