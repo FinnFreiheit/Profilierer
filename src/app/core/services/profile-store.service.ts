@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { LibraryEntry, ProfileDoc, ProfilVersion } from '../../models/profile.model';
+import { AblagePatch } from '../../models/projekt.model';
 
 /** Patch fuer PATCH /api/profiles/:id — nur gesetzte Felder werden geaendert. */
 export interface ProfilMetaPatch {
@@ -101,6 +102,21 @@ export class ProfileStoreService {
   async patchMeta(id: string, patch: ProfilMetaPatch): Promise<void> {
     const { entry } = await this.http.json<{ entry: LibraryEntry }>(
       `/profiles/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: JSON.stringify(patch) },
+    );
+    this.putEntry(entry);
+  }
+
+  /**
+   * Einsortieren (#134): Projekt und/oder Schlagworte — die **Ablage**, nicht
+   * die fachliche Aussage. Eigener Endpunkt, weil dieser Weg auch bei
+   * freigegebenen Profilierungen offen steht: der Fach-Hash laesst beide aussen
+   * vor, eine Freigabe wird durch Einsortieren nicht entwertet.
+   * `projektId: null` loest die Zuordnung.
+   */
+  async einsortieren(id: string, patch: AblagePatch): Promise<void> {
+    const { entry } = await this.http.json<{ entry: LibraryEntry }>(
+      `/profiles/${encodeURIComponent(id)}/ablage`,
       { method: 'PATCH', body: JSON.stringify(patch) },
     );
     this.putEntry(entry);

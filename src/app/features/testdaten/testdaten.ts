@@ -42,6 +42,8 @@ import { firstLine } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { TagFilter } from '../../shared/tag-filter/tag-filter';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
+import { Einsortieren, PROJEKT_NEU } from '../../shared/einsortieren/einsortieren';
+import { ProjektStoreService } from '../../core/services/projekt-store.service';
 import {
   hatAlleTags,
   normalisiereTags,
@@ -67,7 +69,7 @@ interface Gruppe {
 @Component({
   selector: 'app-testdaten',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu, KeinAutofillDirective, TagFilter, TagEingabe],
+  imports: [RolleBadge, Menu, KeinAutofillDirective, TagFilter, TagEingabe, Einsortieren],
   templateUrl: './testdaten.html',
 })
 export class Testdaten {
@@ -76,6 +78,7 @@ export class Testdaten {
   protected readonly rolle = inject(RolleService);
   private readonly toast = inject(ToastService);
   private readonly profiles = inject(ProfileStoreService);
+  protected readonly projekte = inject(ProjektStoreService);
   private readonly persistence = inject(PersistenceService);
   private readonly start = inject(TestnachrichtStartService);
   private readonly creator = inject(TestmessageCreateService);
@@ -91,6 +94,7 @@ export class Testdaten {
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
   private readonly editDlg = viewChild.required<ElementRef<HTMLDialogElement>>('editDlg');
+  private readonly ablageDlg = viewChild.required<ElementRef<HTMLDialogElement>>('ablageDlg');
   private readonly createDlg = viewChild.required<ElementRef<HTMLDialogElement>>('createDlg');
   private readonly pruefDlg = viewChild.required<ElementRef<HTMLDialogElement>>('pruefDlg');
 
@@ -155,10 +159,75 @@ export class Testdaten {
    */
   protected readonly gewaehlteTags = signal<string[]>([]);
 
+  /** Filter "nur ein Projekt" (#134) — neben dem Filter nach Profilierung. */
+  protected readonly nurProjekt = signal('');
+
   /** Vergebene Schlagworte des Speichers mit Haeufigkeit (Filterleiste). */
   protected readonly verfuegbareTags = computed(() =>
     tagOptionen(this.store.entries(), (e) => e.tags),
   );
+
+  // ── Einsortieren (#134) ──────────────────────────────────────────────
+
+  /** Einsortieren-Dialog: aktive Nachricht + Puffer der drei Felder. */
+  protected readonly ablEintrag = signal<TestmessageEntry | null>(null);
+  protected readonly ablProjekt = signal('');
+  protected readonly ablNeu = signal('');
+  protected readonly ablTags = signal('');
+
+  /**
+   * Name der Profilierung, von der die aktive Nachricht ihr Projekt erbt —
+   * gesetzt heisst: kein Projektfeld im Dialog. Gebundene Nachrichten folgen
+   * ihrer Profilierung; ein zweiter Pflegeort erzeugte nur Widersprueche
+   * ("Nachricht in Projekt A, Profil in Projekt B").
+   *
+   * Nach dem **Loeschen** der Profilierung erbt nichts mehr (sie steht nicht
+   * mehr in der Bibliothek) — dann ist die eigene Zuordnung wieder der Weg.
+   */
+  protected readonly ablGeerbtVon = computed(() => {
+    const e = this.ablEintrag();
+    if (!e?.profilId) return undefined;
+    return this.profiles.entries().find((p) => p.id === e.profilId)?.name;
+  });
+
+  /**
+   * Einsortieren: Projekt und Schlagworte — die Ablage, nicht die fachliche
+   * Aussage. Auch bei freigegebenen Nachrichten offen.
+   */
+  protected openAblage(e: TestmessageEntry, ev: Event): void {
+    ev.stopPropagation();
+    this.ablEintrag.set(e);
+    this.ablProjekt.set(e.projektId ?? '');
+    this.ablNeu.set('');
+    this.ablTags.set(tagsAlsText(e.tags));
+    this.ablageDlg().nativeElement.showModal();
+  }
+
+  /** Uebernehmen: ggf. erst das neue Projekt anlegen, dann zuordnen. */
+  protected async submitAblage(): Promise<void> {
+    const eintrag = this.ablEintrag();
+    const geerbt = !!this.ablGeerbtVon();
+    this.ablageDlg().nativeElement.close();
+    if (!eintrag) return;
+    try {
+      let projektId: string | null | undefined;
+      // Bei geerbtem Projekt gar nicht erst mitschicken — der Server wiese es
+      // mit 409 ab, und der Dialog hat das Feld dort auch nicht gezeigt.
+      if (!geerbt) {
+        projektId = this.ablProjekt() || null;
+        if (projektId === PROJEKT_NEU) {
+          const name = this.ablNeu().trim();
+          projektId = name ? await this.projekte.create({ name }) : null;
+        }
+      }
+      await this.store.einsortieren(eintrag.id, {
+        projektId,
+        tags: normalisiereTags(this.ablTags()),
+      });
+    } catch (err) {
+      this.toast.showError(err, 'Einsortieren fehlgeschlagen.');
+    }
+  }
 
   /** Bearbeiten-Dialog: aktive id + Puffer für Name, Beschreibung, Schlagworte. */
   protected readonly editId = signal<string | null>(null);
@@ -177,6 +246,7 @@ export class Testdaten {
           this.matches(e, q) &&
           (!this.nurAbgenommene() || e.abgenommen) &&
           (!profil || e.profilId === profil) &&
+          (!this.nurProjekt() || e.projektId === this.nurProjekt()) &&
           hatAlleTags(e.tags, this.gewaehlteTags()),
       );
     const map = new Map<string, TestmessageEntry[]>();

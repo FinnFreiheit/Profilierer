@@ -127,6 +127,46 @@ nur gesetzte Felder wirken, das Dokument liest und schreibt der Server selbst �
 Gefiltert wird im Client auf dem ohnehin geladenen Index (`tagOptionen`/`hatAlleTags`);
 mehrere gewählte Schlagworte wirken **zusammen** (UND).
 
+### Projekte (`projekte`)
+
+Der Behälter über den Profilierungen (#134): ein Vorhaben bündelt mehrere
+Kommunikationsszenarien auf derselben Nachricht. Tabelle
+`projekte = { id, name, beschreibung, tags, angelegt, aktualisiert }`, bedient über
+`/api/projekte`. Die Zahlen der Kachel (`nProfile`, `nTestnachrichten`) kommen als
+korrelierte Unterabfragen mit dem Index — sie stehen auf jeder Kachel, ein
+Zusatz-Request je Projekt wäre Verschwendung.
+
+**Die Zuordnung trägt nur die Profilierung** (`profiles.projekt_id`). Eine gebundene
+Testnachricht **erbt** sie über ihre `profil_id`: `TM_COLS` liefert
+`COALESCE(t.projekt_id, p.projekt_id)` über den ohnehin vorhandenen LEFT JOIN. Damit
+gibt es einen Pflegeort statt zweier und keine widersprüchlichen Zustände
+(„Nachricht in Projekt A, Profil in Projekt B"). `testmessages.projekt_id` trägt nur
+den Fall ohne Bindung — Uploads — und das festgeschriebene Erbe.
+
+Die Zuordnung steht in der **Spalte, nicht im `ProfileDoc`**: sie ist eine Kante
+zwischen zwei Zeilen, keine Eigenschaft des Dokuments. Zwei Folgen, beide gewollt:
+eine eingefrorene Version konserviert die Zuordnung des Originals nicht, und
+Einsortieren rührt den `doc_hash` nicht an — eine Freigabe bleibt unberührt. Weil
+`upsert` die Spalte nicht schreibt, liest es sie nach dem Schreiben nach und legt sie
+in den Entry; sonst verlöre der Client die Zuordnung bei jedem Autosave.
+
+**Löschen der Profilierung** schreibt das Erbe vorher fest (`tmErbeFestschreiben`):
+mit ihr fällt der LEFT JOIN weg, über den ihre Testnachrichten das Projekt erben — die
+Nachrichten selbst überleben das Löschen (eingefrorene Vorgabe) und sollen nicht
+lautlos aus dem Projekt verschwinden. Das **Lösen der Bindung** braucht das nicht: die
+Herkunft (`profil_id`) bleibt als Historie stehen, und mit ihr das Erbe.
+
+**Einsortieren** (`PATCH /api/profiles/:id/ablage`, `PATCH /api/testmessages/:id/ablage`)
+setzt Projekt und Schlagworte — die Ablage. Beide Endpunkte tragen bewusst **keine**
+`schutz`-Middleware: der `fach_hash` lässt beide Felder aussen vor, eine Freigabe wird
+durch Einsortieren nicht entwertet. Ohne diese Ausnahme liesse sich genau der Bestand
+nicht ordnen, der am ehesten in ein Projekt gehört — der freigegebene. Name, Autor und
+Beschreibung bleiben dem geschützten `PATCH /api/profiles/:id` vorbehalten. An einer
+gebundenen Testnachricht antwortet der Ablage-Endpunkt auf ein Projekt mit `409`; die
+Ansicht bietet das Feld dort gar nicht erst an.
+
+**Projekt löschen** entfernt nur die Zuordnungen, nie Inhalte.
+
 ### Varianten einer Testnachricht
 
 Ausprägungen eines Kommunikationsszenarios (einmal ein Beteiligter, einmal zwei)

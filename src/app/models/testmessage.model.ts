@@ -31,6 +31,14 @@ export interface TestmessageEntry {
   notiz?: string;
   /** Schlagworte der Ablage (normalisiert vom Server, siehe tags.util). */
   tags?: string[];
+  /**
+   * Projekt, in dem die Nachricht liegt (#134) — **effektiv**: die eigene
+   * Zuordnung, sonst die der gebundenen Profilierung. Die Kachel unterscheidet
+   * nicht, woher sie kommt; im Projekt liegt die Nachricht so oder so. Eigens
+   * zuordnen laesst sich nur, was an keine (noch existierende) Profilierung
+   * gebunden ist — sonst gaebe es zwei Pflegeorte.
+   */
+  projektId?: string;
   /** ms-Timestamp des Uploads. */
   hochgeladen: number;
   /** ms-Timestamp der letzten Änderung (Sortierschlüssel). */

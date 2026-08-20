@@ -2,6 +2,9 @@ import { TestBed } from '@angular/core/testing';
 import { ProfilMetaPatch, ProfileStoreService } from '../../core/services/profile-store.service';
 import { Dashboard } from './dashboard';
 import { LibraryEntry } from '../../models/profile.model';
+import { ProjektStoreService } from '../../core/services/projekt-store.service';
+import { AblagePatch, ProjektPatch } from '../../models/projekt.model';
+import { PROJEKT_NEU } from '../../shared/einsortieren/einsortieren';
 import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
 
 /**
@@ -280,5 +283,112 @@ describe('Dashboard — Metadaten an der Kachel', () => {
     spyOn(ev, 'stopPropagation');
     dash.openRename('p1', ev);
     expect(ev.stopPropagation).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Einsortieren (#134): Projekt und Schlagworte — die Ablage, nicht die
+ * fachliche Aussage. Der Dialog legt bei Bedarf gleich das Projekt an; ohne
+ * Namen bleibt es beim "keinem Projekt zugeordnet", statt ein namenloses
+ * Projekt in die Welt zu setzen.
+ */
+describe('Dashboard — Einsortieren', () => {
+  let dash: {
+    openAblage: (e: LibraryEntry, ev: Event) => void;
+    submitAblage: () => Promise<void>;
+    ablProjekt: { (): string; set: (v: string) => void };
+    ablNeu: { (): string; set: (v: string) => void };
+    ablTags: { (): string; set: (v: string) => void };
+    nurProjekt: { set: (v: string) => void };
+    sektionen: () => { items: LibraryEntry[] }[];
+  };
+  let patches: { id: string; patch: AblagePatch }[];
+  let angelegt: ProjektPatch[];
+
+  const eintrag = (over: Partial<LibraryEntry> = {}): LibraryEntry =>
+    ({
+      id: 'p1',
+      name: 'Ersuchen an die Gemeinde',
+      nachricht: 'nachricht.genuva.ersuchen',
+      nStatus: 0,
+      nAusp: 0,
+      aktualisiert: 0,
+      ...over,
+    }) as LibraryEntry;
+
+  const imProjekt = eintrag({ id: 'p1', projektId: 'prj1', tags: ['Pilot'] });
+  const imAnderen = eintrag({ id: 'p2', projektId: 'prj2' });
+  const ohneProjekt = eintrag({ id: 'p3' });
+  const eintraege = [imProjekt, imAnderen, ohneProjekt];
+
+  beforeEach(async () => {
+    patches = [];
+    angelegt = [];
+    await TestBed.configureTestingModule({ imports: [Dashboard] }).compileComponents();
+    const store = TestBed.inject(ProfileStoreService);
+    store.entries.set(eintraege);
+    spyOn(store, 'einsortieren').and.callFake(async (id: string, patch: AblagePatch) => {
+      patches.push({ id, patch });
+    });
+    const projekte = TestBed.inject(ProjektStoreService);
+    projekte.entries.set([]);
+    spyOn(projekte, 'create').and.callFake(async (patch: ProjektPatch) => {
+      angelegt.push(patch);
+      return 'neu1';
+    });
+    const fixture = TestBed.createComponent(Dashboard);
+    fixture.detectChanges();
+    dash = fixture.componentInstance as unknown as typeof dash;
+  });
+
+  it('grenzt die Uebersicht auf ein Projekt ein', () => {
+    const treffer = (): string[] => dash.sektionen().flatMap((s) => s.items.map((e) => e.id));
+    expect(treffer()).toEqual(['p1', 'p2', 'p3']);
+    dash.nurProjekt.set('prj1');
+    expect(treffer()).toEqual(['p1']);
+  });
+
+  it('fuellt den Dialog aus dem Eintrag', () => {
+    dash.openAblage(imProjekt, new MouseEvent('click'));
+    expect(dash.ablProjekt()).toBe('prj1');
+    expect(dash.ablTags()).toBe('Pilot');
+  });
+
+  it('ordnet einem vorhandenen Projekt zu und normalisiert die Schlagworte', async () => {
+    dash.openAblage(ohneProjekt, new MouseEvent('click'));
+    dash.ablProjekt.set('prj2');
+    dash.ablTags.set('Pilot, pilot, Schulung');
+    await dash.submitAblage();
+    expect(patches).toEqual([
+      { id: 'p3', patch: { projektId: 'prj2', tags: ['Pilot', 'Schulung'] } },
+    ]);
+    expect(angelegt).toEqual([]);
+  });
+
+  it('legt ein neues Projekt an und ordnet in einem Zug zu', async () => {
+    dash.openAblage(ohneProjekt, new MouseEvent('click'));
+    dash.ablProjekt.set(PROJEKT_NEU);
+    dash.ablNeu.set('GenUVA');
+    await dash.submitAblage();
+    expect(angelegt).toEqual([{ name: 'GenUVA' }]);
+    expect(patches).toEqual([{ id: 'p3', patch: { projektId: 'neu1', tags: [] } }]);
+  });
+
+  it('legt ohne Namen kein Projekt an — die Zuordnung faellt weg', async () => {
+    dash.openAblage(imProjekt, new MouseEvent('click'));
+    dash.ablProjekt.set(PROJEKT_NEU);
+    dash.ablNeu.set('   ');
+    await dash.submitAblage();
+    expect(angelegt).toEqual([]);
+    // Die Schlagworte des Eintrags stehen im Dialog und werden mitgeschrieben;
+    // nur die Projektzuordnung faellt weg.
+    expect(patches).toEqual([{ id: 'p1', patch: { projektId: null, tags: ['Pilot'] } }]);
+  });
+
+  it('loest die Zuordnung, wenn "keinem Projekt" gewaehlt wird', async () => {
+    dash.openAblage(imProjekt, new MouseEvent('click'));
+    dash.ablProjekt.set('');
+    await dash.submitAblage();
+    expect(patches).toEqual([{ id: 'p1', patch: { projektId: null, tags: ['Pilot'] } }]);
   });
 });

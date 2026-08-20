@@ -32,6 +32,19 @@
         [value]="search()"
         (input)="search.set($any($event.target).value)"
       />
+      @if (projekte.entries().length) {
+        <select
+          class="abnFilter"
+          title="Nur Profilierungen eines Projekts zeigen"
+          [value]="nurProjekt()"
+          (change)="nurProjekt.set($any($event.target).value)"
+        >
+          <option value="">alle Projekte</option>
+          @for (p of projekte.entries(); track p.id) {
+            <option [value]="p.id">{{ p.name }} ({{ p.nProfile }})</option>
+          }
+        </select>
+      }
       <label
         class="abnFilter"
         title="Nur von der BLK-AG freigegebene (valide) Profilierungen zeigen"
@@ -97,6 +110,13 @@
                   (click)="werkzeuge.close(); openRename(e.id, $event)"
                 >
                   Metadaten bearbeiten…
+                </button>
+                <button
+                  class="menuItem"
+                  title="Projekt und Schlagworte ändern — die Ablage, nicht die fachliche Aussage. Auch bei freigegebenen Profilierungen möglich."
+                  (click)="werkzeuge.close(); openAblage(e, $event)"
+                >
+                  Einsortieren…
                 </button>
                 @if (e.nachricht) {
                   <!-- Der title liegt am Wrapper, nicht am Knopf: ueber einen
@@ -269,6 +289,24 @@
     </div>
   }
 </div>
+
+<!-- Einsortieren (#134): Projekt und Schlagworte. Bewusst getrennt von den
+     Metadaten — dieser Weg steht auch bei freigegebenen Profilierungen offen,
+     weil die Ablage keine fachliche Aussage trägt. -->
+<dialog #ablageDlg id="ablageDlg">
+  <h3 style="margin-top: 0">Einsortieren</h3>
+  <app-einsortieren
+    [projekte]="projekte.entries()"
+    [(projektId)]="ablProjekt"
+    [(neuerName)]="ablNeu"
+    [(tags)]="ablTags"
+    [tagVorschlaege]="verfuegbareTags()"
+  ></app-einsortieren>
+  <div style="text-align: right; margin-top: 12px">
+    <button (click)="ablageDlg.close()">Abbrechen</button>
+    <button class="primary" (click)="submitAblage()">Übernehmen</button>
+  </div>
+</dialog>
 
 <!-- Metadaten der Kachel: dieselben Felder wie „Details…" im Editor, aber ohne
      die Profilierung zu öffnen (kein Schema-Ladevorgang nur fürs Einsortieren). -->

@@ -6,6 +6,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { LibraryEntry } from '../../models/profile.model';
 import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
 import { TestmessageEntry } from '../../models/testmessage.model';
+import { AblagePatch } from '../../models/projekt.model';
 import { TestmessagePatch } from '../../core/services/testmessage-store.service';
 
 /**
@@ -216,5 +217,101 @@ describe('Testdaten — Variante anlegen', () => {
     await td.variante(eintrag, new MouseEvent('click'));
     expect(dupliziert).toEqual([]);
     expect(toasts).toEqual(['Variante konnte nicht angelegt werden.']);
+  });
+});
+
+/**
+ * Einsortieren im Testdaten-Speicher (#134). Der Kern: eine an eine
+ * Profilierung gebundene Nachricht **erbt** deren Projekt — der Dialog bietet
+ * dafuer kein Feld an und schickt auch keins mit. Ein zweiter Pflegeort
+ * erzeugte nur Widersprueche.
+ */
+describe('Testdaten — Einsortieren', () => {
+  let td: {
+    openAblage: (e: TestmessageEntry, ev: Event) => void;
+    submitAblage: () => Promise<void>;
+    ablProjekt: { (): string; set: (v: string) => void };
+    ablTags: { (): string; set: (v: string) => void };
+    ablGeerbtVon: () => string | undefined;
+    nurProjekt: { set: (v: string) => void };
+    gruppen: () => { items: TestmessageEntry[] }[];
+  };
+  let patches: { id: string; patch: AblagePatch }[];
+
+  const nachricht = (over: Partial<TestmessageEntry> = {}): TestmessageEntry =>
+    ({
+      id: 'x',
+      name: 'a.xml',
+      nachricht: 'nachricht.genuva.ersuchen',
+      fachmodul: 'genuva',
+      groesse: 10,
+      hochgeladen: 0,
+      aktualisiert: 0,
+      ...over,
+    }) as TestmessageEntry;
+
+  const gebunden = nachricht({ id: 'geb', profilId: 'p1', projektId: 'prj1', tags: ['Pilot'] });
+  const upload = nachricht({ id: 'upl' });
+  const verwaist = nachricht({ id: 'ver', profilId: 'geloescht' });
+
+  beforeEach(async () => {
+    patches = [];
+    await TestBed.configureTestingModule({
+      imports: [Testdaten],
+      providers: [
+        {
+          provide: ProfileStoreService,
+          useValue: { entries: () => [{ id: 'p1', name: 'Ersuchen an die Gemeinde' }] },
+        },
+        {
+          provide: TestmessageStoreService,
+          useValue: {
+            entries: () => [gebunden, upload, verwaist],
+            refresh: async () => {},
+            einsortieren: async (id: string, patch: AblagePatch) => {
+              patches.push({ id, patch });
+            },
+          },
+        },
+        { provide: ToastService, useValue: { show: () => {}, showError: () => {} } },
+      ],
+    }).compileComponents();
+    td = TestBed.createComponent(Testdaten).componentInstance as unknown as typeof td;
+  });
+
+  it('nennt die Profilierung, von der das Projekt geerbt wird', () => {
+    td.openAblage(gebunden, new MouseEvent('click'));
+    expect(td.ablGeerbtVon()).toBe('Ersuchen an die Gemeinde');
+  });
+
+  it('schickt bei geerbtem Projekt keine Zuordnung mit — nur die Schlagworte', async () => {
+    td.openAblage(gebunden, new MouseEvent('click'));
+    td.ablTags.set('Pilot, Schulung');
+    await td.submitAblage();
+    expect(patches).toEqual([
+      { id: 'geb', patch: { projektId: undefined, tags: ['Pilot', 'Schulung'] } },
+    ]);
+  });
+
+  it('laesst den Upload eigenstaendig zuordnen', async () => {
+    td.openAblage(upload, new MouseEvent('click'));
+    expect(td.ablGeerbtVon()).toBeUndefined();
+    td.ablProjekt.set('prj1');
+    await td.submitAblage();
+    expect(patches).toEqual([{ id: 'upl', patch: { projektId: 'prj1', tags: [] } }]);
+  });
+
+  it('gibt die Nachricht einer geloeschten Profilierung wieder frei', () => {
+    // Die Herkunft steht noch am Eintrag, die Profilierung nicht mehr in der
+    // Bibliothek — dann erbt nichts mehr und die eigene Zuordnung ist der Weg.
+    td.openAblage(verwaist, new MouseEvent('click'));
+    expect(td.ablGeerbtVon()).toBeUndefined();
+  });
+
+  it('grenzt den Speicher auf ein Projekt ein', () => {
+    const treffer = (): string[] => td.gruppen().flatMap((g) => g.items.map((e) => e.id));
+    expect(treffer().length).toBe(3);
+    td.nurProjekt.set('prj1');
+    expect(treffer()).toEqual(['geb']);
   });
 });

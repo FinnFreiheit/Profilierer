@@ -7,6 +7,7 @@ import {
   TestmessageInput,
 } from '../../models/testmessage.model';
 import { ProfileDoc } from '../../models/profile.model';
+import { AblagePatch } from '../../models/projekt.model';
 import { LoggerService } from './logger.service';
 import { BackendClient } from './backend-client.service';
 import { mitEintrag, neuesteZuerst, ohneEintrag } from '../util/eintragsliste.util';
@@ -137,6 +138,20 @@ export class TestmessageStoreService {
   async updateMeta(id: string, patch: TestmessagePatch): Promise<void> {
     const { entry } = await this.http.json<{ entry: TestmessageEntry }>(
       `/testmessages/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: JSON.stringify(patch) },
+    );
+    this.putEntry(entry);
+  }
+
+  /**
+   * Einsortieren (#134): Schlagworte immer, das Projekt nur bei ungebundenen
+   * Nachrichten — gebundene erben es von ihrer Profilierung. Der Server weist
+   * ein Projekt an einer gebundenen Nachricht mit 409 ab; die Ansicht bietet
+   * das Feld dort gar nicht erst an.
+   */
+  async einsortieren(id: string, patch: AblagePatch): Promise<void> {
+    const { entry } = await this.http.json<{ entry: TestmessageEntry }>(
+      `/testmessages/${encodeURIComponent(id)}/ablage`,
       { method: 'PATCH', body: JSON.stringify(patch) },
     );
     this.putEntry(entry);
