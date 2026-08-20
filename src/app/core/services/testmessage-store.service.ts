@@ -116,6 +116,19 @@ export class TestmessageStoreService {
   }
 
   /**
+   * Variante anlegen (#133): serverseitige Kopie mit derselben Profil-Bindung,
+   * aus der die naechste Auspraegung entsteht. Gibt die id der Kopie zurueck.
+   */
+  async dupliziere(id: string): Promise<string> {
+    const { id: neueId, entry } = await this.http.json<{ id: string; entry: TestmessageEntry }>(
+      `/testmessages/${encodeURIComponent(id)}/duplicate`,
+      { method: 'POST' },
+    );
+    this.putEntry(entry);
+    return neueId;
+  }
+
+  /**
    * Felder aendern: Metadaten (Name/Notiz) und — bei gefuehrt erstellten
    * Nachrichten — XML, Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand.
    * Nur die gesetzten Felder werden gesendet; das Backend laesst weggelassene

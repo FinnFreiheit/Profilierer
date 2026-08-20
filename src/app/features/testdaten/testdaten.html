@@ -112,6 +112,13 @@
                 </button>
                 <button
                   class="menuItem"
+                  title="Kopie mit derselben Profilierung anlegen — Ausgangspunkt für die nächste Ausprägung"
+                  (click)="werkzeuge.close(); variante(e, $event)"
+                >
+                  Variante anlegen
+                </button>
+                <button
+                  class="menuItem"
                   title="Schemavalidierung ausführen und Befund anzeigen"
                   (click)="werkzeuge.close(); pruefe(e, $event)"
                 >

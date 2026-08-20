@@ -127,6 +127,30 @@ nur gesetzte Felder wirken, das Dokument liest und schreibt der Server selbst �
 Gefiltert wird im Client auf dem ohnehin geladenen Index (`tagOptionen`/`hatAlleTags`);
 mehrere gewählte Schlagworte wirken **zusammen** (UND).
 
+### Varianten einer Testnachricht
+
+Ausprägungen eines Kommunikationsszenarios (einmal ein Beteiligter, einmal zwei)
+entstehen als **Kopie**: `POST /api/testmessages/:id/duplicate` → `db.tmDuplicate`.
+Die Zeile wird direkt aus der Quellzeile geschrieben, nicht über `tmCreate` — so wandert
+die Notiz mit (`tmCreate` legt sie für Uploads immer leer an) und der `vorgabe_hash` wird
+übernommen statt neu berechnet.
+
+**Mit wandern:** XML, Nachricht, Fachmodul, Version, Notiz, Schlagworte, Bezeichnungen,
+Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand — und die Profil-Bindung
+vollständig (`profil_id`, `profil_name`, `fassung`, `vorgabe`, `vorgabe_hash`). Ohne die
+eingefrorene Vorgabe wäre die Variante nicht mehr gegen dieselbe Fassung prüfbar, gegen
+die ihre Geschwister gebaut wurden.
+
+**Zurück bleiben:** id und der Abnahme-Stand (`abnahme_xml`, `abnahme_ts`,
+`abnahme_kommentar`). Die Kopie ist unmarkiert und frei bearbeitbar — dieselbe Regel wie
+bei der Profil-Kopie in `duplicate`.
+
+Der Endpunkt trägt bewusst **keine** `schutz`-Middleware: aus einer freigegebenen
+Nachricht eine Variante abzuleiten rührt das Original nicht an, und gerade die
+freigegebenen sind die guten Ausgangspunkte. Der Nachrichtenkopf bleibt unangetastet —
+mit gleichem Erstellungszeitpunkt und gleicher Nachrichten-UUID besteht ein späterer
+Vergleich zweier Varianten aus fachlichen Unterschieden statt aus Zeitstempel-Rauschen.
+
 ### Versionen (`profile_versions`)
 
 [US Profilierung versionieren](user-stories/profilierung-versionieren.md): Tabelle

@@ -145,3 +145,76 @@ describe('Testdaten — Filter nach Schlagworten', () => {
     expect(td.editTags()).toBe('Pilot, eNoVA');
   });
 });
+
+/**
+ * Kachel-Aktion "Variante anlegen" (#133): der Weg zur naechsten Auspraegung
+ * eines Kommunikationsszenarios. Geprueft wird das beobachtbare Verhalten der
+ * Komponente — dass sie dupliziert, den Klick nicht an die Kachel darunter
+ * durchreicht und Erfolg wie Fehlschlag meldet.
+ */
+describe('Testdaten — Variante anlegen', () => {
+  let td: {
+    variante: (e: TestmessageEntry, ev: Event) => Promise<void>;
+  };
+  let dupliziert: string[];
+  let toasts: string[];
+  let scheitert: boolean;
+
+  const eintrag = {
+    id: 'tm1',
+    name: 'Ersuchen Gemeinde',
+    nachricht: 'nachricht.test.0001',
+    fachmodul: 'test',
+    groesse: 10,
+    hochgeladen: 0,
+    aktualisiert: 0,
+  } as TestmessageEntry;
+
+  beforeEach(async () => {
+    dupliziert = [];
+    toasts = [];
+    scheitert = false;
+    await TestBed.configureTestingModule({
+      imports: [Testdaten],
+      providers: [
+        { provide: ProfileStoreService, useValue: { entries: () => [] } },
+        {
+          provide: TestmessageStoreService,
+          useValue: {
+            entries: () => [eintrag],
+            refresh: async () => {},
+            dupliziere: async (id: string) => {
+              if (scheitert) throw new Error('Backend weg');
+              dupliziert.push(id);
+              return 'tm2';
+            },
+          },
+        },
+        {
+          provide: ToastService,
+          useValue: {
+            show: (t: string) => toasts.push(t),
+            showError: (_e: unknown, t: string) => toasts.push(t),
+          },
+        },
+      ],
+    }).compileComponents();
+    td = TestBed.createComponent(Testdaten).componentInstance as unknown as typeof td;
+  });
+
+  it('dupliziert und meldet es, ohne die Kachel darunter zu oeffnen', async () => {
+    const ev = new MouseEvent('click');
+    spyOn(ev, 'stopPropagation');
+    await td.variante(eintrag, ev);
+    expect(dupliziert).toEqual(['tm1']);
+    expect(ev.stopPropagation).toHaveBeenCalled();
+    expect(toasts).toEqual(['Variante von „Ersuchen Gemeinde" angelegt.']);
+  });
+
+  it('meldet einen Fehlschlag, statt ihn zu verschlucken', async () => {
+    scheitert = true;
+    await td.variante(eintrag, new MouseEvent('click'));
+    expect(dupliziert).toEqual([]);
+    expect(toasts).toEqual(['Variante konnte nicht angelegt werden.']);
+  });
+});

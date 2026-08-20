@@ -1300,6 +1300,56 @@ export function openDb(path) {
     },
 
     /**
+     * Variante einer Testnachricht (#133): Kopie mit neuer id und Namenszusatz
+     * " (Variante)". Die Auspraegungen eines Szenarios unterscheiden sich meist
+     * in einem einzigen Vorkommen — sie entstehen als Kopie und werden danach
+     * angepasst, statt jedes Mal von vorn erzeugt zu werden.
+     *
+     * Die Profil-Bindung wandert **vollstaendig** mit (Herkunft, eingefrorene
+     * Vorgabe und deren Hash): die Variante gehoert zum selben Kommunikations-
+     * szenario und ist gegen dieselbe Vorgabe zu pruefen. Der Abnahme-Stand
+     * bleibt dagegen zurueck — die Kopie ist unmarkiert und frei bearbeitbar,
+     * wie die Profil-Kopie in `duplicate`.
+     *
+     * Der Nachrichtenkopf wird nicht angefasst. Mit gleichem Erstellungs-
+     * zeitpunkt und gleicher Nachrichten-UUID besteht der Vergleich zweier
+     * Varianten aus fachlichen Unterschieden statt aus Zeitstempel-Rauschen.
+     *
+     * Gibt { id, entry } oder null bei unbekannter id.
+     */
+    tmDuplicate(id, ts) {
+      const row = stmt.tmGetRow.get(id);
+      if (!row) return null;
+      const neueId = randomUUID();
+      const stamp = ts ?? Date.now();
+      // Direkt aus der Zeile, nicht ueber tmCreate: so wandert die Notiz mit
+      // (tmCreate setzt sie fuer Uploads immer auf null) und der Hash der
+      // eingefrorenen Vorgabe wird uebernommen statt neu berechnet.
+      stmt.tmInsert.run({
+        id: neueId,
+        xml: row.xml,
+        name: (row.name || '(ohne Namen)') + ' (Variante)',
+        nachricht: row.nachricht,
+        fachmodul: row.fachmodul,
+        xjustizVersion: row.xjustiz_version,
+        groesse: row.groesse,
+        notiz: row.notiz,
+        tags: row.tags,
+        entwurf: row.entwurf,
+        fortschritt: row.fortschritt,
+        entscheidungen: row.entscheidungen,
+        bezeichnungen: row.bezeichnungen,
+        profilId: row.profil_id,
+        profilName: row.profil_name,
+        fassung: row.fassung,
+        vorgabe: row.vorgabe,
+        vorgabeHash: row.vorgabe_hash,
+        ts: stamp,
+      });
+      return { id: neueId, entry: tmEntry(stmt.tmGet.get(neueId)) };
+    },
+
+    /**
      * Felder ändern; nur die im Patch gesetzten werden übernommen (undefined =
      * unberührt). Aktualisiert-Zeitstempel setzen. Gibt entry oder null.
      * Herkunft und eingefrorene Kopie der Profil-Bindung sind bewusst nicht
