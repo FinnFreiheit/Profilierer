@@ -89,3 +89,18 @@ kein Instanz-Modus, Nenner > 0), und ließ es sonst weg — `profileDoc` führt 
 also verschwand es aus dem Dokument und mit ihm der Balken der Kachel. Der zuletzt
 bekannte Stand wird jetzt gemerkt und mitgeschrieben, bis eine eigene Zählung ihn
 ersetzt.
+
+## Nachtrag 26.08.18: Schlagworte zählen für die Freigabe nicht
+
+Profilierungen und Testnachrichten tragen freie Schlagworte (Ablage-Ordnung, Filter der
+Übersicht). Sie liegen am Profil in `meta.tags` — also im Dokument, damit Export, Import
+und Versionen sie mitführen —, und genau deshalb muss gesagt sein, was sie **nicht** sind:
+eine fachliche Festlegung. Der `fach_hash` lässt `meta.tags` darum aussen vor, und die
+`META_FELDER` des Profil-Vergleichs führen sie nicht. Wer eine freigegebene Profilierung
+nachträglich einsortiert, entwertet damit weder die Freigabe („⚠ seit Freigabe geändert")
+noch markiert er gebundene Testnachrichten als „Profil weiterentwickelt" — und Badge und
+Vergleichsliste bleiben einig, weil beide Seiten dieselbe Auslassung treffen.
+
+Bei Testnachrichten stellt sich die Frage nicht: ihre Schlagworte liegen in einer eigenen
+Spalte neben dem XML (`testmessages.tags`), die eingefrorene Freigabe-Fassung vergleicht
+nur das XML.

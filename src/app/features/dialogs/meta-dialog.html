@@ -9,6 +9,12 @@
     <input type="text" [value]="mDatum()" (input)="mDatum.set($any($event.target).value)" />
     <label>Beschreibung</label>
     <textarea [value]="mBeschr()" (input)="mBeschr.set($any($event.target).value)"></textarea>
+    <label for="profilTags">Schlagworte</label>
+    <app-tag-eingabe
+      feldId="profilTags"
+      [(text)]="mTags"
+      [vorschlaege]="tagVorschlaege()"
+    ></app-tag-eingabe>
   </div>
   <div style="text-align: right; margin-top: 12px">
     <button class="primary" (click)="submit()">Übernehmen</button>

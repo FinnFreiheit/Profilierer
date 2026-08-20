@@ -96,10 +96,36 @@ Bei `noUncheckedIndexedAccess` (aktiv) liefert `elemente[path]` immer `T | undef
 
 Profilierungen werden in einer SQLite-Datenbank des Backends (`server/`) gehalten — nicht mehr im `localStorage` ([ADR 0007](adr/0007-datenbank-backend.md)). Eine Tabelle `profiles`: das komplette `ProfileDoc` als JSON-Spalte `doc`, daneben die **abgeleiteten Index-Spalten** `name, nachricht, xjustiz_version, n_status, n_ausp, n_erw, gespeichert, aktualisiert` (fehlende Spalten werden beim Start per PRAGMA-Migration nachgezogen). Aus diesen Spalten rendert `GET /api/profiles` die schlanke `LibraryEntry`-Liste fürs Dashboard, **ohne** die (potenziell großen) `doc`-Maps zu deserialisieren; das vollständige Dokument liefert `GET /api/profiles/:id`.
 
-- **`LibraryEntry`** = `{ id, name, nachricht?, xjustizVersion?, nStatus, nAusp, nErw?, gespeichert?, aktualisiert }` — serverseitig aus dem Dokument abgeleitet (`server/fortschritt.js`, spiegelt `StateService.fortschritt`). `nErw` speist das Dashboard-Badge „N Schema-Erweiterungen" (optional — Zeilen von vor der Migration liefern es erst nach dem nächsten Speichern).
+- **`LibraryEntry`** = `{ id, name, autor?, beschreibung?, tags?, nachricht?, xjustizVersion?, nStatus, nAusp, nErw?, gespeichert?, aktualisiert }` — serverseitig aus dem Dokument abgeleitet (`server/fortschritt.js`, spiegelt `StateService.fortschritt`). `nErw` speist das Dashboard-Badge „N Schema-Erweiterungen" (optional — Zeilen von vor der Migration liefern es erst nach dem nächsten Speichern).
 - **Client:** `ProfileStoreService` spricht `/api` per nativem fetch an (async); das reaktive `entries`-Signal bleibt die Fassache fürs Dashboard und wird nach jedem Schreib-Call mit dem vom Server gelieferten `LibraryEntry` gepflegt. Der Autosave (`PersistenceService`, 800-ms-Debounce, In-Flight-Reschedule) schreibt in `PUT /api/profiles/:id`.
 - **Hinweise:** eigene Tabelle `hinweise(id, profil_id, pfad, text, autor, rolle, zeit, erledigt)` neben `profiles`, bedient über `/api/profiles/:id/hinweise` ([ADR 0014](adr/0014-hinweise-eigene-ressource.md)). Sie laufen bewusst **nicht** über `PUT /api/profiles/:id` — sonst löschte der Autosave eines anderen Bearbeiters fremde Hinweise. Beim Serverstart hebt `migriereHinweise()` den Altbestand einmalig aus den Dokumenten in die Tabelle (idempotent).
 - **Migration:** frühere localStorage-Bibliotheken (`xjp.library.index`/`xjp.library.doc.<id>`, Legacy `xjp.autosave`) werden einmalig via `MigrationService` → `POST /api/import` übernommen (id + `aktualisiert` bleiben erhalten).
+
+### Schlagworte (Tags)
+
+Profilierungen und Testnachrichten tragen freie **Schlagworte** — eine Ablage-Ordnung
+neben Fachmodul und Nachrichtentyp. Sie liegen dort, wo der jeweilige Bestand ohnehin
+liegt: am Profil in `meta.tags` (also im `ProfileDoc`, damit Export/Import und Versionen
+sie mitführen), an der Testnachricht in der Spalte `testmessages.tags` als JSON-Array
+(PRAGMA-Migration; die Liste ist kurz, wird immer ganz gelesen und ganz geschrieben —
+eine eigene Tabelle brächte nur Joins). Beide Wege normalisieren beim Einliefern
+(`server/tags.js`, gespiegelt in `src/app/core/util/tags.util.ts`): getrimmt, ohne Leere,
+Doppelte ohne Rücksicht auf Groß-/Kleinschreibung zusammengefasst, alphabetisch,
+gedeckelt auf 20 Schlagworte à 40 Zeichen.
+
+Schlagworte sind **keine fachliche Aussage**: der `fach_hash` lässt `meta.tags` aussen vor,
+und die `META_FELDER` des Profil-Vergleichs führen sie nicht. Wer eine freigegebene
+Profilierung nachträglich einsortiert, entwertet damit weder die Freigabe noch markiert er
+gebundene Testnachrichten als „Profil weiterentwickelt".
+
+Gepflegt werden die Kachel-Metadaten (Name, Autor, Beschreibung, Schlagworte) über
+`PATCH /api/profiles/:id` → `db.patchMeta` bzw. `PATCH /api/testmessages/:id` → `db.tmUpdate`:
+nur gesetzte Felder wirken, das Dokument liest und schreibt der Server selbst — das große
+`doc` wandert dafür nicht durch die Leitung. Der frühere Umbenennen-Endpunkt ist derselbe
+(ein Body mit nur `name`).
+
+Gefiltert wird im Client auf dem ohnehin geladenen Index (`tagOptionen`/`hatAlleTags`);
+mehrere gewählte Schlagworte wirken **zusammen** (UND).
 
 ### Versionen (`profile_versions`)
 
@@ -118,7 +144,7 @@ _keiner_ Version eingefroren ist. Profil-Löschen kaskadiert (Transaktion, kein 
 Serialisierung, nicht die Semantik — falsch-positive „geändert" sind harmlos.
 
 Für das Kennzeichen **`geaendertSeitAbnahme`** gilt das gerade nicht: dort entscheidet
-der `fach_hash` (kanonisch, ohne `meta.gespeichert` und ohne `fortschritt`). Der
+der `fach_hash` (kanonisch, ohne `meta.gespeichert`, ohne `meta.tags` und ohne `fortschritt`). Der
 doc-Hash würde schon das bloße Öffnen als Änderung melden, weil der Autosave den
 abgeleiteten Punktestand nachschreibt — siehe Nachtrag in
 [ADR 0012](adr/0012-abnahme-rollenkonzept.md).

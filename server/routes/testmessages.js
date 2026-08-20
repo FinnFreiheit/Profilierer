@@ -82,18 +82,19 @@ export function testmessagesRouter(db, auth) {
     res.status(201).json(db.tmCreate(b));
   });
 
-  // Felder ändern (Notiz/Name; beim Bearbeiten zusätzlich XML,
+  // Felder ändern (Notiz/Name/Schlagworte; beim Bearbeiten zusätzlich XML,
   // Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand, Bezeichnungen).
   // Profil-Bindung und eingefrorene Kopie bleiben unberuehrt — sie entstehen
   // nur beim Anlegen.
   r.patch('/testmessages/:id', schutz, (req, res) => {
-    const { notiz, name, xml, entwurf, fortschritt, entscheidungen, bezeichnungen } =
+    const { notiz, name, tags, xml, entwurf, fortschritt, entscheidungen, bezeichnungen } =
       req.body ?? {};
     if (xml !== undefined && (typeof xml !== 'string' || !xml.trim()))
       return res.status(400).json({ error: 'kein XML' });
     const entry = db.tmUpdate(req.params.id, {
       notiz,
       name,
+      tags,
       xml,
       entwurf,
       fortschritt,

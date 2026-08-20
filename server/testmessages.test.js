@@ -350,3 +350,26 @@ test('testmessages und profiles teilen sich die DB ohne Kollision', (t) => {
   assert.equal(db.list().length, 1);
   assert.equal(db.tmList().length, 1);
 });
+
+// ── Schlagworte (Tags) ────────────────────────────────────────────────
+
+test('tmCreate normalisiert Schlagworte: getrimmt, ohne Doppelte, alphabetisch', (t) => {
+  const db = oeffneTestDb(t);
+  const { entry } = db.tmCreate(input({ tags: [' Pilot ', 'pilot', 'eNoVA', '', 'Muster'] }));
+  assert.deepEqual(entry.tags, ['eNoVA', 'Muster', 'Pilot']);
+});
+
+test('tmUpdate ersetzt die Schlagwortliste; ein Patch ohne tags laesst sie stehen', (t) => {
+  const db = oeffneTestDb(t);
+  const { id } = db.tmCreate(input({ tags: ['Pilot'] }));
+  assert.deepEqual(db.tmUpdate(id, { tags: 'Muster, eNoVA' }).tags, ['eNoVA', 'Muster']);
+  assert.deepEqual(db.tmUpdate(id, { notiz: 'x' }).tags, ['eNoVA', 'Muster']);
+  // Leere Liste raeumt das Feld ganz weg (kein leeres Array auf der Kachel).
+  assert.equal(db.tmUpdate(id, { tags: [] }).tags, undefined);
+});
+
+test('ohne Schlagworte traegt der Eintrag kein Feld (Altbestand)', (t) => {
+  const db = oeffneTestDb(t);
+  const { entry } = db.tmCreate(input());
+  assert.equal(entry.tags, undefined);
+});

@@ -117,6 +117,13 @@ export interface ProfileMeta {
   autor?: string;
   datum?: string;
   beschreibung?: string;
+  /**
+   * Freie Schlagworte zur Ablage (Filter der Uebersicht). Keine fachliche
+   * Aussage — der Fach-Hash des Servers laesst sie aussen vor, damit
+   * Einsortieren weder eine Freigabe entwertet noch gebundene Testnachrichten
+   * als "Profil weiterentwickelt" markiert (siehe `core/util/tags.util.ts`).
+   */
+  tags?: string[];
   /** Beim Speichern gesetzt (saveProfile, Z.1784-1786). */
   nachricht?: string | null;
   xjustizVersion?: string;
@@ -157,6 +164,12 @@ export interface ProfileDoc {
 export interface LibraryEntry {
   id: string;
   name: string;
+  /** meta.autor — steht auf der Kachel, wenn gepflegt. */
+  autor?: string;
+  /** meta.beschreibung — einzeilig auf der Kachel, vollstaendig im Tooltip. */
+  beschreibung?: string;
+  /** Schlagworte der Ablage (normalisiert vom Server). */
+  tags?: string[];
   nachricht?: string | null;
   xjustizVersion?: string;
   /** Fortschritt-Snapshot: Elemente mit gesetztem Status. */

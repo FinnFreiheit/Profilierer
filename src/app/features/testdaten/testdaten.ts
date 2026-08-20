@@ -40,6 +40,15 @@ import { nachrichtTeile } from '../../core/util/pretty.util';
 import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiterung-sperre';
 import { firstLine } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
+import { TagFilter } from '../../shared/tag-filter/tag-filter';
+import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
+import {
+  hatAlleTags,
+  normalisiereTags,
+  schalteTag,
+  tagOptionen,
+  tagsAlsText,
+} from '../../core/util/tags.util';
 
 /** Eine Fachmodul-Gruppe fuer die Kachel-Ansicht. */
 interface Gruppe {
@@ -58,7 +67,7 @@ interface Gruppe {
 @Component({
   selector: 'app-testdaten',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu, KeinAutofillDirective],
+  imports: [RolleBadge, Menu, KeinAutofillDirective, TagFilter, TagEingabe],
   templateUrl: './testdaten.html',
 })
 export class Testdaten {
@@ -140,10 +149,22 @@ export class Testdaten {
     return sperrtPruefartefakte(e.nErw);
   }
 
-  /** Bearbeiten-Dialog: aktive id + Puffer für Name und Beschreibung. */
+  /**
+   * Gewaehlte Schlagworte der Filterleiste. Mehrere wirken zusammen (UND) —
+   * jeder Klick grenzt weiter ein.
+   */
+  protected readonly gewaehlteTags = signal<string[]>([]);
+
+  /** Vergebene Schlagworte des Speichers mit Haeufigkeit (Filterleiste). */
+  protected readonly verfuegbareTags = computed(() =>
+    tagOptionen(this.store.entries(), (e) => e.tags),
+  );
+
+  /** Bearbeiten-Dialog: aktive id + Puffer für Name, Beschreibung, Schlagworte. */
   protected readonly editId = signal<string | null>(null);
   protected readonly editName = signal('');
   protected readonly editNote = signal('');
+  protected readonly editTags = signal('');
 
   /** Gefiltert (Suche) und nach Fachmodul → Nachricht gruppiert. */
   protected readonly gruppen = computed<Gruppe[]>(() => {
@@ -155,7 +176,8 @@ export class Testdaten {
         (e) =>
           this.matches(e, q) &&
           (!this.nurAbgenommene() || e.abgenommen) &&
-          (!profil || e.profilId === profil),
+          (!profil || e.profilId === profil) &&
+          hatAlleTags(e.tags, this.gewaehlteTags()),
       );
     const map = new Map<string, TestmessageEntry[]>();
     for (const e of list) {
@@ -176,9 +198,24 @@ export class Testdaten {
 
   private matches(e: TestmessageEntry, q: string): boolean {
     if (!q) return true;
-    return [e.name, e.nachricht, e.fachmodul, e.notiz].some((v) =>
+    return [e.name, e.nachricht, e.fachmodul, e.notiz, ...(e.tags ?? [])].some((v) =>
       (v || '').toLowerCase().includes(q),
     );
+  }
+
+  /** Ist das Schlagwort gerade als Filter gesetzt (Kachel-Chip hervorheben)? */
+  protected tagAktiv(tag: string): boolean {
+    const schluessel = tag.toLocaleLowerCase('de');
+    return this.gewaehlteTags().some((t) => t.toLocaleLowerCase('de') === schluessel);
+  }
+
+  /**
+   * Klick auf ein Schlagwort der Kachel: dasselbe wie in der Filterleiste.
+   * `stopPropagation`, sonst oeffnete der Klick die Nachricht darunter.
+   */
+  protected filtereNachTag(tag: string, ev: Event): void {
+    ev.stopPropagation();
+    this.gewaehlteTags.set(schalteTag(this.gewaehlteTags(), tag));
   }
 
   /** Zurueck zur Profil-Bibliothek. */
@@ -621,6 +658,7 @@ export class Testdaten {
     this.editId.set(e.id);
     this.editName.set(e.name || '');
     this.editNote.set(e.notiz || '');
+    this.editTags.set(tagsAlsText(e.tags));
     this.editDlg().nativeElement.showModal();
   }
 
@@ -630,7 +668,11 @@ export class Testdaten {
       const name = this.editName().trim();
       void this.store
         // Leerer Name ändert nichts (undefined) — der bestehende bleibt erhalten.
-        .updateMeta(id, { name: name || undefined, notiz: this.editNote() })
+        .updateMeta(id, {
+          name: name || undefined,
+          notiz: this.editNote(),
+          tags: normalisiereTags(this.editTags()),
+        })
         .catch(this.toast.fail('Speichern fehlgeschlagen — Backend nicht erreichbar.'));
     }
     this.editDlg().nativeElement.close();

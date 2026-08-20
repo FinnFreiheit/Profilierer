@@ -28,7 +28,7 @@
       <input
         class="suchfeld"
         type="search"
-        placeholder="Suchen (Name, Nachricht, Fachmodul)…"
+        placeholder="Suchen (Name, Nachricht, Fachmodul, Autor, Beschreibung, Schlagwort)…"
         [value]="search()"
         (input)="search.set($any($event.target).value)"
       />
@@ -52,6 +52,9 @@
         nur mit offenen Hinweisen
       </label>
     </div>
+    @if (verfuegbareTags().length) {
+      <app-tag-filter [optionen]="verfuegbareTags()" [(gewaehlt)]="gewaehlteTags"></app-tag-filter>
+    }
   </div>
 
   @if (store.entries().length) {
@@ -88,12 +91,12 @@
                   [disabled]="gesperrt(e)"
                   [title]="
                     gesperrt(e)
-                      ? 'Von der BLK-AG freigegeben — Umbenennen nur mit AG-Schlüssel'
-                      : ''
+                      ? 'Von der BLK-AG freigegeben — Ändern nur mit AG-Schlüssel'
+                      : 'Name, Autor, Beschreibung und Schlagworte ändern — ohne die Profilierung zu öffnen'
                   "
                   (click)="werkzeuge.close(); openRename(e.id, $event)"
                 >
-                  Umbenennen
+                  Metadaten bearbeiten…
                 </button>
                 @if (e.nachricht) {
                   <!-- Der title liegt am Wrapper, nicht am Knopf: ueber einen
@@ -199,6 +202,36 @@
                  Tooltip, damit die Kachelhöhe konstant bleibt. -->
             <!-- `@let` statt `@if (…; as a)`: bei 0 % ist der Anteil falsy, ein
                  frisch begonnenes Profil bekäme sonst gar keinen Balken. -->
+            <!-- Beschreibung vollstaendig, Autor davor; beides nur, wenn
+                 gepflegt. Der Tooltip wiederholt beides fuer schmale Fenster. -->
+            @if (e.beschreibung || e.autor) {
+              <div class="dcNotiz" [title]="beschreibungTitel(e)">
+                @if (e.autor) {
+                  <span class="dcAutor">{{ e.autor }}</span>
+                  @if (e.beschreibung) {
+                    <span class="dcTrenner"> · </span>
+                  }
+                }
+                {{ e.beschreibung }}
+              </div>
+            }
+
+            @if (e.tags?.length) {
+              <div class="dcTags">
+                @for (t of e.tags; track t) {
+                  <button
+                    type="button"
+                    class="tagChip"
+                    [class.tagChipAktiv]="tagAktiv(t)"
+                    [title]="'Übersicht auf „' + t + '“ eingrenzen'"
+                    (click)="filtereNachTag(t, $event)"
+                  >
+                    {{ t }}
+                  </button>
+                }
+              </div>
+            }
+
             @let a = anteil(e);
             <div class="dcFoot" [title]="fussTitel(e)">
               <span class="dcProg">
@@ -237,15 +270,42 @@
   }
 </div>
 
+<!-- Metadaten der Kachel: dieselben Felder wie „Details…" im Editor, aber ohne
+     die Profilierung zu öffnen (kein Schema-Ladevorgang nur fürs Einsortieren). -->
 <dialog #renameDlg id="renameDlg">
-  <h3 style="margin-top: 0">Profil umbenennen</h3>
-  <input
-    type="text"
-    style="width: 100%"
-    [value]="renName()"
-    (input)="renName.set($any($event.target).value)"
-    (keydown.enter)="submitRename()"
-  />
+  <h3 style="margin-top: 0">Metadaten bearbeiten</h3>
+  <div class="metaGrid">
+    <label for="kachelName">Name</label>
+    <input
+      type="text"
+      id="kachelName"
+      [value]="renName()"
+      (input)="renName.set($any($event.target).value)"
+      (keydown.enter)="submitRename()"
+    />
+    <label for="kachelAutor">Autor</label>
+    <input
+      type="text"
+      id="kachelAutor"
+      placeholder="Name oder Stelle"
+      [value]="renAutor()"
+      (input)="renAutor.set($any($event.target).value)"
+      (keydown.enter)="submitRename()"
+    />
+    <label for="kachelBeschr">Beschreibung</label>
+    <textarea
+      id="kachelBeschr"
+      placeholder="Zweck des Kommunikationsszenarios"
+      [value]="renBeschr()"
+      (input)="renBeschr.set($any($event.target).value)"
+    ></textarea>
+    <label for="kachelTags">Schlagworte</label>
+    <app-tag-eingabe
+      feldId="kachelTags"
+      [(text)]="renTags"
+      [vorschlaege]="verfuegbareTags()"
+    ></app-tag-eingabe>
+  </div>
   <div style="text-align: right; margin-top: 12px">
     <button (click)="renameDlg.close()">Abbrechen</button>
     <button class="primary" (click)="submitRename()">Übernehmen</button>

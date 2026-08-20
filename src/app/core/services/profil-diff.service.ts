@@ -61,7 +61,9 @@ const ERWEITERUNG_FELDER: { feld: keyof Erweiterung; label: string }[] = [
 /**
  * Meta-Felder des Vergleichs. `gespeichert` fehlt bewusst: das Feld wird bei
  * jedem Speichern neu gesetzt und wuerde jeden Vergleich mit einer
- * Schein-Aenderung eroeffnen.
+ * Schein-Aenderung eroeffnen. `tags` fehlt aus demselben Grund wie im Fach-Hash
+ * des Servers: Schlagworte ordnen die Ablage, sie sagen fachlich nichts —
+ * Badge und Vergleichsliste bleiben so einig.
  */
 const META_FELDER: { feld: keyof ProfileMeta; label: string }[] = [
   { feld: 'name', label: 'Name' },
