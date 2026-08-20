@@ -1,0 +1,242 @@
+<div id="dash">
+  <div class="dashHead">
+    <div class="dashTop">
+      <div class="viewToggle">
+        <button class="active" disabled>Projekte</button>
+        <button (click)="goDashboard()">Profile</button>
+        <button (click)="goTestdaten()">Testdaten</button>
+        <button
+          title="Bebilderte Anleitung: profilieren und Testnachrichten erstellen"
+          (click)="goHowto()"
+        >
+          Anleitung
+        </button>
+      </div>
+      <app-rolle-badge></app-rolle-badge>
+    </div>
+
+    @if (offenes(); as p) {
+      <!-- Projektseite: ein Vorhaben mit seinen Kommunikationsszenarien. -->
+      <button class="crumbZurueck" (click)="zurUebersicht()">← alle Projekte</button>
+      <h1>
+        <span>{{ p.name }}</span>
+      </h1>
+      @if (p.beschreibung) {
+        <p class="dashSub">{{ p.beschreibung }}</p>
+      } @else {
+        <p class="dashSub">
+          {{ p.nProfile }} Kommunikationsszenari{{ p.nProfile === 1 ? 'o' : 'en' }},
+          {{ p.nTestnachrichten }} Testnachricht{{ p.nTestnachrichten === 1 ? '' : 'en' }}
+        </p>
+      }
+      @if (p.tags?.length) {
+        <div class="dcTags">
+          @for (t of p.tags; track t) {
+            <span class="tagChip">{{ t }}</span>
+          }
+        </div>
+      }
+    } @else {
+      <h1><span>Projekte</span></h1>
+      <p class="dashSub">
+        Vorhaben, die mehrere Kommunikationsszenarien derselben Nachricht bündeln
+      </p>
+      <div class="dashActions">
+        <button class="primary" (click)="openNeu()">+ Neues Projekt</button>
+        <input
+          class="suchfeld"
+          type="search"
+          placeholder="Suchen (Name, Beschreibung, Schlagwort)…"
+          [value]="search()"
+          (input)="search.set($any($event.target).value)"
+        />
+      </div>
+    }
+  </div>
+
+  @if (offenes()) {
+    <!-- Eine Zeile je Profilierung = ein Kommunikationsszenario, darunter ihre
+         Testnachrichten. Sortiert nach Nachrichtentyp: bei GenUVA stehen so
+         die beiden Ersuchen beieinander, danach die Sachentscheidungen. -->
+    @for (s of szenarien(); track s.profil.id) {
+      <div class="szenario">
+        <div class="szenarioKopf">
+          <button class="szenarioName" (click)="oeffneProfil(s.profil)">
+            {{ s.profil.name || '(ohne Namen)' }}
+          </button>
+          <span class="pill pillMuted">{{ nachrichtKurz(s.profil) }}</span>
+          @if (s.profil.abgenommen) {
+            <span class="pill pillAbn">freigegeben</span>
+          }
+          @if (anteil(s.profil); as a) {
+            <span class="szenarioProg">{{ a }} % entschieden</span>
+          }
+          <span class="szenarioSpacer"></span>
+          <button
+            class="szenarioAktion"
+            title="Weitere Testnachricht zu diesem Szenario erstellen (geführter Durchlauf mit Bindung)"
+            (click)="neueTestnachricht(s.profil, $event)"
+          >
+            + Testnachricht
+          </button>
+        </div>
+
+        @if (s.nachrichten.length) {
+          <div class="szenarioListe">
+            @for (t of s.nachrichten; track t.id) {
+              <button
+                class="tmZeile"
+                [title]="t.gefuehrt ? 'Geführt fortsetzen' : 'Im Baum öffnen (betrachten)'"
+                (click)="oeffneNachricht(t)"
+              >
+                <span class="tmName">{{ t.name }}</span>
+                @if (t.entwurf) {
+                  <span class="pill pillAbnWarn">Entwurf</span>
+                }
+                @if (t.abgenommen) {
+                  <span class="pill pillAbn">freigegeben</span>
+                }
+                @if (t.profilWeiterentwickelt) {
+                  <span class="pill pillAbnWarn">Profil weiterentwickelt</span>
+                }
+                @if (t.fassung) {
+                  <span class="tmFassung">{{ t.fassung }}</span>
+                }
+              </button>
+            }
+          </div>
+        } @else {
+          <!-- Eine Lücke ist eine Aussage: zu diesem Szenario gibt es noch
+               keine Testdaten. Sie darf nicht unsichtbar sein. -->
+          <div class="szenarioLeer">noch keine Testnachricht zu diesem Szenario</div>
+        }
+      </div>
+    }
+
+    @if (ohneSzenario().length) {
+      <div class="szenario">
+        <div class="szenarioKopf">
+          <span class="szenarioName szenarioNameStumm">ohne Szenario</span>
+          <span class="szenarioProg">
+            hochgeladen oder Profilierung gelöscht — direkt dem Projekt zugeordnet
+          </span>
+        </div>
+        <div class="szenarioListe">
+          @for (t of ohneSzenario(); track t.id) {
+            <button class="tmZeile" (click)="oeffneNachricht(t)">
+              <span class="tmName">{{ t.name }}</span>
+              @if (t.profilName) {
+                <span class="tmFassung">aus {{ t.profilName }}</span>
+              }
+            </button>
+          }
+        </div>
+      </div>
+    }
+
+    @if (!szenarien().length && !ohneSzenario().length) {
+      <p class="leerHinweis">
+        Diesem Projekt ist noch nichts zugeordnet. In der Profil-Übersicht führt „Einsortieren…" im
+        ⋯-Menü einer Kachel hierher; die Testnachrichten folgen ihrer Profilierung von selbst.
+      </p>
+    }
+  } @else if (store.entries().length) {
+    <div id="dashGrid">
+      @for (p of gefiltert(); track p.id) {
+        <!-- role/tabindex/keydown statt eines nackten (click) am div: die Kachel
+             ist bedienbar, also muss sie fokussierbar und mit der Tastatur
+             auslösbar sein. Der Bestand macht das an seinen Kacheln noch
+             nicht — hier wird die Altlast nicht fortgeschrieben. -->
+        <div
+          class="dashCard"
+          role="button"
+          tabindex="0"
+          title="Projekt öffnen"
+          (click)="oeffne(p.id)"
+          (keydown.enter)="oeffnePerTaste(p.id, $event)"
+          (keydown.space)="oeffnePerTaste(p.id, $event)"
+        >
+          <div class="dcHead">
+            <div class="dcName" [title]="p.name">{{ p.name }}</div>
+            <app-menu
+              label="⋯"
+              [pfeil]="false"
+              btnClass="dcMenuBtn"
+              titel="Weitere Aktionen"
+              #werkzeuge
+            >
+              <button class="menuItem" (click)="werkzeuge.close(); openBearbeiten(p, $event)">
+                Bearbeiten…
+              </button>
+              <button
+                class="menuItem"
+                title="Entfernt nur die Zuordnungen — Profilierungen und Testnachrichten bleiben"
+                (click)="werkzeuge.close(); loesche(p, $event)"
+              >
+                Löschen
+              </button>
+            </app-menu>
+          </div>
+
+          @if (p.beschreibung) {
+            <div class="dcNotiz" [title]="p.beschreibung">{{ p.beschreibung }}</div>
+          }
+
+          @if (p.tags?.length) {
+            <div class="dcTags">
+              @for (t of p.tags; track t) {
+                <span class="tagChip">{{ t }}</span>
+              }
+            </div>
+          }
+
+          <div class="dcFoot">
+            <span class="dcProg">
+              {{ p.nProfile }} Szenari{{ p.nProfile === 1 ? 'o' : 'en' }} ·
+              {{ p.nTestnachrichten }} Testnachricht{{ p.nTestnachrichten === 1 ? '' : 'en' }}
+            </span>
+          </div>
+        </div>
+      }
+    </div>
+  } @else {
+    <p class="leerHinweis">
+      Noch kein Projekt. Ein Projekt bündelt die Kommunikationsszenarien eines Vorhabens — etwa das
+      GenUVA-Ersuchen an die Gemeinde, das an das Gericht und die jeweilige Sachentscheidung — samt
+      ihrer Testnachrichten.
+    </p>
+  }
+</div>
+
+<dialog #bearbeitenDlg id="projektDlg">
+  <h3 style="margin-top: 0">{{ bearbId() ? 'Projekt bearbeiten' : 'Neues Projekt' }}</h3>
+  <div class="metaGrid">
+    <label for="projektName">Name</label>
+    <input
+      type="text"
+      id="projektName"
+      appKeinAutofill
+      placeholder="z. B. GenUVA"
+      [value]="bearbName()"
+      (input)="bearbName.set($any($event.target).value)"
+      (keydown.enter)="submitBearbeiten()"
+    />
+    <label for="projektBeschr">Beschreibung</label>
+    <textarea
+      id="projektBeschr"
+      placeholder="Worum geht es in diesem Vorhaben?"
+      [value]="bearbBeschr()"
+      (input)="bearbBeschr.set($any($event.target).value)"
+    ></textarea>
+    <label for="projektTags">Schlagworte</label>
+    <app-tag-eingabe
+      feldId="projektTags"
+      [(text)]="bearbTags"
+      [vorschlaege]="verfuegbareTags()"
+    ></app-tag-eingabe>
+  </div>
+  <div style="text-align: right; margin-top: 12px">
+    <button (click)="bearbeitenDlg.close()">Abbrechen</button>
+    <button class="primary" (click)="submitBearbeiten()">Übernehmen</button>
+  </div>
+</dialog>

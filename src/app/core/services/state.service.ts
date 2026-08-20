@@ -254,10 +254,16 @@ export class StateService {
 
   // ── Ansicht / Bibliothek ────────────────────────────────────────────
   /**
-   * Dashboard (Bibliothek) vs. Baum-Editor vs. Testdaten-Speicher vs. Anleitung.
-   * Startseite ist das Dashboard.
+   * Projekte vs. Dashboard (Bibliothek) vs. Baum-Editor vs. Testdaten-Speicher
+   * vs. Anleitung. Startseite ist das Dashboard.
    */
-  readonly view = signal<'dashboard' | 'editor' | 'testdaten' | 'howto'>('dashboard');
+  readonly view = signal<'dashboard' | 'editor' | 'testdaten' | 'howto' | 'projekte'>('dashboard');
+  /**
+   * Geoeffnetes Projekt (#135) — null zeigt die Projektuebersicht. Der Zustand
+   * liegt hier und nicht in der Komponente, damit der Sprung aus einer anderen
+   * Ansicht direkt in ein Projekt fuehren kann.
+   */
+  readonly offenesProjekt = signal<string | null>(null);
   /** id des aktuell bearbeiteten Bibliothekseintrags (Ziel des Autosave). */
   readonly activeProfileId = signal<string | null>(null);
   /**

@@ -248,6 +248,11 @@ export class Dashboard {
   }
 
   /** Zum Testdaten-Speicher wechseln. */
+  /** Zur Projektansicht (#135) — Vorhaben mit ihren Kommunikationsszenarien. */
+  protected goProjekte(): void {
+    this.state.view.set('projekte');
+  }
+
   protected goTestdaten(): void {
     this.state.view.set('testdaten');
   }
