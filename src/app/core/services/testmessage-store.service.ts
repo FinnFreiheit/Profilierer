@@ -157,6 +157,20 @@ export class TestmessageStoreService {
     this.putEntry(entry);
   }
 
+  /**
+   * Nachtraeglich einem Kommunikationsszenario zuordnen (#141) — der Weg fuer
+   * hochgeladene Nachrichten. Gesetzt wird nur die Herkunft, nicht die
+   * eingefrorene Vorgabe: die Nachricht ist nicht gegen sie entstanden.
+   * `profilId: null` loest die Zuordnung.
+   */
+  async zuordnen(id: string, profilId: string | null): Promise<void> {
+    const { entry } = await this.http.json<{ entry: TestmessageEntry }>(
+      `/testmessages/${encodeURIComponent(id)}/profil`,
+      { method: 'PUT', body: JSON.stringify({ profilId }) },
+    );
+    this.putEntry(entry);
+  }
+
   /** Testnachricht entfernen. */
   async delete(id: string): Promise<void> {
     await this.http.json<void>(`/testmessages/${encodeURIComponent(id)}`, { method: 'DELETE' });

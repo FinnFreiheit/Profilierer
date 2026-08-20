@@ -513,3 +513,31 @@ test('Projekt loeschen laesst Profilierungen und Nachrichten stehen', async (t) 
 
   assert.equal((await api('POST', '/projekte', { body: { name: '  ' } })).status, 400);
 });
+
+test('Szenario zuordnen: auch bei freigegebenen Nachrichten offen', async (t) => {
+  const { api } = await start(t, { agKey: AG_KEY });
+  const pid = await neuesProfil(api);
+  const tid = await neueTm(api);
+  await api('POST', `/testmessages/${tid}/abnahme`, { body: {}, key: AG_KEY });
+
+  // Ohne Schluessel: Inhalt gesperrt, Zuordnung offen — sie sagt, wohin die
+  // Nachricht gehoert, nicht was in ihr steht.
+  assert.equal((await api('PATCH', `/testmessages/${tid}`, { body: { notiz: 'x' } })).status, 403);
+  const zu = await api('PUT', `/testmessages/${tid}/profil`, { body: { profilId: pid } });
+  assert.equal(zu.status, 200);
+  assert.equal(zu.body.entry.profilId, pid);
+  assert.equal(zu.body.entry.abgenommen, true);
+  // Keine Fassung gebunden: die Nachricht ist nicht gegen sie entstanden.
+  assert.equal((await api('GET', `/testmessages/${tid}/vorgabe`)).status, 404);
+
+  // Wieder aufheben, und ein unbekanntes Profil wird abgewiesen.
+  assert.equal(
+    (await api('PUT', `/testmessages/${tid}/profil`, { body: { profilId: null } })).body.entry
+      .profilId,
+    undefined,
+  );
+  assert.equal(
+    (await api('PUT', `/testmessages/${tid}/profil`, { body: { profilId: 'fehlt' } })).status,
+    400,
+  );
+});

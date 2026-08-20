@@ -589,6 +589,9 @@ export function openDb(path) {
     prjLoesenProfile: db.prepare('UPDATE profiles SET projekt_id = NULL WHERE projekt_id = ?'),
     prjLoesenTm: db.prepare('UPDATE testmessages SET projekt_id = NULL WHERE projekt_id = ?'),
     tmSetProjekt: db.prepare('UPDATE testmessages SET projekt_id = @projektId WHERE id = @id'),
+    tmSetProfil: db.prepare(
+      'UPDATE testmessages SET profil_id = @profilId, profil_name = @profilName WHERE id = @id',
+    ),
     // Erbt die Nachricht gerade ein Projekt? Nur mit noch existierender
     // Profilierung — nach deren Loeschen erbt nichts mehr und die eigene
     // Zuordnung wird wieder der Weg.
@@ -1589,6 +1592,43 @@ export function openDb(path) {
       };
       stmt.tmUpdate.run({ id, ...next });
       return tmEntry(stmt.tmGet.get(id));
+    },
+
+    /**
+     * Eine Testnachricht nachtraeglich einem Kommunikationsszenario zuordnen
+     * (#141). Gedacht fuer **hochgeladene** Nachrichten: fachlich gehoeren sie
+     * laengst zu einem Szenario, technisch fehlte ihnen die Kante.
+     *
+     * Gesetzt wird nur die **Herkunft** (`profil_id`/`profil_name`), nicht die
+     * eingefrorene Vorgabe. Die Vorgabe ist die unveraenderliche Leitplanke
+     * eines gefuehrten Durchlaufs — eine hochgeladene Nachricht ist nicht gegen
+     * sie entstanden, und sie im Nachhinein zu behaupten waere eine falsche
+     * Aussage: das Kennzeichen "Profil weiterentwickelt" verglichen dann einen
+     * Stand, den die Nachricht nie gesehen hat. Wer wissen will, ob sie die
+     * Festlegungen einhaelt, hat dafuer "Gegen Profilierung pruefen".
+     *
+     * `profilId: null` loest die Zuordnung wieder (Herkunft faellt weg).
+     * Zusammen mit einer bestehenden Vorgabe wird nichts angefasst — dort ist
+     * `tmBindungLoesen` der richtige Weg.
+     *
+     * Gibt `{ entry }`, `null` bei unbekannter id oder `{ fehler: '…' }`.
+     */
+    tmZuordnen(id, { profilId }, ts) {
+      const row = stmt.tmGetRow.get(id);
+      if (!row) return null;
+      if (row.vorgabe) return { fehler: 'gebunden' };
+      if (profilId) {
+        const profil = stmt.getRow.get(profilId);
+        if (!profil) return { fehler: 'unbekanntes-profil' };
+        const name = JSON.parse(profil.doc)?.meta?.name || null;
+        stmt.tmSetProfil.run({ id, profilId, profilName: name });
+      } else {
+        stmt.tmSetProfil.run({ id, profilId: null, profilName: null });
+      }
+      // Der Zeitstempel bleibt stehen: Zuordnen ist Einordnung, keine
+      // Bearbeitung — die Nachricht soll nicht an die Spitze der Liste springen.
+      void ts;
+      return { entry: tmEntry(stmt.tmGet.get(id)) };
     },
 
     /**

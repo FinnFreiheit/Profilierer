@@ -115,6 +115,31 @@ export function testmessagesRouter(db, auth) {
     res.json({ entry });
   });
 
+  // Nachtraeglich einem Kommunikationsszenario zuordnen (#141) -- der Weg fuer
+  // hochgeladene Nachrichten, die fachlich laengst zu einem Szenario gehoeren.
+  // Gesetzt wird nur die Herkunft, nicht die eingefrorene Vorgabe (siehe
+  // db.tmZuordnen).
+  //
+  // Bewusst OHNE `schutz`, wie die Ablage-Endpunkte (ADR 0019): die Zuordnung
+  // ruehrt weder das XML noch den Abnahme-Stand noch die Konformitaet an -- sie
+  // sagt, wohin die Nachricht gehoert, nicht was in ihr steht. Mit Schutz liefe
+  // die Funktion genau fuer den Bestand ins Leere, fuer den sie gedacht ist:
+  // die freigegebenen Beispielnachrichten, die als Datei hereinkamen.
+  r.put('/testmessages/:id/profil', (req, res) => {
+    const { profilId } = req.body ?? {};
+    if (profilId !== null && typeof profilId !== 'string')
+      return res.status(400).json({ error: 'profilId fehlt' });
+    const out = db.tmZuordnen(req.params.id, { profilId });
+    if (!out) return res.status(404).json({ error: 'nicht gefunden' });
+    if (out.fehler === 'gebunden')
+      return res.status(409).json({
+        error: 'an eine Profilfassung gebunden — erst die Bindung lösen, dann neu zuordnen',
+      });
+    if (out.fehler === 'unbekanntes-profil')
+      return res.status(400).json({ error: 'Profilierung nicht gefunden' });
+    res.json({ entry: out.entry });
+  });
+
   // Einsortieren (#134): Schlagworte immer, das Projekt nur bei ungebundenen
   // Nachrichten -- gebundene erben es von ihrer Profilierung, ein zweiter
   // Pflegeort erzeugte nur Widersprueche. Ohne `schutz`, aus demselben Grund

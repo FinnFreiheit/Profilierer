@@ -430,3 +430,47 @@ test('tmDuplicate: die Variante ist nicht abgenommen', (t) => {
   assert.equal(entry.abnahmeZeit, undefined);
   assert.equal(db.tmAbgenommen(id), true); // Original unberuehrt
 });
+
+test('tmZuordnen: hochgeladene Nachricht nachtraeglich einem Szenario zuordnen', (t) => {
+  const db = oeffneTestDb(t);
+  const profil = db.create({
+    meta: { name: 'Notar an Gemeinde' },
+    statuses: [],
+    elemente: {},
+    auspraegungen: {},
+  });
+  const { id } = db.tmCreate(input({ name: 'upload.xml' }), 1000);
+
+  const out = db.tmZuordnen(id, { profilId: profil.id }, 5000);
+  assert.equal(out.entry.profilId, profil.id);
+  assert.equal(out.entry.profilName, 'Notar an Gemeinde');
+  // Zuordnen ist Einordnung, keine Bearbeitung: der Zeitstempel bleibt stehen.
+  assert.equal(out.entry.aktualisiert, 1000);
+  // Keine eingefrorene Vorgabe — die Nachricht ist nicht gegen sie entstanden.
+  assert.equal(db.tmLoadVorgabe(id), null);
+  assert.equal(out.entry.profilWeiterentwickelt, undefined);
+
+  // Wieder loesen.
+  assert.equal(db.tmZuordnen(id, { profilId: null }).entry.profilId, undefined);
+  assert.equal(db.tmZuordnen('gibtsnicht', { profilId: profil.id }), null);
+  assert.deepEqual(db.tmZuordnen(id, { profilId: 'kenntkeiner' }), {
+    fehler: 'unbekanntes-profil',
+  });
+});
+
+test('tmZuordnen: eine gebundene Nachricht wird nicht umgehaengt', (t) => {
+  const db = oeffneTestDb(t);
+  const vorgabe = { meta: {}, statuses: [], elemente: {}, auspraegungen: {} };
+  const { id } = db.tmCreate(input({ profilId: 'p1', profilName: 'P', fassung: 'v1', vorgabe }));
+  const anderes = db.create({
+    meta: { name: 'Anderes' },
+    statuses: [],
+    elemente: {},
+    auspraegungen: {},
+  });
+
+  // Die eingefrorene Vorgabe gehoert zu ihrer Profilierung; ein stiller Wechsel
+  // machte aus der Leitplanke eine falsche Aussage.
+  assert.deepEqual(db.tmZuordnen(id, { profilId: anderes.id }), { fehler: 'gebunden' });
+  assert.deepEqual(db.tmLoadVorgabe(id), vorgabe);
+});
