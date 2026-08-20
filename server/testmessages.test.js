@@ -373,3 +373,60 @@ test('ohne Schlagworte traegt der Eintrag kein Feld (Altbestand)', (t) => {
   const { entry } = db.tmCreate(input());
   assert.equal(entry.tags, undefined);
 });
+
+test('tmDuplicate: Variante erbt Bindung, Schlagworte und Beiwerk', (t) => {
+  const db = oeffneTestDb(t);
+  const vorgabe = { meta: {}, statuses: [], elemente: { 'a/b': {} }, auspraegungen: {} };
+  const { id } = db.tmCreate(
+    input({
+      name: 'Ersuchen Gemeinde',
+      tags: ['Pilot', 'GenUVA'],
+      entwurf: true,
+      fortschritt: { x: 3, y: 7 },
+      bezeichnungen: { 'a/b': ['Notar'] },
+      profilId: 'p1',
+      profilName: 'Ersuchen an die Gemeinde',
+      fassung: 'v2',
+      vorgabe,
+    }),
+    1000,
+  );
+  // Die Notiz entsteht erst per Update — tmCreate legt sie fuer Uploads leer an.
+  db.tmUpdate(id, { notiz: 'ein Beteiligter' }, 1000);
+
+  const { id: kopieId, entry } = db.tmDuplicate(id, 2000);
+  assert.notEqual(kopieId, id);
+  assert.equal(entry.name, 'Ersuchen Gemeinde (Variante)');
+  assert.equal(entry.notiz, 'ein Beteiligter');
+  assert.deepEqual(entry.tags, ['GenUVA', 'Pilot']);
+  assert.equal(entry.entwurf, true);
+  assert.deepEqual(entry.fortschritt, { x: 3, y: 7 });
+  assert.equal(entry.aktualisiert, 2000);
+
+  // Profil-Bindung vollstaendig: Herkunft, eingefrorene Vorgabe und ihr Hash.
+  // Ohne sie waere die Variante nicht mehr gegen dieselbe Fassung pruefbar.
+  assert.equal(entry.profilId, 'p1');
+  assert.equal(entry.profilName, 'Ersuchen an die Gemeinde');
+  assert.equal(entry.fassung, 'v2');
+  assert.deepEqual(db.tmLoadVorgabe(kopieId), vorgabe);
+  assert.deepEqual(db.tmLoadBezeichnungen(kopieId), { 'a/b': ['Notar'] });
+
+  // XML byte-gleich, Nachrichtenkopf unangetastet: der spaetere Vergleich
+  // zweier Varianten zeigt fachliche Unterschiede, kein Zeitstempel-Rauschen.
+  assert.equal(db.tmLoadXml(kopieId), db.tmLoadXml(id));
+
+  assert.equal(db.tmDuplicate('gibtsnicht'), null);
+});
+
+test('tmDuplicate: die Variante ist nicht abgenommen', (t) => {
+  const db = oeffneTestDb(t);
+  const { id } = db.tmCreate(input({ name: 'freigegeben' }));
+  db.tmAbnahmeSetzen(id, { kommentar: 'geprueft' }, 1000);
+  assert.equal(db.tmAbgenommen(id), true);
+
+  const { id: kopieId, entry } = db.tmDuplicate(id);
+  assert.equal(db.tmAbgenommen(kopieId), false);
+  assert.equal(entry.abgenommen, undefined);
+  assert.equal(entry.abnahmeZeit, undefined);
+  assert.equal(db.tmAbgenommen(id), true); // Original unberuehrt
+});

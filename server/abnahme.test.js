@@ -436,3 +436,28 @@ test('Testnachricht: ohne konfigurierten Schluessel keine Abnahme, unmarkierte f
   assert.equal((await api('PATCH', `/testmessages/${id}`, { body: { notiz: 'n' } })).status, 200);
   assert.equal((await api('DELETE', `/testmessages/${id}`)).status, 204);
 });
+
+test('Variante anlegen: auch aus einer abgenommenen Nachricht, Kopie unmarkiert', async (t) => {
+  const { api } = await start(t, { agKey: AG_KEY });
+  const id = await neueTm(api);
+  await api('POST', `/testmessages/${id}/abnahme`, { body: {}, key: AG_KEY });
+
+  // Bewusst ohne Schutz-Middleware: die Kopie ruehrt das Original nicht an,
+  // und gerade die freigegebenen sind die guten Ausgangspunkte.
+  const kopie = await api('POST', `/testmessages/${id}/duplicate`);
+  assert.equal(kopie.status, 201);
+  assert.equal(kopie.body.entry.name, 'tm1.xml (Variante)');
+  assert.equal(kopie.body.entry.abgenommen, undefined);
+
+  // Original unberuehrt und weiterhin geschuetzt.
+  assert.equal((await api('GET', `/testmessages/${id}/abnahme/xml`)).status, 200);
+  assert.equal((await api('PATCH', `/testmessages/${id}`, { body: { notiz: 'x' } })).status, 403);
+  // Die Kopie dagegen ist frei bearbeitbar.
+  assert.equal(
+    (await api('PATCH', `/testmessages/${kopie.body.id}`, { body: { notiz: 'zwei Beteiligte' } }))
+      .status,
+    200,
+  );
+
+  assert.equal((await api('POST', '/testmessages/gibtsnicht/duplicate')).status, 404);
+});
