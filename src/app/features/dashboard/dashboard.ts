@@ -308,6 +308,9 @@ export class Dashboard {
         projektId = name ? await this.projekte.create({ name }) : null;
       }
       await this.store.einsortieren(id, { projektId, tags: normalisiereTags(this.ablTags()) });
+      // Die Zahlen am Projekt (Szenarien/Testnachrichten) leitet der Server aus
+      // den Zuordnungen ab — nach dem Einsortieren sind sie veraltet.
+      await this.projekte.refresh();
     } catch (err) {
       this.toast.showError(err, 'Einsortieren fehlgeschlagen.');
     }

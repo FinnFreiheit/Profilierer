@@ -23,6 +23,7 @@ import { ProfilPruefungService } from '../../core/services/profil-pruefung.servi
 import { PruefberichtExcelService } from '../../core/services/pruefbericht-excel.service';
 import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
+import { SzenarioZuordnenService } from '../../core/services/szenario-zuordnen.service';
 import { TeilenService } from '../../core/services/teilen.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
@@ -87,6 +88,7 @@ export class Testdaten {
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
   private readonly vergleich = inject(VergleichService);
+  private readonly szenario = inject(SzenarioZuordnenService);
   private readonly teilenService = inject(TeilenService);
   private readonly pruefung = inject(ProfilPruefungService);
   private readonly excel = inject(PruefberichtExcelService);
@@ -224,6 +226,8 @@ export class Testdaten {
         projektId,
         tags: normalisiereTags(this.ablTags()),
       });
+      // Wie im Dashboard: die abgeleiteten Projekt-Zahlen nachziehen.
+      await this.projekte.refresh();
     } catch (err) {
       this.toast.showError(err, 'Einsortieren fehlgeschlagen.');
     }
@@ -501,6 +505,15 @@ export class Testdaten {
     } catch (err) {
       this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
     }
+  }
+
+  /**
+   * Kachel-Aktion "Szenario zuordnen" (#141): hochgeladene Nachrichten
+   * nachtraeglich der Profilierung zuordnen, zu der sie fachlich gehoeren.
+   */
+  protected zuordnen(e: TestmessageEntry, ev: Event): void {
+    ev.stopPropagation();
+    this.szenario.oeffne(e);
   }
 
   /**

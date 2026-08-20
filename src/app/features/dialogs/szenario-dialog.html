@@ -1,0 +1,65 @@
+<dialog #dlg id="szenarioDlg">
+  <h3 style="margin-top: 0">Szenario zuordnen</h3>
+
+  @if (eintrag(); as e) {
+    <p class="szDlgKopf">
+      Testnachricht <b>{{ e.name }}</b>
+      @if (e.nachricht) {
+        <br /><span class="szDlgTyp">{{ e.nachricht }}</span>
+      }
+    </p>
+
+    @if (kandidaten().length > 8) {
+      <input
+        class="szDlgSuche"
+        type="search"
+        appKeinAutofill
+        placeholder="Profilierung suchen…"
+        [value]="suche()"
+        (input)="suche.set($any($event.target).value)"
+      />
+    }
+
+    <div class="szDlgListe">
+      @for (p of kandidaten(); track p.id) {
+        <button
+          type="button"
+          class="szDlgEintrag"
+          [class.szDlgAktiv]="gewaehlt() === p.id"
+          (click)="waehle(p.id)"
+        >
+          <span class="szDlgName">{{ p.name || '(ohne Namen)' }}</span>
+          @if (passt(p)) {
+            <span class="pill pillAbn">passt zum Nachrichtentyp</span>
+          }
+          @if (projektVon(p); as prj) {
+            <span class="szDlgProjekt">Projekt {{ prj }}</span>
+          }
+          <span class="szDlgTyp">{{ p.nachricht }}</span>
+        </button>
+      } @empty {
+        <p class="szDlgLeer">Keine Profilierung gefunden.</p>
+      }
+    </div>
+
+    @if (!passendeVorhanden() && e.nachricht) {
+      <p class="szDlgHinweis">
+        Keine Profilierung zu <b>{{ e.nachricht }}</b> — die Zuordnung ist trotzdem möglich, die
+        Nachricht passt dann aber nicht zum Nachrichtentyp des Szenarios.
+      </p>
+    }
+
+    <p class="szDlgHinweis">
+      Zugeordnet wird nur die <b>Herkunft</b>. Es wird keine Profilfassung gebunden: die Nachricht
+      ist nicht gegen sie entstanden, und das nachträglich zu behaupten wäre eine falsche Aussage.
+      Ob sie die Festlegungen einhält, beantwortet <b>„Gegen Profilierung prüfen"</b>.
+    </p>
+  }
+
+  <div style="text-align: right; margin-top: 12px">
+    <button (click)="schliesse()">Abbrechen</button>
+    <button class="primary" (click)="uebernimm()">
+      {{ gewaehlt() ? 'Zuordnen' : 'Zuordnung aufheben' }}
+    </button>
+  </div>
+</dialog>

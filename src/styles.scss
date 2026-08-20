@@ -2993,8 +2993,13 @@ app-tree-context-menu {
   color: var(--fg);
   text-decoration: underline;
 }
+/* Wie `.dashHead`, `#dashGrid` und `.tdGroupHead`: der Inhalt der App steht in
+   einer 1120px-Spalte. Ohne diese Bindung liefen die Zeilen auf breiten
+   Schirmen ueber die volle Fensterbreite, und der Knopf am rechten Rand haette
+   mit dem Namen am linken sichtbar nichts mehr zu tun. */
 .szenario {
-  margin: 0 0 14px;
+  max-width: 1120px;
+  margin: 0 auto 12px;
   background: var(--panel);
   border: 1.5px solid var(--border);
   border-radius: 9px;
@@ -3002,14 +3007,41 @@ app-tree-context-menu {
 }
 /* Kopfzeile in der Seitenfarbe: sie hebt das Szenario von seinen
    Testnachrichten ab, ohne einen zweiten Rahmen zu brauchen. */
+/* Zwei Ebenen statt einer Reihe gleichrangiger Angaben: oben der Name (der
+   Anker, nach dem man sucht) mit seinen Kennzeichen, darunter die Metadaten.
+   Vorher konkurrierten Name, Nachrichtentyp, Badge und Fortschritt auf
+   derselben Zeile um dieselbe Aufmerksamkeit. */
 .szenarioKopf {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  align-items: center;
+  padding: 9px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.szenarioTitel {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 8px 12px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+.szenarioMeta {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* Die Aktionen stehen rechts und ueberspannen beide Zeilen — so bleiben sie auf
+   Augenhoehe des Namens, statt an der Metazeile zu kleben. */
+.szenarioAktionen {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 .szenarioName {
   background: none;
@@ -3030,6 +3062,39 @@ app-tree-context-menu {
 .szenarioNameStumm:hover {
   text-decoration: none;
 }
+.projektZahlen {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+/* Die Sammelzeile traegt einen Zuordnen-Knopf je Nachricht — der Klick auf die
+   Zeile oeffnet weiterhin die Nachricht, der Knopf daneben tut etwas anderes.
+   Deshalb zwei getrennte Schaltflaechen statt eines verschachtelten Knopfes
+   (der waere ungueltiges HTML). */
+.tmZeileMitAktion {
+  justify-content: space-between;
+  cursor: default;
+}
+.tmZeileMitAktion:hover {
+  background: none;
+}
+.tmOeffnen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tmOeffnen:hover .tmName {
+  text-decoration: underline;
+}
 .szenarioProg,
 .tmFassung {
   font-size: 12px;
@@ -3046,13 +3111,15 @@ app-tree-context-menu {
   display: flex;
   flex-direction: column;
 }
+/* Eingerueckt gegenueber dem Szenario-Kopf: die Einrueckung sagt "gehoert
+   dazu", ohne dass es dafuer eine Linie oder Ueberschrift braucht. */
 .tmZeile {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   width: 100%;
-  padding: 6px 12px;
+  padding: 6px 12px 6px 26px;
   background: none;
   border: 0;
   border-top: 1px solid var(--border);
@@ -3069,14 +3136,16 @@ app-tree-context-menu {
 }
 /* Eine Luecke ist eine Aussage: zu diesem Szenario gibt es noch keine
    Testdaten. Sie darf nicht unsichtbar sein. */
+/* Die Luecke bleibt sichtbar, nimmt aber weniger Raum als ein Eintrag: sie ist
+   eine Aussage, kein Inhalt. */
 .szenarioLeer {
-  padding: 6px 12px;
+  padding: 5px 12px 5px 26px;
   font-size: 12px;
-  font-style: italic;
   color: var(--muted);
 }
 .leerHinweis {
   max-width: 620px;
+  margin-inline: auto;
   font-size: 13px;
   color: var(--muted);
 }
@@ -3166,4 +3235,80 @@ app-tree-context-menu {
 .matrixKlappN {
   color: var(--muted);
   font-weight: 400;
+}
+
+/* ── Dialog "Szenario zuordnen" (#141) ──────────────────────────────────
+   Eine Liste zum Anklicken statt eines <select>: die Wahl haengt an mehr als
+   dem Namen (Nachrichtentyp, Projekt, Passung), und das traegt eine Option
+   nicht. Die passenden Profilierungen stehen oben. */
+#szenarioDlg {
+  min-width: 520px;
+  max-width: 640px;
+}
+.szDlgKopf {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+.szDlgTyp {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.szDlgSuche {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+.szDlgListe {
+  max-height: 40vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.szDlgEintrag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 7px 10px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.szDlgEintrag:last-child {
+  border-bottom: 0;
+}
+.szDlgEintrag:hover {
+  background: var(--bg);
+}
+/* Die Auswahl ist am Rahmen erkennbar, nicht nur an der Fuellung — ein
+   Farbfeld allein traegt die Aussage nicht bei schwachem Kontrast. */
+.szDlgAktiv {
+  background: var(--bg);
+  box-shadow: inset 3px 0 0 var(--accent);
+  font-weight: 600;
+}
+.szDlgName {
+  flex: 1;
+  min-width: 140px;
+}
+.szDlgProjekt,
+.szDlgLeer {
+  font-size: 12px;
+  color: var(--muted);
+}
+.szDlgLeer {
+  margin: 0;
+  padding: 10px;
+}
+.szDlgHinweis {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
 }

@@ -167,6 +167,24 @@ Ansicht bietet das Feld dort gar nicht erst an.
 
 **Projekt löschen** entfernt nur die Zuordnungen, nie Inhalte.
 
+### Nachträgliche Zuordnung zu einem Szenario
+
+`PUT /api/testmessages/:id/profil` → `db.tmZuordnen` setzt `profil_id`/`profil_name` an einer
+hochgeladenen Nachricht (#141). **Ohne** eingefrorene Vorgabe: die Nachricht ist nicht gegen
+eine Fassung entstanden, und das nachträglich zu behaupten machte aus der Leitplanke eine
+falsche Aussage — `profil_weiterentwickelt` vergliche einen Stand, den sie nie gesehen hat.
+Der Zustand „Herkunft ohne Vorgabe" ist bereits etabliert; er entsteht auch beim Lösen der
+Bindung.
+
+Eine Nachricht **mit** Vorgabe wird abgewiesen (`409`): die eingefrorene Kopie gehört zu ihrer
+Profilierung, ein stiller Wechsel machte sie sinnlos. `profilId: null` hebt die Zuordnung auf.
+Der Zeitstempel bleibt stehen — Zuordnen ist Einordnung, keine Bearbeitung.
+
+Wie die Ablage-Endpunkte trägt dieser **keine** `schutz`-Middleware ([ADR 0019](adr/0019-projekt-als-behaelter.md)):
+die Zuordnung rührt weder XML noch Abnahme-Stand noch Konformität an. Mit Schutz liefe die
+Funktion genau für den Bestand ins Leere, für den sie gedacht ist — die freigegebenen
+Beispielnachrichten, die als Datei hereinkamen.
+
 ### Varianten einer Testnachricht
 
 Ausprägungen eines Kommunikationsszenarios (einmal ein Beteiligter, einmal zwei)

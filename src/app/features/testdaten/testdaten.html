@@ -133,6 +133,15 @@
                 >
                   Einsortieren…
                 </button>
+                <!-- Auch bei freigegebenen Nachrichten offen: die Zuordnung sagt,
+                     wohin die Nachricht gehört, nicht was in ihr steht. -->
+                <button
+                  class="menuItem"
+                  title="Nachträglich einem Kommunikationsszenario zuordnen — für hochgeladene Nachrichten"
+                  (click)="werkzeuge.close(); zuordnen(e, $event)"
+                >
+                  Szenario zuordnen…
+                </button>
                 <button
                   class="menuItem"
                   title="Kopie mit derselben Profilierung anlegen — Ausgangspunkt für die nächste Ausprägung"

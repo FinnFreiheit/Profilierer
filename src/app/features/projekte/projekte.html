@@ -23,12 +23,13 @@
       </h1>
       @if (p.beschreibung) {
         <p class="dashSub">{{ p.beschreibung }}</p>
-      } @else {
-        <p class="dashSub">
-          {{ p.nProfile }} Kommunikationsszenari{{ p.nProfile === 1 ? 'o' : 'en' }},
-          {{ p.nTestnachrichten }} Testnachricht{{ p.nTestnachrichten === 1 ? '' : 'en' }}
-        </p>
       }
+      <!-- Die Zahlen stehen immer da, nicht nur ersatzweise: sie sind der
+           Ueberblick, den die Seite geben soll. -->
+      <p class="projektZahlen">
+        {{ p.nProfile }} Kommunikationsszenari{{ p.nProfile === 1 ? 'o' : 'en' }} ·
+        {{ p.nTestnachrichten }} Testnachricht{{ p.nTestnachrichten === 1 ? '' : 'en' }}
+      </p>
       @if (p.tags?.length) {
         <div class="dcTags">
           @for (t of p.tags; track t) {
@@ -61,33 +62,43 @@
     @for (s of szenarien(); track s.profil.id) {
       <div class="szenario">
         <div class="szenarioKopf">
-          <button class="szenarioName" (click)="oeffneProfil(s.profil)">
-            {{ s.profil.name || '(ohne Namen)' }}
-          </button>
-          <span class="pill pillMuted">{{ nachrichtKurz(s.profil) }}</span>
-          @if (s.profil.abgenommen) {
-            <span class="pill pillAbn">freigegeben</span>
-          }
-          @if (anteil(s.profil); as a) {
-            <span class="szenarioProg">{{ a }} % entschieden</span>
-          }
-          <span class="szenarioSpacer"></span>
-          @if (s.nachrichten.length > 1) {
+          <div class="szenarioTitel">
+            <button class="szenarioName" (click)="oeffneProfil(s.profil)">
+              {{ s.profil.name || '(ohne Namen)' }}
+            </button>
+            @if (s.profil.abgenommen) {
+              <span class="pill pillAbn">freigegeben</span>
+            }
+          </div>
+          <div class="szenarioMeta">
+            <span class="pill pillMuted">{{ nachrichtKurz(s.profil) }}</span>
+            @if (anteil(s.profil); as a) {
+              <span class="szenarioProg">{{ a }} % entschieden</span>
+            }
+            <!-- Nur bei vorhandenen Nachrichten: die Null sagt der Leerzustand
+                 darunter schon, und zwar deutlicher. -->
+            @if (s.nachrichten.length) {
+              <span class="szenarioProg">{{ zaehlText(s.nachrichten.length) }}</span>
+            }
+          </div>
+          <div class="szenarioAktionen">
+            @if (s.nachrichten.length > 1) {
+              <button
+                class="szenarioAktion"
+                title="Alle Testnachrichten dieses Szenarios nebeneinander: worin unterscheiden sie sich?"
+                (click)="vergleiche(s.profil, $event)"
+              >
+                Vergleichen
+              </button>
+            }
             <button
               class="szenarioAktion"
-              title="Alle Testnachrichten dieses Szenarios nebeneinander: worin unterscheiden sie sich?"
-              (click)="vergleiche(s.profil, $event)"
+              title="Weitere Testnachricht zu diesem Szenario erstellen (geführter Durchlauf mit Bindung)"
+              (click)="neueTestnachricht(s.profil, $event)"
             >
-              Vergleichen
+              + Testnachricht
             </button>
-          }
-          <button
-            class="szenarioAktion"
-            title="Weitere Testnachricht zu diesem Szenario erstellen (geführter Durchlauf mit Bindung)"
-            (click)="neueTestnachricht(s.profil, $event)"
-          >
-            + Testnachricht
-          </button>
+          </div>
         </div>
 
         @if (s.nachrichten.length) {
@@ -125,19 +136,33 @@
     @if (ohneSzenario().length) {
       <div class="szenario">
         <div class="szenarioKopf">
-          <span class="szenarioName szenarioNameStumm">ohne Szenario</span>
-          <span class="szenarioProg">
-            hochgeladen oder Profilierung gelöscht — direkt dem Projekt zugeordnet
-          </span>
+          <div class="szenarioTitel">
+            <span class="szenarioName szenarioNameStumm">ohne Szenario</span>
+          </div>
+          <div class="szenarioMeta">
+            <span class="szenarioProg">
+              hochgeladen oder Profilierung gelöscht — noch keinem Szenario zugeordnet
+            </span>
+          </div>
         </div>
         <div class="szenarioListe">
           @for (t of ohneSzenario(); track t.id) {
-            <button class="tmZeile" (click)="oeffneNachricht(t)">
-              <span class="tmName">{{ t.name }}</span>
-              @if (t.profilName) {
-                <span class="tmFassung">aus {{ t.profilName }}</span>
-              }
-            </button>
+            <div class="tmZeile tmZeileMitAktion">
+              <button class="tmOeffnen" (click)="oeffneNachricht(t)">
+                <span class="tmName">{{ t.name }}</span>
+                @if (t.profilName) {
+                  <span class="tmFassung">aus {{ t.profilName }}</span>
+                }
+              </button>
+              <!-- Hier faellt die Luecke auf, also gehoert der Weg hierher. -->
+              <button
+                class="szenarioAktion"
+                title="Diese Nachricht einem Kommunikationsszenario zuordnen"
+                (click)="zuordne(t, $event)"
+              >
+                Szenario zuordnen…
+              </button>
+            </div>
           }
         </div>
       </div>

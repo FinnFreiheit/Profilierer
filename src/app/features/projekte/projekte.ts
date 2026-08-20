@@ -13,6 +13,7 @@ import { TestmessageStoreService } from '../../core/services/testmessage-store.s
 import { StateService } from '../../core/services/state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { VergleichService } from '../../core/services/vergleich.service';
+import { SzenarioZuordnenService } from '../../core/services/szenario-zuordnen.service';
 import { PersistenceService } from '../../core/services/persistence.service';
 import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
 import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
@@ -60,11 +61,22 @@ export class Projekte {
   private readonly state = inject(StateService);
   private readonly toast = inject(ToastService);
   private readonly vergleich = inject(VergleichService);
+  private readonly szenario = inject(SzenarioZuordnenService);
   private readonly persistence = inject(PersistenceService);
   private readonly edit = inject(TestmessageEditService);
   private readonly testnachrichtStart = inject(TestnachrichtStartService);
   private readonly bearbeitenDlg =
     viewChild.required<ElementRef<HTMLDialogElement>>('bearbeitenDlg');
+
+  constructor() {
+    // Beim Betreten der Ansicht den Index frisch holen: die Zahlen am Projekt
+    // (Szenarien/Testnachrichten) leitet der Server aus den Zuordnungen ab, und
+    // die koennen sich seit dem letzten Laden in jeder anderen Ansicht geaendert
+    // haben — die Komponente entsteht bei jedem Wechsel neu (@if in app.html).
+    void this.store.refresh().catch(() => {
+      /* Der Store hat den Fehler bereits geloggt; die Ansicht zeigt den letzten Stand. */
+    });
+  }
 
   /** Geoeffnetes Projekt (null = Uebersicht). */
   protected readonly offenesId = this.state.offenesProjekt;
@@ -186,6 +198,15 @@ export class Projekte {
   }
 
   /**
+   * Eine Nachricht der Sammelzeile nachtraeglich einem Szenario zuordnen
+   * (#141) — hier faellt die Luecke auf, also gehoert der Weg hierher.
+   */
+  protected zuordne(e: TestmessageEntry, ev: Event): void {
+    ev.stopPropagation();
+    this.szenario.oeffne(e);
+  }
+
+  /**
    * Merkmals-Matrix (#136): alle Testnachrichten dieses Szenarios
    * nebeneinander. Der Knopf erscheint erst ab zwei Nachrichten — mit einer
    * gibt es nichts zu vergleichen.
@@ -281,6 +302,14 @@ export class Projekte {
   protected anteil(e: LibraryEntry): number | null {
     if (!e.nPunkte) return null;
     return Math.round(((e.nEntschieden ?? 0) / e.nPunkte) * 100);
+  }
+
+  /**
+   * "3 Testnachrichten" am Kopf der Zeile — die Zahl findet sich so, ohne
+   * Eintraege zu zaehlen. Bei null uebernimmt der Leerzustand die Aussage.
+   */
+  protected zaehlText(n: number): string {
+    return n === 1 ? '1 Testnachricht' : `${n} Testnachrichten`;
   }
 
   /** Kurzform des Nachrichtentyps fuer die Szenario-Zeile. */
