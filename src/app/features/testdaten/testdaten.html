@@ -128,19 +128,10 @@
                 </button>
                 <button
                   class="menuItem"
-                  title="Projekt und Schlagworte ändern — die Ablage, nicht die fachliche Aussage. Auch bei freigegebenen Nachrichten möglich."
+                  title="Szenario, Projekt und Schlagworte — wohin gehört diese Nachricht? Auch bei freigegebenen möglich."
                   (click)="werkzeuge.close(); openAblage(e, $event)"
                 >
-                  Einsortieren…
-                </button>
-                <!-- Auch bei freigegebenen Nachrichten offen: die Zuordnung sagt,
-                     wohin die Nachricht gehört, nicht was in ihr steht. -->
-                <button
-                  class="menuItem"
-                  title="Nachträglich einem Kommunikationsszenario zuordnen — für hochgeladene Nachrichten"
-                  (click)="werkzeuge.close(); zuordnen(e, $event)"
-                >
-                  Szenario zuordnen…
+                  Einordnen…
                 </button>
                 <button
                   class="menuItem"
@@ -623,22 +614,4 @@
       </button>
     </div>
   }
-</dialog>
-
-<!-- Einsortieren (#134): Projekt und Schlagworte. Bei gebundenen Nachrichten
-     entfällt das Projektfeld — sie folgen ihrer Profilierung. -->
-<dialog #ablageDlg id="ablageDlg">
-  <h3 style="margin-top: 0">Einsortieren</h3>
-  <app-einsortieren
-    [projekte]="projekte.entries()"
-    [(projektId)]="ablProjekt"
-    [(neuerName)]="ablNeu"
-    [(tags)]="ablTags"
-    [tagVorschlaege]="verfuegbareTags()"
-    [geerbtVon]="ablGeerbtVon()"
-  ></app-einsortieren>
-  <div style="text-align: right; margin-top: 12px">
-    <button (click)="ablageDlg.close()">Abbrechen</button>
-    <button class="primary" (click)="submitAblage()">Übernehmen</button>
-  </div>
 </dialog>

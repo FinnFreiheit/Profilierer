@@ -124,26 +124,88 @@ function bereichVon(pfad: string): string {
   const segmente = pfad.replace(/^\//, '').split('/');
   const roh = (segmente[1] ?? '').replace(/\[\d+\].*$/, '').replace(/@.*$/, '');
   if (!roh) return 'Nachricht';
-  // lowerCamelCase der Schemanamen in Worte trennen: "datenDerUrkunde".
-  const worte = roh.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+  return inWorte(roh);
+}
+
+/** lowerCamelCase eines Schemanamens in Worte: "natuerlichePerson". */
+function inWorte(roh: string): string {
+  const worte = roh.replace(/_/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2');
   return worte.charAt(0).toLocaleUpperCase('de') + worte.slice(1);
 }
 
 /**
- * Lesbare Kurzform eines Instanzpfads: die letzten beiden Segmente reichen,
- * um die Zeile zu erkennen; der volle Pfad steht im Tooltip.
+ * Die Bezeichnung eines Merkmals, wie ein Mensch sie liest:
+ * `Beteiligung 2 › Natuerliche Person › Geschlecht`.
+ *
+ * Vorher standen hier die letzten beiden Pfadsegmente im Rohzustand
+ * (`natuerlichePerson / geschlecht`) — Feldnamen aus einer Datei, keine
+ * Aussage. Vor allem ging die Vorkommen-Nummer unter, obwohl sie das
+ * Wichtigste ist: dass es der **zweite** Beteiligte ist, beantwortet die halbe
+ * Frage. Sie steht deshalb hinter dem Namen statt als Klammerindex mittendrin.
+ *
+ * Der Bereich (2. Segment) faellt weg — er ist die Gruppenueberschrift. Ein
+ * Attribut wird als solches ausgewiesen.
  */
-function kurz(pfad: string): string {
-  const teile = pfad.replace(/^\//, '').split('/');
-  return teile.slice(-2).join(' / ');
+function bezeichnung(pfad: string, mehrfach: Set<string>): string {
+  const [reinerPfad, attribut] = pfad.split('@');
+  const teile = (reinerPfad ?? '').replace(/^\//, '').split('/');
+  // Wurzel und Bereich weg: beide stehen schon in der Gruppenueberschrift.
+  const rest = teile.slice(2);
+  if (!rest.length)
+    return attribut ? `Attribut ${attribut}` : inWorte(teile[teile.length - 1] ?? '');
+
+  let gelaufen = `/${teile[0]}/${teile[1]}`;
+  const segmente: string[] = [];
+  for (const seg of rest) {
+    const treffer = /^(.+)\[(\d+)\]$/.exec(seg);
+    const name = treffer ? (treffer[1] ?? seg) : seg;
+    const listenPfad = `${gelaufen}/${name}`;
+    gelaufen += `/${seg}`;
+    // `auswahl_*` sind die Choice-Container des XJustiz-Schemas: technische
+    // Klammern ohne fachliche Aussage, die die Kette nur verlaengern.
+    if (name.startsWith('auswahl_')) continue;
+    // Die Nummer nur, wo es ueberhaupt mehrere gibt — sonst waere sie Ballast.
+    segmente.push(
+      treffer && mehrfach.has(listenPfad) ? `${inWorte(name)} ${treffer[2]}` : inWorte(name),
+    );
+  }
+  return zusammenfassen(segmente, attribut);
 }
 
-/** Index-Klammern raus, wo ueberall nur ein Vorkommen steht (Lesbarkeit). */
-function ohneEinerIndex(pfad: string, mehrfach: Set<string>): string {
-  return pfad.replace(/([^/[\]]+)\[(\d+)\]/g, (treffer, name: string, nr: string, pos: number) => {
-    const listenPfad = pfad.slice(0, pos) + name;
-    return mehrfach.has(listenPfad) ? `${name}[${nr}]` : name;
+/**
+ * Die Kette auf das kuerzen, was die Aussage traegt. Vollstaendig ist sie
+ * unbrauchbar breit — "Verfahrensdaten › Beteiligung 1 › Beteiligter › Auswahl
+ * beteiligter › Natuerliche Person › Anschrift › Anschriftstyp 4" sprengt jede
+ * Spalte.
+ *
+ * Behalten werden die Glieder **mit Vorkommen-Nummer** (dass es der zweite
+ * Beteiligte ist, ist der halbe Befund) und die letzten beiden (das Merkmal
+ * selbst und sein Traeger). Was dazwischen wegfaellt, wird als "…" ausgewiesen
+ * statt stillschweigend geschluckt; der volle Pfad steht im Tooltip.
+ */
+function zusammenfassen(segmente: string[], attribut?: string): string {
+  const behalten = new Set<number>();
+  segmente.forEach((seg, i) => {
+    if (/ \d+$/.test(seg)) behalten.add(i);
   });
+  behalten.add(segmente.length - 1);
+  if (segmente.length > 1) behalten.add(segmente.length - 2);
+
+  const teile: string[] = [];
+  let luecke = false;
+  segmente.forEach((seg, i) => {
+    if (behalten.has(i)) {
+      if (luecke) teile.push('…');
+      teile.push(seg);
+      luecke = false;
+    } else if (teile.length) {
+      // Nur zwischen zwei Gliedern: ein fuehrendes "…" traegt nichts bei, dass
+      // oben etwas weggelassen wurde, ist ohnehin klar.
+      luecke = true;
+    }
+  });
+  const text = teile.join(' › ');
+  return attribut ? `${text} · Attribut ${attribut}` : text;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -187,7 +249,7 @@ export class MatrixService {
         art: 'anzahl',
         bereich: bereichVon(pfad),
         pfad,
-        label: kurz(ohneEinerIndex(pfad, mehrfach)),
+        label: bezeichnung(pfad, mehrfach),
         werte: zahlen.map((n) => String(n)),
         unterhalb: this.ueberzaehligesVorkommen(pfad, minAnzahl),
       });
@@ -203,7 +265,7 @@ export class MatrixService {
         art: 'wert',
         bereich: bereichVon(pfad),
         pfad,
-        label: kurz(ohneEinerIndex(pfad, mehrfach)),
+        label: bezeichnung(pfad, mehrfach),
         werte,
         unterhalb: this.ueberzaehligesVorkommen(pfad, minAnzahl),
         technisch: istTechnisch(pfad) || undefined,

@@ -23,7 +23,7 @@ import { ProfilPruefungService } from '../../core/services/profil-pruefung.servi
 import { PruefberichtExcelService } from '../../core/services/pruefbericht-excel.service';
 import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
-import { SzenarioZuordnenService } from '../../core/services/szenario-zuordnen.service';
+import { EinordnenService } from '../../core/services/einordnen.service';
 import { TeilenService } from '../../core/services/teilen.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
@@ -43,7 +43,6 @@ import { firstLine } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { TagFilter } from '../../shared/tag-filter/tag-filter';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
-import { Einsortieren, PROJEKT_NEU } from '../../shared/einsortieren/einsortieren';
 import { ProjektStoreService } from '../../core/services/projekt-store.service';
 import {
   hatAlleTags,
@@ -70,7 +69,7 @@ interface Gruppe {
 @Component({
   selector: 'app-testdaten',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu, KeinAutofillDirective, TagFilter, TagEingabe, Einsortieren],
+  imports: [RolleBadge, Menu, KeinAutofillDirective, TagFilter, TagEingabe],
   templateUrl: './testdaten.html',
 })
 export class Testdaten {
@@ -88,7 +87,7 @@ export class Testdaten {
   private readonly validator = inject(XmlValidationService);
   private readonly report = inject(ValidationReportService);
   private readonly vergleich = inject(VergleichService);
-  private readonly szenario = inject(SzenarioZuordnenService);
+  private readonly einordnen = inject(EinordnenService);
   private readonly teilenService = inject(TeilenService);
   private readonly pruefung = inject(ProfilPruefungService);
   private readonly excel = inject(PruefberichtExcelService);
@@ -96,7 +95,6 @@ export class Testdaten {
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
   private readonly editDlg = viewChild.required<ElementRef<HTMLDialogElement>>('editDlg');
-  private readonly ablageDlg = viewChild.required<ElementRef<HTMLDialogElement>>('ablageDlg');
   private readonly createDlg = viewChild.required<ElementRef<HTMLDialogElement>>('createDlg');
   private readonly pruefDlg = viewChild.required<ElementRef<HTMLDialogElement>>('pruefDlg');
 
@@ -169,68 +167,10 @@ export class Testdaten {
     tagOptionen(this.store.entries(), (e) => e.tags),
   );
 
-  // ── Einsortieren (#134) ──────────────────────────────────────────────
-
-  /** Einsortieren-Dialog: aktive Nachricht + Puffer der drei Felder. */
-  protected readonly ablEintrag = signal<TestmessageEntry | null>(null);
-  protected readonly ablProjekt = signal('');
-  protected readonly ablNeu = signal('');
-  protected readonly ablTags = signal('');
-
-  /**
-   * Name der Profilierung, von der die aktive Nachricht ihr Projekt erbt —
-   * gesetzt heisst: kein Projektfeld im Dialog. Gebundene Nachrichten folgen
-   * ihrer Profilierung; ein zweiter Pflegeort erzeugte nur Widersprueche
-   * ("Nachricht in Projekt A, Profil in Projekt B").
-   *
-   * Nach dem **Loeschen** der Profilierung erbt nichts mehr (sie steht nicht
-   * mehr in der Bibliothek) — dann ist die eigene Zuordnung wieder der Weg.
-   */
-  protected readonly ablGeerbtVon = computed(() => {
-    const e = this.ablEintrag();
-    if (!e?.profilId) return undefined;
-    return this.profiles.entries().find((p) => p.id === e.profilId)?.name;
-  });
-
-  /**
-   * Einsortieren: Projekt und Schlagworte — die Ablage, nicht die fachliche
-   * Aussage. Auch bei freigegebenen Nachrichten offen.
-   */
+  /** Einordnen (#145): ein Dialog fuer Szenario, Projekt und Schlagworte. */
   protected openAblage(e: TestmessageEntry, ev: Event): void {
     ev.stopPropagation();
-    this.ablEintrag.set(e);
-    this.ablProjekt.set(e.projektId ?? '');
-    this.ablNeu.set('');
-    this.ablTags.set(tagsAlsText(e.tags));
-    this.ablageDlg().nativeElement.showModal();
-  }
-
-  /** Uebernehmen: ggf. erst das neue Projekt anlegen, dann zuordnen. */
-  protected async submitAblage(): Promise<void> {
-    const eintrag = this.ablEintrag();
-    const geerbt = !!this.ablGeerbtVon();
-    this.ablageDlg().nativeElement.close();
-    if (!eintrag) return;
-    try {
-      let projektId: string | null | undefined;
-      // Bei geerbtem Projekt gar nicht erst mitschicken — der Server wiese es
-      // mit 409 ab, und der Dialog hat das Feld dort auch nicht gezeigt.
-      if (!geerbt) {
-        projektId = this.ablProjekt() || null;
-        if (projektId === PROJEKT_NEU) {
-          const name = this.ablNeu().trim();
-          projektId = name ? await this.projekte.create({ name }) : null;
-        }
-      }
-      await this.store.einsortieren(eintrag.id, {
-        projektId,
-        tags: normalisiereTags(this.ablTags()),
-      });
-      // Wie im Dashboard: die abgeleiteten Projekt-Zahlen nachziehen.
-      await this.projekte.refresh();
-    } catch (err) {
-      this.toast.showError(err, 'Einsortieren fehlgeschlagen.');
-    }
+    this.einordnen.oeffneTestnachricht(e.id);
   }
 
   /** Bearbeiten-Dialog: aktive id + Puffer für Name, Beschreibung, Schlagworte. */
@@ -505,15 +445,6 @@ export class Testdaten {
     } catch (err) {
       this.toast.showError(err, 'Nachricht konnte nicht geöffnet werden.');
     }
-  }
-
-  /**
-   * Kachel-Aktion "Szenario zuordnen" (#141): hochgeladene Nachrichten
-   * nachtraeglich der Profilierung zuordnen, zu der sie fachlich gehoeren.
-   */
-  protected zuordnen(e: TestmessageEntry, ev: Event): void {
-    ev.stopPropagation();
-    this.szenario.oeffne(e);
   }
 
   /**

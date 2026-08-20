@@ -38,7 +38,7 @@ import { ValidationDialog } from './features/dialogs/validation-dialog';
 import { ProfilDiffDialog } from './features/dialogs/profil-diff-dialog';
 import { XmlDiffDialog } from './features/dialogs/xml-diff-dialog';
 import { MatrixDialog } from './features/dialogs/matrix-dialog';
-import { SzenarioDialog } from './features/dialogs/szenario-dialog';
+import { EinordnenDialog } from './features/dialogs/einordnen-dialog';
 import { VergleichService } from './core/services/vergleich.service';
 import { TeilenService } from './core/services/teilen.service';
 import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
@@ -79,7 +79,7 @@ function istZweigWahl(el: HTMLElement): boolean {
     ProfilDiffDialog,
     XmlDiffDialog,
     MatrixDialog,
-    SzenarioDialog,
+    EinordnenDialog,
     ErweiterungDialog,
   ],
   templateUrl: './app.html',
