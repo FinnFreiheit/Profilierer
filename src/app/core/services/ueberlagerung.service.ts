@@ -18,7 +18,7 @@ import { TestmessageStoreService } from './testmessage-store.service';
 import { istTechnischeAngabe } from './matrix.service';
 import { InstanzModell } from '../vorgabe-sicht';
 import { XsdIndex } from '../../models/xsd-index.model';
-import { ohneVorkommen, segmentKette } from '../util/pfad.util';
+import { ohneVorkommen, segmentKette, vorfahren } from '../util/pfad.util';
 import { konkreterPfad, positionsPfad } from '../util/positions-pfad.util';
 
 /** Eine Nachricht als Eingabe der Ueberlagerung. */
@@ -76,6 +76,8 @@ export class UeberlagerungService {
   private readonly daten = signal<ReadonlyMap<string, Wertkarte>>(new Map());
   /** Nachricht, zu der die Werte gehoeren (Wechsel beendet die Ueberlagerung). */
   private basis: string | null = null;
+  /** Stand der Blatt-Ausrichtung vor der Ueberlagerung (wird zurueckgegeben). */
+  private ausrichtungVorher = false;
 
   /** Laeuft eine Ueberlagerung? */
   readonly aktiv = computed(() => this.nachrichten().length > 0);
@@ -197,8 +199,20 @@ export class UeberlagerungService {
     this.nurAbweichungen.set(false);
     this.daten.set(daten);
     this.nachrichten.set(
-      passend.map((g, i) => ({ id: g.id, name: g.name, farbe: nachrichtFarbe(i), aktiv: true })),
+      passend.map((g, i) => ({
+        id: g.id,
+        name: g.name,
+        kuerzel: 'N' + (i + 1),
+        farbe: nachrichtFarbe(i),
+        aktiv: true,
+      })),
     );
+    // Blaetter ausrichten: der Vergleich laeuft senkrecht. Ohne die Ausrichtung
+    // sitzt jeder Wert-Kasten dort, wo sein Blatt endet — die Werte stehen im
+    // Zickzack, und genau das Nebeneinander, das die Ueberlagerung ausmacht,
+    // muss man sich zusammensuchen. Der Schalter bleibt bedienbar.
+    this.ausrichtungVorher = this.state.alignLeaves();
+    this.state.alignLeaves.set(true);
     this.state.view.set('editor');
     // Codelisten im Hintergrund: belegte Codes bekommen ihren Klartext.
     void this.codelists.ensureUsedCodelists();
@@ -206,6 +220,10 @@ export class UeberlagerungService {
 
   /** Die Ueberlagerung beenden — der Baum bleibt als Schema-Ansicht stehen. */
   beende(): void {
+    // Die Blatt-Ausrichtung war eine Leihgabe an die Ueberlagerung: zurueck auf
+    // den vorherigen Stand — es sei denn, sie wurde inzwischen von Hand
+    // abgeschaltet, dann gilt diese Entscheidung.
+    if (this.state.alignLeaves()) this.state.alignLeaves.set(this.ausrichtungVorher);
     this.nachrichten.set([]);
     this.daten.set(new Map());
     this.szenario.set('');
@@ -239,16 +257,21 @@ export class UeberlagerungService {
     const werte = this.werteAn(pfad, gewaehlt);
     if (!werte.some((w) => w !== null)) return [];
     const referenz = this.referenzwert(werte);
+    // Technische Kopfangaben tragen nie eine Marke; sind sich alle einig,
+    // faellt sie ohnehin weg (dann ist ihr Wert die Mehrheit).
     const technisch = this.istTechnisch(pfad);
     return gewaehlt.map((n, i) => {
       const wert = werte[i] ?? null;
       return {
         id: n.id,
         name: n.name,
+        kuerzel: n.kuerzel,
         farbe: n.farbe,
         wert,
         label: wert && codelist ? this.values.labelFor(codelist, wert) : null,
-        abweichend: !technisch && wert !== referenz,
+        // Ohne eindeutige Mehrheit (referenz === undefined) traegt jeder die
+        // Marke: es gibt keinen Wert, von dem der andere abwiche.
+        abweichend: !technisch && (referenz === undefined || wert !== referenz),
       };
     });
   }
@@ -266,6 +289,7 @@ export class UeberlagerungService {
       gesamt: werte.length,
       verschieden,
       abweichend: !this.istTechnisch(pfad) && new Set(werte).size > 1,
+      sagend: belegt.length < werte.length || verschieden > 1,
     };
   }
 
@@ -326,6 +350,28 @@ export class UeberlagerungService {
     return set;
   });
 
+  /**
+   * Vorfahren-Aggregat: Baumpfad → Zahl der abweichenden Stellen **darunter**
+   * (der Pfad selbst zaehlt nicht mit). Muster `belegtAnc`/`valAnc` — und der
+   * eigentliche Wegweiser: im zugeklappten Ast sagt sonst nichts, wo etwas zu
+   * holen ist, und „nur Abweichungen" ist ein Alles-oder-nichts-Schalter.
+   */
+  private readonly abweichungsAnc = computed<ReadonlyMap<string, number>>(() => {
+    const listen = this.state.auspraegungen();
+    const m = new Map<string, number>();
+    for (const pos of this.abweichungsStellen()) {
+      const pfad = konkreterPfad(pos, listen);
+      if (!pfad) continue;
+      for (const a of vorfahren(pfad)) m.set(a, (m.get(a) ?? 0) + 1);
+    }
+    return m;
+  });
+
+  /** Abweichende Stellen im Teilbaum unter `pfad` (0 = keine). */
+  abweichungenDarunter(pfad: string): number {
+    return this.abweichungsAnc().get(pfad) ?? 0;
+  }
+
   /** Die Werte der gewaehlten Nachrichten an einem Baumpfad (null = keine Angabe). */
   private werteAn(pfad: string, gewaehlt: readonly UeberlagerteNachricht[]): (string | null)[] {
     const pos = positionsPfad(pfad, this.state.auspraegungen());
@@ -334,22 +380,35 @@ export class UeberlagerungService {
   }
 
   /**
-   * Der Wert, gegen den die Kaesten gelesen werden: der haeufigste belegte Wert
-   * (bei Gleichstand der zuerst genannte). Alles andere — auch die fehlende
-   * Angabe — ist die Abweichung. So sticht die Ausnahme heraus, statt dass bei
-   * zwei verschiedenen Werten beide Seiten blinken.
+   * Der Wert, gegen den die Kaesten gelesen werden: der **eindeutig**
+   * haeufigste. Alles andere — auch die fehlende Angabe — ist die Abweichung,
+   * und so sticht die Ausnahme heraus, statt dass beide Seiten blinken.
+   *
+   * `undefined`, wenn es keine Mehrheit gibt (zwei Nachrichten mit zwei Werten,
+   * drei mit dreien): dann ist keiner der Massstab. Vorher gewann bei
+   * Gleichstand der zuerst genannte — bei genau zwei Nachrichten, dem
+   * Normalfall, trug damit **immer** die zweite die Marke, als waere sie die
+   * Abweichlerin. Eine Reihenfolge ist keine Aussage.
+   *
+   * Die fehlende Angabe zaehlt bewusst nicht mit: „drei haben nichts, einer hat
+   * etwas" — der eine Wert ist die Auffaelligkeit, nicht die Norm.
    */
-  private referenzwert(werte: readonly (string | null)[]): string | null {
+  private referenzwert(werte: readonly (string | null)[]): string | undefined {
     const zaehler = new Map<string, number>();
     for (const w of werte) if (w !== null) zaehler.set(w, (zaehler.get(w) ?? 0) + 1);
-    let referenz: string | null = null;
+    let referenz: string | undefined;
     let max = 0;
-    for (const [wert, n] of zaehler)
+    let eindeutig = false;
+    for (const [wert, n] of zaehler) {
       if (n > max) {
         max = n;
         referenz = wert;
+        eindeutig = true;
+      } else if (n === max) {
+        eindeutig = false;
       }
-    return referenz;
+    }
+    return eindeutig ? referenz : undefined;
   }
 
   /** Technische Kopfangabe? Gepruefte wird der Positionspfad (wie in der Matrix). */

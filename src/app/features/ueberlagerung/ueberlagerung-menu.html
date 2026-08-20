@@ -16,6 +16,7 @@
     <label class="menuItem" [title]="n.name">
       <input type="checkbox" [checked]="n.aktiv" (change)="ueberlagerung.schalte(n.id)" />
       <span class="farbPunkt" [style.background]="n.farbe"></span>
+      <span class="wertKuerzel" [style.background]="n.farbe + '26'">{{ n.kuerzel }}</span>
       <span class="menuText">{{ n.name }}</span>
     </label>
   }

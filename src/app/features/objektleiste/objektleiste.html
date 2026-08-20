@@ -239,7 +239,16 @@
       </button>
     }
     <div class="menuSep"></div>
-    <button class="menuItem" (click)="weiteres.close(); printClick.emit()">Drucken</button>
+    <!-- Auch hier gesperrt: der Druck kennt nur einen Wert je Element (#147). -->
+    <span class="menuHuelle" [title]="ueberlagerung.aktiv() ? primaerTitel() : ''">
+      <button
+        class="menuItem"
+        [disabled]="ueberlagerung.aktiv()"
+        (click)="weiteres.close(); printClick.emit()"
+      >
+        Drucken
+      </button>
+    </span>
 
     <!-- Ab ~1050px weichen die Objekt-Werkzeuge aus der Leiste hierher aus. -->
     @if (isProfil() && !state.readOnly()) {

@@ -157,8 +157,44 @@ describe('UeberlagerungService', () => {
       gesamt: 2,
       verschieden: 1,
       abweichend: true,
+      sagend: true,
     });
     expect(svc.bilanz(`${M}/vorname`)!.verschieden).toBe(2);
+  });
+
+  it('hält die Bilanz zurück, wo sie nichts sagt', () => {
+    svc.baue(quellen, 'Szenario');
+    // Alle belegt, alle gleich — „2×" wäre eine Zahl ohne Aussage.
+    expect(svc.bilanz(`${bet(1)}/name`)!.sagend).toBeFalse();
+    expect(svc.bilanz(`${M}/vorname`)!.sagend).toBeTrue();
+  });
+
+  it('markiert ohne Mehrheit beide Seiten — eine Reihenfolge ist keine Aussage', () => {
+    svc.baue(quellen, 'Szenario');
+    // Zwei Nachrichten, zwei Werte: keine ist der Maßstab.
+    expect(svc.blaetter(`${M}/vorname`).map((w) => w.abweichend)).toEqual([true, true]);
+  });
+
+  it('nummeriert die Nachrichten für die Kästen durch', () => {
+    svc.baue(quellen, 'Szenario');
+    expect(svc.nachrichten().map((n) => n.kuerzel)).toEqual(['N1', 'N2']);
+    expect(svc.blaetter(`${M}/vorname`).map((w) => w.kuerzel)).toEqual(['N1', 'N2']);
+  });
+
+  it('zählt die Abweichungen an den Vorfahren — der Wegweiser im zugeklappten Ast', () => {
+    svc.baue(quellen, 'Szenario');
+    // vorname, ort und der Name des zweiten Vorkommens hängen unter der Wurzel.
+    expect(svc.abweichungenDarunter(M)).toBe(3);
+    expect(svc.abweichungenDarunter(`${M}/beteiligung`)).toBe(1);
+    expect(svc.abweichungenDarunter(`${M}/nachrichtenkopf`)).toBe(0);
+  });
+
+  it('richtet die Blätter aus und gibt die Einstellung beim Beenden zurück', () => {
+    expect(state.alignLeaves()).toBeFalse();
+    svc.baue(quellen, 'Szenario');
+    expect(state.alignLeaves()).toBeTrue();
+    svc.beende();
+    expect(state.alignLeaves()).toBeFalse();
   });
 
   it('nimmt abgewählte Nachrichten aus Kästen und Vergleich', () => {

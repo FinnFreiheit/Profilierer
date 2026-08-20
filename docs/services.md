@@ -152,9 +152,14 @@ Der Baum ist dabei **nicht** die Profilierung, sondern der nackte Nachrichtenbau
 
 Gefragt wird der Dienst von der Anzeige: `blaetter(pfad, codelist?)` liefert die Kästen (Wert, Farbe der Nachricht, `abweichend`), `bilanz(pfad)` die Kurzfassung am Blatt („3 von 4 · 2 Werte"), `verdeckt(pfad)` beantwortet den Filter „nur Abweichungen". Drei Festlegungen tragen die Lesbarkeit:
 
-- **Referenzwert**: markiert wird die Abweichung gegen den _häufigsten_ belegten Wert (bei Gleichstand der zuerst genannte). Sonst blinkten bei zwei verschiedenen Werten beide Seiten, und die Ausnahme stäche nicht heraus. Die fehlende Angabe zählt als Abweichung.
+- **Referenzwert**: markiert wird gegen den _eindeutig_ häufigsten belegten Wert; die fehlende Angabe zählt als Abweichung, aber nie als Referenz. Gibt es keine Mehrheit (zwei Nachrichten mit zwei Werten, drei mit dreien), ist `referenzwert` `undefined` und **alle** tragen die Marke: vorher gewann bei Gleichstand der zuerst genannte, womit im Normalfall — genau zwei Nachrichten — immer die zweite als Abweichlerin dastand.
+- **Kürzel statt Name** (`N1`, `N2`, …): am Kasten ist Platz für einen Wert, nicht für einen Dateinamen an jedem der hunderten Blätter. Aufgelöst wird das Kürzel in Tooltip, Filter und Legende.
+- **`abweichungenDarunter(pfad)`**: Vorfahren-Aggregat wie `belegtAnc`/`valAnc` — die Zahl „Δ n" am Container. Ohne sie ist „nur Abweichungen" ein Alles-oder-nichts-Schalter und der zugeklappte Baum schweigt darüber, wo etwas zu holen ist.
+- **Blatt-Ausrichtung**: `baue` schaltet `state.alignLeaves` ein (und `beende` gibt den vorherigen Stand zurück, falls sie nicht von Hand abgeschaltet wurde). Ohne sie sitzt jeder Wert-Kasten dort, wo sein Blatt endet — das Nebeneinander, das die Überlagerung ausmacht, müsste man sich zusammensuchen.
 - **Technische Kopfangaben** (`istTechnischeAngabe` aus dem `MatrixService`) gelten nicht als Abweichung — sie unterscheiden sich zwangsläufig. Eine Liste für beide Ansichten.
 - **Der Filter bleibt wirkungslos, wo es nichts zu filtern gibt** (eine einzeln gewählte Nachricht, zwei gleiche): ein leergeräumter Baum sähe wie ein Fehler aus statt wie die Antwort „es gibt keinen Unterschied", die das Menü mit „nur Abweichungen (0)" ausdrücklich gibt.
+
+**Drucken ist im Überlagerungsmodus gesperrt** (`Objektleiste.primaerGesperrt`): `ExportService.buildPrintRows` liest die Werte aus `state.elemente`, das hier bewusst leer ist — der Druck lieferte den nackten Schemabaum und damit ein Dokument, das dem Bildschirm widerspricht.
 
 Ein Wechsel der Nachricht (MessagePicker, neues Profil) **beendet** die Überlagerung — ihre Werte gehörten zur alten Nachricht. Einstiege: „Überlagern" in der Szenario-Zeile der Projektseite (`starteFuerProfil`, lädt die XMLs selbst) und „Im Baum ansehen" in der Merkmals-Matrix (`baue`, die XMLs liegen dort schon).
 

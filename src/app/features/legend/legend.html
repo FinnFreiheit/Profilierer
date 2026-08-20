@@ -38,7 +38,8 @@
     @if (ueberlagerung.aktiv()) {
       @for (n of ueberlagerung.nachrichten(); track n.id) {
         <span [style.opacity]="n.aktiv ? null : 0.45"
-          ><span class="legDot" [style.background]="n.farbe"></span>{{ n.name }}</span
+          ><span class="legDot" [style.background]="n.farbe"></span><b>{{ n.kuerzel }}</b>
+          {{ n.name }}</span
         >
       }
       <span

@@ -37,6 +37,16 @@
         bilanzText(b)
       }}</span>
     }
+    @if (abwSub(); as n) {
+      <span
+        class="wbilanz wbilanzAbw"
+        [title]="
+          (n === 1 ? '1 abweichende Stelle' : n + ' abweichende Stellen') +
+          ' in untergeordneten Elementen'
+        "
+        >Δ {{ n }}</span
+      >
+    }
     @if (v.belegtSub; as n) {
       <span
         class="wsub"
@@ -242,21 +252,19 @@
           [title]="wertTitel(w)"
         >
           <div class="statusStrip" [style.background]="w.farbe"></div>
-          <div class="wertKopf">
-            <span class="wertName">{{ w.name }}</span>
-            @if (w.abweichend) {
-              <span class="wertAbwMark" title="weicht von den übrigen Nachrichten ab">≠</span>
-            }
-          </div>
+          <span class="wertKuerzel" [style.background]="w.farbe + '26'">{{ w.kuerzel }}</span>
           @if (w.wert) {
-            <div class="wertZeile">
-              <code>{{ w.wert }}</code>
+            <span class="wertText"
+              ><code>{{ w.wert }}</code>
               @if (w.label; as lbl) {
                 <span class="wertLabel">{{ lbl }}</span>
               }
-            </div>
+            </span>
           } @else {
-            <div class="wertZeile wertLeer">— keine Angabe</div>
+            <span class="wertText wertLeer">keine Angabe</span>
+          }
+          @if (w.abweichend) {
+            <span class="wertAbwMark" title="weicht von den übrigen Nachrichten ab">≠</span>
           }
         </div>
       }

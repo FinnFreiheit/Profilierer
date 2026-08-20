@@ -92,15 +92,30 @@ export class TreeNode {
     this.vm().isValueBox ? this.ueberlagerung.blaetter(this.path(), this.node().codelist) : [],
   );
 
-  /** Kurzfassung am Blatt selbst ("3 von 4 · 2 Werte"). */
-  protected readonly bilanz = computed<Wertbilanz | null>(() =>
-    this.wertblaetter().length ? this.ueberlagerung.bilanz(this.path()) : null,
+  /**
+   * Kurzfassung am Blatt selbst ("3 von 4 · 2 Werte") — nur, wenn sie etwas
+   * sagt. An einem Blatt, an dem alle dasselbe sagen, staende sonst „2×" und
+   * damit an jedem zweiten Kasten eine Zahl ohne Aussage.
+   */
+  protected readonly bilanz = computed<Wertbilanz | null>(() => {
+    if (!this.wertblaetter().length) return null;
+    const b = this.ueberlagerung.bilanz(this.path());
+    return b?.sagend ? b : null;
+  });
+
+  /** Abweichende Stellen im zugeklappten Teilbaum — der Wegweiser (#147). */
+  protected readonly abwSub = computed(() =>
+    this.ueberlagerung.aktiv() && !this.vm().isValueBox
+      ? this.ueberlagerung.abweichungenDarunter(this.path())
+      : 0,
   );
 
   /** Beschriftung der Kurzfassung. */
   protected bilanzText(b: Wertbilanz): string {
-    const belegt = b.belegt === b.gesamt ? `${b.gesamt}×` : `${b.belegt} von ${b.gesamt}`;
-    return b.verschieden > 1 ? `${belegt} · ${b.verschieden} Werte` : belegt;
+    const teile: string[] = [];
+    if (b.belegt < b.gesamt) teile.push(`${b.belegt} von ${b.gesamt}`);
+    if (b.verschieden > 1) teile.push(`${b.verschieden} Werte`);
+    return teile.join(' · ');
   }
 
   protected bilanzTitel(b: Wertbilanz): string {
@@ -113,10 +128,15 @@ export class TreeNode {
     return teile.join(' · ');
   }
 
-  /** Tooltip eines Wert-Kastens: Nachricht, Wert, Bedeutung. */
+  /**
+   * Tooltip eines Wert-Kastens. Er traegt den **vollen Namen** der Nachricht:
+   * am Kasten steht nur das Kuerzel, und die Zuordnung muss ohne Umweg ueber
+   * Filter oder Legende erreichbar bleiben.
+   */
   protected wertTitel(w: Wertblatt): string {
-    if (!w.wert) return `${w.name}: keine Angabe an dieser Stelle`;
-    return [w.name, w.label ? `${w.wert} · ${w.label}` : w.wert].join(': ');
+    const wer = `${w.kuerzel} — ${w.name}`;
+    if (!w.wert) return `${wer}: keine Angabe an dieser Stelle`;
+    return `${wer}: ${w.label ? `${w.wert} · ${w.label}` : w.wert}`;
   }
 
   // ── Aktionen ────────────────────────────────────────────────────────
