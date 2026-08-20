@@ -71,7 +71,10 @@
             }
           </div>
           <div class="szenarioMeta">
-            <span class="pill pillMuted">{{ nachrichtKurz(s.profil) }}</span>
+            <!-- Wie auf der Profil-Kachel (.dcMsg) schlichter Monospace-Text statt
+                 einer Pill: ein graues Feld auf weissem Grund macht die Zeile
+                 fleckig, ohne etwas auszusagen. -->
+            <span class="szenarioMsg">{{ nachrichtKurz(s.profil) }}</span>
             @if (anteil(s.profil); as a) {
               <span class="szenarioProg">{{ a }} % entschieden</span>
             }

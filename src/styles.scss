@@ -3010,14 +3010,18 @@ app-tree-context-menu {
 /* Zwei Ebenen statt einer Reihe gleichrangiger Angaben: oben der Name (der
    Anker, nach dem man sucht) mit seinen Kennzeichen, darunter die Metadaten.
    Vorher konkurrierten Name, Nachrichtentyp, Badge und Fortschritt auf
-   derselben Zeile um dieselbe Aufmerksamkeit. */
+   derselben Zeile um dieselbe Aufmerksamkeit.
+
+   Der Kopf traegt **keine** eigene Flaeche: `--bg` ist die Farbe der Seite, und
+   ein Feld darin wirkt in einer weissen Kachel wie ein Loch statt wie eine
+   Ueberschrift — Grau auf Grau. Die Gliederung machen Typografie und die
+   Trennlinie; Flaechen bleiben dem vorbehalten, was wirklich hervorsticht. */
 .szenarioKopf {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 2px 10px;
   align-items: center;
-  padding: 9px 12px;
-  background: var(--bg);
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
 }
 .szenarioTitel {
@@ -3061,6 +3065,12 @@ app-tree-context-menu {
 }
 .szenarioNameStumm:hover {
   text-decoration: none;
+}
+.szenarioMsg {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 .projektZahlen {
   margin: 2px 0 0;
@@ -3128,8 +3138,11 @@ app-tree-context-menu {
   color: var(--fg);
   cursor: pointer;
 }
+/* `--flaeche` (#f1f2f5) statt `--bg` (#e5e5e5): die Neutralstufe der Palette
+   ist heller als die Seite und hebt sich deshalb auch INNERHALB einer weissen
+   Kachel ab. Gilt fuer alle Hover-/Auswahlflaechen hier. */
 .tmZeile:hover {
-  background: var(--bg);
+  background: var(--flaeche);
 }
 .tmName {
   overflow-wrap: anywhere;
@@ -3212,7 +3225,7 @@ app-tree-context-menu {
 }
 .matrixAnzahl > .matrixMerkmal,
 .matrixAnzahl > td {
-  background: var(--bg);
+  background: var(--flaeche);
   font-weight: 600;
 }
 .matrixTief > .matrixMerkmal {
@@ -3284,12 +3297,14 @@ app-tree-context-menu {
   border-bottom: 0;
 }
 .szDlgEintrag:hover {
-  background: var(--bg);
+  background: var(--flaeche);
 }
 /* Die Auswahl ist am Rahmen erkennbar, nicht nur an der Fuellung — ein
    Farbfeld allein traegt die Aussage nicht bei schwachem Kontrast. */
+/* Die Auswahl traegt die Hausfarbe (Preussischblau aufgehellt), nicht noch ein
+   Grau — sie ist der einzige Zustand in dieser Liste, der auffallen soll. */
 .szDlgAktiv {
-  background: var(--bg);
+  background: var(--accent-soft);
   box-shadow: inset 3px 0 0 var(--accent);
   font-weight: 600;
 }
