@@ -21,6 +21,8 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `DiffService`              | Versionsvergleich (flach), Diff-Karte, Vergleichsordner laden                                                                |
 | `ProfilDiffService`        | Feldgenauer Vergleich zweier Profil-Dokumente (Arbeitsstand ↔ Version/Abnahme)                                               |
 | `XmlDiffService`           | Struktureller Vergleich zweier XJustiz-Instanzen (Testnachricht ↔ Abnahme-Fassung)                                           |
+| `MatrixService`            | n-Wege-Vergleich mehrerer Testnachrichten eines Szenarios (Merkmals-Matrix, #136)                                            |
+| `ProjektStoreService`      | Projekte: Behälter über den Profilierungen (`/api/projekte`)                                                                 |
 | `VergleichService`         | Zustand der beiden Vergleichsdialoge (Ziel: Profil+Version bzw. Testnachricht)                                               |
 | `BundledSchemaService`     | Im Projekt hinterlegte Schemaversionen (public/schemas/) per fetch laden                                                     |
 | `RemoteSchemaService`      | Veröffentlichte Schemaversionen von xjustiz.de abrufen (Versionsseite + XSD-ZIP)                                             |

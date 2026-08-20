@@ -3083,3 +3083,87 @@ app-tree-context-menu {
 #projektDlg {
   min-width: 460px;
 }
+
+/* ── Merkmals-Matrix (#136) ─────────────────────────────────────────────
+   Spalten sind die Testnachrichten, Zeilen die Stellen, an denen sie
+   voneinander abweichen. Die Tabelle scrollt in ihrem eigenen Rahmen: bei
+   fuenf Auspraegungen wird sie breiter als der Dialog, und der Dialog selbst
+   soll nicht waagerecht wandern. */
+.matrixKopfzeile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.matrixSchalter {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.matrixRahmen {
+  overflow: auto;
+  max-height: 60vh;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.matrixTabelle {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: 100%;
+}
+.matrixTabelle th,
+.matrixTabelle td {
+  border-bottom: 1px solid var(--border);
+  padding: 5px 8px;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.matrixTabelle thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* Merkmalsspalte bleibt beim Querscrollen stehen — ohne sie sagt eine Zelle
+   weiter rechts nicht mehr, worum es geht. */
+.matrixMerkmal {
+  position: sticky;
+  left: 0;
+  background: var(--panel);
+  font-weight: 500;
+  min-width: 180px;
+}
+.matrixAnzahl > .matrixMerkmal,
+.matrixAnzahl > td {
+  background: var(--bg);
+  font-weight: 600;
+}
+.matrixTief > .matrixMerkmal {
+  padding-left: 22px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.matrixLeer {
+  color: var(--muted);
+}
+.matrixKlapp {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.matrixKlappN {
+  color: var(--muted);
+  font-weight: 400;
+}
