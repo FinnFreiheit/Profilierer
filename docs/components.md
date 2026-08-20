@@ -42,14 +42,34 @@ Wichtig: Die Klassen `.ntree/.nkids/.box/.addBox/.excluded/.phantom` und die `da
 
 ## Fuß & Querschnitt
 
-| Komponente          | Selector          | Zweck                                                                                                                                                                        |
-| ------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Legend`            | `app-legend`      | Statuslegende + Symbol-Hinweise (Z.1458-1466).                                                                                                                               |
-| `PrintDoc`          | `app-print-doc`   | Druckansicht `#printDoc` (nur `@media print`). `print()` befüllt Zeilen via `ExportService.buildPrintRows` und ruft `window.print()` (Z.2334-2365).                          |
-| `Toast`             | `app-toast`       | Kurzmeldung, liest `ToastService.text`.                                                                                                                                      |
-| `FileDropDirective` | `[appFileDrop]`   | Drag&Drop; meldet abgelegte Dateien, Zuordnung (XSD/Profil/Codelisten) erledigt die Shell (Z.2433-2442).                                                                     |
-| `TagFilter`         | `app-tag-filter`  | Schlagwort-Filter als Chip-Leiste über Profil-Übersicht und Testdatenspeicher; `optionen` aus `tagOptionen`, `gewaehlt` zweiweg — mehrere Schlagworte wirken zusammen (UND). |
-| `TagEingabe`        | `app-tag-eingabe` | Eingabe der Schlagworte (kommagetrennt) mit anklickbaren Vorschlägen aus dem Bestand; genutzt im Profil-Detail- und im Umbenennen-Dialog.                                    |
+| Komponente          | Selector           | Zweck                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Legend`            | `app-legend`       | Statuslegende + Symbol-Hinweise (Z.1458-1466).                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `PrintDoc`          | `app-print-doc`    | Druckansicht `#printDoc` (nur `@media print`). `print()` befüllt Zeilen via `ExportService.buildPrintRows` und ruft `window.print()` (Z.2334-2365).                                                                                                                                                                                                                                                                                                                                        |
+| `Toast`             | `app-toast`        | Kurzmeldung, liest `ToastService.text`.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `FileDropDirective` | `[appFileDrop]`    | Drag&Drop; meldet abgelegte Dateien, Zuordnung (XSD/Profil/Codelisten) erledigt die Shell (Z.2433-2442).                                                                                                                                                                                                                                                                                                                                                                                   |
+| `TagFilter`         | `app-tag-filter`   | Schlagwort-Filter als Chip-Leiste über Profil-Übersicht und Testdatenspeicher; `optionen` aus `tagOptionen`, `gewaehlt` zweiweg — mehrere Schlagworte wirken zusammen (UND).                                                                                                                                                                                                                                                                                                               |
+| `TagEingabe`        | `app-tag-eingabe`  | Eingabe der Schlagworte (kommagetrennt) mit anklickbaren Vorschlägen aus dem Bestand; genutzt im Profil-Detail- und im Umbenennen-Dialog.                                                                                                                                                                                                                                                                                                                                                  |
+| `Einsortieren`      | `app-einsortieren` | Felder des Einsortieren-Dialogs (#134): Projektwahl und Schlagworte, gemeinsam von Profil-Übersicht und Testdatenspeicher genutzt. Ein neues Projekt entsteht nebenbei (Auswahl „neues Projekt anlegen" blendet ein Namensfeld ein) — einsortieren und dabei merken, dass es den Behälter noch nicht gibt, ist der häufige Fall. `geerbtVon` gesetzt = kein Projektfeld: gebundene Testnachrichten folgen ihrer Profilierung. Speichert selbst nichts, die aufrufende Ansicht entscheidet. |
+
+### Projektansicht (`app-projekte`)
+
+Der Reiter „Projekte" (#135), gesteuert über `StateService.view === 'projekte'`; das
+geöffnete Projekt steht in `StateService.offenesProjekt` (null = Übersicht). Eine
+Komponente, zwei Zustände: Kachelübersicht der Projekte und die Projektseite.
+
+Die Projektseite ist **zweistufig** — Projekt → Profilierung (= Kommunikationsszenario)
+→ Testnachrichten. Die Zeilen sind nach Nachrichtentyp sortiert, damit die Szenarien
+derselben Nachricht beieinanderstehen (bei GenUVA erst die beiden Ersuchen, dann die
+Sachentscheidungen). Eine Ablauf-Ebene gibt es bewusst nicht: Ersuchen und
+Sachentscheidung sind zwei Zeilen, nicht ein Vorgang.
+
+Bewusst Zeilen statt Kacheln: die Frage lautet „was gehört zusammen und was fehlt", und
+die beantwortet eine Liste besser als eine Kachelwand — genau die gibt es in den beiden
+anderen Ansichten schon. Ein Szenario **ohne** Testdaten sagt das ausdrücklich; eine
+Lücke ist eine Aussage. Testnachrichten ohne zugeordnete Profilierung (Uploads,
+gelöschte Profilierung) stehen in der Sammelzeile „ohne Szenario" — sonst zählte die
+Kachel mehr, als die Seite auflistet.
 
 ## App-Shell (`app.ts`)
 

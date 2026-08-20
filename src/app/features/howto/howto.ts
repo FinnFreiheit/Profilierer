@@ -336,6 +336,11 @@ export class Howto {
     this.state.view.set('dashboard');
   }
 
+  /** Zur Projektansicht (#135) — Vorhaben mit ihren Kommunikationsszenarien. */
+  protected goProjekte(): void {
+    this.state.view.set('projekte');
+  }
+
   protected goTestdaten(): void {
     this.state.view.set('testdaten');
   }

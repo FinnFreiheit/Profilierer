@@ -2975,3 +2975,111 @@ app-tree-context-menu {
   border-radius: 4px;
   padding: 1px 5px;
 }
+
+/* ── Projektseite (#135) ────────────────────────────────────────────────
+   Eine Zeile je Kommunikationsszenario (= Profilierung), darunter ihre
+   Testnachrichten. Bewusst Zeilen statt Kacheln: die Frage ist "was gehoert
+   zusammen und was fehlt", und die beantwortet eine Liste besser als eine
+   Kachelwand — genau die gibt es in den beiden anderen Ansichten schon. */
+.crumbZurueck {
+  background: none;
+  border: 0;
+  padding: 0 0 4px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.crumbZurueck:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+.szenario {
+  margin: 0 0 14px;
+  background: var(--panel);
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+}
+/* Kopfzeile in der Seitenfarbe: sie hebt das Szenario von seinen
+   Testnachrichten ab, ohne einen zweiten Rahmen zu brauchen. */
+.szenarioKopf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.szenarioName {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+}
+.szenarioName:hover {
+  text-decoration: underline;
+}
+.szenarioNameStumm {
+  color: var(--muted);
+  cursor: default;
+}
+.szenarioNameStumm:hover {
+  text-decoration: none;
+}
+.szenarioProg,
+.tmFassung {
+  font-size: 12px;
+  color: var(--muted);
+}
+.szenarioSpacer {
+  flex: 1;
+}
+.szenarioAktion {
+  font-size: 12px;
+  padding: 3px 8px;
+}
+.szenarioListe {
+  display: flex;
+  flex-direction: column;
+}
+.tmZeile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  font-size: 13px;
+  color: var(--fg);
+  cursor: pointer;
+}
+.tmZeile:hover {
+  background: var(--bg);
+}
+.tmName {
+  overflow-wrap: anywhere;
+}
+/* Eine Luecke ist eine Aussage: zu diesem Szenario gibt es noch keine
+   Testdaten. Sie darf nicht unsichtbar sein. */
+.szenarioLeer {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+}
+.leerHinweis {
+  max-width: 620px;
+  font-size: 13px;
+  color: var(--muted);
+}
+#projektDlg {
+  min-width: 460px;
+}

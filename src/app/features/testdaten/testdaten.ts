@@ -288,6 +288,11 @@ export class Testdaten {
     this.gewaehlteTags.set(schalteTag(this.gewaehlteTags(), tag));
   }
 
+  /** Zur Projektansicht (#135) — Vorhaben mit ihren Kommunikationsszenarien. */
+  protected goProjekte(): void {
+    this.state.view.set('projekte');
+  }
+
   /** Zurueck zur Profil-Bibliothek. */
   protected goDashboard(): void {
     this.state.view.set('dashboard');
