@@ -241,6 +241,33 @@ export class TestmessageCreateService {
     // Profilierung geklaert.
     const wirkungVon = (id: string | undefined): string | undefined =>
       id ? doc.statuses.find((s) => s.id === id)?.wirkung : undefined;
+
+    /**
+     * Fuehrt der Durchlauf hier ueberhaupt zwingend hin? Gefragt wird nach dem
+     * **Weg**, nicht nach dem Element selbst: dass der Pfad optional ist, ist
+     * gerade die Aussage der Profilierung („dieser Ast muss vorkommen"). Liegt
+     * aber schon ein Vorfahre in einem Ast, den das Szenario nicht verlangt —
+     * ein nicht gewaehlter `auswahl_*`-Zweig, ein optionales Element ohne
+     * Festlegung —, dann ist die Festlegung darunter **bedingt**: kommt der Ast
+     * vor, gilt sie; verlangt ist er nicht.
+     *
+     * Massgeblich ist dieselbe Regel wie in `collectMandatoryPaths`: unbedingte
+     * Schema-Pflicht (min >= 1, nicht in einer Auswahl) oder eine zwingende
+     * Festlegung der Profilierung. Ein unbekannter Pfad gilt als erreichbar —
+     * eine Meldung stillschweigend zu schlucken waere der schlechtere Fehler.
+     */
+    const zwingendErreicht = (pfad: string): boolean =>
+      vorfahren(pfad).every((a) => {
+        if (wirkungVon(doc.elemente[a]?.status) === 'pflicht') return true;
+        const it = this.nav.findItemByPath(a);
+        if (!it) return true;
+        if (it.kind === 'ausp') return true; // Vorkommen: der Traeger entscheidet
+        const n = it.node;
+        return n.synthetic
+          ? !(n.model === 'choice' || n.min === '0' || n.inChoice)
+          : n.min !== '0' && !n.inChoice;
+      });
+
     for (const [pfad, p] of Object.entries(doc.elemente)) {
       if (wirkungVon(p.status) !== 'pflicht') continue;
       const it = this.nav.findItemByPath(pfad);
@@ -257,6 +284,15 @@ export class TestmessageCreateService {
         ([k, kp]) => k !== pfad && unterPfad(k, pfad) && wirkungVon(kp.status) === 'pflicht',
       );
       if (zwingendesKind) continue;
+      // … und zuletzt: liegt der Container ueberhaupt auf einem Weg, den das
+      // Szenario verlangt? Sonst ist „erzwingt nichts" trivial wahr — der
+      // Durchlauf betritt den Ast gar nicht erst —, und der Bericht schickte
+      // zum Klaeren in einen Zweig, den die Profilierung nie gewaehlt hat.
+      // (Gemeldeter Fall: ein zwingend gesetztes `sondereigentum` unter dem
+      // nicht verlangten `auswahl_*`-Zweig `wegEinheit`.) Anders als beim
+      // vierten Widerspruch, der eine Unmoeglichkeit beschreibt und darum auch
+      // im bedingten Ast eine Aussage traegt, geht es hier um Wirkungslosigkeit.
+      if (!zwingendErreicht(pfad)) continue;
       eintraege.push({
         pfad,
         text: `${kurz(pfad)} (${pfad}): „zwingend" erzwingt hier nichts — alle Kinder sind schema-optional und keines ist selbst zwingend gesetzt. Der Durchlauf kann den Teilbaum leer lassen; in der Profilierung klären, welches Kind das Szenario verlangt.`,

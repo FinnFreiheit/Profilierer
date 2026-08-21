@@ -38,6 +38,7 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
     <xs:element name="notiz" type="xs:string" minOccurs="0"/>
     <xs:element name="auswahl_kontakt" type="Type.Test.Auswahl" minOccurs="0"/>
     <xs:element name="wahlblock" type="Type.Test.Wahlblock" minOccurs="0"/>
+    <xs:element name="mappe" type="Type.Test.Mappe" minOccurs="0"/>
   </xs:sequence></xs:complexType>
   <!-- Traegt die Auswahl als Schema-Pflichtkind: wer den Block zwingend
        setzt, muss auch die Auswahl darunter beantworten koennen. -->
@@ -53,6 +54,16 @@ const XSD = `<?xml version="1.0" encoding="UTF-8"?>
   </xs:choice></xs:complexType>
   <xs:complexType name="Type.Test.Anlage"><xs:sequence>
     <xs:element name="name" type="xs:string"/>
+  </xs:sequence></xs:complexType>
+  <!-- Ein Container in einem Ast, den das Szenario gar nicht betreten muss:
+       mappe ist schema-optional, fach darunter voll-optional. Vorlage ist der
+       gemeldete Fall (sondereigentum unter einem nicht verlangten
+       auswahl_*-Zweig). -->
+  <xs:complexType name="Type.Test.Mappe"><xs:sequence>
+    <xs:element name="fach" type="Type.Test.Fach" minOccurs="0"/>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="Type.Test.Fach"><xs:sequence>
+    <xs:element name="titel" type="xs:string" minOccurs="0"/>
   </xs:sequence></xs:complexType>
   <!-- Eigener Typ nur fuer beteiligung: ein wiederholbares Kind innerhalb des
        Vorkommen-Traegers, ohne die Punkt-Zaehlungen an anlage zu verschieben. -->
@@ -505,6 +516,46 @@ describe('TestmessageCreateService', () => {
 
       const report = TestBed.inject(ValidationReportService);
       expect(report.offen()).toBeFalse();
+    });
+
+    it('kein Mangel, wo der Durchlauf gar nicht hinmuss (#71, Nachtrag 26.08.21)', async () => {
+      // Gemeldeter Fall: `sondereigentum` ist zwingend gesetzt, liegt aber unter
+      // einem nicht verlangten `auswahl_*`-Zweig. Die Festlegung ist dann
+      // **bedingt** — kommt der Ast vor, gilt sie; verlangt ist er nicht. Der
+      // Bericht schickte in einen Ast, den das Szenario nie betritt.
+      arbeitsstand = doc({
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+          { id: 'v1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' },
+        ],
+        elemente: { [`${M}/extras/mappe/fach`]: { status: 'v1' } },
+      });
+
+      await svc.neuAusProfil(profil(), null);
+
+      expect(TestBed.inject(ValidationReportService).offen()).toBeFalse();
+    });
+
+    it('meldet denselben Container, sobald der Weg dorthin verlangt ist (#71)', async () => {
+      // Gegenprobe: sind die Vorfahren zwingend gesetzt, fuehrt der Durchlauf
+      // wirklich hin — und findet dort nichts, was er fuellen muesste.
+      arbeitsstand = doc({
+        statuses: [
+          { id: 'v9', name: 'nicht verwendet', farbe: '#888780', wirkung: 'ausgeschlossen' },
+          { id: 'v1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' },
+        ],
+        elemente: {
+          [`${M}/extras`]: { status: 'v1' },
+          [`${M}/extras/mappe`]: { status: 'v1' },
+          [`${M}/extras/mappe/fach`]: { status: 'v1' },
+        },
+      });
+
+      await svc.neuAusProfil(profil(), null);
+
+      const report = TestBed.inject(ValidationReportService);
+      const pfade = report.eintraege().map((e) => e.pfad);
+      expect(pfade).toContain(`${M}/extras/mappe/fach`);
     });
 
     it('kein Mangel an einem zwingenden Auswahl-Container (#71, Nachtrag 26.08.03)', async () => {
