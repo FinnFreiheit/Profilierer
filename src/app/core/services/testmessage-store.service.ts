@@ -117,16 +117,20 @@ export class TestmessageStoreService {
   }
 
   /**
-   * Variante anlegen (#133): serverseitige Kopie mit derselben Profil-Bindung,
-   * aus der die naechste Auspraegung entsteht. Gibt die id der Kopie zurueck.
+   * Variante anlegen (#133): serverseitige Kopie, aus der die naechste
+   * Auspraegung entsteht. Sie wird an den **aktuellen** Stand der gebundenen
+   * Profilierung gebunden — die Variante entsteht jetzt und soll dem Szenario
+   * entsprechen (auch dann, wenn das Original nur zugeordnet war und deshalb
+   * keine Vorgabe hatte). Gibt den Eintrag der Kopie zurueck; seine `fassung`
+   * benennt die gebundene Fassung.
    */
-  async dupliziere(id: string): Promise<string> {
-    const { id: neueId, entry } = await this.http.json<{ id: string; entry: TestmessageEntry }>(
+  async dupliziere(id: string): Promise<TestmessageEntry> {
+    const { entry } = await this.http.json<{ id: string; entry: TestmessageEntry }>(
       `/testmessages/${encodeURIComponent(id)}/duplicate`,
       { method: 'POST' },
     );
     this.putEntry(entry);
-    return neueId;
+    return entry;
   }
 
   /**

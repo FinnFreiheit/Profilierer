@@ -8,6 +8,7 @@ import { GuidedService } from '../services/guided.service';
 import { ValueService } from '../services/value.service';
 import { XsdParserService } from '../services/xsd-parser.service';
 import { HinweisStoreService } from '../services/hinweis-store.service';
+import { UeberlagerungService } from '../services/ueberlagerung.service';
 import { unterPfad } from '../util/pfad.util';
 import { pretty } from '../util/pretty.util';
 import { datentypAnzeige } from '../util/datentyp.util';
@@ -133,6 +134,7 @@ export class BaumkastenAnsicht {
   private readonly values = inject(ValueService);
   private readonly parser = inject(XsdParserService);
   private readonly hinweise = inject(HinweisStoreService);
+  private readonly ueberlagerung = inject(UeberlagerungService);
 
   /** „+ Vorkommen" erscheint nur, wo das Element schon benannte Vorkommen fuehrt. */
   zeigtVorkommenHinzu(it: TreeItem): boolean {
@@ -166,9 +168,17 @@ export class BaumkastenAnsicht {
     return !cn.recursive && !this.tree.isLeaf(cn);
   }
 
-  /** Die sichtbaren Kind-Items (ohne die vom „nur Profil"-Filter verdeckten). */
+  /**
+   * Die sichtbaren Kind-Items — ohne die vom „nur Profil"-/„nur Werte"-Filter
+   * verdeckten und, in der Nachrichten-Ueberlagerung, ohne die Aeste, in denen
+   * alle gewaehlten Nachrichten dasselbe sagen („nur Abweichungen").
+   */
   kinder(it: TreeItem): TreeItem[] {
-    return this.tree.childItems(it).filter((c) => !this.state.boxHidden(itemPath(c)));
+    return this.tree
+      .childItems(it)
+      .filter(
+        (c) => !this.state.boxHidden(itemPath(c)) && !this.ueberlagerung.verdeckt(itemPath(c)),
+      );
   }
 
   /**
@@ -394,6 +404,10 @@ export class BaumkastenAnsicht {
     readOnly: boolean,
   ): Pick<Kastenansicht, 'mv' | 'vin' | 'roVal' | 'datalist'> {
     if (!isValueBox) return { mv: null, vin: null, roVal: null, datalist: null };
+    // Nachrichten-Ueberlagerung: der Wert steht in den Kaesten der einzelnen
+    // Nachrichten, nicht am Blatt. Ein Platzhalter waere hier das Gegenteil
+    // einer Aussage — er saehe aus wie ein Wert, den es nicht gibt.
+    if (this.ueberlagerung.aktiv()) return { mv: null, vin: null, roVal: null, datalist: null };
     const pe = this.state.elemente()[path] ?? {};
     const auto = this.values.placeholderFor({
       name: n.name,

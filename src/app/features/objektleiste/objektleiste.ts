@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
+import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
 import { DispositionService } from '../../core/services/disposition.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -18,6 +19,15 @@ import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
  * `Laden` und `Speichern` desselben Objekts liegen hier zusammen; die
  * Schema-/Codelisten-Quellen sind in die Werkzeugleiste gezogen (Datenbasis).
  */
+/**
+ * Warum die Primaeraktion in der Nachrichten-Ueberlagerung gesperrt ist. Der
+ * Druck baut seine Zeilen aus `StateService.elemente` — in der Ueberlagerung
+ * leer, weil es an einer Stelle nicht *einen* Wert gibt. Gedruckt wuerde der
+ * nackte Schemabaum.
+ */
+const DRUCK_SPERRE =
+  'In der Überlagerung nicht druckbar — der Druck kennt nur einen Wert je Element. Für den Vergleich auf Papier: „Vergleichen" (Merkmals-Matrix).';
+
 @Component({
   selector: 'app-objektleiste',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,6 +41,8 @@ export class Objektleiste {
   private readonly toast = inject(ToastService);
   private readonly store = inject(ProfileStoreService);
   protected readonly hinweise = inject(HinweisStoreService);
+  /** Nachrichten-Ueberlagerung (#147): eigene Identitaet, eigener Rueckweg. */
+  protected readonly ueberlagerung = inject(UeberlagerungService);
 
   /** Zurueck zur Dashboard-Uebersicht. */
   readonly homeClick = output<void>();
@@ -75,6 +87,18 @@ export class Objektleiste {
   protected readonly isProfil = computed(
     () => !this.isMessage() && !this.isCreate() && !this.isSchemaView(),
   );
+
+  /**
+   * Beschriftung der Ueberlagerung in der Identitaets-Zone: welches Szenario mit
+   * wie vielen Nachrichten. Die Zahl steht dort, weil der Filter sie aendert.
+   */
+  protected readonly ueberlagerungText = computed(() => {
+    const alle = this.ueberlagerung.nachrichten().length;
+    const n = this.ueberlagerung.gewaehlt().length;
+    const szenario = this.ueberlagerung.szenario();
+    const zahl = n === alle ? `${alle} Testnachrichten` : `${n} von ${alle} Testnachrichten`;
+    return szenario ? `${szenario} — ${zahl}` : zahl;
+  });
 
   /**
    * Die geoeffnete Nachricht stammt aus dem Testdaten-Speicher — nur dann laesst
@@ -124,6 +148,7 @@ export class Objektleiste {
   });
 
   protected readonly primaerTitel = computed(() => {
+    if (this.ueberlagerung.aktiv()) return DRUCK_SPERRE;
     if (this.state.abnahmeSchreibschutz() && this.primaerLabel() === 'Speichern')
       return 'Von der BLK-AG freigegeben — Speichern nur mit AG-Schlüssel';
     if (this.isCreate())
@@ -138,6 +163,11 @@ export class Objektleiste {
   protected readonly primaerGesperrt = computed(
     () =>
       !this.hasRoot() ||
+      // Nachrichten-Ueberlagerung: die Primaeraktion waere hier „Drucken", und
+      // der Druck liest die Werte aus dem Profil — das in der Ueberlagerung
+      // bewusst leer ist. Er lieferte also den nackten Schemabaum und damit ein
+      // Dokument, das dem Bildschirm widerspricht (#147).
+      this.ueberlagerung.aktiv() ||
       (this.state.abnahmeSchreibschutz() &&
         this.primaerLabel() === 'Speichern' &&
         this.hatEintrag()),

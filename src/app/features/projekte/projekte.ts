@@ -13,6 +13,7 @@ import { TestmessageStoreService } from '../../core/services/testmessage-store.s
 import { StateService } from '../../core/services/state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { VergleichService } from '../../core/services/vergleich.service';
+import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
 import { EinordnenService } from '../../core/services/einordnen.service';
 import { PersistenceService } from '../../core/services/persistence.service';
 import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
@@ -61,6 +62,7 @@ export class Projekte {
   private readonly state = inject(StateService);
   private readonly toast = inject(ToastService);
   private readonly vergleich = inject(VergleichService);
+  protected readonly ueberlagerung = inject(UeberlagerungService);
   private readonly einordnen = inject(EinordnenService);
   private readonly persistence = inject(PersistenceService);
   private readonly edit = inject(TestmessageEditService);
@@ -214,6 +216,21 @@ export class Projekte {
   protected vergleiche(e: LibraryEntry, ev: Event): void {
     ev.stopPropagation();
     this.vergleich.oeffneMatrix(e.id);
+  }
+
+  /**
+   * Nachrichten-Ueberlagerung (#147): alle Testnachrichten dieses Szenarios
+   * gemeinsam im Baum — je Blatt ein Wert-Kasten pro Nachricht. Die Matrix
+   * daneben beantwortet dieselbe Frage als Tabelle; hier steht die Antwort am
+   * Ort, an dem die Werte in der Nachricht stehen.
+   */
+  protected async ueberlagere(e: LibraryEntry, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    try {
+      await this.ueberlagerung.starteFuerProfil(e.id);
+    } catch (err) {
+      this.toast.showError(err, 'Die Testnachrichten konnten nicht überlagert werden.');
+    }
   }
 
   /**

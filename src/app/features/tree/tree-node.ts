@@ -8,6 +8,8 @@ import { GuidedService } from '../../core/services/guided.service';
 import { ValueService } from '../../core/services/value.service';
 import { ToastService } from '../../core/services/toast.service';
 import { BaumkastenAnsicht, Kennzeichen } from '../../core/ansicht/baumkasten-ansicht';
+import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
+import { Wertbilanz, Wertblatt } from '../../models/ueberlagerung.model';
 import { erwLoeschFrage } from '../../core/util/erweiterung.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { TreeContextMenu } from './tree-context-menu';
@@ -49,6 +51,7 @@ export class TreeNode {
   private readonly guided = inject(GuidedService);
   private readonly values = inject(ValueService);
   private readonly toast = inject(ToastService);
+  private readonly ueberlagerung = inject(UeberlagerungService);
 
   /** Der fuer Aktionen massgebliche Knoten (Element bzw. Traeger des Vorkommens). */
   private readonly node = computed<TNode>(() => {
@@ -77,6 +80,64 @@ export class TreeNode {
   protected readonly showAddErweiterung = computed(() =>
     this.ansicht.zeigtErweiterungHinzu(this.item()),
   );
+
+  // ── Nachrichten-Ueberlagerung (#147) ────────────────────────────────
+
+  /**
+   * Die Wert-Kaesten der ueberlagerten Testnachrichten — je Nachricht einer,
+   * unterhalb des Blattes. Leer, solange keine Ueberlagerung laeuft und an
+   * jedem Blatt, an dem keine gewaehlte Nachricht etwas sagt.
+   */
+  protected readonly wertblaetter = computed<Wertblatt[]>(() =>
+    this.vm().isValueBox ? this.ueberlagerung.blaetter(this.path(), this.node().codelist) : [],
+  );
+
+  /**
+   * Kurzfassung am Blatt selbst ("3 von 4 · 2 Werte") — nur, wenn sie etwas
+   * sagt. An einem Blatt, an dem alle dasselbe sagen, staende sonst „2×" und
+   * damit an jedem zweiten Kasten eine Zahl ohne Aussage.
+   */
+  protected readonly bilanz = computed<Wertbilanz | null>(() => {
+    if (!this.wertblaetter().length) return null;
+    const b = this.ueberlagerung.bilanz(this.path());
+    return b?.sagend ? b : null;
+  });
+
+  /** Abweichende Stellen im zugeklappten Teilbaum — der Wegweiser (#147). */
+  protected readonly abwSub = computed(() =>
+    this.ueberlagerung.aktiv() && !this.vm().isValueBox
+      ? this.ueberlagerung.abweichungenDarunter(this.path())
+      : 0,
+  );
+
+  /** Beschriftung der Kurzfassung. */
+  protected bilanzText(b: Wertbilanz): string {
+    const teile: string[] = [];
+    if (b.belegt < b.gesamt) teile.push(`${b.belegt} von ${b.gesamt}`);
+    if (b.verschieden > 1) teile.push(`${b.verschieden} Werte`);
+    return teile.join(' · ');
+  }
+
+  protected bilanzTitel(b: Wertbilanz): string {
+    const teile = [
+      b.belegt === b.gesamt
+        ? `Alle ${b.gesamt} Nachrichten haben hier eine Angabe`
+        : `${b.belegt} von ${b.gesamt} Nachrichten haben hier eine Angabe`,
+      b.verschieden > 1 ? `${b.verschieden} verschiedene Werte` : 'derselbe Wert',
+    ];
+    return teile.join(' · ');
+  }
+
+  /**
+   * Tooltip eines Wert-Kastens. Er traegt den **vollen Namen** der Nachricht:
+   * am Kasten steht nur das Kuerzel, und die Zuordnung muss ohne Umweg ueber
+   * Filter oder Legende erreichbar bleiben.
+   */
+  protected wertTitel(w: Wertblatt): string {
+    const wer = `${w.kuerzel} — ${w.name}`;
+    if (!w.wert) return `${wer}: keine Angabe an dieser Stelle`;
+    return `${wer}: ${w.label ? `${w.wert} · ${w.label}` : w.wert}`;
+  }
 
   // ── Aktionen ────────────────────────────────────────────────────────
 

@@ -9,16 +9,31 @@
   <!-- Zone: zurueck -->
   <button
     class="homeBtn zone"
-    [title]="msgMode() ? 'Zurück zum Testdatenspeicher' : 'Zurück zur Übersicht der Profilierungen'"
+    [title]="
+      ueberlagerung.aktiv()
+        ? 'Zurück zum Projekt'
+        : msgMode()
+          ? 'Zurück zum Testdatenspeicher'
+          : 'Zurück zur Übersicht der Profilierungen'
+    "
     (click)="homeClick.emit()"
   >
     <span aria-hidden="true">←</span>
-    <span class="lbl-lang">{{ msgMode() ? 'Testnachrichten' : 'Übersicht' }}</span>
+    <span class="lbl-lang">{{
+      ueberlagerung.aktiv() ? 'Projekt' : msgMode() ? 'Testnachrichten' : 'Übersicht'
+    }}</span>
   </button>
 
   <!-- Zone: Objekt-Identitaet -->
   <div class="zone zoneIdent">
-    @if (isProfil()) {
+    @if (ueberlagerung.aktiv()) {
+      <span
+        class="pill pillUeberlagerung"
+        title="Nachrichten-Überlagerung — die Werte aller gewählten Testnachrichten stehen unter ihren Blättern. Es wird nichts entschieden und nichts gespeichert."
+        >Überlagerung</span
+      >
+      <span class="objName" [title]="ueberlagerungText()">{{ ueberlagerungText() }}</span>
+    } @else if (isProfil()) {
       @if (!state.readOnly()) {
         <label class="lbl-lang" for="profilName">Szenario:</label>
         <input
@@ -224,7 +239,16 @@
       </button>
     }
     <div class="menuSep"></div>
-    <button class="menuItem" (click)="weiteres.close(); printClick.emit()">Drucken</button>
+    <!-- Auch hier gesperrt: der Druck kennt nur einen Wert je Element (#147). -->
+    <span class="menuHuelle" [title]="ueberlagerung.aktiv() ? primaerTitel() : ''">
+      <button
+        class="menuItem"
+        [disabled]="ueberlagerung.aktiv()"
+        (click)="weiteres.close(); printClick.emit()"
+      >
+        Drucken
+      </button>
+    </span>
 
     <!-- Ab ~1050px weichen die Objekt-Werkzeuge aus der Leiste hierher aus. -->
     @if (isProfil() && !state.readOnly()) {

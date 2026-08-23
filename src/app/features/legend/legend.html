@@ -4,8 +4,12 @@
 -->
 @if (offen()) {
   <div id="legendErklaerung">
-    @for (s of statuses(); track s.id) {
-      <span><span class="legDot" [style.background]="s.farbe"></span>{{ s.name }}</span>
+    <!-- In der Ueberlagerung gibt es keine Profilierung: die Statusfarben
+         staenden dort fuer nichts, die Farben der Nachrichten fuer alles. -->
+    @if (!ueberlagerung.aktiv()) {
+      @for (s of statuses(); track s.id) {
+        <span><span class="legDot" [style.background]="s.farbe"></span>{{ s.name }}</span>
+      }
     }
     <span><span class="tag t-wert">Wert: Text</span> erhält einen Wert</span>
     <span><span class="tag t-ext">Schema-Erweiterung</span> nachzubeauftragendes Element</span>
@@ -31,6 +35,22 @@
       ></span>
       Verweis
     </span>
+    @if (ueberlagerung.aktiv()) {
+      @for (n of ueberlagerung.nachrichten(); track n.id) {
+        <span [style.opacity]="n.aktiv ? null : 0.45"
+          ><span class="legDot" [style.background]="n.farbe"></span><b>{{ n.kuerzel }}</b>
+          {{ n.name }}</span
+        >
+      }
+      <span
+        ><span
+          class="legDot"
+          style="background: transparent; border: 1px dashed var(--border-stark)"
+        ></span
+        >keine Angabe in dieser Nachricht</span
+      >
+      <span><span class="tag t-frei">≠</span> weicht vom häufigsten Wert ab</span>
+    }
     @if (durchlauf()) {
       <span><span class="tag t-mand">Pflicht</span> die Nachricht verlangt diese Angabe</span>
       <span><span class="tag t-frei">optional</span> freie Angabe — der Wert entscheidet</span>

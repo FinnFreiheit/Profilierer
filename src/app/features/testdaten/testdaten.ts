@@ -448,10 +448,14 @@ export class Testdaten {
   }
 
   /**
-   * Kachel-Aktion "Variante anlegen" (#133): serverseitige Kopie mit derselben
-   * Profil-Bindung. Der Weg zur naechsten Auspraegung eines Szenarios — einmal
-   * mit einem Beteiligten, einmal mit zweien — ohne den gefuehrten Durchlauf
-   * von vorn zu fahren.
+   * Kachel-Aktion "Variante anlegen" (#133): serverseitige Kopie, gebunden an
+   * den aktuellen Stand der Profilierung. Der Weg zur naechsten Auspraegung
+   * eines Szenarios — einmal mit einem Beteiligten, einmal mit zweien — ohne
+   * den gefuehrten Durchlauf von vorn zu fahren.
+   *
+   * Die Meldung nennt die gebundene Fassung: die Variante kann an einer
+   * anderen haengen als ihr Original (dort eine ueberholte oder gar keine), und
+   * das entscheidet ueber Ueberlagerung, Fuehrung und Sperren.
    *
    * Auch bei freigegebenen Nachrichten erlaubt: die Kopie ruehrt das Original
    * nicht an, und gerade die freigegebenen sind die guten Ausgangspunkte.
@@ -459,8 +463,12 @@ export class Testdaten {
   protected async variante(e: TestmessageEntry, ev: Event): Promise<void> {
     ev.stopPropagation();
     try {
-      await this.store.dupliziere(e.id);
-      this.toast.show(`Variante von „${e.name}" angelegt.`);
+      const kopie = await this.store.dupliziere(e.id);
+      const bindung =
+        kopie.profilName && kopie.fassung
+          ? ` — gebunden an „${kopie.profilName}" (${kopie.fassung}).`
+          : '.';
+      this.toast.show(`Variante von „${e.name}" angelegt${bindung}`);
     } catch (err) {
       this.toast.showError(err, 'Variante konnte nicht angelegt werden.');
     }

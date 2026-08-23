@@ -1,0 +1,56 @@
+<app-menu
+  [label]="label()"
+  kurz="◑"
+  btnClass="mUeberlagerung"
+  titel="Welche Testnachrichten im Baum stehen — und ob nur ihre Unterschiede gezeigt werden"
+  #menu
+>
+  <div class="menuKopf">
+    Überlagerte Testnachrichten
+    @if (ueberlagerung.szenario(); as s) {
+      <span class="menuKopfZusatz">{{ s }}</span>
+    }
+  </div>
+
+  @for (n of ueberlagerung.nachrichten(); track n.id) {
+    <label class="menuItem" [title]="n.name">
+      <input type="checkbox" [checked]="n.aktiv" (change)="ueberlagerung.schalte(n.id)" />
+      <span class="farbPunkt" [style.background]="n.farbe"></span>
+      <span class="wertKuerzel" [style.background]="n.farbe + '26'">{{ n.kuerzel }}</span>
+      <span class="menuText">{{ n.name }}</span>
+    </label>
+  }
+
+  @if (keineGewaehlt()) {
+    <div class="menuHinweis">Keine Nachricht gewählt — der Baum zeigt keine Werte.</div>
+  }
+
+  <div class="menuSep"></div>
+  <div class="menuZeile">
+    <button class="menuItem" (click)="ueberlagerung.setzeAlle(true)">alle</button>
+    <button class="menuItem" (click)="ueberlagerung.setzeAlle(false)">keine</button>
+  </div>
+
+  <div class="menuSep"></div>
+  <label
+    class="menuItem"
+    title="Blendet die Äste aus, in denen alle gewählten Nachrichten dasselbe sagen. Technische Kopfangaben (Erstellungszeitpunkt, Nachrichten-IDs) zählen nicht als Unterschied."
+  >
+    <input
+      type="checkbox"
+      [checked]="ueberlagerung.nurAbweichungen()"
+      (change)="ueberlagerung.nurAbweichungen.set(!ueberlagerung.nurAbweichungen())"
+    />
+    nur Abweichungen ({{ ueberlagerung.abweichungen() }})
+  </label>
+  @if (filterWirkungslos()) {
+    <div class="menuHinweis">
+      Keine Abweichung zwischen den gewählten Nachrichten — der Filter bleibt wirkungslos.
+    </div>
+  }
+
+  <div class="menuSep"></div>
+  <button class="menuItem" (click)="menu.close(); ueberlagerung.beende()">
+    Überlagerung beenden
+  </button>
+</app-menu>

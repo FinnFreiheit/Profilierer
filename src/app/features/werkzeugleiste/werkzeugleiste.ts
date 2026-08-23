@@ -8,6 +8,8 @@ import { MessagePicker } from '../message-picker/message-picker';
 import { Search } from '../search/search';
 import { Crumbs } from '../crumbs/crumbs';
 import { Menu } from '../../shared/menu/menu';
+import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
+import { UeberlagerungMenu } from '../ueberlagerung/ueberlagerung-menu';
 
 /** Die drei Arbeitsweisen des Segments. */
 export type Arbeitsmodus = 'betrachten' | 'bearbeiten' | 'gefuehrt';
@@ -24,7 +26,7 @@ export type Arbeitsmodus = 'betrachten' | 'bearbeiten' | 'gefuehrt';
 @Component({
   selector: 'app-werkzeugleiste',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MessagePicker, Search, Crumbs, Menu],
+  imports: [MessagePicker, Search, Crumbs, Menu, UeberlagerungMenu],
   templateUrl: './werkzeugleiste.html',
 })
 export class Werkzeugleiste {
@@ -33,6 +35,8 @@ export class Werkzeugleiste {
   private readonly guided = inject(GuidedService);
   private readonly toast = inject(ToastService);
   private readonly edit = inject(TestmessageEditService);
+  /** Laeuft eine Nachrichten-Ueberlagerung (#147)? Dann steht ihr Filter hier. */
+  protected readonly ueberlagerung = inject(UeberlagerungService);
 
   readonly xsdFiles = output<FileList>();
   readonly codelistFiles = output<FileList>();

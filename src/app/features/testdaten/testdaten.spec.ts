@@ -187,7 +187,14 @@ describe('Testdaten — Variante anlegen', () => {
             dupliziere: async (id: string) => {
               if (scheitert) throw new Error('Backend weg');
               dupliziert.push(id);
-              return 'tm2';
+              return {
+                ...eintrag,
+                id: 'tm2',
+                name: 'Ersuchen Gemeinde (Variante)',
+                profilId: 'p1',
+                profilName: 'Ersuchen an die Gemeinde',
+                fassung: 'Arbeitsstand vom 22.08.2026',
+              } as TestmessageEntry;
             },
           },
         },
@@ -209,7 +216,11 @@ describe('Testdaten — Variante anlegen', () => {
     await td.variante(eintrag, ev);
     expect(dupliziert).toEqual(['tm1']);
     expect(ev.stopPropagation).toHaveBeenCalled();
-    expect(toasts).toEqual(['Variante von „Ersuchen Gemeinde" angelegt.']);
+    // Die Meldung nennt die gebundene Fassung — die Variante haengt am
+    // aktuellen Stand der Profilierung, nicht zwingend an der des Originals.
+    expect(toasts).toEqual([
+      'Variante von „Ersuchen Gemeinde" angelegt — gebunden an „Ersuchen an die Gemeinde" (Arbeitsstand vom 22.08.2026).',
+    ]);
   });
 
   it('meldet einen Fehlschlag, statt ihn zu verschlucken', async () => {
