@@ -374,6 +374,8 @@ test('ohne Schlagworte traegt der Eintrag kein Feld (Altbestand)', (t) => {
   assert.equal(entry.tags, undefined);
 });
 
+// Die Profilierung 'p1' gibt es in dieser DB nicht: geprueft wird der Fall
+// "Profilierung geloescht" — dann bleibt die Bindung des Originals stehen.
 test('tmDuplicate: Variante erbt Bindung, Schlagworte und Beiwerk', (t) => {
   const db = oeffneTestDb(t);
   const vorgabe = { meta: {}, statuses: [], elemente: { 'a/b': {} }, auspraegungen: {} };
@@ -404,7 +406,8 @@ test('tmDuplicate: Variante erbt Bindung, Schlagworte und Beiwerk', (t) => {
   assert.equal(entry.aktualisiert, 2000);
 
   // Profil-Bindung vollstaendig: Herkunft, eingefrorene Vorgabe und ihr Hash.
-  // Ohne sie waere die Variante nicht mehr gegen dieselbe Fassung pruefbar.
+  // Ohne die Profilierung gibt es keinen aktuellen Stand zu binden, also bleibt
+  // die Fassung des Originals stehen.
   assert.equal(entry.profilId, 'p1');
   assert.equal(entry.profilName, 'Ersuchen an die Gemeinde');
   assert.equal(entry.fassung, 'v2');
@@ -429,6 +432,70 @@ test('tmDuplicate: die Variante ist nicht abgenommen', (t) => {
   assert.equal(entry.abgenommen, undefined);
   assert.equal(entry.abnahmeZeit, undefined);
   assert.equal(db.tmAbgenommen(id), true); // Original unberuehrt
+});
+
+test('tmDuplicate: die Variante bindet an den aktuellen Stand der Profilierung', (t) => {
+  const db = oeffneTestDb(t);
+  const profil = db.create({
+    meta: { name: 'Ersuchen an die Gemeinde' },
+    statuses: [],
+    elemente: { 'a/b': { status: 'M' } },
+    auspraegungen: {},
+  });
+  // Die Nachricht ist gegen eine laengst ueberholte Fassung entstanden.
+  const alt = { meta: { name: 'Alter Name' }, statuses: [], elemente: {}, auspraegungen: {} };
+  const { id } = db.tmCreate(
+    input({
+      profilId: profil.id,
+      profilName: 'Alter Name',
+      fassung: 'v1',
+      vorgabe: alt,
+    }),
+    1000,
+  );
+  assert.equal(db.tmList()[0].profilWeiterentwickelt, true);
+
+  const { id: kopieId, entry } = db.tmDuplicate(id, 2000);
+  // Die Variante entsteht jetzt: sie traegt den heutigen Stand als Vorgabe,
+  // samt heutigem Namen und einer Fassungsbezeichnung, die das sagt.
+  assert.deepEqual(db.tmLoadVorgabe(kopieId), {
+    meta: { name: 'Ersuchen an die Gemeinde' },
+    statuses: [],
+    elemente: { 'a/b': { status: 'M' } },
+    auspraegungen: {},
+  });
+  assert.equal(entry.profilId, profil.id);
+  assert.equal(entry.profilName, 'Ersuchen an die Gemeinde');
+  assert.match(entry.fassung, /^Arbeitsstand vom \d{2}\.\d{2}\.\d{4}$/);
+  // Frisch gebunden heisst: kein Badge "Profil weiterentwickelt".
+  assert.equal(entry.profilWeiterentwickelt, undefined);
+  // Das Original bleibt, wie es war — die Kopie ruehrt es nicht an.
+  assert.deepEqual(db.tmLoadVorgabe(id), alt);
+  assert.equal(db.tmList().find((e) => e.id === id).fassung, 'v1');
+});
+
+test('tmDuplicate: Variante einer nur zugeordneten Nachricht bekommt eine Vorgabe', (t) => {
+  const db = oeffneTestDb(t);
+  const doc = {
+    meta: { name: 'Notar an Gemeinde' },
+    statuses: [],
+    elemente: { 'a/b': { status: 'M' } },
+    auspraegungen: {},
+  };
+  const profil = db.create(doc);
+  const { id } = db.tmCreate(input({ name: 'upload.xml' }), 1000);
+  db.tmZuordnen(id, { profilId: profil.id }, 5000);
+  // Die zugeordnete Nachricht selbst hat keine Vorgabe (#141) ...
+  assert.equal(db.tmLoadVorgabe(id), null);
+
+  // ... ihre Variante schon: sie soll dem Szenario entsprechen, sonst fehlten
+  // ihr Ueberlagerung, Fuehrung und Sperren.
+  const { id: kopieId, entry } = db.tmDuplicate(id, 6000);
+  assert.deepEqual(db.tmLoadVorgabe(kopieId), doc);
+  assert.equal(entry.profilId, profil.id);
+  assert.equal(entry.profilName, 'Notar an Gemeinde');
+  assert.match(entry.fassung, /^Arbeitsstand vom \d{2}\.\d{2}\.\d{4}$/);
+  assert.equal(entry.profilWeiterentwickelt, undefined);
 });
 
 test('tmZuordnen: hochgeladene Nachricht nachtraeglich einem Szenario zuordnen', (t) => {

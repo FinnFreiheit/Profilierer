@@ -190,14 +190,24 @@ Beispielnachrichten, die als Datei hereinkamen.
 Ausprägungen eines Kommunikationsszenarios (einmal ein Beteiligter, einmal zwei)
 entstehen als **Kopie**: `POST /api/testmessages/:id/duplicate` → `db.tmDuplicate`.
 Die Zeile wird direkt aus der Quellzeile geschrieben, nicht über `tmCreate` — so wandert
-die Notiz mit (`tmCreate` legt sie für Uploads immer leer an) und der `vorgabe_hash` wird
-übernommen statt neu berechnet.
+die Notiz mit (`tmCreate` legt sie für Uploads immer leer an).
 
 **Mit wandern:** XML, Nachricht, Fachmodul, Version, Notiz, Schlagworte, Bezeichnungen,
-Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand — und die Profil-Bindung
-vollständig (`profil_id`, `profil_name`, `fassung`, `vorgabe`, `vorgabe_hash`). Ohne die
-eingefrorene Vorgabe wäre die Variante nicht mehr gegen dieselbe Fassung prüfbar, gegen
-die ihre Geschwister gebaut wurden.
+Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand.
+
+**Frisch gesetzt: die Profil-Bindung.** Die Variante entsteht jetzt und soll dem Szenario
+entsprechen — sie wird deshalb an den **aktuellen** Stand der Profilierung gebunden:
+`profil_name` und `vorgabe`/`vorgabe_hash` kommen aus der Profilierung, `fassung` wird zu
+„Arbeitsstand vom TT.MM.JJJJ" (dieselbe Schreibweise wie im gefuehrten Einstieg,
+`TestmessageCreateService.ladeFassung`). Das ist der Unterschied zum Original: eine bloß
+zugeordnete Nachricht (siehe oben) hat gar keine Vorgabe, eine gefuehrt erstellte
+womöglich eine längst überholte — ohne Vorgabe fehlten der Kopie Überlagerung, Führung und
+Sperren des Szenarios, und genau die machen sie zu einer Ausprägung _dieser_ Profilierung.
+Das Badge „Profil weiterentwickelt" ist an einer frischen Variante folglich aus.
+
+Ist die Profilierung **gelöscht**, gibt es keinen aktuellen Stand zu binden: dann wandert
+die Bindung des Originals unverändert mit (`profil_id`, `profil_name`, `fassung`,
+`vorgabe`, `vorgabe_hash`), und die Herkunft bleibt als Historie lesbar.
 
 **Zurück bleiben:** id und der Abnahme-Stand (`abnahme_xml`, `abnahme_ts`,
 `abnahme_kommentar`). Die Kopie ist unmarkiert und frei bearbeitbar — dieselbe Regel wie

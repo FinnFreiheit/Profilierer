@@ -55,6 +55,19 @@ function kanonisch(v) {
  * sie ist eine Aenderung der Profilierung, nur eine, die der Vergleich (noch)
  * nicht benennt.
  */
+/**
+ * Tagesdatum in der Schreibweise der Fassungsbezeichnung ("Arbeitsstand vom
+ * 22.08.2026"). Bewusst von Hand statt `toLocaleDateString`: die Bezeichnung
+ * bleibt als Text am Eintrag stehen und soll unabhaengig von der
+ * ICU-Ausstattung des Servers dieselbe Form haben wie die im Client vergebene
+ * (`TestmessageCreateService.ladeFassung`).
+ */
+function datumDe(ts) {
+  const d = new Date(ts);
+  const zwei = (n) => String(n).padStart(2, '0');
+  return `${zwei(d.getDate())}.${zwei(d.getMonth() + 1)}.${d.getFullYear()}`;
+}
+
 function fachHash(doc) {
   let d = doc;
   if (d && typeof d === 'object' && d.meta && typeof d.meta === 'object') {
@@ -1505,11 +1518,17 @@ export function openDb(path) {
      * in einem einzigen Vorkommen — sie entstehen als Kopie und werden danach
      * angepasst, statt jedes Mal von vorn erzeugt zu werden.
      *
-     * Die Profil-Bindung wandert **vollstaendig** mit (Herkunft, eingefrorene
-     * Vorgabe und deren Hash): die Variante gehoert zum selben Kommunikations-
-     * szenario und ist gegen dieselbe Vorgabe zu pruefen. Der Abnahme-Stand
-     * bleibt dagegen zurueck — die Kopie ist unmarkiert und frei bearbeitbar,
-     * wie die Profil-Kopie in `duplicate`.
+     * Die Profil-Bindung wandert mit, wird dabei aber auf den **aktuellen**
+     * Stand der Profilierung gesetzt (Name, Fassung "Arbeitsstand vom …",
+     * eingefrorene Vorgabe und deren Hash frisch aus der Profilierung): die
+     * Variante entsteht jetzt und soll dem Szenario entsprechen. Das ist der
+     * Unterschied zum Original — eine bloss zugeordnete Nachricht (#141) hat
+     * gar keine Vorgabe, eine gefuehrt erstellte womoeglich eine laengst
+     * ueberholte; ohne Vorgabe fehlten der Kopie Ueberlagerung, Fuehrung und
+     * Sperren des Szenarios. Ist die Profilierung geloescht, wandert die alte
+     * Bindung unveraendert mit (die Herkunft bleibt Historie, siehe
+     * `tmZuordnen`). Der Abnahme-Stand bleibt zurueck — die Kopie ist
+     * unmarkiert und frei bearbeitbar, wie die Profil-Kopie in `duplicate`.
      *
      * Der Nachrichtenkopf wird nicht angefasst. Mit gleichem Erstellungs-
      * zeitpunkt und gleicher Nachrichten-UUID besteht der Vergleich zweier
@@ -1522,9 +1541,26 @@ export function openDb(path) {
       if (!row) return null;
       const neueId = randomUUID();
       const stamp = ts ?? Date.now();
+      // Bindung an den heutigen Stand der Profilierung; nur wenn es sie nicht
+      // mehr gibt, bleibt die Bindung des Originals stehen.
+      const profil = row.profil_id ? stmt.getRow.get(row.profil_id) : null;
+      const bindung = profil
+        ? {
+            profilId: row.profil_id,
+            profilName: JSON.parse(profil.doc)?.meta?.name || row.profil_name,
+            fassung: 'Arbeitsstand vom ' + datumDe(profil.aktualisiert),
+            vorgabe: profil.doc,
+            vorgabeHash: profil.fach_hash ?? fachHash(JSON.parse(profil.doc)),
+          }
+        : {
+            profilId: row.profil_id,
+            profilName: row.profil_name,
+            fassung: row.fassung,
+            vorgabe: row.vorgabe,
+            vorgabeHash: row.vorgabe_hash,
+          };
       // Direkt aus der Zeile, nicht ueber tmCreate: so wandert die Notiz mit
-      // (tmCreate setzt sie fuer Uploads immer auf null) und der Hash der
-      // eingefrorenen Vorgabe wird uebernommen statt neu berechnet.
+      // (tmCreate setzt sie fuer Uploads immer auf null).
       stmt.tmInsert.run({
         id: neueId,
         xml: row.xml,
@@ -1539,11 +1575,7 @@ export function openDb(path) {
         fortschritt: row.fortschritt,
         entscheidungen: row.entscheidungen,
         bezeichnungen: row.bezeichnungen,
-        profilId: row.profil_id,
-        profilName: row.profil_name,
-        fassung: row.fassung,
-        vorgabe: row.vorgabe,
-        vorgabeHash: row.vorgabe_hash,
+        ...bindung,
         ts: stamp,
       });
       return { id: neueId, entry: tmEntry(stmt.tmGet.get(neueId)) };
