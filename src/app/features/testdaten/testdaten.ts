@@ -41,6 +41,7 @@ import { nachrichtTeile } from '../../core/util/pretty.util';
 import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiterung-sperre';
 import { firstLine } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
+import { FileDropDirective } from '../../shared/file-drop.directive';
 import { TagFilter } from '../../shared/tag-filter/tag-filter';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
 import { ProjektStoreService } from '../../core/services/projekt-store.service';
@@ -69,7 +70,7 @@ interface Gruppe {
 @Component({
   selector: 'app-testdaten',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu, KeinAutofillDirective, TagFilter, TagEingabe],
+  imports: [RolleBadge, Menu, KeinAutofillDirective, FileDropDirective, TagFilter, TagEingabe],
   templateUrl: './testdaten.html',
 })
 export class Testdaten {
@@ -490,17 +491,55 @@ export class Testdaten {
     this.uploadDlg().nativeElement.showModal();
   }
 
-  /**
-   * Ausgewaehlte Dateien einlesen, validieren und anlegen. Anforderung: nur
-   * schema-valide Nachrichten kommen in den Testdatenspeicher — invalide (und
-   * nicht pruefbare) Uploads werden mit Fehlerbericht abgelehnt.
-   */
+  /** Dateien aus dem Auswahlfeld des Upload-Dialogs. */
   protected async onFiles(e: Event): Promise<void> {
     const input = e.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
     input.value = '';
-    if (!files.length) return;
+    await this.verarbeite(files);
+  }
 
+  /** Dateien, die auf der Ablageflaeche des Upload-Dialogs gelandet sind. */
+  protected async onDrop(files: File[]): Promise<void> {
+    await this.verarbeite(files);
+  }
+
+  /**
+   * Der eine Weg vom Hochladen zur Nachricht — gleich ob per Auswahlfeld oder
+   * Drag&Drop.
+   *
+   * **Eine** Datei wird direkt im Baum geoeffnet und noch nicht abgelegt: erst
+   * beim Verlassen der Baumansicht wird gefragt, ob sie (unter welchem Namen)
+   * in den Speicher soll. So sieht man die Nachricht, bevor man sich fuer sie
+   * entscheidet. Mehrere Dateien sind ein Stapel-Import — da gibt es nichts zu
+   * oeffnen, sie wandern wie bisher direkt in den Speicher.
+   */
+  private async verarbeite(files: File[]): Promise<void> {
+    if (!files.length) return;
+    if (files.length === 1) {
+      await this.oeffneHochgeladene(files[0]!);
+      return;
+    }
+    await this.legeStapelAb(files);
+  }
+
+  /** Einzelne hochgeladene Datei im Baum oeffnen (ohne Eintrag im Speicher). */
+  private async oeffneHochgeladene(f: File): Promise<void> {
+    try {
+      await this.edit.oeffneHochgeladen(await f.text(), f.name);
+    } catch (e) {
+      this.toast.showError(e, 'Nachricht konnte nicht geöffnet werden.');
+      return;
+    }
+    this.uploadDlg().nativeElement.close();
+  }
+
+  /**
+   * Stapel-Import: einlesen, validieren und anlegen. Anforderung: nur
+   * schema-valide Nachrichten kommen in den Testdatenspeicher — invalide (und
+   * nicht pruefbare) Uploads werden mit Fehlerbericht abgelehnt.
+   */
+  private async legeStapelAb(files: File[]): Promise<void> {
     let ok = 0;
     const abgelehnt: string[] = []; // kein XJustiz-XML
     const invalide: string[] = []; // Schemavalidierung fehlgeschlagen (mit Bericht)

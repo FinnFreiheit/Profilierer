@@ -214,6 +214,26 @@ export function openDb(path) {
     -- Nachrichtennamen abgeleitet, Schlagworte sind ein Querschnitt ohne
     -- Innenleben. Bewusst ohne Fremdschluessel: die Zuordnung ist Ablage, sie
     -- soll das Loeschen eines Projekts ueberleben (siehe prjDelete).
+    -- Von xjustiz.de geholte Schemaversionen: einmal abgerufen, bleiben sie
+    -- neben den im Projekt hinterlegten Kopien (public/schemas/) liegen. Vorher
+    -- lebten sie nur im Speicher des Browsers und waren nach dem Neuladen weg --
+    -- eine soeben veroeffentlichte Version (4.1.0) verschwand also staendig aus
+    -- dem Umschalter. Aktualisiert wird ausschliesslich auf Zuruf.
+    -- Die XSD-Dateien liegen je Version in schema_files (ein ZIP ~3 MB).
+    CREATE TABLE IF NOT EXISTS schemas (
+      id TEXT PRIMARY KEY,   -- Versionsnummer, z. B. "4.1.0"
+      label TEXT,            -- Anzeigename im Umschalter
+      hinweis TEXT,          -- Linktext der Versionsseite von xjustiz.de
+      zip_url TEXT,          -- Bezugsquelle (Pfad relativ zu xjustiz.justiz.de)
+      geholt INTEGER         -- Zeitpunkt des Abrufs
+    );
+    CREATE TABLE IF NOT EXISTS schema_files (
+      schema_id TEXT NOT NULL,
+      name TEXT NOT NULL,    -- flacher Dateiname (die XSDs importieren sich ohne Pfad)
+      text TEXT NOT NULL,
+      PRIMARY KEY (schema_id, name)
+    );
+
     CREATE TABLE IF NOT EXISTS projekte (
       id TEXT PRIMARY KEY,
       name TEXT,
@@ -424,6 +444,24 @@ export function openDb(path) {
     }
   }
 
+  /**
+   * DB-Zeile einer gespeicherten Schemaversion -> BundledVersion des Clients.
+   * `dir` traegt die Herkunft im Schluessel (wie beim Abruf von xjustiz.de),
+   * damit der Umschalter eine gespeicherte Version nicht mit der hinterlegten
+   * gleichen Namens verwechselt.
+   */
+  function schemaZeile(r, files) {
+    return {
+      id: r.id,
+      label: r.label || r.id,
+      dir: `xjustiz.de/${r.id}`,
+      files,
+      zipUrl: r.zip_url || undefined,
+      hinweis: r.hinweis || undefined,
+      geholt: r.geholt ?? null,
+    };
+  }
+
   const stmt = {
     list: db.prepare(
       `SELECT profiles.id, profiles.name, profiles.autor, profiles.beschreibung, profiles.tags,
@@ -446,6 +484,23 @@ export function openDb(path) {
        ORDER BY aktualisiert DESC`,
     ),
     getDoc: db.prepare('SELECT doc FROM profiles WHERE id = ?'),
+    schemaList: db.prepare('SELECT * FROM schemas ORDER BY id DESC'),
+    schemaNamen: db.prepare('SELECT schema_id, name FROM schema_files ORDER BY name'),
+    schemaGet: db.prepare('SELECT * FROM schemas WHERE id = ?'),
+    schemaDateien: db.prepare(
+      'SELECT name, text FROM schema_files WHERE schema_id = ? ORDER BY name',
+    ),
+    schemaUpsert: db.prepare(
+      `INSERT INTO schemas (id, label, hinweis, zip_url, geholt)
+       VALUES (@id, @label, @hinweis, @zipUrl, @geholt)
+       ON CONFLICT(id) DO UPDATE SET
+         label = @label, hinweis = @hinweis, zip_url = @zipUrl, geholt = @geholt`,
+    ),
+    schemaDateiEinfuegen: db.prepare(
+      'INSERT INTO schema_files (schema_id, name, text) VALUES (?, ?, ?)',
+    ),
+    schemaDateienLoeschen: db.prepare('DELETE FROM schema_files WHERE schema_id = ?'),
+    schemaDel: db.prepare('DELETE FROM schemas WHERE id = ?'),
     getProjekt: db.prepare('SELECT projekt_id FROM profiles WHERE id = ?'),
     setProjekt: db.prepare('UPDATE profiles SET projekt_id = @projektId WHERE id = @id'),
     tmErbeFestschreiben: db.prepare(
@@ -1059,6 +1114,62 @@ export function openDb(path) {
         stmt.prjLoesenProfile.run(id);
         stmt.prjLoesenTm.run(id);
         return stmt.prjDel.run(id).changes > 0;
+      })();
+    },
+
+    // ── Schemaquellen (von xjustiz.de) ──────────────────────────────────
+
+    /**
+     * Die gespeicherten Versionen samt ihrer Dateinamen — der Umschalter zeigt
+     * sie neben den hinterlegten. Die Dateiinhalte bleiben aussen vor (je
+     * Version einige MB); die holt `schemaDateien(id)` einzeln.
+     */
+    schemaList() {
+      const namen = new Map();
+      for (const r of stmt.schemaNamen.all()) {
+        const liste = namen.get(r.schema_id);
+        if (liste) liste.push(r.name);
+        else namen.set(r.schema_id, [r.name]);
+      }
+      return stmt.schemaList.all().map((r) => schemaZeile(r, namen.get(r.id) ?? []));
+    },
+
+    /** XSD-Dateien einer gespeicherten Version; leer, wenn sie nicht vorliegt. */
+    schemaDateien(id) {
+      return stmt.schemaDateien.all(id);
+    },
+
+    /** Ist die Version gespeichert? */
+    schemaVorhanden(id) {
+      return !!stmt.schemaGet.get(id);
+    },
+
+    /**
+     * Version ablegen oder **ersetzen** (Aktualisieren): die Dateien werden
+     * komplett ausgetauscht, damit eine geschrumpfte Nachlieferung keine
+     * Karteileichen der vorigen Fassung stehen laesst. Gibt den Eintrag zurueck.
+     */
+    schemaSpeichern({ id, label, hinweis, zipUrl, files }, ts) {
+      const geholt = ts ?? Date.now();
+      db.transaction(() => {
+        stmt.schemaUpsert.run({
+          id,
+          label: String(label || id),
+          hinweis: hinweis ? String(hinweis) : null,
+          zipUrl: zipUrl ? String(zipUrl) : null,
+          geholt,
+        });
+        stmt.schemaDateienLoeschen.run(id);
+        for (const f of files) stmt.schemaDateiEinfuegen.run(id, f.name, f.text);
+      })();
+      return schemaZeile(stmt.schemaGet.get(id), files.map((f) => f.name).sort());
+    },
+
+    /** Version samt Dateien entfernen. Gibt true, wenn eine Zeile wegfiel. */
+    schemaLoeschen(id) {
+      return db.transaction(() => {
+        stmt.schemaDateienLoeschen.run(id);
+        return stmt.schemaDel.run(id).changes > 0;
       })();
     },
 

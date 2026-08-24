@@ -1,9 +1,16 @@
 import { TestBed } from '@angular/core/testing';
+import { WritableSignal, signal } from '@angular/core';
 import { App } from './app';
 import { StateService } from './core/services/state.service';
 import { GuidedService } from './core/services/guided.service';
 import { NavService } from './core/services/nav.service';
 import { ToastService } from './core/services/toast.service';
+import { NachrichtSpeichernService } from './core/services/nachricht-speichern.service';
+import { MigrationService } from './core/services/migration.service';
+import { TeilenService } from './core/services/teilen.service';
+import { BundledSchemaService } from './core/services/bundled-schema.service';
+import { SchemaStoreService } from './core/services/schema-store.service';
+import { PersistenceService } from './core/services/persistence.service';
 import { TreeItem } from './models/node.model';
 
 describe('App', () => {
@@ -28,38 +35,69 @@ describe('App', () => {
 
   describe('Rueckweg der Kopfzeile', () => {
     /** Der Knopf ist `protected`; die Spec ruft ihn ueber die Schnittstelle. */
-    function zurueck(app: App): void {
-      (app as unknown as { zurUebersicht(): void }).zurUebersicht();
+    async function zurueck(app: App): Promise<void> {
+      await (app as unknown as { zurUebersicht(): Promise<void> }).zurUebersicht();
     }
 
-    it('fuehrt aus einer Profilierung in die Profil-Bibliothek', () => {
+    it('fuehrt aus einer Profilierung in die Profil-Bibliothek', async () => {
       const app = TestBed.createComponent(App).componentInstance;
       const state = TestBed.inject(StateService);
       state.view.set('editor');
 
-      zurueck(app);
+      await zurueck(app);
 
       expect(state.view()).toBe('dashboard');
     });
 
-    it('fuehrt aus einer geoeffneten Testnachricht in den Testdatenspeicher', () => {
+    it('fuehrt aus einer geoeffneten Testnachricht in den Testdatenspeicher', async () => {
       const app = TestBed.createComponent(App).componentInstance;
       const state = TestBed.inject(StateService);
       state.view.set('editor');
       state.messageEdit.set({ msgName: 'm', entryId: 'e1' } as never);
 
-      zurueck(app);
+      await zurueck(app);
 
       expect(state.view()).toBe('testdaten');
     });
 
-    it('fuehrt auch aus der gefuehrten Erstellung in den Testdatenspeicher', () => {
+    it('fuehrt auch aus der gefuehrten Erstellung in den Testdatenspeicher', async () => {
       const app = TestBed.createComponent(App).componentInstance;
       const state = TestBed.inject(StateService);
       state.view.set('editor');
       state.messageCreate.set({ msgName: 'm', entryId: null, name: null });
 
-      zurueck(app);
+      await zurueck(app);
+
+      expect(state.view()).toBe('testdaten');
+    });
+
+    // Eine hochgeladene Nachricht (kein Eintrag im Speicher) wird beim
+    // Verlassen zur Rueckfrage vorgelegt — „Abbrechen" haelt die Baumansicht.
+    it('fragt bei einer nur geoeffneten Nachricht und bleibt bei Abbruch stehen', async () => {
+      const app = TestBed.createComponent(App).componentInstance;
+      const state = TestBed.inject(StateService);
+      const frage = TestBed.inject(NachrichtSpeichernService);
+      state.view.set('editor');
+      state.messageEdit.set({ msgName: 'm', quellName: 'upload.xml', entryId: null } as never);
+
+      const lauf = zurueck(app);
+      expect(frage.anfrage()!.vorschlag).toBe('upload.xml');
+      frage.antworte({ art: 'abbrechen' });
+      await lauf;
+
+      expect(state.view()).toBe('editor');
+    });
+
+    it('verwirft auf Wunsch und geht in den Testdatenspeicher', async () => {
+      const app = TestBed.createComponent(App).componentInstance;
+      const state = TestBed.inject(StateService);
+      const frage = TestBed.inject(NachrichtSpeichernService);
+      state.view.set('editor');
+      state.messageEdit.set({ msgName: 'm', quellName: 'upload.xml', entryId: null } as never);
+
+      const lauf = zurueck(app);
+      frage.antworte({ art: 'verwerfen' });
+      await lauf;
 
       expect(state.view()).toBe('testdaten');
     });
@@ -227,5 +265,103 @@ describe('App', () => {
         expect(guided.gotoNext).not.toHaveBeenCalled();
       });
     });
+  });
+});
+
+/**
+ * Start-Datenbasis (Bugfix „von xjustiz.de geholte Version wird vergessen"):
+ * gespeicherte Versionen stehen wieder im Umschalter, und der Start kommt zu
+ * der zurueck, die zuletzt aktiv war.
+ */
+describe('App — Datenbasis beim Start', () => {
+  const hinterlegt = {
+    id: '3.6.2',
+    label: '3.6.2',
+    dir: '3.6.2',
+    files: ['a.xsd'],
+    default: true,
+  };
+  const gespeichert = {
+    id: '4.1.0',
+    label: '4.1.0',
+    dir: 'xjustiz.de/4.1.0',
+    files: ['b.xsd'],
+    zipUrl: '/system/zip/XJustiz-4_1_0-XSD.zip',
+  };
+
+  /** dirs, die geladen wurden — in der Reihenfolge der Versuche. */
+  let geladen: string[];
+  /** dirs, deren Laden scheitert (Backend/Netz weg). */
+  let scheitert: Set<string>;
+  let gemerkteDatenbasis: WritableSignal<string>;
+  let imSpeicher: (typeof gespeichert)[];
+
+  async function starte(): Promise<{ app: App; state: StateService }> {
+    geladen = [];
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        { provide: MigrationService, useValue: { runOnce: async () => {} } },
+        { provide: TeilenService, useValue: { startZiel: () => null } },
+        {
+          provide: BundledSchemaService,
+          useValue: { manifest: async () => [hinterlegt], files: async () => [] },
+        },
+        {
+          provide: SchemaStoreService,
+          useValue: { refresh: async () => {}, entries: () => imSpeicher },
+        },
+        {
+          provide: PersistenceService,
+          useValue: {
+            zuletztAktiveDatenbasis: gemerkteDatenbasis,
+            loadBundle: async (v: { dir: string }) => {
+              geladen.push(v.dir);
+              if (scheitert.has(v.dir)) throw new Error('nicht erreichbar');
+              return 1;
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+    const app = TestBed.createComponent(App).componentInstance;
+    await app.ngOnInit();
+    return { app, state: TestBed.inject(StateService) };
+  }
+
+  beforeEach(() => {
+    scheitert = new Set();
+    imSpeicher = [gespeichert];
+    gemerkteDatenbasis = signal('');
+  });
+
+  it('mischt die gespeicherten Versionen von xjustiz.de in den Umschalter', async () => {
+    const { state } = await starte();
+    expect(state.bundledVersions().map((v) => v.id)).toEqual(['3.6.2', '4.1.0']);
+  });
+
+  it('startet ohne gemerkte Wahl mit der hinterlegten Standardversion', async () => {
+    await starte();
+    expect(geladen).toEqual(['3.6.2']);
+  });
+
+  it('kommt zur zuletzt gewaehlten Version zurueck', async () => {
+    gemerkteDatenbasis = signal('xjustiz.de/4.1.0');
+    await starte();
+    expect(geladen).toEqual(['xjustiz.de/4.1.0']);
+  });
+
+  it('faellt auf den Standard zurueck, wenn die gemerkte nicht ladbar ist', async () => {
+    gemerkteDatenbasis = signal('xjustiz.de/4.1.0');
+    scheitert = new Set(['xjustiz.de/4.1.0']);
+    await starte();
+    expect(geladen).toEqual(['xjustiz.de/4.1.0', '3.6.2']);
+  });
+
+  it('nimmt den Standard, wenn die gemerkte Version gar nicht mehr existiert', async () => {
+    gemerkteDatenbasis = signal('xjustiz.de/9.9.9');
+    imSpeicher = [];
+    await starte();
+    expect(geladen).toEqual(['3.6.2']);
   });
 });

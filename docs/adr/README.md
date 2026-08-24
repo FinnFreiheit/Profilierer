@@ -25,6 +25,7 @@ Architecture Decision Records halten wesentliche Richtungsentscheidungen mit Beg
 | [0017](0017-erweiterungstyp-lebende-referenz.md)      | Erweiterungs-Datentyp als lebende Referenz (ergänzt 0010)         | Angenommen                    |
 | [0018](0018-enthalten-eine-regel.md)                  | „Ist in der Nachricht enthalten" ist eine Regel (ergänzt 0015)    | Angenommen                    |
 | [0019](0019-projekt-als-behaelter.md)                 | Projekt als Behälter; die Profilierung trägt die Zuordnung        | Angenommen                    |
+| [0020](0020-schemaquellen-im-backend.md)              | Von xjustiz.de geholte Schemaversionen liegen im Backend          | Angenommen                    |
 
 ## Vorlage
 

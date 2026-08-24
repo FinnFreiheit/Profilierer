@@ -30,6 +30,7 @@ import { ToastService } from './core/services/toast.service';
 import { StateService } from './core/services/state.service';
 import { GuidedService } from './core/services/guided.service';
 import { BundledSchemaService } from './core/services/bundled-schema.service';
+import { SchemaStoreService } from './core/services/schema-store.service';
 import { RemoteSchemaService } from './core/services/remote-schema.service';
 import { MigrationService } from './core/services/migration.service';
 import { LoggerService } from './core/services/logger.service';
@@ -43,6 +44,9 @@ import { VergleichService } from './core/services/vergleich.service';
 import { TeilenService } from './core/services/teilen.service';
 import { UeberlagerungService } from './core/services/ueberlagerung.service';
 import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
+import { BundledVersion } from './models/schema-bundle.model';
+import { vereineVersionen } from './core/util/schema-quellen.util';
+import { NachrichtSpeichernDialog } from './features/dialogs/nachricht-speichern-dialog';
 
 /**
  * Ist das Ziel ein **Zweig-Radio** der gefuehrten Auswahl? Solche Knoepfe geben
@@ -82,6 +86,7 @@ function istZweigWahl(el: HTMLElement): boolean {
     MatrixDialog,
     EinordnenDialog,
     ErweiterungDialog,
+    NachrichtSpeichernDialog,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -101,6 +106,7 @@ export class App implements OnInit {
   private readonly state = inject(StateService);
   private readonly guided = inject(GuidedService);
   private readonly bundled = inject(BundledSchemaService);
+  private readonly schemas = inject(SchemaStoreService);
   private readonly remoteSchemas = inject(RemoteSchemaService);
   private readonly migration = inject(MigrationService);
   private readonly logger = inject(LoggerService);
@@ -121,7 +127,7 @@ export class App implements OnInit {
    * den Testdatenspeicher, alles andere in die Profil-Bibliothek. Sonst landet
    * der Rueckweg in einer Liste, in der das eben Bearbeitete gar nicht steht.
    */
-  protected zurUebersicht(): void {
+  protected async zurUebersicht(): Promise<void> {
     // Die Nachrichten-Ueberlagerung (#147) kommt aus einem Projekt und gehoert
     // dorthin zurueck — in der Bibliothek stuende keines der ueberlagerten
     // Objekte. Sie endet dabei: der Baum daneben ist ohne sie nur ein Schema.
@@ -130,6 +136,10 @@ export class App implements OnInit {
       this.state.view.set('projekte');
       return;
     }
+    // Eine hochgeladene Nachricht traegt keinen Eintrag im Testdaten-Speicher
+    // und damit auch kein Autosave — hier ist der Moment, sie zu behalten.
+    // „Abbrechen" (und eine gescheiterte Schemapruefung) haelt die Ansicht.
+    if (!(await this.testmessageEdit.frageVorVerlassen())) return;
     this.state.view.set(this.state.msgMode() ? 'testdaten' : 'dashboard');
   }
 
@@ -162,12 +172,9 @@ export class App implements OnInit {
     // Adresszeile verschwinden, wenn das Manifest scheitert.
     const geteilt = this.teilen.startZiel();
     try {
-      const versions = await this.bundled.manifest();
-      this.state.bundledVersions.set(versions);
-      if (!this.state.idx()) {
-        const def = versions.find((v) => v.default) ?? versions[0];
-        if (def) await this.loadBundled(def.dir);
-      }
+      const versionen = await this.versionenZusammenstellen();
+      this.state.bundledVersions.set(versionen);
+      if (!this.state.idx()) await this.starteDatenbasis(versionen);
     } catch (e) {
       this.toast.show(
         'Hinterlegte Schemata konnten nicht geladen werden: ' +
@@ -176,6 +183,48 @@ export class App implements OnInit {
     }
     if (geteilt?.art === 'profil') await this.persistence.openFromLibrary(geteilt.id);
     if (geteilt?.art === 'testnachricht') await this.oeffneGeteilteNachricht(geteilt.id);
+  }
+
+  /**
+   * Verfuegbare Schemaversionen zusammenstellen: die im Projekt hinterlegten
+   * aus dem Manifest, dazu die im Backend **gespeicherten** von xjustiz.de.
+   *
+   * Ohne den zweiten Teil war eine dort geholte Version nach dem Neuladen
+   * wieder verschwunden — sie lebte nur im Speicher dieser Sitzung. Ist das
+   * Backend nicht erreichbar, bleibt es bei den hinterlegten Kopien.
+   */
+  private async versionenZusammenstellen(): Promise<BundledVersion[]> {
+    const hinterlegt = await this.bundled.manifest();
+    try {
+      await this.schemas.refresh();
+    } catch (e) {
+      this.logger.warn(
+        'Schema-Speicher',
+        'Gespeicherte Versionen nicht ladbar (Backend offline?)',
+        e,
+      );
+    }
+    return vereineVersionen(hinterlegt, this.schemas.entries()).liste;
+  }
+
+  /**
+   * Die Datenbasis des Starts: die **zuletzt gewaehlte** Version, sonst die
+   * Standardversion des Manifests. Laesst sie sich nicht laden (Backend oder
+   * xjustiz.de weg), faellt es mit Hinweis auf den Standard zurueck — ohne
+   * Schema bliebe die Anwendung leer.
+   */
+  private async starteDatenbasis(versionen: BundledVersion[]): Promise<void> {
+    const standard = versionen.find((v) => v.default) ?? versionen[0];
+    const gemerkt = this.persistence.zuletztAktiveDatenbasis();
+    const gewuenscht = versionen.find((v) => v.dir === gemerkt) ?? standard;
+    if (!gewuenscht) return;
+    if (await this.loadBundled(gewuenscht.dir)) return;
+    if (standard && standard.dir !== gewuenscht.dir) {
+      this.toast.show(
+        `XJustiz ${gewuenscht.label} nicht ladbar — es gilt die hinterlegte Version.`,
+      );
+      await this.loadBundled(standard.dir);
+    }
   }
 
   /**
@@ -215,40 +264,58 @@ export class App implements OnInit {
   }
 
   /**
-   * Eine hinterlegte Schemaversion als Primaerschema laden (Versions-Umschalter
-   * und Auto-Load beim Start). Eine bereits geladene Nachricht wird — sofern in
-   * der Zielversion vorhanden — unter dem neuen Schema neu aufgebaut.
+   * Eine Schemaversion als Primaerschema laden (Versions-Umschalter und Start).
+   * Eine bereits geladene Nachricht wird — sofern in der Zielversion vorhanden —
+   * unter dem neuen Schema neu aufgebaut.
+   *
+   * Woher die Dateien kommen, entscheidet der `BundledSchemaService`:
+   * hinterlegt, aus dem Schema-Speicher oder frisch von xjustiz.de. Nur der
+   * letzte Fall wird angekuendigt — er dauert. `erneuern` erzwingt ihn.
+   *
+   * Gibt zurueck, ob geladen wurde; der Start braucht die Auskunft fuer den
+   * Rueckfall auf die hinterlegte Standardversion.
    */
-  async loadBundled(dir: string): Promise<void> {
+  async loadBundled(dir: string, opts: { erneuern?: boolean } = {}): Promise<boolean> {
     const v = this.state.bundledVersions().find((x) => x.dir === dir);
-    if (!v) return;
+    if (!v) return false;
     const prevMsg = this.state.msgName();
+    // Gespeicherte Versionen kommen aus dem Backend; nur was wirklich geholt
+    // werden muss, wird als Abruf angekuendigt.
+    const holt =
+      !!v.zipUrl && (opts.erneuern || !this.schemas.entries().some((e) => e.id === v.id));
     const quelle = v.zipUrl ? ' von xjustiz.de' : '';
     try {
-      if (v.zipUrl) this.toast.show(`Lade XJustiz ${v.label} von xjustiz.de…`);
-      const n = await this.persistence.loadBundle(v);
+      if (holt) this.toast.show(`Lade XJustiz ${v.label} von xjustiz.de…`);
+      const n = await this.persistence.loadBundle(v, opts);
       if (prevMsg) {
         if (this.state.idx()?.el[prevMsg]) this.nav.loadMessage(prevMsg, true);
         else this.toast.show(`Nachricht ${prevMsg} ist in XJustiz ${v.label} nicht enthalten.`);
       }
       this.toast.show(`XJustiz ${v.label}${quelle} geladen (${n} Schemata).`);
+      return true;
     } catch (e) {
       this.toast.show(
         `XJustiz ${v.label}${quelle} konnte nicht geladen werden: ` +
           (e instanceof Error ? e.message : e),
       );
+      return false;
     }
   }
 
   /**
-   * Schemata von xjustiz.de holen (Menue „Schemata: xjustiz.de"): die dort
-   * veroeffentlichten Versionen **ersetzen** die im Projekt hinterlegten
-   * Eintraege gleicher Versionsnummer — keine Doppelauswahl im Umschalter,
-   * xjustiz.de ist die fuehrende Quelle. Nur dort neu erschienene Versionen
-   * kommen hinzu. Der Abruf ist bewusst manuell; ein erneuter Aufruf verwirft
-   * den Sitzungs-Cache und holt den aktuellen Stand — so kommt auch eine neu
-   * veroeffentlichte Voll-ZIP einer bestehenden Version an. Die gerade aktive
-   * Version wird direkt neu geladen.
+   * Schemata von xjustiz.de holen und den Speicher aktualisieren (Menue
+   * „Von xjustiz.de aktualisieren"): die dort veroeffentlichten Versionen
+   * **ersetzen** die im Projekt hinterlegten Eintraege gleicher Versionsnummer
+   * — keine Doppelauswahl im Umschalter, xjustiz.de ist die fuehrende Quelle.
+   * Nur dort neu erschienene Versionen kommen hinzu.
+   *
+   * Der Abruf ist bewusst **manuell** und die einzige Stelle, an der sich am
+   * Bestand etwas aendert: er verwirft den Sitzungs-Cache, holt die
+   * Versionsliste neu und bringt anschliessend die bereits **gespeicherten**
+   * Versionen auf den veroeffentlichten Stand (so kommt auch eine neu
+   * veroeffentlichte Voll-ZIP einer bestehenden Version an). Von selbst
+   * veraltet nichts — und von selbst waechst der Speicher auch nicht: eine nur
+   * gelistete Version wird erst geholt, wenn jemand sie im Umschalter waehlt.
    *
    * **Nachlieferungen** (Teilpakete zu einer Version) werden nur gemeldet:
    * sie enthalten allein die geaenderten Fachmodule und wuerden das
@@ -259,21 +326,8 @@ export class App implements OnInit {
     this.toast.show('Rufe die Schema-Versionen von xjustiz.de ab…');
     try {
       const { versionen: remote, nachlieferungen } = await this.remoteSchemas.versionen(true);
-      const nachId = new Map(remote.map((r) => [r.id, r]));
-      const bisher = this.state.bundledVersions();
-      // Hinterlegte Eintraege an Ort und Stelle ersetzen (dir/label/default
-      // bleiben, damit activeBundle und der Standard-Eintrag gueltig bleiben).
-      const ersetzt = bisher.map((v) => {
-        const r = nachId.get(v.id);
-        if (!r) return v;
-        nachId.delete(v.id);
-        return { ...v, files: [], zipUrl: r.zipUrl, hinweis: r.hinweis };
-      });
-      const neu = Array.from(nachId.values());
-      this.state.bundledVersions.set([...ersetzt, ...neu]);
-
-      const aktiv = this.state.activeBundle();
-      const aktivErsetzt = ersetzt.find((v) => v.dir === aktiv && v.zipUrl);
+      const { liste, neu } = vereineVersionen(this.state.bundledVersions(), remote);
+      this.state.bundledVersions.set(liste);
       this.toast.show(
         `Schemata von xjustiz.de übernommen: ${remote.map((v) => v.label).join(', ')}` +
           (neu.length ? ` (davon neu: ${neu.map((v) => v.label).join(', ')})` : ''),
@@ -284,14 +338,49 @@ export class App implements OnInit {
             'Nachlieferung (Teilpaket). Sie ersetzt das Schema nicht und wird nicht geladen — ' +
             'bei Bedarf über „Eigener XSD-Ordner…" einspielen.',
         );
-      // Aktive Version stammt jetzt aus einer anderen Quelle — neu einlesen,
-      // sonst zeigt der Umschalter den neuen Stand, der Baum aber den alten.
-      if (aktivErsetzt) await this.loadBundled(aktivErsetzt.dir);
+      await this.aktualisiereGespeicherte(liste);
     } catch (e) {
       this.toast.show(
         'Schemata von xjustiz.de nicht abrufbar: ' + (e instanceof Error ? e.message : e),
       );
     }
+  }
+
+  /**
+   * Die bereits **gespeicherten** Versionen neu holen — genau die, die jemand
+   * einmal bewusst geladen hat. Die aktive laeuft ueber `loadBundled`, damit
+   * der Baum den neuen Stand zeigt und nicht den alten; die uebrigen werden
+   * still im Speicher ersetzt. Ein Fehlschlag laesst die gespeicherte Fassung
+   * stehen: eine alte Version ist besser als keine.
+   */
+  private async aktualisiereGespeicherte(versionen: BundledVersion[]): Promise<void> {
+    const gespeichert = new Set(this.schemas.entries().map((e) => e.id));
+    const faellig = versionen.filter((v) => v.zipUrl && gespeichert.has(v.id));
+    if (!faellig.length) return;
+    const aktiv = this.state.activeBundle();
+    let ok = 0;
+    for (const v of faellig) {
+      try {
+        if (v.dir === aktiv) {
+          if (await this.loadBundled(v.dir, { erneuern: true })) ok++;
+        } else {
+          await this.bundled.files(v, { erneuern: true });
+          ok++;
+        }
+      } catch (e) {
+        this.logger.warn('Schema-Speicher', `XJustiz ${v.label} nicht aktualisierbar`, e);
+      }
+    }
+    // Der Speicher traegt jetzt neue Abrufzeitpunkte — sie stehen im Tooltip
+    // des Umschalters und beantworten dort, wie alt ein Stand ist.
+    this.state.bundledVersions.set(
+      vereineVersionen(this.state.bundledVersions(), this.schemas.entries()).liste,
+    );
+    this.toast.show(
+      ok === faellig.length
+        ? `Gespeicherte Schemata aktualisiert: ${faellig.map((v) => v.label).join(', ')}.`
+        : `${ok} von ${faellig.length} gespeicherten Schemata aktualisiert — der Rest bleibt auf dem bisherigen Stand.`,
+    );
   }
 
   /**
@@ -442,6 +531,9 @@ export class App implements OnInit {
     try {
       const n = await this.persistence.loadXsdFiles(files);
       this.state.activeBundle.set(null);
+      // Einen eigenen Ordner kann der naechste Start nicht wiederholen — die
+      // gemerkte Datenbasis waere danach eine Behauptung.
+      this.persistence.zuletztAktiveDatenbasis.set('');
       this.toast.show(`${n} Schemadateien geladen.`);
     } catch (e) {
       this.toast.showError(e, 'Laden fehlgeschlagen.');

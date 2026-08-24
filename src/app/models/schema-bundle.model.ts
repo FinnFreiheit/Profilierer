@@ -19,4 +19,16 @@ export interface BundledVersion {
   zipUrl?: string;
   /** Nur bei Abruf von xjustiz.de: Beschriftung des Links auf der Versionsseite. */
   hinweis?: string;
+  /**
+   * Nur bei gespeicherten Versionen: Zeitpunkt des Abrufs. Er beantwortet die
+   * einzige Frage, die der Speicher offen laesst — wie alt ist dieser Stand,
+   * lohnt ein „Von xjustiz.de aktualisieren"?
+   */
+  geholt?: number | null;
+}
+
+/** Eine XSD-Datei einer Version: flacher Name + Inhalt (Ablage und ZIP-Auszug). */
+export interface SchemaDatei {
+  name: string;
+  text: string;
 }

@@ -8,6 +8,8 @@ import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { EinordnenService } from '../../core/services/einordnen.service';
 import { TestmessagePatch } from '../../core/services/testmessage-store.service';
+import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
+import { XmlValidationService } from '../../core/services/xml-validation.service';
 
 /**
  * Testdaten-Speicher, Schritt "aus Profilierung" (#98): Profilierungen mit
@@ -286,5 +288,82 @@ describe('Testdaten — Projektfilter und Einordnen-Einstieg', () => {
     td.openAblage(upload, ev);
     expect(ev.stopPropagation).toHaveBeenCalled();
     expect(TestBed.inject(EinordnenService).ziel()).toEqual({ art: 'testnachricht', id: 'upl' });
+  });
+});
+
+/**
+ * Hochladen: eine Datei wird sofort im Baum geoeffnet (und noch nicht
+ * abgelegt), mehrere wandern als Stapel in den Speicher.
+ */
+describe('Testdaten — Hochladen (Auswahlfeld wie Drag&Drop)', () => {
+  let td: {
+    onDrop: (files: File[]) => Promise<void>;
+  };
+  let geoeffnet: { xml: string; name: string }[];
+  let angelegt: string[];
+
+  const XML = (n: string): string =>
+    `<?xml version="1.0"?><nachricht.genuva.ersuchen xmlns="http://www.xjustiz.de">` +
+    `<x>${n}</x></nachricht.genuva.ersuchen>`;
+
+  const datei = (name: string, inhalt = XML(name)): File =>
+    new File([inhalt], name, { type: 'application/xml' });
+
+  beforeEach(async () => {
+    geoeffnet = [];
+    angelegt = [];
+    await TestBed.configureTestingModule({
+      imports: [Testdaten],
+      providers: [
+        { provide: ProfileStoreService, useValue: { entries: () => [] } },
+        {
+          provide: TestmessageStoreService,
+          useValue: {
+            entries: () => [],
+            refresh: async () => {},
+            create: async (input: { name: string }) => {
+              angelegt.push(input.name);
+              return 'neu';
+            },
+          },
+        },
+        { provide: ToastService, useValue: { show: () => {}, showError: () => {} } },
+        {
+          provide: TestmessageEditService,
+          useValue: {
+            oeffneHochgeladen: async (xml: string, name: string) => {
+              geoeffnet.push({ xml, name });
+            },
+          },
+        },
+        {
+          provide: XmlValidationService,
+          useValue: {
+            validiere: async () => ({ status: 'valide', fehler: [], fehlerDetails: [] }),
+          },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(Testdaten);
+    fixture.detectChanges(); // der Upload-Dialog wird geschlossen — er muss existieren
+    td = fixture.componentInstance as unknown as typeof td;
+  });
+
+  it('oeffnet eine einzelne Nachricht sofort, ohne sie abzulegen', async () => {
+    await td.onDrop([datei('upload.xml')]);
+    expect(geoeffnet.map((g) => g.name)).toEqual(['upload.xml']);
+    expect(angelegt).toEqual([]);
+  });
+
+  it('legt mehrere Dateien als Stapel ab, ohne eine davon zu oeffnen', async () => {
+    await td.onDrop([datei('a.xml'), datei('b.xml')]);
+    expect(angelegt).toEqual(['a.xml', 'b.xml']);
+    expect(geoeffnet).toEqual([]);
+  });
+
+  it('ignoriert einen Ablagevorgang ohne Dateien', async () => {
+    await td.onDrop([]);
+    expect(angelegt).toEqual([]);
+    expect(geoeffnet).toEqual([]);
   });
 });

@@ -28,6 +28,7 @@ xjustiz-profilierer/
 │   │   │                      ExcelExportService, DiffService, PersistenceService, ProfileStoreService,
 │   │   │                      MigrationService, InstanceImportService, InstanceExportService,
 │   │   │                      TestmessageStoreService, TestmessageCreateService, GuidedService, BundledSchemaService,
+│   │                      SchemaStoreService (von xjustiz.de geholte Versionen, DB-Ablage),
 │   │   │                      UeberlagerungService (alle Testnachrichten eines Szenarios im Baum),
 │   │   │                      XmlValidationService, ValidationReportService,
 │   │   │                      DownloadService, ToastService, SearchService, TeilenService,
