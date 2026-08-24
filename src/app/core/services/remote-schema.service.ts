@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { BundledVersion } from '../../models/schema-bundle.model';
+import { BundledVersion, SchemaDatei } from '../../models/schema-bundle.model';
 import { LoggerService } from './logger.service';
+import { alsFiles } from '../util/schema-quellen.util';
 
 /** Basis der offiziellen Veroeffentlichungsseite. */
 const XJUSTIZ = 'https://xjustiz.justiz.de';
@@ -132,15 +133,21 @@ export class RemoteSchemaService {
   }
 
   /**
-   * XSD-Dateien einer von xjustiz.de bezogenen Version als `File[]` — gleicher
-   * Ladeweg wie bei den hinterlegten Schemata. Der ZIP-Ordner im Archiv wird
-   * abgeschnitten, die Dateinamen bleiben flach (Imports zwischen den XSDs
-   * verweisen ohne Pfad aufeinander).
+   * XSD-Dateien einer von xjustiz.de bezogenen Version — Name und Inhalt. Der
+   * ZIP-Ordner im Archiv wird abgeschnitten, die Dateinamen bleiben flach
+   * (Imports zwischen den XSDs verweisen ohne Pfad aufeinander).
+   *
+   * Getrennt von `files`, weil der Inhalt auch **abgelegt** wird: der
+   * Schema-Speicher nimmt genau diese Paare entgegen (`SchemaStoreService`).
    */
-  async files(v: BundledVersion): Promise<File[]> {
+  async dateien(v: BundledVersion): Promise<SchemaDatei[]> {
     if (!v.zipUrl) throw new Error('Keine Bezugsquelle hinterlegt: ' + v.id);
-    const dateien = await this.zipInhalt(v.zipUrl);
-    return dateien.map((d) => new File([d.text], d.name, { type: 'application/xml' }));
+    return this.zipInhalt(v.zipUrl);
+  }
+
+  /** Dieselben Dateien als `File[]` — gleicher Ladeweg wie hinterlegte Schemata. */
+  async files(v: BundledVersion): Promise<File[]> {
+    return alsFiles(await this.dateien(v));
   }
 
   private zipInhalt(pfad: string): Promise<{ name: string; text: string }[]> {

@@ -163,10 +163,14 @@
         <button
           class="menuItem"
           [class.aktiv]="v.dir === activeBundle()"
+          [title]="quellHinweis(v)"
           (click)="datenbasis.close(); bundledPick.emit(v.dir)"
         >
           {{ v.dir === activeBundle() ? '✓ ' : '' }}XJustiz {{ v.label
           }}{{ v.default ? ' (Standard)' : '' }}
+          @if (v.zipUrl) {
+            <span class="menuQuelle">xjustiz.de</span>
+          }
         </button>
       }
       @if (bundledVersions().length) {
@@ -181,10 +185,10 @@
       </button>
       <button
         class="menuItem"
-        title="Veröffentlichte XJustiz-Versionen von xjustiz.de abrufen (holt den aktuellen Stand inkl. Nachlieferungen)"
+        title="Versionsliste von xjustiz.de neu abrufen und bereits geholte Versionen auf den veröffentlichten Stand bringen. Geholte Versionen bleiben gespeichert und veralten nicht von selbst."
         (click)="datenbasis.close(); remoteSchemaClick.emit()"
       >
-        Schemata: xjustiz.de
+        Von xjustiz.de aktualisieren
       </button>
       <button
         class="menuItem"

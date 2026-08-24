@@ -81,6 +81,18 @@ describe('PersistenceService.loadBundle', () => {
     expect(state.activeBundle()).toBe('xjustiz.de/4.1.0');
   });
 
+  // Der naechste Start kommt zur zuletzt gewaehlten Datenbasis zurueck — sonst
+  // stuende nach jedem Neuladen wieder die hinterlegte Standardversion da.
+  it('merkt die geladene Version als zuletzt aktive Datenbasis', async () => {
+    const { svc } = setup();
+    try {
+      await svc.loadBundle(BUNDLE_410);
+      expect(svc.zuletztAktiveDatenbasis()).toBe('xjustiz.de/4.1.0');
+    } finally {
+      svc.zuletztAktiveDatenbasis.set('');
+    }
+  });
+
   // ensureSchema kam aus dem geloeschten TestmessageGenerationService: dessen
   // Interface bestand aus dieser einen Methode, der Rest war tot.
   describe('ensureSchema', () => {

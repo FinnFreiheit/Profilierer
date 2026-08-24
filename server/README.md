@@ -113,6 +113,20 @@ werden Abnahme-Felder aus eingelieferten Dokumenten verworfen.
 
 Datenmodell (Tabelle `profiles`, Index/Doc-Spaltentrennung): [docs/data-model.md](../docs/data-model.md).
 
+**Schemaquellen** (Tabellen `schemas` + `schema_files`, [ADR 0020](../docs/adr/0020-schemaquellen-im-backend.md)):
+`GET /api/schemas` (Liste der gespeicherten Versionen samt Dateinamen, ohne
+Inhalte) · `GET /api/schemas/:id/files` (die XSD-Dateien als
+`[{name, text}]`; 404, wenn die Version nicht gespeichert ist) ·
+`PUT /api/schemas/:id` (Body `{label?, hinweis?, zipUrl?, files:[{name,text}]}` —
+legt ab oder **ersetzt** vollständig, damit eine geschrumpfte Fassung keine
+Karteileichen hinterlässt) · `DELETE /api/schemas/:id`.
+Hier landen die von xjustiz.de geholten Versionen, damit sie das Neuladen der
+Seite überleben. **Entpackt wird im Client** (er holt das ZIP über denselben
+Proxy, mit dem er die Versionsseite liest) — der Server ist reine Ablage und
+fällt kein Urteil über den Inhalt. Kein AG-Schlüssel: ein Schema trägt keine
+fachliche Aussage und kennt daher keine Abnahme. Je Version fallen ~3 MB an,
+das Backup sollte das berücksichtigen.
+
 ## Backup
 
 Die SQLite-Datei aus `XJP_DB` sichern (bei WAL zusätzlich `*-wal`/`*-shm`).

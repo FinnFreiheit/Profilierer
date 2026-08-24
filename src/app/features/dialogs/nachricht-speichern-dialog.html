@@ -1,0 +1,29 @@
+<dialog #dlg id="nachrSpeichernDlg" (close)="onClose()">
+  <h3 style="margin-top: 0">Testnachricht speichern?</h3>
+  <p class="dashSub" style="margin-top: 0">
+    Die geöffnete Nachricht liegt noch nicht im Testdaten-Speicher. Beim Ablegen wird sie gegen das
+    Schema geprüft; der Name lässt sich hier noch anpassen.
+  </p>
+  <div class="metaGrid">
+    <label for="nachrSpeichernName">Name</label>
+    <input
+      #feld
+      id="nachrSpeichernName"
+      type="text"
+      appKeinAutofill
+      placeholder="Name der Testnachricht"
+      [value]="name()"
+      (input)="name.set($any($event.target).value)"
+      (keydown.enter)="speichern()"
+    />
+  </div>
+  <div style="display: flex; justify-content: space-between; gap: 8px; margin-top: 14px">
+    <button (click)="abbrechen()" title="Zurück in die Baumansicht">Abbrechen</button>
+    <span>
+      <button (click)="verwerfen()" title="Nicht in den Testdaten-Speicher übernehmen">
+        Nicht speichern
+      </button>
+      <button class="primary" [disabled]="leer()" (click)="speichern()">Speichern</button>
+    </span>
+  </div>
+</dialog>

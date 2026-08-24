@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { TestmessageEntry } from '../../models/testmessage.model';
+import { MessageEditSession, TestmessageEntry } from '../../models/testmessage.model';
 import {
   frageTestnachrichtName,
   parseTestmessage,
@@ -18,6 +18,7 @@ import { ToastService } from './toast.service';
 import { XmlValidationService } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
 import { SitzungsAbgleichService } from './konformitaet.service';
+import { NachrichtSpeichernService } from './nachricht-speichern.service';
 import { speicherUrteil } from '../util/speicher-urteil';
 import { bezeichnungenAnwenden, bezeichnungenAus } from '../util/ausp-bezeichnung.util';
 import { ReportEintrag } from '../../models/validation.model';
@@ -49,6 +50,7 @@ export class TestmessageEditService {
   private readonly abgleich = inject(SitzungsAbgleichService);
   private readonly nav = inject(NavService);
   private readonly create = inject(TestmessageCreateService);
+  private readonly speichernFrage = inject(NachrichtSpeichernService);
 
   /**
    * Einen Eintrag so oeffnen, wie es der Klick auf seine Kachel tut — der eine
@@ -137,6 +139,68 @@ export class TestmessageEditService {
     // Ohne diese Marke schriebe der Autosave die Nachricht sofort nach dem
     // Oeffnen unveraendert zurueck und schoebe sie in der Uebersicht nach oben.
     this.autosave.sitzungBeginnt();
+  }
+
+  /**
+   * Eine **hochgeladene** Datei sofort im Baum oeffnen — ohne Eintrag im
+   * Testdaten-Speicher. Der Upload legt damit nichts mehr ungefragt ab: die
+   * Nachricht ist zunaechst nur geoeffnet, und erst beim Verlassen der
+   * Baumansicht wird gefragt, ob und unter welchem Namen sie bleiben soll
+   * (`frageVorVerlassen`).
+   *
+   * Sie wird betrachtend geoeffnet, genau wie eine gespeicherte Nachricht; das
+   * Schema der im Nachrichtenkopf genannten XJustiz-Version wird davor
+   * nachgeladen. Wirft Error mit Nutzertext.
+   */
+  async oeffneHochgeladen(xml: string, dateiName: string): Promise<void> {
+    // Wie beim Oeffnen aus dem Speicher: haengende Aenderungen der zuvor
+    // offenen Sitzung zuerst sichern.
+    await this.autosave.flush();
+    await this.persistence.flushAutosave();
+    this.gefragtFuer = null;
+    const meta = parseTestmessage(xml);
+    if (!meta) throw new Error(`${dateiName} ist keine XJustiz-Nachricht (Wurzel nachricht.*).`);
+    await this.persistence.ensureSchema(meta.xjustizVersion);
+    this.state.activeProfileId.set(null);
+    // Setzt die Sitzung mit `entryId: null` — daran haengt spaeter die Frage.
+    this.instanceImport.importXml(xml, dateiName);
+    this.state.abnahmeSchreibschutz.set(false);
+    this.state.view.set('editor');
+    this.autosave.sitzungBeginnt();
+  }
+
+  /**
+   * Rueckfrage beim Verlassen der Baumansicht: eine hochgeladene Nachricht hat
+   * keinen Eintrag im Speicher und damit auch kein Autosave — der Rueckweg ist
+   * der letzte Moment, in dem sie zu retten ist. Der Name ist in der Frage
+   * anpassbar (Vorschlag: der Dateiname).
+   *
+   * Gibt false zurueck, wenn die Ansicht stehen bleiben soll: bei „Abbrechen"
+   * und dann, wenn das Ablegen an der Schemapruefung scheitert — sonst waere
+   * die Arbeit mit dem Ansichtswechsel weg.
+   */
+  async frageVorVerlassen(): Promise<boolean> {
+    const session = this.state.messageEdit();
+    // Nichts Fluechtiges offen: gespeicherte Nachrichten sichert der Autosave,
+    // der gefuehrte Durchlauf legt seinen Eintrag selbst an.
+    if (!session || session.entryId) return true;
+    const antwort = await this.speichernFrage.frage(session.quellName);
+    if (antwort.art === 'abbrechen') return false;
+    if (antwort.art === 'verwerfen') {
+      this.toast.show('Nicht abgelegt — die Nachricht war nur geöffnet.');
+      return true;
+    }
+    const id = await this.ablegen(session, antwort.name);
+    if (!id) {
+      this.toast.show('Nicht gespeichert — die Nachricht bleibt geöffnet.');
+      return false;
+    }
+    // Die Sitzung zeigt jetzt auf den Eintrag; ohne die Marke schriebe der
+    // Autosave den eben abgelegten Stand gleich noch einmal zurueck.
+    this.state.messageEdit.update((s) => (s ? { ...s, entryId: id } : s));
+    this.autosave.explizitGespeichert();
+    this.toast.show('Testnachricht gespeichert.');
+    return true;
   }
 
   /**
@@ -313,12 +377,25 @@ export class TestmessageEditService {
     if (!session) return false;
     const name = frageTestnachrichtName(this.msgNameVorschlag(session.quellName));
     if (name == null) return false; // abgebrochen
+    if (!(await this.ablegen(session, name))) return false;
+    this.toast.show('Als neue Testnachricht gespeichert.');
+    this.state.view.set('testdaten');
+    return true;
+  }
 
+  /**
+   * Den aktuellen Stand als **neuen** Eintrag in den Testspeicher schreiben —
+   * der gemeinsame Kern von „als neue Nachricht speichern" und der Rueckfrage
+   * beim Verlassen. Neue Eintraege muessen schema-valide sein (dasselbe Tor wie
+   * frueher der Upload); sonst kommt der Bericht und nichts wird angelegt.
+   * Gibt die id des angelegten Eintrags zurueck, sonst null.
+   */
+  private async ablegen(session: MessageEditSession, name: string): Promise<string | null> {
     const xml = this.instanceExport.buildInstanceXml(session);
     const meta = parseTestmessage(xml);
     if (!meta) {
       this.toast.show('Die erzeugte Nachricht ist nicht lesbar — bitte prüfen.');
-      return false;
+      return null;
     }
     const pruefung = await this.validator.validiere(xml);
     if (pruefung.status !== 'valide') {
@@ -326,15 +403,12 @@ export class TestmessageEditService {
         'Nicht gespeichert — die Nachricht ist nicht schema-valide',
         pruefung.fehler,
       );
-      return false;
+      return null;
     }
-    await this.store.create({
+    return this.store.create({
       ...testmessageInput(name, xml, meta),
       bezeichnungen: bezeichnungenAus(this.state.alleAuspListen()),
     });
-    this.toast.show('Als neue Testnachricht gespeichert.');
-    this.state.view.set('testdaten');
-    return true;
   }
 
   /** Vorschlag „<Quelle> (bearbeitet).xml" aus dem Quellnamen. */

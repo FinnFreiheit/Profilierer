@@ -10,6 +10,7 @@ import { Crumbs } from '../crumbs/crumbs';
 import { Menu } from '../../shared/menu/menu';
 import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
 import { UeberlagerungMenu } from '../ueberlagerung/ueberlagerung-menu';
+import { BundledVersion } from '../../models/schema-bundle.model';
 
 /** Die drei Arbeitsweisen des Segments. */
 export type Arbeitsmodus = 'betrachten' | 'bearbeiten' | 'gefuehrt';
@@ -73,6 +74,20 @@ export class Werkzeugleiste {
   protected readonly datenbasisLabel = computed(() =>
     this.state.idx() ? `XJustiz ${this.state.version() || '?'}` : 'Schemata',
   );
+
+  /**
+   * Tooltip eines Eintrags im Umschalter: woher die Version stammt. Bei
+   * gespeicherten (von xjustiz.de geholten) ist das die entscheidende Auskunft —
+   * sie liegen im Backend und werden nur auf Zuruf aktualisiert.
+   */
+  protected quellHinweis(v: BundledVersion): string {
+    if (!v.zipUrl) return `Im Projekt hinterlegtes Schema (public/schemas/${v.dir})`;
+    const wann = v.geholt ? ` am ${new Date(v.geholt).toLocaleDateString('de-DE')}` : '';
+    return (
+      `Von xjustiz.de geholt${wann}${v.hinweis ? ` — ${v.hinweis}` : ''}. ` +
+      'Bleibt gespeichert; aktualisiert wird nur über „Von xjustiz.de aktualisieren".'
+    );
+  }
 
   /** verInfo (Z.980-984): jetzt Tooltip des Datenbasis-Menues statt eigener Pille. */
   protected readonly verInfo = computed(() => {

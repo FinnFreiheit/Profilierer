@@ -9,6 +9,7 @@ import { ToastService } from './toast.service';
 import { CodelistService } from './codelist.service';
 import { XmlValidationService, XmlValidierung } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
+import { NachrichtSpeichernService, SpeichernAntwort } from './nachricht-speichern.service';
 import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
 import { XsdDoc } from '../../models/xsd-index.model';
@@ -88,6 +89,10 @@ describe('TestmessageEditService', () => {
   let fortgesetzt: string[];
   /** Stub-Schalter: der gespeicherte Entscheidungsstand ist nicht ladbar. */
   let fortsetzenScheitert: boolean;
+  /** Antwort der Rueckfrage beim Verlassen (Stub des Dialogs). */
+  let antwort: SpeichernAntwort;
+  /** Namensvorschlaege, mit denen die Rueckfrage gestellt wurde. */
+  let gefragteVorschlaege: string[];
 
   beforeEach(() => {
     created = [];
@@ -101,6 +106,8 @@ describe('TestmessageEditService', () => {
     vorgabeAntwort = null;
     bezAntwort = null;
     geloest = [];
+    antwort = { art: 'abbrechen' };
+    gefragteVorschlaege = [];
     TestBed.configureTestingModule({
       providers: [
         {
@@ -147,6 +154,15 @@ describe('TestmessageEditService', () => {
         { provide: ToastService, useValue: { show: () => {} } },
         { provide: CodelistService, useValue: { ensureUsedCodelists: () => Promise.resolve() } },
         { provide: XmlValidationService, useValue: { validiere: async () => pruefung } },
+        {
+          provide: NachrichtSpeichernService,
+          useValue: {
+            frage: async (vorschlag: string) => {
+              gefragteVorschlaege.push(vorschlag);
+              return antwort;
+            },
+          },
+        },
       ],
     });
     svc = TestBed.inject(TestmessageEditService);
@@ -443,6 +459,78 @@ describe('TestmessageEditService', () => {
 
       expect(await svc.alsNeueSpeichern()).toBeTrue();
       expect(created[0]!.bezeichnungen).toEqual({ [LISTE]: ['Kläger', 'Vorkommen 2'] });
+    });
+  });
+
+  describe('oeffneHochgeladen (Upload oeffnet sofort im Baum)', () => {
+    it('oeffnet betrachtend, ohne Eintrag im Speicher anzulegen', async () => {
+      await svc.oeffneHochgeladen(INSTANCE, 'upload.xml');
+
+      expect(state.msgName()).toBe(M);
+      expect(state.view()).toBe('editor');
+      expect(state.readOnly()).toBeTrue();
+      expect(state.messageEdit()!.entryId).toBeNull();
+      expect(state.messageEdit()!.quellName).toBe('upload.xml');
+      expect(created.length).toBe(0);
+    });
+
+    it('lehnt ab, was keine XJustiz-Nachricht ist', async () => {
+      await expectAsync(svc.oeffneHochgeladen('<foo/>', 'foo.xml')).toBeRejectedWithError(
+        /keine XJustiz-Nachricht/,
+      );
+      expect(state.msgName()).toBeFalsy();
+    });
+  });
+
+  describe('frageVorVerlassen (Rueckfrage beim Verlassen der Baumansicht)', () => {
+    it('fragt nicht, wenn gar keine Nachricht offen ist', async () => {
+      expect(await svc.frageVorVerlassen()).toBeTrue();
+      expect(gefragteVorschlaege).toEqual([]);
+    });
+
+    it('fragt nicht bei einer gespeicherten Nachricht (die sichert der Autosave)', async () => {
+      await svc.oeffnen(eintrag(), 'bearbeiten');
+      expect(await svc.frageVorVerlassen()).toBeTrue();
+      expect(gefragteVorschlaege).toEqual([]);
+    });
+
+    it('schlaegt den Dateinamen vor und legt unter dem gewaehlten Namen ab', async () => {
+      await svc.oeffneHochgeladen(INSTANCE, 'upload.xml');
+      antwort = { art: 'speichern', name: 'Klage Musterfall.xml' };
+
+      expect(await svc.frageVorVerlassen()).toBeTrue();
+      expect(gefragteVorschlaege).toEqual(['upload.xml']);
+      expect(created.length).toBe(1);
+      expect(created[0]!.name).toBe('Klage Musterfall.xml');
+      expect(created[0]!.nachricht).toBe(M);
+      // Die Sitzung zeigt jetzt auf den Eintrag — ein zweiter Rueckweg fragt nicht mehr.
+      expect(state.messageEdit()!.entryId).toBe('id-neu');
+    });
+
+    it('verwerfen laesst die Nachricht ziehen, ohne sie abzulegen', async () => {
+      await svc.oeffneHochgeladen(INSTANCE, 'upload.xml');
+      antwort = { art: 'verwerfen' };
+
+      expect(await svc.frageVorVerlassen()).toBeTrue();
+      expect(created.length).toBe(0);
+    });
+
+    it('abbrechen haelt die Baumansicht', async () => {
+      await svc.oeffneHochgeladen(INSTANCE, 'upload.xml');
+      antwort = { art: 'abbrechen' };
+
+      expect(await svc.frageVorVerlassen()).toBeFalse();
+      expect(created.length).toBe(0);
+    });
+
+    it('haelt die Ansicht, wenn die Nachricht nicht schema-valide ist', async () => {
+      await svc.oeffneHochgeladen(INSTANCE, 'upload.xml');
+      antwort = { art: 'speichern', name: 'upload.xml' };
+      pruefung = { status: 'invalide', fehler: ['Zeile 2: falsch'], fehlerDetails: [] };
+
+      expect(await svc.frageVorVerlassen()).toBeFalse();
+      expect(created.length).toBe(0);
+      expect(state.messageEdit()!.entryId).toBeNull();
     });
   });
 

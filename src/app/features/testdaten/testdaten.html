@@ -308,7 +308,28 @@
     Nur XJustiz-Instanzen (Wurzelelement <code>nachricht.*</code>). Nachrichtenname und Fachmodul
     werden automatisch erkannt; andere Dateien werden abgelehnt.
   </p>
-  <input type="file" accept=".xml" multiple (change)="onFiles($event)" />
+  <!-- Ablageflaeche: eine Datei wird direkt im Baum geoeffnet, mehrere wandern
+       als Stapel in den Speicher. -->
+  <div id="uploadDrop" appFileDrop (filesDropped)="onDrop($event)">
+    <div class="uploadDropIcon">⤓</div>
+    <p class="uploadDropText">XML-Datei hierher ziehen</p>
+    <p class="dashSub" style="margin: 0">
+      oder
+      <button type="button" (click)="dateiWahl.click()">Datei wählen…</button>
+    </p>
+    <input
+      #dateiWahl
+      class="hidden"
+      type="file"
+      accept=".xml"
+      multiple
+      (change)="onFiles($event)"
+    />
+  </div>
+  <p class="dashSub" style="margin-bottom: 0">
+    Eine einzelne Nachricht wird sofort im Baum geöffnet; ob sie im Speicher bleiben soll, wird beim
+    Verlassen der Baumansicht gefragt.
+  </p>
   <div style="text-align: right; margin-top: 12px">
     <button class="primary" (click)="uploadDlg.close()">Fertig</button>
   </div>

@@ -4,7 +4,7 @@ const PRAEFIX = 'xjp.ui.';
 
 /**
  * Arbeitsplatz-Einstellungen der Oberflaeche (Issue #80/#81): Panelbreite,
- * eingeklappte Spalte, aufgeklappte Legende.
+ * eingeklappte Spalte, aufgeklappte Legende, zuletzt gewaehlte Datenbasis.
  *
  * Bewusst `localStorage` und nicht das Backend: diese Werte gehoeren zum
  * Bildschirm, an dem gearbeitet wird, nicht zur Profilierung — dieselbe
@@ -19,6 +19,16 @@ export class UiSettingsService {
       fallback,
       (roh) => roh === 'ja',
       (v) => (v ? 'ja' : 'nein'),
+    );
+  }
+
+  /** Freitext; der leere String heisst "nicht gesetzt" (z.B. keine Wahl getroffen). */
+  text(key: string, fallback = ''): WritableSignal<string> {
+    return this.gesichert(
+      key,
+      fallback,
+      (roh) => roh,
+      (v) => v,
     );
   }
 

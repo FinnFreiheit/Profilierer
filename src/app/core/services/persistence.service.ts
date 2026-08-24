@@ -9,6 +9,7 @@ import { LoggerService } from './logger.service';
 import { ProfileStoreService } from './profile-store.service';
 import { DownloadService } from './download.service';
 import { BundledSchemaService } from './bundled-schema.service';
+import { UiSettingsService } from './ui-settings.service';
 import { BundledVersion } from '../../models/schema-bundle.model';
 import { RolleService } from './rolle.service';
 import { HinweisStoreService } from './hinweis-store.service';
@@ -61,6 +62,15 @@ export class PersistenceService {
   private readonly rolle = inject(RolleService);
   private readonly hinweise = inject(HinweisStoreService);
   private readonly guided = inject(GuidedService);
+  private readonly ui = inject(UiSettingsService);
+
+  /**
+   * Zuletzt aktive Datenbasis (`BundledVersion.dir`) — der naechste Start kommt
+   * dorthin zurueck (App.ngOnInit). Leerer String: keine Wahl, es gilt die
+   * Standardversion des Manifests. Ein eigener XSD-Ordner loescht den Eintrag
+   * (App.onXsdFiles), denn den kann der Start nicht wiederholen.
+   */
+  readonly zuletztAktiveDatenbasis = this.ui.text('datenbasis');
   /**
    * Der Autosave des Nachrichten-Modus (#105) — eigene Naht, hier nur, um
    * beim Wechsel in ein Profil den offenen Nachrichtenstand zu sichern.
@@ -259,10 +269,11 @@ export class PersistenceService {
    * Korrektur hiesse die aktive Datenbasis ueberall 4.0.0 — im Umschalter, im
    * Profil-Meta (`xjustizVersion`) und damit beim spaeteren Oeffnen.
    */
-  async loadBundle(v: BundledVersion): Promise<number> {
-    const n = await this.loadXsdFiles(await this.bundled.files(v));
+  async loadBundle(v: BundledVersion, opts: { erneuern?: boolean } = {}): Promise<number> {
+    const n = await this.loadXsdFiles(await this.bundled.files(v, opts));
     if (v.id) this.state.version.set(v.id);
     this.state.activeBundle.set(v.dir);
+    this.zuletztAktiveDatenbasis.set(v.dir);
     return n;
   }
 

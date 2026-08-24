@@ -127,6 +127,21 @@ nur gesetzte Felder wirken, das Dokument liest und schreibt der Server selbst �
 Gefiltert wird im Client auf dem ohnehin geladenen Index (`tagOptionen`/`hatAlleTags`);
 mehrere gewählte Schlagworte wirken **zusammen** (UND).
 
+### Schemaquellen (`schemas`, `schema_files`)
+
+Von xjustiz.de geholte Schemaversionen ([ADR 0020](adr/0020-schemaquellen-im-backend.md)):
+`schemas = { id (Versionsnummer), label, hinweis, zip_url, geholt }` und dazu je Version die
+XSD-Dateien in `schema_files = { schema_id, name, text }` (Primärschlüssel über beide Spalten,
+~120 Zeilen und ~3 MB je Version). Bedient über `/api/schemas`; im Client liest der
+`SchemaStoreService` den Index in ein `entries`-Signal, das `App.versionenZusammenstellen` beim
+Start über `vereineVersionen` mit dem Manifest der hinterlegten Schemata (`public/schemas/index.json`)
+zusammenführt. Vorher lebten diese Versionen nur im Signal `bundledVersions` — nach dem Neuladen
+der Seite war eine geholte 4.1.0 aus dem Umschalter verschwunden.
+
+Die Ablage ist **ersetzend**: ein erneutes `PUT /api/schemas/:id` tauscht die Dateien komplett aus,
+damit eine geschrumpfte Fassung keine Karteileichen der vorigen hinterlässt. Entpackt wird im
+Client (JSZip, über denselben Proxy wie die Versionsseite) — der Server ist reine Ablage.
+
 ### Projekte (`projekte`)
 
 Der Behälter über den Profilierungen (#134, [ADR 0019](adr/0019-projekt-als-behaelter.md)): ein Vorhaben bündelt mehrere
