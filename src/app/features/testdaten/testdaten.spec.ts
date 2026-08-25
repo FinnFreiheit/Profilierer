@@ -10,6 +10,8 @@ import { EinordnenService } from '../../core/services/einordnen.service';
 import { TestmessagePatch } from '../../core/services/testmessage-store.service';
 import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
 import { XmlValidationService } from '../../core/services/xml-validation.service';
+import { ValidationReportService } from '../../core/services/validation-report.service';
+import { DownloadService } from '../../core/services/download.service';
 
 /**
  * Testdaten-Speicher, Schritt "aus Profilierung" (#98): Profilierungen mit
@@ -300,7 +302,9 @@ describe('Testdaten — Hochladen (Auswahlfeld wie Drag&Drop)', () => {
     onDrop: (files: File[]) => Promise<void>;
   };
   let geoeffnet: { xml: string; name: string }[];
-  let angelegt: string[];
+  let angelegt: { name: string; entwurf?: boolean }[];
+  /** Stub-Ergebnis der Schemavalidierung; Tests schalten um. */
+  let pruefung: { status: string; fehler: string[]; fehlerDetails: never[] };
 
   const XML = (n: string): string =>
     `<?xml version="1.0"?><nachricht.genuva.ersuchen xmlns="http://www.xjustiz.de">` +
@@ -312,6 +316,7 @@ describe('Testdaten — Hochladen (Auswahlfeld wie Drag&Drop)', () => {
   beforeEach(async () => {
     geoeffnet = [];
     angelegt = [];
+    pruefung = { status: 'valide', fehler: [], fehlerDetails: [] };
     await TestBed.configureTestingModule({
       imports: [Testdaten],
       providers: [
@@ -321,8 +326,8 @@ describe('Testdaten — Hochladen (Auswahlfeld wie Drag&Drop)', () => {
           useValue: {
             entries: () => [],
             refresh: async () => {},
-            create: async (input: { name: string }) => {
-              angelegt.push(input.name);
+            create: async (input: { name: string; entwurf?: boolean }) => {
+              angelegt.push({ name: input.name, entwurf: input.entwurf });
               return 'neu';
             },
           },
@@ -336,12 +341,8 @@ describe('Testdaten — Hochladen (Auswahlfeld wie Drag&Drop)', () => {
             },
           },
         },
-        {
-          provide: XmlValidationService,
-          useValue: {
-            validiere: async () => ({ status: 'valide', fehler: [], fehlerDetails: [] }),
-          },
-        },
+        { provide: XmlValidationService, useValue: { validiere: async () => pruefung } },
+        { provide: ValidationReportService, useValue: { zeige: () => {} } },
       ],
     }).compileComponents();
     const fixture = TestBed.createComponent(Testdaten);
@@ -357,7 +358,7 @@ describe('Testdaten — Hochladen (Auswahlfeld wie Drag&Drop)', () => {
 
   it('legt mehrere Dateien als Stapel ab, ohne eine davon zu oeffnen', async () => {
     await td.onDrop([datei('a.xml'), datei('b.xml')]);
-    expect(angelegt).toEqual(['a.xml', 'b.xml']);
+    expect(angelegt.map((e) => e.name)).toEqual(['a.xml', 'b.xml']);
     expect(geoeffnet).toEqual([]);
   });
 
@@ -365,5 +366,99 @@ describe('Testdaten — Hochladen (Auswahlfeld wie Drag&Drop)', () => {
     await td.onDrop([]);
     expect(angelegt).toEqual([]);
     expect(geoeffnet).toEqual([]);
+  });
+
+  // Regeländerung: invalide Nachrichten duerfen in den Speicher. Abgewiesen
+  // wird nur, was gar keine XJustiz-Nachricht ist.
+  it('legt nicht schema-valide Nachrichten als Entwurf ab, statt sie abzuweisen', async () => {
+    pruefung = { status: 'invalide', fehler: ['Zeile 2: falsch'], fehlerDetails: [] };
+    await td.onDrop([datei('kaputt.xml'), datei('auch-kaputt.xml')]);
+    expect(angelegt).toEqual([
+      { name: 'kaputt.xml', entwurf: true },
+      { name: 'auch-kaputt.xml', entwurf: true },
+    ]);
+  });
+
+  it('kennzeichnet valide Nachrichten des Stapels nicht als Entwurf', async () => {
+    await td.onDrop([datei('a.xml'), datei('b.xml')]);
+    expect(angelegt.every((e) => e.entwurf === false)).toBeTrue();
+  });
+
+  it('weist weiterhin ab, was keine XJustiz-Nachricht ist', async () => {
+    await td.onDrop([datei('liste.xml', '<gc:CodeList/>'), datei('gut.xml')]);
+    expect(angelegt.map((e) => e.name)).toEqual(['gut.xml']);
+  });
+});
+
+/**
+ * Regeländerung: der Download hat kein Validitäts-Tor mehr. Früher blockierte
+ * eine gescheiterte Schemaprüfung die eigene Datei — gerade in den Fällen, die
+ * man weiterreichen will (Negativtest, Fehlerbeispiel für den Hersteller).
+ */
+describe('Testdaten — Download', () => {
+  let td: { download: (e: TestmessageEntry, ev: Event) => Promise<void> };
+  let geladen: { name: string; inhalt: string }[];
+  let geprueft: number;
+
+  const nachricht = (over: Partial<TestmessageEntry> = {}): TestmessageEntry =>
+    ({
+      id: 'x',
+      name: 'a.xml',
+      nachricht: 'nachricht.genuva.ersuchen',
+      fachmodul: 'genuva',
+      groesse: 10,
+      hochgeladen: 0,
+      aktualisiert: 0,
+      ...over,
+    }) as TestmessageEntry;
+
+  beforeEach(async () => {
+    geladen = [];
+    geprueft = 0;
+    await TestBed.configureTestingModule({
+      imports: [Testdaten],
+      providers: [
+        { provide: ProfileStoreService, useValue: { entries: () => [] } },
+        {
+          provide: TestmessageStoreService,
+          useValue: {
+            entries: () => [],
+            refresh: async () => {},
+            loadXml: async () => '<nachricht.genuva.ersuchen/>',
+          },
+        },
+        { provide: ToastService, useValue: { show: () => {}, showError: () => {} } },
+        {
+          provide: DownloadService,
+          useValue: {
+            xmlFilename: (n: string) => n,
+            download: (name: string, inhalt: string) => geladen.push({ name, inhalt }),
+          },
+        },
+        {
+          provide: XmlValidationService,
+          useValue: {
+            validiere: async () => {
+              geprueft++;
+              return { status: 'invalide', fehler: ['Zeile 2: falsch'], fehlerDetails: [] };
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(Testdaten);
+    fixture.detectChanges();
+    td = fixture.componentInstance as unknown as typeof td;
+  });
+
+  it('laedt auch einen Entwurf herunter — und prueft dafuer gar nicht erst', async () => {
+    await td.download(nachricht({ entwurf: true }), new MouseEvent('click'));
+    expect(geladen.map((g) => g.name)).toEqual(['a.xml']);
+    expect(geprueft).toBe(0);
+  });
+
+  it('laedt eine unauffaellige Nachricht unveraendert herunter', async () => {
+    await td.download(nachricht(), new MouseEvent('click'));
+    expect(geladen).toEqual([{ name: 'a.xml', inhalt: '<nachricht.genuva.ersuchen/>' }]);
   });
 });

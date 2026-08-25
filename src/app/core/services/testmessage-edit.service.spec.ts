@@ -9,6 +9,7 @@ import { ToastService } from './toast.service';
 import { CodelistService } from './codelist.service';
 import { XmlValidationService, XmlValidierung } from './xml-validation.service';
 import { ValidationReportService } from './validation-report.service';
+import { InstanceExportService } from './instance-export.service';
 import { NachrichtSpeichernService, SpeichernAntwort } from './nachricht-speichern.service';
 import { StateService } from './state.service';
 import { XsdParserService } from './xsd-parser.service';
@@ -523,10 +524,24 @@ describe('TestmessageEditService', () => {
       expect(created.length).toBe(0);
     });
 
-    it('haelt die Ansicht, wenn die Nachricht nicht schema-valide ist', async () => {
+    // Invalide Nachrichten duerfen in den Speicher (Regeländerung): sie sind der
+    // Stoff von Negativtests, und abgewiesen waeren sie schlicht weg.
+    it('legt eine nicht schema-valide Nachricht als Entwurf ab und laesst ziehen', async () => {
       await svc.oeffneHochgeladen(INSTANCE, 'upload.xml');
       antwort = { art: 'speichern', name: 'upload.xml' };
       pruefung = { status: 'invalide', fehler: ['Zeile 2: falsch'], fehlerDetails: [] };
+
+      expect(await svc.frageVorVerlassen()).toBeTrue();
+      expect(created.length).toBe(1);
+      expect(created[0]!.entwurf).toBeTrue();
+      expect(state.messageEdit()!.entryId).toBe('id-neu');
+    });
+
+    it('haelt die Ansicht nur, wenn gar keine lesbare Nachricht entsteht', async () => {
+      await svc.oeffneHochgeladen(INSTANCE, 'upload.xml');
+      antwort = { art: 'speichern', name: 'upload.xml' };
+      // Kein Wurzelelement nachricht.* → parseTestmessage gibt null.
+      spyOn(TestBed.inject(InstanceExportService), 'buildInstanceXml').and.returnValue('<foo/>');
 
       expect(await svc.frageVorVerlassen()).toBeFalse();
       expect(created.length).toBe(0);
@@ -556,11 +571,19 @@ describe('TestmessageEditService', () => {
       expect(promptSpy).toHaveBeenCalledWith(jasmine.any(String), 'quelle (bearbeitet).xml');
     });
 
-    it('speichert eine invalide Nachricht nicht (hartes Tor wie beim Upload)', async () => {
+    it('legt eine invalide Nachricht als Entwurf an, statt sie abzuweisen', async () => {
       pruefung = { status: 'invalide', fehler: ['Zeile 2: falsch'], fehlerDetails: [] };
       spyOn(window, 'prompt').and.returnValue('Kopie.xml');
-      expect(await svc.alsNeueSpeichern()).toBeFalse();
-      expect(created.length).toBe(0);
+      expect(await svc.alsNeueSpeichern()).toBeTrue();
+      expect(created.length).toBe(1);
+      expect(created[0]!.entwurf).toBeTrue();
+      expect(state.view()).toBe('testdaten');
+    });
+
+    it('kennzeichnet eine valide Nachricht nicht als Entwurf', async () => {
+      spyOn(window, 'prompt').and.returnValue('Kopie.xml');
+      await svc.alsNeueSpeichern();
+      expect(created[0]!.entwurf).toBeFalse();
     });
   });
 });

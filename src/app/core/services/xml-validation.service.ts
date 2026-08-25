@@ -37,8 +37,9 @@ function ladeXmllint(): Promise<typeof import('xmllint-wasm')> {
 }
 
 /**
- * XSD-Validierung von XJustiz-Instanzen im Browser (Anforderung: nur valide
- * Nachrichten duerfen exportiert/gespeichert werden). Nutzt xmllint-wasm
+ * XSD-Validierung von XJustiz-Instanzen im Browser. Der Befund **kennzeichnet**
+ * (Entwurf) und meldet; gesperrt wird damit nur der Beispiel-XML-Export, der
+ * eine Nachricht erzeugt statt eine vorhandene aufzubewahren. Nutzt xmllint-wasm
  * (libxml2 als WebAssembly, lazy geladen wie ExcelJS); die Schemata kommen
  * aus dem aktuell geladenen Stand (`state.docs()`, deckt auch eigene
  * XSD-Ordner ab) oder werden fuer die Version der Nachricht aus den
