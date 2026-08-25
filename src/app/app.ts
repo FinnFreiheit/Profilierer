@@ -281,8 +281,7 @@ export class App implements OnInit {
     const prevMsg = this.state.msgName();
     // Gespeicherte Versionen kommen aus dem Backend; nur was wirklich geholt
     // werden muss, wird als Abruf angekuendigt.
-    const holt =
-      !!v.zipUrl && (opts.erneuern || !this.schemas.entries().some((e) => e.id === v.id));
+    const holt = !!v.zipUrl && (opts.erneuern || !this.schemas.hatDateien(v.id));
     const quelle = v.zipUrl ? ' von xjustiz.de' : '';
     try {
       if (holt) this.toast.show(`Lade XJustiz ${v.label} von xjustiz.de…`);
@@ -328,6 +327,11 @@ export class App implements OnInit {
       const { versionen: remote, nachlieferungen } = await this.remoteSchemas.versionen(true);
       const { liste, neu } = vereineVersionen(this.state.bundledVersions(), remote);
       this.state.bundledVersions.set(liste);
+      // Wer die Liste bloss abruft, soll sie behalten: die Bezugsquellen wandern
+      // sofort in den Speicher, das ZIP holt erst das Waehlen. Ohne diesen
+      // Schritt ueberlebte nur, was auch tatsaechlich geladen wurde — und der
+      // Umschalter zeigte nach dem Neuladen wieder nur die hinterlegten Versionen.
+      await this.schemas.merkeQuellen(remote);
       this.toast.show(
         `Schemata von xjustiz.de übernommen: ${remote.map((v) => v.label).join(', ')}` +
           (neu.length ? ` (davon neu: ${neu.map((v) => v.label).join(', ')})` : ''),
@@ -354,8 +358,9 @@ export class App implements OnInit {
    * stehen: eine alte Version ist besser als keine.
    */
   private async aktualisiereGespeicherte(versionen: BundledVersion[]): Promise<void> {
-    const gespeichert = new Set(this.schemas.entries().map((e) => e.id));
-    const faellig = versionen.filter((v) => v.zipUrl && gespeichert.has(v.id));
+    // Nur Versionen, deren **Dateien** schon im Speicher liegen — eine bloss
+    // gemerkte Bezugsquelle wird nicht ungefragt heruntergeladen.
+    const faellig = versionen.filter((v) => v.zipUrl && this.schemas.hatDateien(v.id));
     if (!faellig.length) return;
     const aktiv = this.state.activeBundle();
     let ok = 0;

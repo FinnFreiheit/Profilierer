@@ -1159,10 +1159,19 @@ export function openDb(path) {
           zipUrl: zipUrl ? String(zipUrl) : null,
           geholt,
         });
-        stmt.schemaDateienLoeschen.run(id);
-        for (const f of files) stmt.schemaDateiEinfuegen.run(id, f.name, f.text);
+        // Ohne `files` wird nur die **Bezugsquelle** gemerkt: die Version steht
+        // dann im Umschalter, ihr ZIP wird beim ersten Waehlen geholt. Bereits
+        // vorhandene Dateien bleiben dabei liegen -- das Abrufen der
+        // Versionsliste darf einen geholten Stand nicht leeren.
+        if (files) {
+          stmt.schemaDateienLoeschen.run(id);
+          for (const f of files) stmt.schemaDateiEinfuegen.run(id, f.name, f.text);
+        }
       })();
-      return schemaZeile(stmt.schemaGet.get(id), files.map((f) => f.name).sort());
+      const namen = files
+        ? files.map((f) => f.name).sort()
+        : stmt.schemaDateien.all(id).map((d) => d.name);
+      return schemaZeile(stmt.schemaGet.get(id), namen);
     },
 
     /** Version samt Dateien entfernen. Gibt true, wenn eine Zeile wegfiel. */

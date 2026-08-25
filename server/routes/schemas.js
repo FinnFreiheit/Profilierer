@@ -32,19 +32,30 @@ export function schemasRouter(db) {
     res.json(dateien);
   });
 
-  /** Ablegen oder ersetzen (Aktualisieren) -- id ist die Versionsnummer. */
+  /**
+   * Ablegen oder ersetzen (Aktualisieren) -- id ist die Versionsnummer.
+   *
+   * **Ohne `files`** wird nur die Bezugsquelle gemerkt: die Version steht damit
+   * im Umschalter und ueberlebt das Neuladen, ihr ZIP wird beim ersten Waehlen
+   * geholt. Vorhandene Dateien bleiben unberuehrt. Wer `files` mitschickt, muss
+   * echte schicken -- ein leeres Array ist ein Fehler, keine Loeschanweisung
+   * (dafuer gibt es DELETE).
+   */
   r.put('/schemas/:id', (req, res) => {
     const { label, hinweis, zipUrl, files } = req.body ?? {};
-    if (!Array.isArray(files) || !files.length)
-      return res.status(400).json({ error: 'keine Dateien' });
-    if (files.length > MAX_DATEIEN) return res.status(400).json({ error: 'zu viele Dateien' });
-    const sauber = [];
-    for (const f of files) {
-      const name = String(f?.name ?? '').trim();
-      const text = f?.text;
-      if (!name || typeof text !== 'string')
-        return res.status(400).json({ error: 'Datei ohne Namen oder Inhalt' });
-      sauber.push({ name, text });
+    let sauber;
+    if (files !== undefined) {
+      if (!Array.isArray(files) || !files.length)
+        return res.status(400).json({ error: 'keine Dateien' });
+      if (files.length > MAX_DATEIEN) return res.status(400).json({ error: 'zu viele Dateien' });
+      sauber = [];
+      for (const f of files) {
+        const name = String(f?.name ?? '').trim();
+        const text = f?.text;
+        if (!name || typeof text !== 'string')
+          return res.status(400).json({ error: 'Datei ohne Namen oder Inhalt' });
+        sauber.push({ name, text });
+      }
     }
     res.json({
       entry: db.schemaSpeichern({ id: req.params.id, label, hinweis, zipUrl, files: sauber }),
