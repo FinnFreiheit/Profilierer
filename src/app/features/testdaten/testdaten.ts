@@ -535,14 +535,18 @@ export class Testdaten {
   }
 
   /**
-   * Stapel-Import: einlesen, validieren und anlegen. Anforderung: nur
-   * schema-valide Nachrichten kommen in den Testdatenspeicher — invalide (und
-   * nicht pruefbare) Uploads werden mit Fehlerbericht abgelehnt.
+   * Stapel-Import: einlesen, pruefen und anlegen. Eine nicht schema-valide
+   * Nachricht wird **abgelegt, nicht abgewiesen** — sie bekommt das
+   * Entwurfs-Kennzeichen und ihre Fehler in den Bericht. Testdaten sind auch
+   * dann etwas wert, wenn sie (noch) nicht valide sind: Negativtests leben
+   * davon, und eine abgewiesene Datei war schlicht weg. Abgelehnt wird nur, was
+   * gar keine XJustiz-Nachricht ist.
    */
   private async legeStapelAb(files: File[]): Promise<void> {
     let ok = 0;
+    let entwuerfe = 0;
     const abgelehnt: string[] = []; // kein XJustiz-XML
-    const invalide: string[] = []; // Schemavalidierung fehlgeschlagen (mit Bericht)
+    const befunde: string[] = []; // Schemafehler der abgelegten Entwuerfe
     let fehler = 0; // Speichern fehlgeschlagen (Backend)
     for (const f of files) {
       const xml = await f.text();
@@ -552,10 +556,8 @@ export class Testdaten {
         continue;
       }
       const pruefung = await this.validator.validiere(xml);
-      if (pruefung.status !== 'valide') {
-        invalide.push(...pruefung.fehler.map((m) => `${f.name}: ${m}`));
-        continue;
-      }
+      const entwurf = pruefung.status !== 'valide';
+      if (entwurf) befunde.push(...pruefung.fehler.map((m) => `${f.name}: ${m}`));
       try {
         await this.store.create({
           name: f.name,
@@ -564,8 +566,10 @@ export class Testdaten {
           fachmodul: meta.fachmodul,
           xjustizVersion: meta.xjustizVersion,
           groesse: xml.length,
+          entwurf,
         });
         ok++;
+        if (entwurf) entwuerfe++;
       } catch {
         fehler++;
       }
@@ -573,14 +577,12 @@ export class Testdaten {
 
     const teile: string[] = [];
     if (ok) teile.push(`${ok} hochgeladen`);
+    if (entwuerfe) teile.push(`davon ${entwuerfe} als Entwurf (nicht schema-valide)`);
     if (abgelehnt.length) teile.push(`${abgelehnt.length} abgelehnt (keine XJustiz-Nachricht)`);
-    if (invalide.length) teile.push('nicht valide Nachrichten abgelehnt');
     if (fehler) teile.push(`${fehler} fehlgeschlagen (Backend nicht erreichbar)`);
     this.toast.show(teile.join(', ') || 'Nichts hochgeladen.');
-    if (invalide.length)
-      this.report.zeige('Upload abgelehnt — Nachricht nicht schema-valide', invalide);
-    if (ok && !abgelehnt.length && !invalide.length && !fehler)
-      this.uploadDlg().nativeElement.close();
+    if (befunde.length) this.report.zeige('Als Entwurf hochgeladen — nicht schema-valide', befunde);
+    if (ok && !abgelehnt.length && !fehler) this.uploadDlg().nativeElement.close();
   }
 
   // ── Prüfbericht ─────────────────────────────────────────────────────
@@ -765,21 +767,21 @@ export class Testdaten {
 
   // ── Download / Löschen ──────────────────────────────────────────────
 
-  /** Export-Tor: nur schema-valide Nachrichten verlassen den Speicher. */
+  /**
+   * Die Nachricht als XML herunterladen. **Kein Tor mehr:** frueher blockierte
+   * eine gescheiterte Schemapruefung den Download — damit kam man an die eigene
+   * Datei nicht mehr heran, gerade bei den Faellen, die man weiterreichen will
+   * (Negativtest, Fehlerbeispiel fuer den Hersteller). Ein Entwurf wird nur
+   * benannt; was ihm fehlt, sagt der Pruefbericht der Kachel.
+   */
   protected async download(e: TestmessageEntry, ev: Event): Promise<void> {
     ev.stopPropagation();
     try {
       const xml = await this.store.loadXml(e.id);
       if (xml == null) return;
-      const pruefung = await this.validator.validiere(xml);
-      if (pruefung.status !== 'valide') {
-        this.report.zeige(
-          `Download blockiert — „${e.name}" ist nicht schema-valide`,
-          pruefung.fehler,
-        );
-        return;
-      }
       this.dl.download(this.dl.xmlFilename(e.name || (e.nachricht ?? '')), xml, 'application/xml');
+      if (e.entwurf)
+        this.toast.show('Heruntergeladen — die Nachricht ist als Entwurf gekennzeichnet.');
     } catch {
       this.toast.show('Download fehlgeschlagen — Backend nicht erreichbar.');
     }

@@ -176,8 +176,9 @@ export class TestmessageEditService {
    * anpassbar (Vorschlag: der Dateiname).
    *
    * Gibt false zurueck, wenn die Ansicht stehen bleiben soll: bei „Abbrechen"
-   * und dann, wenn das Ablegen an der Schemapruefung scheitert — sonst waere
-   * die Arbeit mit dem Ansichtswechsel weg.
+   * und dann, wenn sich ueberhaupt keine lesbare Nachricht erzeugen laesst.
+   * Eine nicht schema-valide Nachricht ist kein Hinderungsgrund — sie wird als
+   * Entwurf abgelegt und gemeldet.
    */
   async frageVorVerlassen(): Promise<boolean> {
     const session = this.state.messageEdit();
@@ -190,16 +191,16 @@ export class TestmessageEditService {
       this.toast.show('Nicht abgelegt — die Nachricht war nur geöffnet.');
       return true;
     }
-    const id = await this.ablegen(session, antwort.name);
-    if (!id) {
+    const abgelegt = await this.ablegen(session, antwort.name);
+    if (!abgelegt) {
       this.toast.show('Nicht gespeichert — die Nachricht bleibt geöffnet.');
       return false;
     }
     // Die Sitzung zeigt jetzt auf den Eintrag; ohne die Marke schriebe der
     // Autosave den eben abgelegten Stand gleich noch einmal zurueck.
-    this.state.messageEdit.update((s) => (s ? { ...s, entryId: id } : s));
+    this.state.messageEdit.update((s) => (s ? { ...s, entryId: abgelegt.id } : s));
     this.autosave.explizitGespeichert();
-    this.toast.show('Testnachricht gespeichert.');
+    if (!abgelegt.entwurf) this.toast.show('Testnachricht gespeichert.');
     return true;
   }
 
@@ -270,11 +271,12 @@ export class TestmessageEditService {
   }
 
   /**
-   * Aenderungen in denselben Testspeicher-Eintrag zurueckschreiben. Anders als
-   * beim Anlegen einer neuen Nachricht ist eine invalide Nachricht hier kein
-   * hartes Aus: fuer Nachrichten gibt es kein Autosave, ein Speicher-Verbot
-   * wuerde also Arbeit vernichten. Nach Rueckfrage landet der Stand als
-   * gekennzeichneter Entwurf. Gibt true zurueck, wenn gespeichert wurde.
+   * Aenderungen in denselben Testspeicher-Eintrag zurueckschreiben. Eine
+   * invalide Nachricht ist kein hartes Aus: nach Rueckfrage landet der Stand als
+   * gekennzeichneter Entwurf. Anders als beim Anlegen (`ablegen`, das ohne
+   * Rueckfrage ablegt) wird hier gefragt — es ist ein **Ueberschreiben**, und
+   * der Ersetzte kann valide gewesen sein. Gibt true zurueck, wenn gespeichert
+   * wurde.
    */
   async speichern(): Promise<boolean> {
     const session = this.state.messageEdit();
@@ -294,7 +296,7 @@ export class TestmessageEditService {
 
     // Befunde erheben — derselbe Konformitaets-Abgleich wie im Durchlauf
     // (#31/#32, er ist der Grund, warum die Bindung das Bearbeiten ueberlebt);
-    // bei Invaliditaet fragt dieser Weg zurueck, bevor er speichert. Das
+    // bei Invaliditaet fragt dieser Weg zurueck, bevor er ueberschreibt. Das
     // **Urteil** darueber faellt einmal, im Speicher-Urteil.
     const verstoesse = this.abgleich.pruefe();
 
@@ -365,8 +367,7 @@ export class TestmessageEditService {
   /**
    * Die (bearbeitete) Nachricht als *neuen* Testspeicher-Eintrag ablegen:
    * getreu serialisieren (Original-DOM + Modell-Aenderungen), mit frischen
-   * Kopfdaten. Anders als beim Zurueckspeichern muss das Ergebnis schema-valide
-   * sein — neue Eintraege durchlaufen dasselbe Tor wie der Upload.
+   * Kopfdaten.
    *
    * Seit dem Autosave (#105) ist das kein Weg mehr, den Ausgangseintrag
    * unberuehrt zu lassen: die Aenderungen davor sind dort laengst gesichert.
@@ -377,8 +378,11 @@ export class TestmessageEditService {
     if (!session) return false;
     const name = frageTestnachrichtName(this.msgNameVorschlag(session.quellName));
     if (name == null) return false; // abgebrochen
-    if (!(await this.ablegen(session, name))) return false;
-    this.toast.show('Als neue Testnachricht gespeichert.');
+    const abgelegt = await this.ablegen(session, name);
+    if (!abgelegt) return false;
+    // Bei einem Entwurf hat `ablegen` bereits gemeldet, woran es liegt — ein
+    // zusaetzliches "gespeichert" widerspraeche dieser Meldung.
+    if (!abgelegt.entwurf) this.toast.show('Als neue Testnachricht gespeichert.');
     this.state.view.set('testdaten');
     return true;
   }
@@ -386,11 +390,20 @@ export class TestmessageEditService {
   /**
    * Den aktuellen Stand als **neuen** Eintrag in den Testspeicher schreiben —
    * der gemeinsame Kern von „als neue Nachricht speichern" und der Rueckfrage
-   * beim Verlassen. Neue Eintraege muessen schema-valide sein (dasselbe Tor wie
-   * frueher der Upload); sonst kommt der Bericht und nichts wird angelegt.
-   * Gibt die id des angelegten Eintrags zurueck, sonst null.
+   * beim Verlassen.
+   *
+   * Eine nicht schema-valide Nachricht wird **abgelegt, nicht abgewiesen**: sie
+   * bekommt das Entwurfs-Kennzeichen und ihre Fehlerliste als Bericht. Das
+   * frueher hier stehende harte Tor kostete Arbeit — wer eine unvollstaendige
+   * oder absichtlich fehlerhafte Nachricht aufbewahren will (Negativtests), soll
+   * das koennen; das Kennzeichen sagt weiterhin, woran man ist. Nur unlesbares
+   * XML bleibt draussen: das ist keine Nachricht, ueber die sich etwas sagen
+   * liesse. Gibt id und Entwurfs-Kennzeichen zurueck, sonst null.
    */
-  private async ablegen(session: MessageEditSession, name: string): Promise<string | null> {
+  private async ablegen(
+    session: MessageEditSession,
+    name: string,
+  ): Promise<{ id: string; entwurf: boolean } | null> {
     const xml = this.instanceExport.buildInstanceXml(session);
     const meta = parseTestmessage(xml);
     if (!meta) {
@@ -398,17 +411,23 @@ export class TestmessageEditService {
       return null;
     }
     const pruefung = await this.validator.validiere(xml);
-    if (pruefung.status !== 'valide') {
-      this.report.zeige(
-        'Nicht gespeichert — die Nachricht ist nicht schema-valide',
-        pruefung.fehler,
-      );
-      return null;
-    }
-    return this.store.create({
+    const schemaEintraege: ReportEintrag[] | null =
+      pruefung.status === 'valide' ? null : pruefung.fehler.map((text) => ({ text }));
+    // Dasselbe Urteil wie an den uebrigen Speicherwegen; Verstoesse gegen eine
+    // gebundene Fassung erhebt dieser Weg nicht (er legt eine *neue*, ungebundene
+    // Nachricht an — die Bindung wandert nicht mit).
+    const urteil = speicherUrteil({ verstoesse: [], schemaEintraege });
+    const id = await this.store.create({
       ...testmessageInput(name, xml, meta),
+      entwurf: urteil.entwurf,
       bezeichnungen: bezeichnungenAus(this.state.alleAuspListen()),
     });
+    const m = urteil.meldung;
+    if (m) {
+      this.toast.show(m.toast);
+      this.report.zeigeMitPfaden(m.titel, m.eintraege);
+    }
+    return { id, entwurf: urteil.entwurf };
   }
 
   /** Vorschlag „<Quelle> (bearbeitet).xml" aus dem Quellnamen. */
