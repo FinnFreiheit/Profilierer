@@ -76,6 +76,11 @@ export class InstanceExportService {
     if (depth > 40) return;
     this.tree.expandNode(node);
     const cursor: Cursor = { last: null };
+    // Benanntes Auswahl-Element (`auswahl_*` im GDS): genau ein Zweig.
+    if (node.model === 'choice') {
+      this.patchChoice(node, xmlEl, cursor, depth);
+      return;
+    }
     const done = new Set<string>();
     for (const child of node.children ?? []) {
       if (child.synthetic) {
@@ -93,6 +98,11 @@ export class InstanceExportService {
   private patchGroup(group: TreeNode, xmlEl: Element, cursor: Cursor, depth: number): void {
     if (depth > 40) return;
     this.tree.expandNode(group);
+    // Auch eine unbenannte <xs:choice> ist eine Auswahl — genau ein Zweig.
+    if (group.model === 'choice') {
+      this.patchChoice(group, xmlEl, cursor, depth);
+      return;
+    }
     const done = new Set<string>();
     for (const child of group.children ?? []) {
       if (child.synthetic) {
@@ -103,6 +113,80 @@ export class InstanceExportService {
       done.add(child.name);
       this.patchElement(child, xmlEl, cursor, depth);
     }
+  }
+
+  /**
+   * Eine Auswahl im bestehenden Dokument: es bleibt **genau ein** Zweig stehen.
+   *
+   * Ohne diesen Weg lief die Auswahl durch die gewoehnliche Kind-Schleife: der
+   * im Dokument stehende Zweig wurde gepflegt, und jeder weitere, der im Modell
+   * einen Wert trug, kam **daneben** hinzu. Wer an einem Beteiligten die
+   * Organisation befuellte, bekam `<auswahl_beteiligter>` mit `ra.kanzlei`
+   * *und* `organisation` — der Validator meldete daraufhin eine Nachricht als
+   * nicht schema-valide, die der Anwender voellig richtig gebaut hatte.
+   */
+  private patchChoice(node: TreeNode, xmlEl: Element, cursor: Cursor, depth: number): void {
+    const zweig = this.zweigWahl(node, xmlEl);
+    const behalten = new Set(zweig ? this.zweigNamen(zweig) : []);
+    for (const c of node.children ?? [])
+      for (const n of this.zweigNamen(c))
+        if (!behalten.has(n)) byName(xmlEl, n).forEach((m) => m.remove());
+    if (!zweig) return;
+    if (zweig.synthetic) {
+      this.patchGroup(zweig, xmlEl, cursor, depth + 1);
+      return;
+    }
+    if (byName(xmlEl, zweig.name).length) {
+      this.patchElement(zweig, xmlEl, cursor, depth);
+      return;
+    }
+    // Der gewaehlte Zweig fehlt im Dokument — er wird **erzwungen**, wie beim
+    // Erzeugen: eine Auswahl ohne Zweig ist nicht schema-valide, und die
+    // uebrigen sind gerade entfernt worden. Das trifft das frisch erzeugte
+    // Vorkommen: `generate` laeuft ueber die generischen Pfade und kennt die
+    // Wahl an diesem Vorkommen noch nicht.
+    const el = this.generate(zweig, depth);
+    this.insertAfter(xmlEl, cursor.last, el);
+    cursor.last = el;
+  }
+
+  /**
+   * Der Zweig, der im XML stehen soll — dieselbe Leseregel wie in der Fuehrung
+   * (`GuidedService.gewaehlterZweig`), damit im Dokument genau der Zweig steht,
+   * den die Oberflaeche als gewaehlt anzeigt:
+   *
+   * 1. **ausdruecklich gewaehlt** (der Zweig traegt `pflicht`),
+   * 2. **einzig befuellt** — ein Wert im Zweig ist die Wahl (ADR 0016).
+   *
+   * Bleibt es mehrdeutig (mehrere befuellt, keiner gewaehlt), gewinnt der Zweig,
+   * der **schon im Dokument steht**: die vorhandene Nachricht ist der sichere
+   * Stand, und die offene Auswahl meldet die Fuehrung ohnehin. Zuletzt der erste
+   * nicht ausgeschlossene — erzeugt werden muss ein Zweig in jedem Fall.
+   */
+  private zweigWahl(node: TreeNode, xmlEl: Element | null): TreeNode | null {
+    const offen = (node.children ?? []).filter(
+      (x) => this.state.wirkungOf(x.path) !== 'ausgeschlossen',
+    );
+    if (!offen.length) return null;
+    const gewaehlt = offen.filter((x) => this.state.wirkungOf(x.path) === 'pflicht');
+    if (gewaehlt.length === 1) return gewaehlt[0]!;
+    const belegt = offen.filter((x) => this.hasModelContent(x.path));
+    if (belegt.length === 1) return belegt[0]!;
+    const imDok = (x: TreeNode): boolean =>
+      !!xmlEl && this.zweigNamen(x).some((n) => byName(xmlEl, n).length > 0);
+    return belegt.find(imDok) ?? offen.find(imDok) ?? belegt[0] ?? offen[0]!;
+  }
+
+  /**
+   * Die Elementnamen, die ein Zweig auf der DOM-Ebene beitraegt. Ein benannter
+   * Zweig ist sein eigener Name; eine unbenannte Gruppe (`<xs:sequence>` in der
+   * Auswahl) steuert die Namen ihrer Kinder bei — sie liegen eine Ebene weiter
+   * oben im Dokument.
+   */
+  private zweigNamen(b: TreeNode): string[] {
+    if (!b.synthetic) return [b.name];
+    this.tree.expandNode(b);
+    return (b.children ?? []).flatMap((c) => this.zweigNamen(c));
   }
 
   private patchElement(child: TreeNode, parentXmlEl: Element, cursor: Cursor, depth: number): void {
@@ -306,15 +390,16 @@ export class InstanceExportService {
   }
 
   /**
-   * Erzeugt genau einen Zweig einer Auswahl: bevorzugt einen, der ohnehin nötig
-   * ist (Pflicht oder im Modell belegt), sonst den ersten nicht ausgeschlossenen.
-   * Der gewählte Zweig wird **erzwungen** — wird der Auswahl-Container überhaupt
+   * Erzeugt genau einen Zweig einer Auswahl — den, den `zweigWahl` benennt.
+   * Der gewählte Zweig wird **erzwungen**: wird der Auswahl-Container überhaupt
    * erzeugt, braucht er einen Zweig, unabhängig von dessen eigenem `minOccurs`.
+   *
+   * Früher entschied hier `needsGenerate`. Innerhalb einer Auswahl trägt aber
+   * jeder Zweig `minOccurs="1"` — die Prüfung war damit immer für den **ersten**
+   * wahr, und der im Modell befüllte Zweig hatte keine Chance.
    */
   private generateChoice(node: TreeNode, el: Element, cursor: Cursor, depth: number): void {
-    const kinder = node.children ?? [];
-    const frei = (x: TreeNode): boolean => this.state.wirkungOf(x.path) !== 'ausgeschlossen';
-    const b = kinder.find((x) => this.needsGenerate(x)) ?? kinder.find(frei);
+    const b = this.zweigWahl(node, null);
     if (!b) return;
     if (b.synthetic) {
       this.tree.expandNode(b);
