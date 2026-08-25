@@ -197,6 +197,76 @@ describe('InstanceExportService', () => {
     expect(art2.getElementsByTagName('code')[0]!.namespaceURI).toBeNull();
   });
 
+  // Bugfix: in einer Auswahl stand am Ende der **erste** Zweig im XML — und der
+  // befuellte kam daneben. Im GDS hiess das: wer an einem Beteiligten die
+  // Organisation befuellte, bekam `ra.kanzlei` UND `organisation`, und der
+  // Validator meldete eine Nachricht als nicht schema-valide, die richtig war.
+  describe('Auswahl: genau ein Zweig, und zwar der gemeinte', () => {
+    /** Zweige der n-ten `auswahl_kennung` als "name=wert". */
+    const zweige = (doc: Document, n: number): string[] =>
+      Array.from(all(doc, 'auswahl_kennung')[n]!.children).map(
+        (c) => `${c.localName}=${c.textContent}`,
+      );
+
+    it('schreibt im neuen Vorkommen den befuellten Zweig, nicht den ersten', () => {
+      imp.importXml(INSTANCE, 'quelle.xml');
+      const neu = state.addAusp(`${M}/beteiligung`, 'Vorkommen 3');
+      state.setElementProfile(`${M}/beteiligung@${neu}/name`, { beispiel: 'C' });
+      // Der Anwender befuellt den *zweiten* Zweig (wie „Organisation" im GDS).
+      state.setElementProfile(`${M}/beteiligung@${neu}/auswahl_kennung/kennungB`, {
+        beispiel: 'KB3',
+      });
+
+      expect(zweige(bau(), 2)).toEqual(['kennungB=KB3']);
+    });
+
+    it('wechselt den Zweig eines vorhandenen Vorkommens, statt beide zu schreiben', () => {
+      imp.importXml(INSTANCE, 'quelle.xml');
+      // Vorkommen 1 traegt kennungA aus der Quelle; der Anwender befuellt kennungB.
+      const a1 = state.auspsOf(`${M}/beteiligung`)![0]!.id;
+      state.setElementProfile(`${M}/beteiligung@${a1}/auswahl_kennung/kennungA`, {
+        beispiel: undefined,
+      });
+      state.setElementProfile(`${M}/beteiligung@${a1}/auswahl_kennung/kennungB`, {
+        beispiel: 'NEU',
+      });
+
+      expect(zweige(bau(), 0)).toEqual(['kennungB=NEU']);
+    });
+
+    it('folgt einem ausdruecklich ausgeschlossenen Zweig', () => {
+      imp.importXml(INSTANCE, 'quelle.xml');
+      const neu = state.addAusp(`${M}/beteiligung`, 'Vorkommen 3');
+      state.setElementProfile(`${M}/beteiligung@${neu}/auswahl_kennung/kennungA`, {
+        status: state.exclStatus()!.id,
+      });
+
+      expect(zweige(bau(), 2).map((z) => z.split('=')[0])).toEqual(['kennungB']);
+    });
+
+    it('gilt auch fuer eine unbenannte Auswahl (xs:choice in einer Sequenz)', () => {
+      imp.importXml(INSTANCE, 'quelle.xml');
+      // Die Quelle traegt <email>; der Anwender befuellt <telefon>.
+      // Die Zweige einer unbenannten Auswahl tragen das Gruppensegment im Pfad.
+      state.setElementProfile(`${M}/kontakt/_auswahl/email`, { beispiel: undefined });
+      state.setElementProfile(`${M}/kontakt/_auswahl/telefon`, { beispiel: '030 123' });
+      const kontakt = all(bau(), 'kontakt')[0]!;
+
+      expect(Array.from(kontakt.children).map((c) => c.localName)).toEqual(['telefon']);
+    });
+
+    it('laesst den Zweig der Quelle stehen, wenn die Wahl mehrdeutig ist', () => {
+      imp.importXml(INSTANCE, 'quelle.xml');
+      // Beide Zweige befuellt, keiner gewaehlt: die vorhandene Nachricht gewinnt.
+      const a1 = state.auspsOf(`${M}/beteiligung`)![0]!.id;
+      state.setElementProfile(`${M}/beteiligung@${a1}/auswahl_kennung/kennungB`, {
+        beispiel: 'ZWEITER',
+      });
+
+      expect(zweige(bau(), 0)).toEqual(['kennungA=KA']);
+    });
+  });
+
   it('erzeugt in einer benannten Auswahl genau einen Zweig', () => {
     imp.importXml(INSTANCE, 'quelle.xml');
     state.addAusp(`${M}/beteiligung`, 'Vorkommen 3');
@@ -284,5 +354,110 @@ describe('InstanceExportService', () => {
     const doc = roundtrip(false);
     expect(txt(doc, 'eigeneNachrichtenID')).toBe('ALT-ID-123');
     expect(txt(doc, 'erstellungszeitpunkt')).toBe('2020-01-01T00:00:00');
+  });
+});
+
+/**
+ * Der gemeldete Fall in der Form des Grunddatensatzes: `auswahl_beteiligter`
+ * mit drei Zweigen, jeder ein eigener Typ mit Pflichtkind. Wer an einer neuen
+ * Beteiligung die **Organisation** befuellt, bekam bis zum Bugfix zusaetzlich
+ * eine leere `ra.kanzlei` davor — xmllint meldete daraufhin
+ * „Element 'organisation': This element is not expected." an einer Nachricht,
+ * die der Anwender voellig richtig gebaut hatte.
+ */
+describe('InstanceExportService — auswahl_beteiligter (Form des GDS)', () => {
+  const GDS_XSD = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.gds" type="Type.Root"/>
+  <xs:complexType name="Type.Root"><xs:sequence>
+    <xs:element name="beteiligung" maxOccurs="unbounded"><xs:complexType><xs:sequence>
+      <xs:element name="beteiligtennummer" type="xs:string" minOccurs="0"/>
+      <xs:element name="auswahl_beteiligter"><xs:complexType><xs:choice>
+        <xs:element name="ra.kanzlei"><xs:complexType><xs:sequence>
+          <xs:element name="kanzleiname" type="xs:string"/>
+        </xs:sequence></xs:complexType></xs:element>
+        <xs:element name="natuerlichePerson"><xs:complexType><xs:sequence>
+          <xs:element name="nachname" type="xs:string"/>
+        </xs:sequence></xs:complexType></xs:element>
+        <xs:element name="organisation"><xs:complexType><xs:sequence>
+          <xs:element name="bezeichnung.aktuell" type="xs:string"/>
+        </xs:sequence></xs:complexType></xs:element>
+      </xs:choice></xs:complexType></xs:element>
+    </xs:sequence></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType>
+</xs:schema>`;
+
+  const GDS_INSTANCE = `<?xml version="1.0" encoding="UTF-8"?>
+<nachricht.test.gds xmlns="http://www.xjustiz.de">
+  <beteiligung>
+    <beteiligtennummer>1</beteiligtennummer>
+    <auswahl_beteiligter><natuerlichePerson><nachname>Schott</nachname></natuerlichePerson></auswahl_beteiligter>
+  </beteiligung>
+  <beteiligung>
+    <beteiligtennummer>2</beteiligtennummer>
+    <auswahl_beteiligter><ra.kanzlei><kanzleiname>Muster &amp; Partner</kanzleiname></ra.kanzlei></auswahl_beteiligter>
+  </beteiligung>
+</nachricht.test.gds>`;
+
+  const G = 'nachricht.test.gds';
+  let imp: InstanceImportService;
+  let exp: InstanceExportService;
+  let state: StateService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: CodelistService, useValue: { ensureUsedCodelists: () => Promise.resolve() } },
+      ],
+    });
+    imp = TestBed.inject(InstanceImportService);
+    exp = TestBed.inject(InstanceExportService);
+    state = TestBed.inject(StateService);
+    const parser = TestBed.inject(XsdParserService);
+    const dom = new DOMParser().parseFromString(GDS_XSD, 'application/xml');
+    state.idx.set(parser.buildIndexFrom([{ file: 'gds.xsd', dom }]).idx);
+  });
+
+  /** Zweige je `auswahl_beteiligter` im erzeugten XML. */
+  function zweige(): string[][] {
+    const doc = new DOMParser().parseFromString(
+      exp.buildInstanceXml(state.messageEdit()!, false),
+      'application/xml',
+    );
+    return Array.from(doc.getElementsByTagName('auswahl_beteiligter')).map((a) =>
+      Array.from(a.children).map((c) => c.localName),
+    );
+  }
+
+  it('schreibt an der zusaetzlichen Beteiligung nur die Organisation', () => {
+    imp.importXml(GDS_INSTANCE, 'forderungsaufstellung.xml');
+    const neu = state.addAusp(`${G}/beteiligung`, 'Vorkommen 3');
+    state.setElementProfile(
+      `${G}/beteiligung@${neu}/auswahl_beteiligter/organisation/bezeichnung.aktuell`,
+      {
+        beispiel: 'Muster GmbH',
+      },
+    );
+
+    expect(zweige()).toEqual([['natuerlichePerson'], ['ra.kanzlei'], ['organisation']]);
+  });
+
+  it('laesst die bestehenden Beteiligungen dabei unberuehrt', () => {
+    imp.importXml(GDS_INSTANCE, 'forderungsaufstellung.xml');
+    const neu = state.addAusp(`${G}/beteiligung`, 'Vorkommen 3');
+    state.setElementProfile(
+      `${G}/beteiligung@${neu}/auswahl_beteiligter/organisation/bezeichnung.aktuell`,
+      {
+        beispiel: 'Muster GmbH',
+      },
+    );
+    const doc = new DOMParser().parseFromString(
+      exp.buildInstanceXml(state.messageEdit()!, false),
+      'application/xml',
+    );
+
+    expect(doc.getElementsByTagName('nachname')[0]?.textContent).toBe('Schott');
+    expect(doc.getElementsByTagName('kanzleiname')[0]?.textContent).toBe('Muster & Partner');
+    expect(doc.getElementsByTagName('bezeichnung.aktuell')[0]?.textContent).toBe('Muster GmbH');
   });
 });
