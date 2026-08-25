@@ -44,6 +44,25 @@ export class SchemaStoreService {
    * naechste Start muss sie wieder holen.
    */
   async merke(v: BundledVersion, files: SchemaDatei[]): Promise<void> {
+    await this.schreibe(v, files);
+  }
+
+  /**
+   * Nur die **Bezugsquelle** merken (ohne Dateien): die Version steht damit im
+   * Umschalter und ueberlebt das Neuladen, ihr ZIP wird beim ersten Waehlen
+   * geholt. Das ist der Weg fuer die Versionsliste von xjustiz.de — ohne ihn
+   * ueberlebte nur, was auch tatsaechlich geladen wurde, und wer die Liste bloss
+   * abrief, fand nach dem Neuladen wieder die beiden hinterlegten Versionen vor.
+   *
+   * Vorhandene Dateien bleiben unberuehrt (der Server ruehrt sie ohne `files`
+   * nicht an) — ein Listenabruf leert keinen geholten Stand.
+   */
+  async merkeQuellen(versionen: BundledVersion[]): Promise<void> {
+    for (const v of versionen) if (v.zipUrl) await this.schreibe(v, undefined);
+  }
+
+  /** Gemeinsamer Schreibweg; `files` weggelassen = nur die Bezugsquelle. */
+  private async schreibe(v: BundledVersion, files: SchemaDatei[] | undefined): Promise<void> {
     try {
       const { entry } = await this.http.json<{ entry: BundledVersion }>(
         `/schemas/${encodeURIComponent(v.id)}`,
@@ -56,6 +75,11 @@ export class SchemaStoreService {
     } catch (e) {
       this.log.warn('Schema-Speicher', `XJustiz ${v.id} nicht gespeichert`, e);
     }
+  }
+
+  /** Liegen die XSD-Dateien dieser Version im Speicher (nicht nur die Quelle)? */
+  hatDateien(id: string): boolean {
+    return !!this.entries().find((e) => e.id === id)?.files.length;
   }
 
   /** Gespeicherte Version samt Dateien entfernen. */

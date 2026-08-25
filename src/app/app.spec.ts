@@ -10,6 +10,7 @@ import { MigrationService } from './core/services/migration.service';
 import { TeilenService } from './core/services/teilen.service';
 import { BundledSchemaService } from './core/services/bundled-schema.service';
 import { SchemaStoreService } from './core/services/schema-store.service';
+import { RemoteSchemaService } from './core/services/remote-schema.service';
 import { PersistenceService } from './core/services/persistence.service';
 import { TreeItem } from './models/node.model';
 
@@ -309,7 +310,12 @@ describe('App — Datenbasis beim Start', () => {
         },
         {
           provide: SchemaStoreService,
-          useValue: { refresh: async () => {}, entries: () => imSpeicher },
+          useValue: {
+            refresh: async () => {},
+            entries: () => imSpeicher,
+            hatDateien: (id: string) => imSpeicher.some((e) => e.id === id && !!e.files.length),
+            merkeQuellen: async () => {},
+          },
         },
         {
           provide: PersistenceService,
@@ -363,5 +369,123 @@ describe('App — Datenbasis beim Start', () => {
     imSpeicher = [];
     await starte();
     expect(geladen).toEqual(['3.6.2']);
+  });
+
+  // Der gemeldete Fall: die Versionsliste war abgerufen, die Version aber nie
+  // geladen — nach dem Neuladen stand sie nicht mehr im Umschalter. Eine bloss
+  // gemerkte Bezugsquelle (`files: []`) muss dort ankommen.
+  it('zeigt auch eine nur gemerkte Bezugsquelle im Umschalter', async () => {
+    imSpeicher = [{ ...gespeichert, files: [] }];
+    const { state } = await starte();
+    expect(state.bundledVersions().map((v) => v.id)).toEqual(['3.6.2', '4.1.0']);
+    expect(state.bundledVersions()[1]!.zipUrl).toBe('/system/zip/XJustiz-4_1_0-XSD.zip');
+  });
+});
+
+/**
+ * „Von xjustiz.de aktualisieren": die abgerufene Versionsliste muss den Neustart
+ * überleben — sonst stehen nach dem Neuladen wieder nur die hinterlegten
+ * Versionen im Umschalter, obwohl xjustiz.de mehr veröffentlicht. Gemerkt wird
+ * dabei nur die **Bezugsquelle**; heruntergeladen wird erst beim Wählen.
+ */
+describe('App — Von xjustiz.de aktualisieren', () => {
+  const remote = [
+    {
+      id: '4.1.0',
+      label: '4.1.0',
+      dir: 'xjustiz.de/4.1.0',
+      files: [],
+      zipUrl: '/system/zip/XJustiz-4_1_0-XSD.zip',
+    },
+    {
+      id: '4.0.0',
+      label: '4.0.0',
+      dir: 'xjustiz.de/4.0.0',
+      files: [],
+      zipUrl: '/system/zip/XJustiz-4_0_0-XSD.zip',
+    },
+  ];
+  const hinterlegt = { id: '3.6.2', label: '3.6.2', dir: '3.6.2', files: ['a.xsd'], default: true };
+
+  /** ids, deren Bezugsquelle gemerkt wurde. */
+  let gemerkt: string[];
+  /** ids, deren ZIP geholt wurde. */
+  let geholt: string[];
+  let imSpeicher: { id: string; files: string[] }[];
+
+  async function aktualisiere(): Promise<StateService> {
+    gemerkt = [];
+    geholt = [];
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        { provide: MigrationService, useValue: { runOnce: async () => {} } },
+        { provide: TeilenService, useValue: { startZiel: () => null } },
+        {
+          provide: RemoteSchemaService,
+          useValue: { versionen: async () => ({ versionen: remote, nachlieferungen: [] }) },
+        },
+        {
+          provide: BundledSchemaService,
+          useValue: {
+            manifest: async () => [hinterlegt],
+            files: async (v: { id: string }) => {
+              geholt.push(v.id);
+              return [];
+            },
+          },
+        },
+        {
+          provide: SchemaStoreService,
+          useValue: {
+            refresh: async () => {},
+            entries: () => imSpeicher,
+            hatDateien: (id: string) => imSpeicher.some((e) => e.id === id && !!e.files.length),
+            merkeQuellen: async (vs: { id: string }[]) => {
+              gemerkt.push(...vs.map((v) => v.id));
+            },
+          },
+        },
+        {
+          provide: PersistenceService,
+          useValue: {
+            zuletztAktiveDatenbasis: signal(''),
+            loadBundle: async (v: { id: string }) => {
+              geholt.push(v.id);
+              return 1;
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+    const app = TestBed.createComponent(App).componentInstance;
+    const state = TestBed.inject(StateService);
+    state.bundledVersions.set([hinterlegt]);
+    await app.loadRemoteVersions();
+    return state;
+  }
+
+  it('merkt die Bezugsquellen der abgerufenen Versionen', async () => {
+    imSpeicher = [];
+    const state = await aktualisiere();
+
+    expect(gemerkt).toEqual(['4.1.0', '4.0.0']);
+    expect(state.bundledVersions().map((v) => v.id)).toEqual(['3.6.2', '4.1.0', '4.0.0']);
+  });
+
+  it('laedt dabei kein einziges ZIP herunter', async () => {
+    imSpeicher = [];
+    await aktualisiere();
+    expect(geholt).toEqual([]);
+  });
+
+  it('bringt nur Versionen auf den neuen Stand, deren Dateien schon vorliegen', async () => {
+    // 4.1.0 ist geholt (hat Dateien), 4.0.0 nur gemerkt.
+    imSpeicher = [
+      { id: '4.1.0', files: ['a.xsd'] },
+      { id: '4.0.0', files: [] },
+    ];
+    await aktualisiere();
+    expect(geholt).toEqual(['4.1.0']);
   });
 });

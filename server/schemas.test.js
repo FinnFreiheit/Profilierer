@@ -85,6 +85,38 @@ test('erneutes Speichern ersetzt die Dateien vollstaendig', (t) => {
   assert.equal(db.schemaList().length, 1); // keine zweite Zeile
 });
 
+// Der Weg fuer die **Versionsliste**: wer sie von xjustiz.de abruft, soll die
+// Versionen behalten, auch ohne sie geladen zu haben. Gemerkt wird dann nur die
+// Bezugsquelle; das ZIP holt das erste Waehlen.
+test('ohne files wird nur die Bezugsquelle gemerkt', (t) => {
+  const db = oeffneTestDb(t);
+  const entry = db.schemaSpeichern(
+    { id: '4.1.0', label: '4.1.0', zipUrl: '/system/zip/XJustiz-4_1_0-XSD.zip' },
+    1000,
+  );
+
+  assert.deepEqual(entry.files, []);
+  assert.equal(entry.zipUrl, '/system/zip/XJustiz-4_1_0-XSD.zip');
+  assert.equal(db.schemaVorhanden('4.1.0'), true);
+  assert.deepEqual(db.schemaDateien('4.1.0'), []);
+  // Sie steht damit im Index — genau das ueberlebt das Neuladen der Seite.
+  assert.deepEqual(
+    db.schemaList().map((e) => e.id),
+    ['4.1.0'],
+  );
+});
+
+test('ein Listenabruf leert einen bereits geholten Stand nicht', (t) => {
+  const db = oeffneTestDb(t);
+  db.schemaSpeichern({ id: '4.1.0', files: dateien('a.xsd', 'b.xsd') }, 1000);
+
+  const entry = db.schemaSpeichern({ id: '4.1.0', label: '4.1.0', zipUrl: '/neu.zip' }, 2000);
+
+  assert.deepEqual(entry.files, ['a.xsd', 'b.xsd']);
+  assert.equal(entry.zipUrl, '/neu.zip'); // neue Bezugsquelle ist gemerkt
+  assert.equal(db.schemaDateien('4.1.0').length, 2);
+});
+
 test('schemaLoeschen entfernt Eintrag und Dateien', (t) => {
   const db = oeffneTestDb(t);
   db.schemaSpeichern({ id: '4.1.0', files: dateien('a.xsd') }, 1000);
@@ -117,12 +149,26 @@ test('HTTP: PUT legt ab, GET liefert Index und Dateien', async (t) => {
   assert.deepEqual(files.body, [{ name: 'a.xsd', text: '<!-- a.xsd -->' }]);
 });
 
+test('HTTP: PUT ohne files merkt die Quelle, PUT mit files ergaenzt sie', async (t) => {
+  const { api } = await start(t);
+
+  const quelle = await api('PUT', '/schemas/4.1.0', { label: '4.1.0', zipUrl: '/x.zip' });
+  assert.equal(quelle.status, 200);
+  assert.deepEqual(quelle.body.entry.files, []);
+  // Ohne Dateien gibt es nichts auszuliefern.
+  assert.equal((await api('GET', '/schemas/4.1.0/files')).status, 404);
+
+  await api('PUT', '/schemas/4.1.0', { files: dateien('a.xsd') });
+  const liste = await api('GET', '/schemas');
+  assert.deepEqual(liste.body[0].files, ['a.xsd']);
+});
+
 test('HTTP: unbekannte Version, leere und kaputte Dateilisten', async (t) => {
   const { api } = await start(t);
 
   assert.equal((await api('GET', '/schemas/9.9.9/files')).status, 404);
+  // Ein leeres Array ist ein Fehler, keine Loeschanweisung (dafuer gibt es DELETE).
   assert.equal((await api('PUT', '/schemas/4.1.0', { files: [] })).status, 400);
-  assert.equal((await api('PUT', '/schemas/4.1.0', {})).status, 400);
   assert.equal(
     (await api('PUT', '/schemas/4.1.0', { files: [{ name: 'a.xsd' }] })).status,
     400, // Inhalt fehlt
@@ -131,8 +177,11 @@ test('HTTP: unbekannte Version, leere und kaputte Dateilisten', async (t) => {
     (await api('PUT', '/schemas/4.1.0', { files: [{ name: '  ', text: 'x' }] })).status,
     400, // Name fehlt
   );
-  // Nichts davon hat etwas angelegt.
-  assert.deepEqual((await api('GET', '/schemas')).body, []);
+  // Nichts davon hat Dateien angelegt.
+  assert.deepEqual(
+    (await api('GET', '/schemas')).body.flatMap((e) => e.files),
+    [],
+  );
 });
 
 test('HTTP: DELETE entfernt die Version, zweiter Aufruf bleibt still', async (t) => {

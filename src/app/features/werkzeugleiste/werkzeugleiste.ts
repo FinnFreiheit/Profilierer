@@ -82,10 +82,19 @@ export class Werkzeugleiste {
    */
   protected quellHinweis(v: BundledVersion): string {
     if (!v.zipUrl) return `Im Projekt hinterlegtes Schema (public/schemas/${v.dir})`;
+    const woher = v.hinweis ? ` — ${v.hinweis}` : '';
+    // Bekannt ist die Version, sobald ihre Bezugsquelle im Speicher steht; die
+    // Dateien kommen erst mit dem ersten Waehlen dazu. Beides ist ein
+    // Unterschied, den man vor dem Klick wissen will (der Abruf dauert).
+    if (!v.files.length)
+      return (
+        `Auf xjustiz.de veröffentlicht${woher}. Das Schema wird beim ersten Wählen ` +
+        'geholt und bleibt danach gespeichert.'
+      );
     const wann = v.geholt ? ` am ${new Date(v.geholt).toLocaleDateString('de-DE')}` : '';
     return (
-      `Von xjustiz.de geholt${wann}${v.hinweis ? ` — ${v.hinweis}` : ''}. ` +
-      'Bleibt gespeichert; aktualisiert wird nur über „Von xjustiz.de aktualisieren".'
+      `Von xjustiz.de geholt${wann}${woher} — ${v.files.length} Schemadateien im Speicher. ` +
+      'Aktualisiert wird nur über „Von xjustiz.de aktualisieren".'
     );
   }
 
