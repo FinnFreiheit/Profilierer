@@ -153,15 +153,19 @@ describe('Testdaten — Filter nach Schlagworten', () => {
 
 /**
  * Kachel-Aktion "Variante anlegen" (#133): der Weg zur naechsten Auspraegung
- * eines Kommunikationsszenarios. Geprueft wird das beobachtbare Verhalten der
- * Komponente — dass sie dupliziert, den Klick nicht an die Kachel darunter
- * durchreicht und Erfolg wie Fehlschlag meldet.
+ * eines Kommunikationsszenarios. Benannt wird vor der Kopie, geoeffnet direkt
+ * danach — geprueft wird das beobachtbare Verhalten der Komponente: Vorschlag
+ * im Dialog, durchgereichter Name, Oeffnen der Kopie, Meldung bei Erfolg wie
+ * Fehlschlag.
  */
 describe('Testdaten — Variante anlegen', () => {
   let td: {
-    variante: (e: TestmessageEntry, ev: Event) => Promise<void>;
+    variante: (e: TestmessageEntry, ev: Event) => void;
+    submitVariante: () => Promise<void>;
+    varianteName: { (): string; set: (v: string) => void };
   };
-  let dupliziert: string[];
+  let dupliziert: { id: string; name?: string }[];
+  let geoeffnet: { id: string; modus: string }[];
   let toasts: string[];
   let scheitert: boolean;
 
@@ -177,6 +181,7 @@ describe('Testdaten — Variante anlegen', () => {
 
   beforeEach(async () => {
     dupliziert = [];
+    geoeffnet = [];
     toasts = [];
     scheitert = false;
     await TestBed.configureTestingModule({
@@ -188,17 +193,25 @@ describe('Testdaten — Variante anlegen', () => {
           useValue: {
             entries: () => [eintrag],
             refresh: async () => {},
-            dupliziere: async (id: string) => {
+            dupliziere: async (id: string, name?: string) => {
               if (scheitert) throw new Error('Backend weg');
-              dupliziert.push(id);
+              dupliziert.push({ id, name });
               return {
                 ...eintrag,
                 id: 'tm2',
-                name: 'Ersuchen Gemeinde (Variante)',
+                name: name || 'Ersuchen Gemeinde (Variante)',
                 profilId: 'p1',
                 profilName: 'Ersuchen an die Gemeinde',
                 fassung: 'Arbeitsstand vom 22.08.2026',
               } as TestmessageEntry;
+            },
+          },
+        },
+        {
+          provide: TestmessageEditService,
+          useValue: {
+            oeffneEintrag: async (e: TestmessageEntry, modus: string) => {
+              geoeffnet.push({ id: e.id, modus });
             },
           },
         },
@@ -214,12 +227,23 @@ describe('Testdaten — Variante anlegen', () => {
     td = TestBed.createComponent(Testdaten).componentInstance as unknown as typeof td;
   });
 
-  it('dupliziert und meldet es, ohne die Kachel darunter zu oeffnen', async () => {
+  it('schlaegt einen Namen vor, statt gleich zu kopieren', () => {
     const ev = new MouseEvent('click');
     spyOn(ev, 'stopPropagation');
-    await td.variante(eintrag, ev);
-    expect(dupliziert).toEqual(['tm1']);
+    td.variante(eintrag, ev);
+    // Die Kachel darunter darf sich nicht mitoeffnen.
     expect(ev.stopPropagation).toHaveBeenCalled();
+    expect(td.varianteName()).toBe('Ersuchen Gemeinde (Variante)');
+    expect(dupliziert).toEqual([]);
+  });
+
+  it('legt unter dem gewaehlten Namen an, meldet es und oeffnet die Kopie', async () => {
+    td.variante(eintrag, new MouseEvent('click'));
+    td.varianteName.set('Ersuchen Gemeinde — zwei Beteiligte');
+    await td.submitVariante();
+    expect(dupliziert).toEqual([{ id: 'tm1', name: 'Ersuchen Gemeinde — zwei Beteiligte' }]);
+    // Angelegt wird sie, um sie zu aendern: sie steht danach im Baum.
+    expect(geoeffnet).toEqual([{ id: 'tm2', modus: 'bearbeiten' }]);
     // Die Meldung nennt die gebundene Fassung — die Variante haengt am
     // aktuellen Stand der Profilierung, nicht zwingend an der des Originals.
     expect(toasts).toEqual([
@@ -229,8 +253,10 @@ describe('Testdaten — Variante anlegen', () => {
 
   it('meldet einen Fehlschlag, statt ihn zu verschlucken', async () => {
     scheitert = true;
-    await td.variante(eintrag, new MouseEvent('click'));
+    td.variante(eintrag, new MouseEvent('click'));
+    await td.submitVariante();
     expect(dupliziert).toEqual([]);
+    expect(geoeffnet).toEqual([]);
     expect(toasts).toEqual(['Variante konnte nicht angelegt werden.']);
   });
 });

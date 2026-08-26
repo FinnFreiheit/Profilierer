@@ -87,7 +87,10 @@ export function testmessagesRouter(db, auth) {
   // freigegebenen Nachricht eine Variante abzuleiten ruehrt das Original nicht
   // an, und gerade die freigegebenen sind die guten Ausgangspunkte.
   r.post('/testmessages/:id/duplicate', (req, res) => {
-    const out = db.tmDuplicate(req.params.id);
+    const { name } = req.body ?? {};
+    if (name !== undefined && typeof name !== 'string')
+      return res.status(400).json({ error: 'kein Name' });
+    const out = db.tmDuplicate(req.params.id, undefined, name);
     if (!out) return res.status(404).json({ error: 'nicht gefunden' });
     res.status(201).json(out);
   });
