@@ -16,6 +16,7 @@ import { NavService } from '../../core/services/nav.service';
 import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
 import { itemPath } from '../../models/node.model';
 import { istErweiterungsPfad, unterPfad } from '../../core/util/pfad.util';
+import { FokusAnker, Lage } from '../../core/util/fokus-anker.util';
 import { REF_TARGETS } from '../../core/refs';
 
 interface PathSpec {
@@ -38,6 +39,13 @@ interface LabelSpec {
 
 /** Ab dieser horizontalen Linienlaenge (px) wird die Herkunft auf die Linie geschrieben. */
 const LABEL_MIN_LEN = 400;
+
+/**
+ * Wie lange nach einem angeforderten Sprung (`scrollTarget`) nicht nachgefuehrt
+ * wird — die weiche Bewegung soll ankommen, statt vom Anker abgebrochen zu
+ * werden.
+ */
+const SPRUNG_FENSTER = 900;
 
 /**
  * Der scrollbare Baum-Bereich (#treeCanvas) mit dem SVG-Overlay der
@@ -71,6 +79,7 @@ export class TreeCanvas {
   private rafId = 0;
   private ro?: ResizeObserver;
   private teardownPan?: () => void;
+  private teardownScroll?: () => void;
 
   constructor() {
     // Struktur-/Auswahl-/Profil-/Ansichts-Aenderungen -> Neuberechnung.
@@ -85,6 +94,14 @@ export class TreeCanvas {
       this.state.showTech();
       this.state.focusMode();
       this.state.alignLeaves();
+      // Ansichtsfilter und Arbeitsmodus entscheiden, welche Kaesten ueberhaupt
+      // stehen (baumkasten-ansicht: boxHidden). Sie gehoeren in dieselbe
+      // Neuberechnung — sonst kaeme das Nachfuehren des Fokus erst mit dem
+      // ResizeObserver, also ein Bild zu spaet und sichtbar als Ruck.
+      this.state.onlyValues();
+      this.state.onlyProfile();
+      this.state.guided();
+      this.state.readOnly();
       // Ueberlagerung: An-/Abwaehlen einer Nachricht und der Filter „nur
       // Abweichungen" aendern die Zahl der Kaesten — die Linien muessen mit.
       this.ueberlagerung.nachrichten();
@@ -106,6 +123,8 @@ export class TreeCanvas {
         if (wrap) this.ro.observe(wrap);
       }
       if (canvas) this.setupPan(canvas);
+      const scroller = this.scroller();
+      if (scroller) this.beobachteScroll(scroller);
       this.scheduleRedraw();
     });
 
@@ -113,6 +132,7 @@ export class TreeCanvas {
       this.ro?.disconnect();
       if (this.rafId) cancelAnimationFrame(this.rafId);
       this.teardownPan?.();
+      this.teardownScroll?.();
     });
 
     // Scroll-/Flash-Anforderung (scrollToPath, Z.682-691).
@@ -120,18 +140,96 @@ export class TreeCanvas {
       const t = this.state.scrollTarget();
       if (!t) return;
       requestAnimationFrame(() => {
-        const canvas = this.canvas();
-        if (!canvas) return;
-        for (const b of Array.from(canvas.querySelectorAll<HTMLElement>('.box'))) {
-          if (b.dataset['path'] === t.path) {
-            b.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
-            b.classList.add('flash');
-            setTimeout(() => b.classList.remove('flash'), 1400);
-            break;
-          }
-        }
+        const b = this.boxAt(t.path);
+        if (!b) return;
+        // Ein angeforderter Sprung ist gewollt: der Anker gibt nach, und
+        // solange die weiche Bewegung laeuft, korrigiert er nicht dagegen.
+        this.anker.loesen();
+        this.springtBis = performance.now() + SPRUNG_FENSTER;
+        b.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+        b.classList.add('flash');
+        setTimeout(() => b.classList.remove('flash'), 1400);
       });
     });
+  }
+
+  // ── Fokus halten (Scroll-Anker) ─────────────────────────────────────
+
+  /** Merker fuer die Bildschirmlage des ausgewaehlten (bearbeiteten) Kastens. */
+  private readonly anker = new FokusAnker();
+  /** Bis wann eine angeforderte (weiche) Bewegung laeuft — solange kein Nachfuehren. */
+  private springtBis = 0;
+
+  private scroller(): HTMLElement | null {
+    return this.canvas()?.closest<HTMLElement>('#colWrap') ?? null;
+  }
+
+  /** Der Kasten zu einem Pfad — `data-path` traegt ihn (tree-node.html). */
+  private boxAt(path: string): HTMLElement | null {
+    const canvas = this.canvas();
+    if (!canvas) return null;
+    for (const b of Array.from(canvas.querySelectorAll<HTMLElement>('.box')))
+      if (b.dataset['path'] === path) return b;
+    return null;
+  }
+
+  /** Lage des Kastens im sichtbaren Ausschnitt (Abstand zur oberen/linken Kante). */
+  private lage(box: HTMLElement, scroller: HTMLElement): Lage {
+    const br = box.getBoundingClientRect();
+    const sr = scroller.getBoundingClientRect();
+    return { top: br.top - sr.top, left: br.left - sr.left };
+  }
+
+  /**
+   * Der ausgewaehlte Kasten bleibt beim Umbau des Baums da, wo er war.
+   *
+   * Ein Moduswechsel (gefuehrt <-> bearbeiten) schaltet Ansichtsfilter um; damit
+   * erscheinen oder verschwinden hunderte Kaesten **oberhalb** des bearbeiteten
+   * Elements, und es steht danach irgendwo — man sucht es wieder. Gehalten wird
+   * deshalb die Lage des Kastens, nicht der Scroll-Stand (FokusAnker).
+   *
+   * Nicht nachgefuehrt wird bei einem gewollten Sprung (Suche, Krumen, Fuehrung
+   * — `scrollTarget`) und wenn der Kasten gerade nicht im Baum steht (ein Filter
+   * verbirgt ihn). Im zweiten Fall bleibt der Anker stehen: taucht der Kasten
+   * wieder auf — genau der Weg zurueck aus dem anderen Modus —, sitzt er wieder
+   * an seiner Stelle.
+   */
+  private haltFokus(): void {
+    const sel = this.state.selItem();
+    const scroller = this.scroller();
+    if (!sel || !scroller) return;
+    const pfad = itemPath(sel);
+    const box = this.boxAt(pfad);
+    if (!box) return; // verborgen — der Anker wartet, bis er wiederkommt
+    if (performance.now() < this.springtBis) {
+      this.anker.loesen();
+      return;
+    }
+    const d = this.anker.nachfuehren(pfad, this.lage(box, scroller));
+    if (!d) return;
+    scroller.scrollTop += d.top;
+    scroller.scrollLeft += d.left;
+  }
+
+  /**
+   * Scrollen des Anwenders (Rad, Ziehen, Rollbalken) setzt den Anker neu — was
+   * er zuletzt gesehen hat, ist die Lage, die gehalten wird. Ist der
+   * ausgewaehlte Kasten dabei nicht im Baum, faellt der Anker weg: sonst zoege
+   * ein spaeterer Umbau die Ansicht dorthin zurueck, wo der Anwender bewusst
+   * weggescrollt ist.
+   */
+  private beobachteScroll(scroller: HTMLElement): void {
+    const onScroll = (): void => {
+      const sel = this.state.selItem();
+      const box = sel ? this.boxAt(itemPath(sel)) : null;
+      if (!box || !sel) {
+        this.anker.loesen();
+        return;
+      }
+      this.anker.merke(itemPath(sel), this.lage(box, scroller));
+    };
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    this.teardownScroll = () => scroller.removeEventListener('scroll', onScroll);
   }
 
   private canvas(): HTMLElement | null {
@@ -265,6 +363,10 @@ export class TreeCanvas {
     // Ausrichtung sitzt jedes Blatt direkt neben seinem Elternknoten (kurze Wege).
     if (this.state.alignLeaves()) this.alignLeaves(canvas);
     else this.resetLeafMargins(canvas);
+    // Erst die Ansicht dem bearbeiteten Kasten nachziehen, dann vermessen: die
+    // Linien werden canvas-relativ berechnet, der Scroll-Stand darf sich davor
+    // aendern.
+    this.haltFokus();
     const W = canvas.scrollWidth;
     const H = canvas.scrollHeight;
     this.svgSize.set({ w: W, h: H });
