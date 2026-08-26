@@ -447,6 +447,11 @@ test('Variante anlegen: auch aus einer abgenommenen Nachricht, Kopie unmarkiert'
   const kopie = await api('POST', `/testmessages/${id}/duplicate`);
   assert.equal(kopie.status, 201);
   assert.equal(kopie.body.entry.name, 'tm1.xml (Variante)');
+  // Mit Namen aus dem Dialog: er gewinnt gegen den Zusatz.
+  const benannt = await api('POST', `/testmessages/${id}/duplicate`, {
+    body: { name: 'zwei Beteiligte' },
+  });
+  assert.equal(benannt.body.entry.name, 'zwei Beteiligte');
   assert.equal(kopie.body.entry.abgenommen, undefined);
 
   // Original unberuehrt und weiterhin geschuetzt.

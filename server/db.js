@@ -1633,8 +1633,10 @@ export function openDb(path) {
     },
 
     /**
-     * Variante einer Testnachricht (#133): Kopie mit neuer id und Namenszusatz
-     * " (Variante)". Die Auspraegungen eines Szenarios unterscheiden sich meist
+     * Variante einer Testnachricht (#133): Kopie mit neuer id. Der Name kommt
+     * aus dem Aufruf — wer die Variante anlegt, benennt sie gleich nach dem,
+     * was sie unterscheidet; ohne Angabe bleibt der Namenszusatz " (Variante)".
+     * Die Auspraegungen eines Szenarios unterscheiden sich meist
      * in einem einzigen Vorkommen — sie entstehen als Kopie und werden danach
      * angepasst, statt jedes Mal von vorn erzeugt zu werden.
      *
@@ -1656,7 +1658,7 @@ export function openDb(path) {
      *
      * Gibt { id, entry } oder null bei unbekannter id.
      */
-    tmDuplicate(id, ts) {
+    tmDuplicate(id, ts, name) {
       const row = stmt.tmGetRow.get(id);
       if (!row) return null;
       const neueId = randomUUID();
@@ -1684,7 +1686,7 @@ export function openDb(path) {
       stmt.tmInsert.run({
         id: neueId,
         xml: row.xml,
-        name: (row.name || '(ohne Namen)') + ' (Variante)',
+        name: (name || '').trim() || (row.name || '(ohne Namen)') + ' (Variante)',
         nachricht: row.nachricht,
         fachmodul: row.fachmodul,
         xjustizVersion: row.xjustiz_version,

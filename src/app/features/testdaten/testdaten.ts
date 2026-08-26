@@ -98,6 +98,7 @@ export class Testdaten {
   private readonly editDlg = viewChild.required<ElementRef<HTMLDialogElement>>('editDlg');
   private readonly createDlg = viewChild.required<ElementRef<HTMLDialogElement>>('createDlg');
   private readonly pruefDlg = viewChild.required<ElementRef<HTMLDialogElement>>('pruefDlg');
+  private readonly varianteDlg = viewChild.required<ElementRef<HTMLDialogElement>>('varianteDlg');
 
   constructor() {
     // Index beim Betreten der Ansicht auffrischen: das Kennzeichen "Profil
@@ -179,6 +180,11 @@ export class Testdaten {
   protected readonly editName = signal('');
   protected readonly editNote = signal('');
   protected readonly editTags = signal('');
+
+  /** Variante anlegen: Ausgangs-Eintrag, Namensvorschlag, laufende Anfrage. */
+  protected readonly varianteEintrag = signal<TestmessageEntry | null>(null);
+  protected readonly varianteName = signal('');
+  protected readonly varianteLoading = signal(false);
 
   /** Gefiltert (Suche) und nach Fachmodul → Nachricht gruppiert. */
   protected readonly gruppen = computed<Gruppe[]>(() => {
@@ -449,29 +455,48 @@ export class Testdaten {
   }
 
   /**
-   * Kachel-Aktion "Variante anlegen" (#133): serverseitige Kopie, gebunden an
-   * den aktuellen Stand der Profilierung. Der Weg zur naechsten Auspraegung
-   * eines Szenarios — einmal mit einem Beteiligten, einmal mit zweien — ohne
-   * den gefuehrten Durchlauf von vorn zu fahren.
-   *
-   * Die Meldung nennt die gebundene Fassung: die Variante kann an einer
-   * anderen haengen als ihr Original (dort eine ueberholte oder gar keine), und
-   * das entscheidet ueber Ueberlagerung, Fuehrung und Sperren.
+   * Kachel-Aktion "Variante anlegen" (#133): oeffnet den Benennungs-Dialog.
+   * Der Name kommt vor der Kopie — die Variante unterscheidet sich vom
+   * Original in genau der Sache, die man beim Anlegen im Kopf hat ("mit zwei
+   * Beteiligten"); nachtraeglich benannt hiessen die Kopien reihenweise
+   * "… (Variante)".
    *
    * Auch bei freigegebenen Nachrichten erlaubt: die Kopie ruehrt das Original
    * nicht an, und gerade die freigegebenen sind die guten Ausgangspunkte.
    */
-  protected async variante(e: TestmessageEntry, ev: Event): Promise<void> {
+  protected variante(e: TestmessageEntry, ev: Event): void {
     ev.stopPropagation();
+    this.varianteEintrag.set(e);
+    this.varianteName.set(`${e.name || '(ohne Namen)'} (Variante)`);
+    this.varianteDlg().nativeElement.showModal();
+  }
+
+  /**
+   * Variante anlegen und gleich oeffnen: serverseitige Kopie unter dem
+   * gewaehlten Namen, gebunden an den aktuellen Stand der Profilierung — danach
+   * steht sie im Baum, denn angelegt wird sie, um sie zu aendern.
+   *
+   * Die Meldung nennt die gebundene Fassung: die Variante kann an einer
+   * anderen haengen als ihr Original (dort eine ueberholte oder gar keine), und
+   * das entscheidet ueber Ueberlagerung, Fuehrung und Sperren.
+   */
+  protected async submitVariante(): Promise<void> {
+    const e = this.varianteEintrag();
+    if (!e || this.varianteLoading()) return;
+    this.varianteLoading.set(true);
     try {
-      const kopie = await this.store.dupliziere(e.id);
+      const kopie = await this.store.dupliziere(e.id, this.varianteName().trim());
       const bindung =
         kopie.profilName && kopie.fassung
           ? ` — gebunden an „${kopie.profilName}" (${kopie.fassung}).`
           : '.';
       this.toast.show(`Variante von „${e.name}" angelegt${bindung}`);
+      this.varianteDlg().nativeElement.close();
+      await this.edit.oeffneEintrag(kopie, 'bearbeiten');
     } catch (err) {
       this.toast.showError(err, 'Variante konnte nicht angelegt werden.');
+    } finally {
+      this.varianteLoading.set(false);
     }
   }
 

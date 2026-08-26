@@ -135,10 +135,10 @@
                 </button>
                 <button
                   class="menuItem"
-                  title="Kopie mit derselben Profilierung anlegen — Ausgangspunkt für die nächste Ausprägung"
+                  title="Kopie mit derselben Profilierung anlegen — benennen und gleich bearbeiten"
                   (click)="werkzeuge.close(); variante(e, $event)"
                 >
-                  Variante anlegen
+                  Variante anlegen…
                 </button>
                 <button
                   class="menuItem"
@@ -556,6 +556,35 @@
   <div style="text-align: right; margin-top: 12px">
     <button (click)="editDlg.close()">Abbrechen</button>
     <button class="primary" (click)="submitEdit()">Übernehmen</button>
+  </div>
+</dialog>
+
+<!-- Variante anlegen (#133): erst benennen, dann kopieren und öffnen. -->
+<dialog #varianteDlg id="varianteDlg">
+  <h3 style="margin-top: 0">Variante anlegen</h3>
+  <p class="dashSub" style="margin-top: 0">
+    Kopie von „{{ varianteEintrag()?.name }}" — gebunden an den aktuellen Stand der Profilierung.
+    Sie wird gleich zum Bearbeiten geöffnet.
+  </p>
+  <label for="varianteName" style="display: block; margin-bottom: 4px">Name</label>
+  <input
+    id="varianteName"
+    type="text"
+    style="width: 100%; box-sizing: border-box"
+    placeholder="Name der Variante"
+    [value]="varianteName()"
+    (input)="varianteName.set($any($event.target).value)"
+    (keydown.enter)="submitVariante()"
+  />
+  <div style="text-align: right; margin-top: 12px">
+    <button (click)="varianteDlg.close()">Abbrechen</button>
+    <button
+      class="primary"
+      [disabled]="varianteLoading() || !varianteName().trim()"
+      (click)="submitVariante()"
+    >
+      Anlegen und öffnen
+    </button>
   </div>
 </dialog>
 

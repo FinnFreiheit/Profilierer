@@ -123,11 +123,14 @@ export class TestmessageStoreService {
    * entsprechen (auch dann, wenn das Original nur zugeordnet war und deshalb
    * keine Vorgabe hatte). Gibt den Eintrag der Kopie zurueck; seine `fassung`
    * benennt die gebundene Fassung.
+   *
+   * `name` benennt die Variante gleich beim Anlegen; ohne Angabe vergibt der
+   * Server den Namenszusatz " (Variante)".
    */
-  async dupliziere(id: string): Promise<TestmessageEntry> {
+  async dupliziere(id: string, name?: string): Promise<TestmessageEntry> {
     const { entry } = await this.http.json<{ id: string; entry: TestmessageEntry }>(
       `/testmessages/${encodeURIComponent(id)}/duplicate`,
-      { method: 'POST' },
+      { method: 'POST', body: JSON.stringify({ name: name ?? '' }) },
     );
     this.putEntry(entry);
     return entry;

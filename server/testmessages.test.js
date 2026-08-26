@@ -421,6 +421,20 @@ test('tmDuplicate: Variante erbt Bindung, Schlagworte und Beiwerk', (t) => {
   assert.equal(db.tmDuplicate('gibtsnicht'), null);
 });
 
+test('tmDuplicate: der mitgegebene Name gewinnt, Leerraum zaehlt nicht', (t) => {
+  const db = oeffneTestDb(t);
+  const { id } = db.tmCreate(input({ name: 'Ersuchen Gemeinde' }));
+
+  // Benannt wird beim Anlegen — die Auspraegung heisst nach dem, was sie
+  // unterscheidet, nicht "… (Variante)".
+  const benannt = db.tmDuplicate(id, 2000, '  Ersuchen Gemeinde — zwei Beteiligte ');
+  assert.equal(benannt.entry.name, 'Ersuchen Gemeinde — zwei Beteiligte');
+
+  // Ohne Angabe (und bei leerer Eingabe) bleibt der Namenszusatz.
+  assert.equal(db.tmDuplicate(id, 2000, '   ').entry.name, 'Ersuchen Gemeinde (Variante)');
+  assert.equal(db.tmDuplicate(id, 2000).entry.name, 'Ersuchen Gemeinde (Variante)');
+});
+
 test('tmDuplicate: die Variante ist nicht abgenommen', (t) => {
   const db = oeffneTestDb(t);
   const { id } = db.tmCreate(input({ name: 'freigegeben' }));
