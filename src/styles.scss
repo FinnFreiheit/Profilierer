@@ -2410,6 +2410,21 @@ app-tag-eingabe input {
   background: #fdeecd;
   color: #9a6a00;
 }
+/* BETA-Kennzeichnung des Werkzeugs: steht in jeder Kopfzeile neben der Rolle. */
+.betaPill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: #fdeecd;
+  color: #9a6a00;
+}
+/* In der Uebersichts-Kopfzeile (space-between) zieht das Badge den freien Raum
+   an sich, damit es zusammen mit dem Rollen-Badge rechts steht. */
+.dashTop app-beta-badge {
+  margin-left: auto;
+  margin-right: 8px;
+}
 .rolleBadge {
   display: inline-flex;
   align-items: center;

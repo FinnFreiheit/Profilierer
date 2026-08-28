@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
+import { BetaBadge } from '../../shared/beta-badge/beta-badge';
 
 /** Ein Schritt der Anleitung: Fliesstext, Bild, optionaler Merksatz. */
 interface Schritt {
@@ -35,7 +36,7 @@ interface Teil {
 @Component({
   selector: 'app-howto',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge],
+  imports: [BetaBadge, RolleBadge],
   templateUrl: './howto.html',
 })
 export class Howto {

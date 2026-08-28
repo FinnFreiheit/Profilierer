@@ -19,6 +19,7 @@
     <h1><span>XJustiz</span> Pfadfinder</h1>
     <p class="dashSub">Profilierungen — Kommunikationsszenarien für XJustiz-Nachrichten</p>
     <div class="dashActions">
+      <app-beta-badge></app-beta-badge>
       <button class="primary" (click)="createNew()">+ Neues Profil</button>
       <input #imp type="file" accept=".json" class="hidden" (change)="onImport($event)" />
       <button (click)="imp.click()">Profil aus Datei importieren…</button>

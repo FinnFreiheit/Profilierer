@@ -22,6 +22,7 @@ import { LibraryEntry } from '../../models/profile.model';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { Projekt } from '../../models/projekt.model';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
+import { BetaBadge } from '../../shared/beta-badge/beta-badge';
 import { Menu } from '../../shared/menu/menu';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
@@ -52,7 +53,7 @@ interface Szenario {
 @Component({
   selector: 'app-projekte',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu, KeinAutofillDirective, TagEingabe],
+  imports: [BetaBadge, RolleBadge, Menu, KeinAutofillDirective, TagEingabe],
   templateUrl: './projekte.html',
 })
 export class Projekte {

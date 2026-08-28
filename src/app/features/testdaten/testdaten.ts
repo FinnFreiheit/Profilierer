@@ -25,6 +25,7 @@ import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
 import { EinordnenService } from '../../core/services/einordnen.service';
 import { TeilenService } from '../../core/services/teilen.service';
+import { BetaBadge } from '../../shared/beta-badge/beta-badge';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { TestmessageEntry } from '../../models/testmessage.model';
@@ -70,7 +71,15 @@ interface Gruppe {
 @Component({
   selector: 'app-testdaten',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu, KeinAutofillDirective, FileDropDirective, TagFilter, TagEingabe],
+  imports: [
+    BetaBadge,
+    RolleBadge,
+    Menu,
+    KeinAutofillDirective,
+    FileDropDirective,
+    TagFilter,
+    TagEingabe,
+  ],
   templateUrl: './testdaten.html',
 })
 export class Testdaten {
