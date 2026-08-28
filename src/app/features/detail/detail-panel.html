@@ -844,6 +844,22 @@
             </div>
           }
 
+          @if (!roEff() && !msgMode()) {
+            <div class="dsec">
+              <label>Fachliche Anmerkung</label>
+              <textarea
+                placeholder="Ausfüllhinweis, juristische Erläuterung, offene Frage…"
+                [value]="v.anmerkung"
+                (change)="setField('anmerkung', $event)"
+              ></textarea>
+            </div>
+          } @else if (v.anmerkung) {
+            <div class="dsec">
+              <label>Fachliche Anmerkung</label>
+              <div class="docbox">{{ v.anmerkung }}</div>
+            </div>
+          }
+
           <!-- Hinweise sind der Rueckmeldekanal (#42): sie bleiben auch im
          schreibgeschuetzten Editor einer freigegebenen Profilierung bedienbar —
          als einziges Feld. Ausserhalb dieses Falls gilt die alte Regel
@@ -903,22 +919,6 @@
                   </div>
                 }
               </div>
-            </div>
-          }
-
-          @if (!roEff() && !msgMode()) {
-            <div class="dsec">
-              <label>Fachliche Anmerkung</label>
-              <textarea
-                placeholder="Ausfüllhinweis, juristische Erläuterung, offene Frage…"
-                [value]="v.anmerkung"
-                (change)="setField('anmerkung', $event)"
-              ></textarea>
-            </div>
-          } @else if (v.anmerkung) {
-            <div class="dsec">
-              <label>Fachliche Anmerkung</label>
-              <div class="docbox">{{ v.anmerkung }}</div>
             </div>
           }
         } @else {
