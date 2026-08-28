@@ -15,6 +15,7 @@ import { FileDropDirective } from './shared/file-drop.directive';
 import { Dashboard } from './features/dashboard/dashboard';
 import { Testdaten } from './features/testdaten/testdaten';
 import { Howto } from './features/howto/howto';
+import { Kennzahlen } from './features/kennzahlen/kennzahlen';
 import { Projekte } from './features/projekte/projekte';
 import { PersistenceService } from './core/services/persistence.service';
 import { CodelistService } from './core/services/codelist.service';
@@ -80,6 +81,7 @@ function istZweigWahl(el: HTMLElement): boolean {
     Testdaten,
     Howto,
     Projekte,
+    Kennzahlen,
     ValidationDialog,
     ProfilDiffDialog,
     XmlDiffDialog,

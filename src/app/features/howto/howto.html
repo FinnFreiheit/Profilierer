@@ -8,13 +8,18 @@
         <button (click)="goDashboard()">Profile</button>
         <button (click)="goTestdaten()">Testdaten</button>
         <button class="active" disabled>Anleitung</button>
+        @if (rolle.agAktiv()) {
+          <button title="Nutzung und Bestand dieser Instanz (AG)" (click)="goKennzahlen()">
+            Kennzahlen
+          </button>
+        }
       </div>
+      <app-beta-badge></app-beta-badge>
       <app-rolle-badge></app-rolle-badge>
     </div>
     <h1><span>Anleitung</span> — Schritt für Schritt</h1>
     <p class="dashSub">
       Zwei Wege durch das Werkzeug: eine Profilierung anlegen und daraus eine Testnachricht
-      <app-beta-badge></app-beta-badge>
       erstellen. Die Bilder zeigen die App im Zustand des jeweiligen Schritts.
     </p>
   </div>

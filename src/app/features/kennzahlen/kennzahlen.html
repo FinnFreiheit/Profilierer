@@ -1,0 +1,210 @@
+<div id="dash">
+  <div class="dashHead">
+    <div class="dashTop">
+      <div class="viewToggle">
+        <button title="Vorhaben mit ihren Kommunikationsszenarien" (click)="goProjekte()">
+          Projekte
+        </button>
+        <button (click)="goDashboard()">Profile</button>
+        <button (click)="goTestdaten()">Testdaten</button>
+        <button
+          title="Bebilderte Anleitung: profilieren und Testnachrichten erstellen"
+          (click)="goHowto()"
+        >
+          Anleitung
+        </button>
+        <button class="active" disabled>Kennzahlen</button>
+      </div>
+      <app-beta-badge></app-beta-badge>
+      <app-rolle-badge></app-rolle-badge>
+    </div>
+    <h1><span>XJustiz</span> Pfadfinder</h1>
+    <p class="dashSub">Kennzahlen — Nutzung und Bestand dieser Instanz</p>
+    <div class="dashActions">
+      @for (z of zeitraeume; track z) {
+        <button
+          class="kzZeitraum"
+          [class.kzZeitraumAktiv]="tage() === z"
+          (click)="waehleZeitraum(z)"
+        >
+          {{ z }} Tage
+        </button>
+      }
+      <button (click)="aktualisieren()" [disabled]="store.laedt()">Aktualisieren</button>
+      @if (daten(); as d) {
+        <span class="kzStand">{{ zeitraumText() }} · Stand {{ standText() }}</span>
+      }
+    </div>
+  </div>
+
+  @if (store.fehler(); as f) {
+    <p class="kzLeer">{{ f }}</p>
+  } @else if (!daten()) {
+    <p class="kzLeer">Kennzahlen werden geladen …</p>
+  } @else if (nutzung(); as n) {
+    <div class="tdGroupHead">Nutzung <span class="tdGroupCount">anonym gezählt</span></div>
+    <div class="kzKacheln">
+      <div class="kzKachel">
+        <div class="kzZahl">{{ n.heute.klienten }}</div>
+        <div class="kzLabel">aktive Klienten heute</div>
+      </div>
+      <div class="kzKachel">
+        <div class="kzZahl">{{ n.fenster.klienten }}</div>
+        <div class="kzLabel">aktive Klienten im Zeitraum</div>
+      </div>
+      <div class="kzKachel">
+        <div class="kzZahl">{{ n.wiederkehrend }}</div>
+        <div class="kzLabel">davon wiederkehrend (≥ 5 Tage)</div>
+      </div>
+      <div class="kzKachel">
+        <div class="kzZahl">{{ n.heute.zugriffe }}</div>
+        <div class="kzLabel">API-Zugriffe heute</div>
+      </div>
+      <div class="kzKachel">
+        <div class="kzZahl">{{ n.fenster.zugriffe }}</div>
+        <div class="kzLabel">
+          API-Zugriffe im Zeitraum
+          @if (n.ohneKennung > 0) {
+            <span class="kzEinheit">· {{ n.ohneKennung }} ohne Kennung</span>
+          }
+        </div>
+      </div>
+      <div class="kzKachel">
+        <div class="kzZahl">{{ prozentText(fehlerQuote()) }}</div>
+        <div class="kzLabel">Fehlerquote ({{ n.fenster.fehler }} Antworten ab Status 400)</div>
+      </div>
+      <div class="kzKachel">
+        <div class="kzZahl">{{ dauerText(n.fenster.dauerMs) }}</div>
+        <div class="kzLabel">mittlere Antwortzeit</div>
+      </div>
+    </div>
+
+    <div class="kzDiagramm">
+      <div class="kzDiagrammKopf">
+        <h2>API-Zugriffe je Tag</h2>
+        <span class="kzLabel">{{ zeitraumText() }}</span>
+      </div>
+      <app-verlauf-diagramm
+        [tage]="n.verlauf"
+        reihe="zugriffe"
+        beschriftung="Zugriffe"
+      ></app-verlauf-diagramm>
+    </div>
+
+    <div class="kzDiagramm">
+      <div class="kzDiagrammKopf">
+        <h2>Aktive Klienten je Tag</h2>
+        <span class="kzLabel">Browser-Profile, nicht Personen</span>
+      </div>
+      <app-verlauf-diagramm
+        [tage]="n.verlauf"
+        reihe="klienten"
+        beschriftung="Klienten"
+      ></app-verlauf-diagramm>
+    </div>
+
+    <div class="kzDiagramm">
+      <div class="kzDiagrammKopf">
+        <h2>Zugriffsstärkste Routen</h2>
+        <span class="kzLabel">Kennungen zusammengefasst als :id</span>
+      </div>
+      <app-balken-diagramm [routen]="n.routen"></app-balken-diagramm>
+    </div>
+
+    <div class="kzDiagramm">
+      <div class="kzDiagrammKopf">
+        <h2>Tageszeit</h2>
+        <span class="kzLabel">Zugriffe je Stunde, letzte 7 Tage</span>
+      </div>
+      @if (stundenprofilLeer()) {
+        <p class="kzLeer">Noch keine Zugriffe erfasst.</p>
+      } @else {
+        <svg
+          class="kzSvg"
+          role="img"
+          [attr.viewBox]="'0 0 ' + profilBreite + ' ' + profilHoehe"
+          aria-label="Zugriffe je Stunde des Tages, letzte sieben Tage"
+        >
+          <title>Zugriffe je Stunde des Tages</title>
+          @for (b of stundenbalken(); track b.stunde) {
+            <rect
+              class="kzBalken"
+              [attr.x]="b.x"
+              [attr.y]="b.y"
+              [attr.width]="stundenBalkenBreite"
+              [attr.height]="b.hoehe"
+              rx="2"
+            >
+              <title>{{ b.stunde }} Uhr: {{ b.zugriffe }} Zugriffe</title>
+            </rect>
+            @if (b.stunde % 3 === 0) {
+              <text
+                class="kzAchse"
+                [attr.x]="b.x + stundenBalkenBreite / 2"
+                [attr.y]="profilHoehe - 4"
+                text-anchor="middle"
+              >
+                {{ b.stunde }}
+              </text>
+            }
+          }
+        </svg>
+      }
+    </div>
+
+    @if (bestand(); as b) {
+      <div class="tdGroupHead">Bestand <span class="tdGroupCount">Ist-Stand</span></div>
+      <div class="kzKacheln">
+        <div class="kzKachel">
+          <div class="kzZahl">{{ b.profile }}</div>
+          <div class="kzLabel">Profilierungen</div>
+          <div class="kachelBalken">
+            <div class="kachelBalkenFuell" [style.width.%]="fortschrittQuote()"></div>
+          </div>
+          <div class="kzLabel">
+            {{ b.punkteEntschieden }} von {{ b.punkteGesamt }} Punkten entschieden
+          </div>
+        </div>
+        <div class="kzKachel">
+          <div class="kzZahl">{{ b.profileAbgenommen }}</div>
+          <div class="kzLabel">davon abgenommen</div>
+          <div class="kachelBalken">
+            <div class="kachelBalkenFuell" [style.width.%]="abnahmeQuote()"></div>
+          </div>
+          <div class="kzLabel">{{ prozentText(abnahmeQuote()) }} der Bibliothek</div>
+        </div>
+        <div class="kzKachel">
+          <div class="kzZahl">{{ b.testnachrichten }}</div>
+          <div class="kzLabel">
+            Testnachrichten · {{ b.testnachrichtenAbgenommen }} abgenommen,
+            {{ b.testnachrichtenEntwuerfe }} Entwürfe
+          </div>
+        </div>
+        <div class="kzKachel">
+          <div class="kzZahl">{{ b.projekte }}</div>
+          <div class="kzLabel">Projekte</div>
+        </div>
+        <div class="kzKachel">
+          <div class="kzZahl">{{ b.hinweiseOffen }}</div>
+          <div class="kzLabel">
+            offene Hinweise in {{ b.profileMitOffenenHinweisen }} Profilierungen ({{
+              b.hinweiseGesamt
+            }}
+            insgesamt)
+          </div>
+        </div>
+        <div class="kzKachel">
+          <div class="kzZahl">{{ b.schemaVersionen }}</div>
+          <div class="kzLabel">abgerufene Schemaversionen</div>
+        </div>
+      </div>
+    }
+
+    <p class="kzDatenschutz">
+      Anonyme Zählung: eine zufällige Kennung im Browser, keine IP-Adressen, keine Namen, keine
+      Inhalte. Gezählt werden Browser-Profile, nicht Personen — geleerter Speicher, ein zweiter
+      Browser oder ein privates Fenster ergeben eine neue Kennung. Rohwerte werden nach 30 Tagen zu
+      Tagessummen verdichtet; Tagesgrenzen sind die des Servers.
+    </p>
+  }
+</div>

@@ -11,13 +11,18 @@
         >
           Anleitung
         </button>
+        @if (rolle.agAktiv()) {
+          <button title="Nutzung und Bestand dieser Instanz (AG)" (click)="goKennzahlen()">
+            Kennzahlen
+          </button>
+        }
       </div>
+      <app-beta-badge></app-beta-badge>
       <app-rolle-badge></app-rolle-badge>
     </div>
 
     @if (offenes(); as p) {
       <!-- Projektseite: ein Vorhaben mit seinen Kommunikationsszenarien. -->
-      <app-beta-badge></app-beta-badge>
       <button class="crumbZurueck" (click)="zurUebersicht()">← alle Projekte</button>
       <h1>
         <span>{{ p.name }}</span>

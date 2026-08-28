@@ -260,3 +260,29 @@ Das eingefrorene `doc` ist über `GET /api/profiles/:id/versions/:vid` bzw. — 
 referenzierte Abnahme-Version — über `GET /api/profiles/:id/abnahme` lesbar (Metadaten plus
 Dokument, bewusst ohne Schlüsselprüfung). Darauf setzt der feldgenaue Profil-Vergleich auf
 ([ADR 0013](adr/0013-vergleich-seit-abnahme.md)).
+
+### Nutzungszahlen (`nutzung_stunde`, `nutzung_klient_tag`, `nutzung_tag`, `nutzung_tag_klienten`)
+
+Grundlage der Ansicht **Kennzahlen** ([ADR 0021](adr/0021-nutzungszahlen-als-aggregat.md)). Bewusst
+**kein Ereignisprotokoll**: die Middleware (`server/nutzung.js`) bucht in einen Puffer im Prozess,
+der alle fünf Sekunden in einer Transaktion schreibt — `better-sqlite3` arbeitet synchron, eine
+Zeile je Request würde auf dem Pi jeden Zugriff bremsen.
+
+| Tabelle                | Schlüssel        | Inhalt                                                       | Lebensdauer |
+| ---------------------- | ---------------- | ------------------------------------------------------------ | ----------- |
+| `nutzung_stunde`       | `(stunde,route)` | `tag`, `zugriffe`, `fehler`, `dauer_summe`, `dauer_max`      | 30 Tage     |
+| `nutzung_klient_tag`   | `(tag,klient)`   | `zugriffe`, `zuletzt`; `klient = '-'` = Zugriff ohne Kennung | 30 Tage     |
+| `nutzung_tag`          | `(tag,route)`    | `zugriffe`, `fehler`, `dauer_summe`                          | unbegrenzt  |
+| `nutzung_tag_klienten` | `tag`            | `klienten` (nur die Anzahl), `zugriffe`                      | unbegrenzt  |
+
+`klient` ist eine im Browser erzeugte Zufalls-UUID (`localStorage` `xjp.klientId`, Header
+`x-klient`) — keine IP, kein Name; gezählt werden Browser-Profile, nicht Personen. `route` ist
+normalisiert (`GET /api/profiles/:id`), unbekannte Pfade sammeln sich auf `/api/sonstige`.
+`tag` ist ein **lokaler** Kalendertag und wird in JS gesetzt (`server/zeit.js`), nie in SQL aus
+`stunde` gerechnet — sonst wandern Zeilen beim Sommerzeitwechsel zwischen Tagen.
+
+`db.nutzungVerdichten(grenze)` hebt Rohzeilen älter als 30 Tage in einer Transaktion nach
+`nutzung_tag`/`nutzung_tag_klienten` und löscht sie (idempotent — die Quelle verschwindet im selben
+Schritt). Die Sichten `nutzung_tage` und `nutzung_klienten_tage` vereinen roh und verdichtet, damit
+`db.kennzahlen({tage})` den Unterschied nicht kennen muss. Ausgelesen wird das Ganze AG-exklusiv
+über `GET /api/kennzahlen?tage=n`.

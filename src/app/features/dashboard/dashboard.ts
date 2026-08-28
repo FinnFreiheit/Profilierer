@@ -263,6 +263,11 @@ export class Dashboard {
     this.state.view.set('howto');
   }
 
+  /** Zu den Kennzahlen wechseln (nur mit AG-Rolle sichtbar). */
+  protected goKennzahlen(): void {
+    this.state.view.set('kennzahlen');
+  }
+
   /** US "Schema ansehen": reine Schema-Ansicht ohne Profilierung oeffnen. */
   protected schemaAnsehen(): void {
     this.nav.openSchemaView();

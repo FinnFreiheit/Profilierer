@@ -263,6 +263,11 @@ export class Testdaten {
     this.state.view.set('howto');
   }
 
+  /** Zu den Kennzahlen wechseln (nur mit AG-Rolle sichtbar). */
+  protected goKennzahlen(): void {
+    this.state.view.set('kennzahlen');
+  }
+
   // ── Neu erstellen (gefuehrt aus Schema oder Profilierung) ───────────
 
   /**

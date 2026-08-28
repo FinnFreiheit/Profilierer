@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { KlientService } from './klient.service';
 import { RolleService } from './rolle.service';
 
 /**
@@ -43,6 +44,7 @@ class Zugriff implements BackendZugriff {
   constructor(
     private readonly quelle: string,
     private readonly authHeaders: () => Record<string, string>,
+    private readonly klientHeaders: () => Record<string, string>,
   ) {}
 
   private async anfrage(pfad: string, init?: RequestInit): Promise<Response> {
@@ -54,6 +56,10 @@ class Zugriff implements BackendZugriff {
         // der Schutz abgenommener Objekte liegt am Server, und er kann nur
         // greifen, wenn die Rolle ihn erreicht.
         ...this.authHeaders(),
+        // Anonyme Kennung fuer die Nutzungszaehlung (#kennzahlen): sie
+        // unterscheidet zehn Zugriffe eines Browsers von zehn Browsern und
+        // gehoert deshalb an jeden Request, nicht nur an die schreibenden.
+        ...this.klientHeaders(),
         ...init?.headers,
       },
     });
@@ -104,8 +110,13 @@ class Zugriff implements BackendZugriff {
 @Injectable({ providedIn: 'root' })
 export class BackendClient {
   private readonly rolle = inject(RolleService);
+  private readonly klient = inject(KlientService);
 
   fuer(quelle: string): BackendZugriff {
-    return new Zugriff(quelle, () => this.rolle.authHeaders());
+    return new Zugriff(
+      quelle,
+      () => this.rolle.authHeaders(),
+      () => this.klient.header(),
+    );
   }
 }

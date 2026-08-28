@@ -13,13 +13,18 @@
         >
           Anleitung
         </button>
+        @if (rolle.agAktiv()) {
+          <button title="Nutzung und Bestand dieser Instanz (AG)" (click)="goKennzahlen()">
+            Kennzahlen
+          </button>
+        }
       </div>
+      <app-beta-badge></app-beta-badge>
       <app-rolle-badge></app-rolle-badge>
     </div>
     <h1><span>Testdaten</span>-Speicher</h1>
     <p class="dashSub">Zentraler Ablageort für XJustiz-Testnachrichten — nach Fachmodul geordnet</p>
     <div class="dashActions">
-      <app-beta-badge></app-beta-badge>
       <button class="primary" (click)="openUpload()">Testnachrichten hochladen…</button>
       <button (click)="openCreate()">Neue Testnachricht erstellen…</button>
       <input

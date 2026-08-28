@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { BackendClient, BackendFehler, BackendZugriff } from './backend-client.service';
+import { KlientService } from './klient.service';
 import { RolleService } from './rolle.service';
 
 /**
@@ -53,6 +54,20 @@ describe('BackendClient', () => {
     expect(kopf('/profiles', 'x-ag-key')).toBe('geheim');
     expect(kopf('/profiles/x', 'x-ag-key')).toBe('geheim');
     expect(kopf('/testmessages/x/xml', 'x-ag-key')).toBe('geheim');
+  });
+
+  // Die anonyme Kennung gehoert an jeden Request, sonst zaehlt die
+  // Nutzungsstatistik zehn Zugriffe eines Browsers wie zehn Browser.
+  it('schickt die anonyme Klient-Kennung an jeden Request', async () => {
+    await http.json('/profiles', { method: 'POST', body: '{}' });
+    await http.jsonOderNull('/profiles/x');
+    await http.textOderNull('/testmessages/x/xml');
+
+    const kennung = TestBed.inject(KlientService).id;
+    expect(kennung.length).toBeGreaterThan(15);
+    expect(kopf('/profiles', 'x-klient')).toBe(kennung);
+    expect(kopf('/profiles/x', 'x-klient')).toBe(kennung);
+    expect(kopf('/testmessages/x/xml', 'x-klient')).toBe(kennung);
   });
 
   it('setzt content-type nur, wenn ein Body mitgeht', async () => {
