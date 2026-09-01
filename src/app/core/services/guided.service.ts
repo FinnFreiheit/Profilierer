@@ -1384,7 +1384,9 @@ export class GuidedService {
       if (!this.istKritisch(p)) continue;
       const node = wertNodes.get(p.path);
       if (!node) continue;
-      this.state.setElementProfile(p.path, { beispiel: this.values.dummyFor(node) });
+      // Gewuerfelt statt deterministisch: mehrere Personen einer Nachricht
+      // sollen nicht alle "Erika Mustermann, geboren am selben Tag" heissen.
+      this.state.setElementProfile(p.path, { beispiel: this.values.dummyFor(node, true) });
       n++;
     }
     return n;

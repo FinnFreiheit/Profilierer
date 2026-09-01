@@ -2117,13 +2117,11 @@ app-dashboard {
   /* Lange Dateinamen ohne Leerzeichen umbrechen lassen, sonst laufen sie
      ueber die Kachelkante (Testdaten-Speicher: "nachricht.gds.…xml"). */
   word-break: break-word;
-  /* Zwei Zeilen reserviert, danach gekuerzt: gleiche Hoehe bei jedem Namen. */
-  height: 2.6em;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
+  /* Vollstaendig zeigen, nie kuerzen: am Namen wird die Kachel gefunden und
+     von aehnlichen unterschieden (Testdaten tragen oft lange Dateinamen).
+     Zwei Zeilen bleiben reserviert, damit kurze Namen die Hoehe nicht
+     schwanken lassen; laengere machen ihre Kachelzeile hoeher. */
+  min-height: 2.6em;
 }
 /* Werkzeuge auf Abruf — sichtbar beim Ueberfahren und sobald sie den
    Tastaturfokus tragen (nicht display:none, sonst waeren sie unerreichbar). */

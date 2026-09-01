@@ -109,7 +109,10 @@ describe('ValueService.placeholderFor', () => {
   });
 
   it('Type.GDS.Datumsangabe bekommt ein pattern-konformes Datum', () => {
-    expect(svc.placeholderFor(leaf('geburtsdatum', 'Type.GDS.Datumsangabe'))).toBe('2026-01-01');
+    // Ein Geburtsdatum liegt semantisch in der Vergangenheit; andere
+    // Datumsfelder behalten den neutralen Kandidaten.
+    expect(svc.placeholderFor(leaf('geburtsdatum', 'Type.GDS.Datumsangabe'))).toBe('1980-05-12');
+    expect(svc.placeholderFor(leaf('urkundsdatum', 'Type.GDS.Datumsangabe'))).toBe('2026-01-01');
   });
 
   it('UUID-Typ bekommt einen pattern-konformen Wert', () => {
@@ -390,6 +393,42 @@ describe('ValueService.vorschlagFor', () => {
     expect(svc.dummyFor({ name: 'datum', path: 'm/datum', typeName: 'date', codelist: null })).toBe(
       '2026-01-01',
     );
+  });
+
+  // ── Semantische Dummy-Werte und die Zufallsvariante des Wuerfels ──────
+
+  it('sprechende Blattnamen bekommen semantische Werte statt "Beispieltext"', () => {
+    const blatt = (name: string) => ({
+      name,
+      path: 'm/' + name,
+      typeName: 'string',
+      codelist: null,
+    });
+    expect(svc.dummyFor(blatt('vorname'))).toBe('Erika');
+    expect(svc.dummyFor(blatt('nachname'))).toBe('Mustermann');
+    expect(svc.dummyFor(blatt('ort'))).toBe('Musterstadt');
+    expect(svc.dummyFor(blatt('aktenzeichen.freitext'))).toBe('12 C 345/26');
+    // Ohne Namensregel bleibt der bisherige Platzhalter.
+    expect(svc.dummyFor(blatt('kopf'))).toBe('Beispieltext');
+  });
+
+  it('ein Geburtsdatum liegt auch ohne Wuerfeln in der Vergangenheit', () => {
+    expect(
+      svc.dummyFor({ name: 'geburtsdatum', path: 'm/geburt', typeName: 'date', codelist: null }),
+    ).toBe('1980-05-12');
+  });
+
+  it('mit zufall aendert erneutes Wuerfeln die Uhrzeit — typkonform bleibt sie dabei', () => {
+    const blatt = { name: 'uhrzeit', path: 'm/uhrzeit', typeName: 'time', codelist: null };
+    const wuerfe = Array.from({ length: 8 }, () => svc.dummyFor(blatt, true));
+    for (const w of wuerfe) expect(w).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+    expect(new Set(wuerfe).size).toBeGreaterThan(1);
+  });
+
+  it('auch mit zufall wuerfelt die Codeliste nur freigegebene Werte', () => {
+    bindeVorgabe({ 'm/rolle': { werte: ['02', '03'] } });
+    const blatt = { name: 'rolle', path: 'm/rolle', typeName: 'Code.Rolle', codelist: rolle };
+    for (let i = 0; i < 20; i++) expect(['02', '03']).toContain(svc.dummyFor(blatt, true));
   });
 });
 
