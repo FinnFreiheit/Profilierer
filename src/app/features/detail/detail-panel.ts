@@ -930,20 +930,23 @@ export class DetailPanel {
     this.guided.waehleZweig(this.path(), zweigPath);
   }
 
-  /** Wuerfel-Button: typkonformen Dummy-Wert in das aktuelle Blatt setzen. */
+  /**
+   * Wuerfel-Button: typkonformen Dummy-Wert in das aktuelle Blatt setzen.
+   * Erneutes Wuerfeln soll den Wert sichtbar aendern — deshalb wird bei einem
+   * Treffer auf den stehenden Wert nachgewuerfelt. Nach wenigen Versuchen wird
+   * der Wurf angenommen: bei deterministischen Werten (Vorschlag der Vorgabe,
+   * Verweis-Schluessel, einziger freigegebener Code) gibt es nichts zu aendern.
+   */
   protected wuerfeln(): void {
     const it = this.state.selItem();
     if (!it) return;
     const n = it.kind === 'el' ? it.node : this.tree.ctxNode(it.parentNode, it.ausp.id);
     const path = this.path();
-    this.state.setElementProfile(path, {
-      beispiel: this.values.dummyFor({
-        name: n.name,
-        path,
-        typeName: n.typeName,
-        codelist: n.codelist,
-      }),
-    });
+    const blatt = { name: n.name, path, typeName: n.typeName, codelist: n.codelist };
+    const vorher = this.state.beispielOf(path);
+    let wert = this.values.dummyFor(blatt, true);
+    for (let i = 0; i < 5 && wert === vorher; i++) wert = this.values.dummyFor(blatt, true);
+    this.state.setElementProfile(path, { beispiel: wert });
   }
 
   /** Nachrichten-Modus: Codelisten-Wert per Klick als Blattwert uebernehmen. */

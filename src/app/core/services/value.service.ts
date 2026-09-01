@@ -3,6 +3,7 @@ import { CodelistInfo, EnumWert } from '../../models/codelist.model';
 import { XsdAttribut } from '../../models/xsd-index.model';
 import { kid, kids, local } from '../util/xml.util';
 import { pflichtAttrWert } from '../util/xsd-attribut.util';
+import { dummyKandidat } from '../util/dummy-wert.util';
 import { compileXsdPattern, konformerBeispielwert } from '../util/pattern-sample.util';
 import { letztesVorkommenPfad } from '../util/pfad.util';
 import { refSchluesselArt } from '../refs';
@@ -408,9 +409,15 @@ export class ValueService {
    * — fuer den "Wuerfel"-Button und das globale Befuellen offener Pflichtfelder
    * (US "Testnachricht gefuehrt erstellen"). UUID-Facetten bekommen eine echte
    * Zufalls-UUID, sonst gilt die Platzhalter-Logik (Codeliste, Enumeration,
-   * Pattern-Facette, Builtin).
+   * Pattern-Facette, Builtin). Blaetter mit sprechendem Namen (vorname, ort,
+   * aktenzeichen …) bekommen semantische Werte statt "Beispieltext".
+   *
+   * `zufall = false` (Platzhalter, Export) ist deterministisch — dieselbe
+   * Anzeige bei jedem Render. `zufall = true` (Wuerfeln, Sammelbefuellung)
+   * wuerfelt Codelisten-/Enum-Auswahl, Datum, Uhrzeit, Zahlen und Pool-Werte,
+   * damit erneutes Wuerfeln den Wert sichtbar aendert.
    */
-  dummyFor(n: PlaceholderNode): string {
+  dummyFor(n: PlaceholderNode, zufall = false): string {
     const elemente = this.state.elemente();
     const p = elemente[n.path] ?? {};
 
@@ -454,14 +461,16 @@ export class ValueService {
       // Eintrag. Ein leeres Array ("keine zugelassen") laesst nichts uebrig —
       // dann bleibt nur die volle Liste, den Widerspruch meldet der Abgleich.
       const werte = this.state.werteOf(n.path);
-      if (werte && werte.length) return codeAus(werte[0]!);
+      if (werte && werte.length) return codeAus(this.wahl(werte, zufall));
       const eff = this.clWerte(n.codelist);
-      if (eff && eff.length) return eff[0]!.value;
+      if (eff && eff.length) return this.wahl(eff, zufall).value;
       return 'CODE';
     }
     const res = this.resolveType(n.typeName);
-    if (res.enumWerte && res.enumWerte.length) return res.enumWerte[0]!.value;
-    const sample = res.builtin ? XS_BUILTIN[res.builtin]! : 'Beispieltext';
+    if (res.enumWerte && res.enumWerte.length) return this.wahl(res.enumWerte, zufall).value;
+    const sample =
+      dummyKandidat(n.name, res.builtin, zufall) ??
+      (res.builtin ? XS_BUILTIN[res.builtin]! : 'Beispieltext');
     // Datentyp-Facette einhalten: Wert an der Pattern-Restriktion ausrichten
     // (z. B. Type.GDS.Datumsangabe, UUID-Typen).
     if (res.patterns) {
@@ -477,6 +486,11 @@ export class ValueService {
       return konformerBeispielwert(res.patterns, Object.values(XS_BUILTIN), sample);
     }
     return sample;
+  }
+
+  /** Erster (stabil) oder zufaelliger Eintrag — die Wuerfel-Variante der Auswahl. */
+  private wahl<T>(arr: readonly T[], zufall: boolean): T {
+    return zufall ? arr[Math.floor(Math.random() * arr.length)]! : arr[0]!;
   }
 
   /**
