@@ -31,7 +31,8 @@ export class PrintDoc {
     const m = this.state.meta();
     this.header.set({
       title: m.name || '(ohne Namen)',
-      msgName: this.state.msgName() || '',
+      // In der Typ-Ansicht steht der Datentyp an der Stelle der Nachricht.
+      msgName: this.state.msgName() || this.state.typName() || '',
       version: this.state.version(),
       datum: m.datum || new Date().toLocaleDateString('de-DE'),
       autor: m.autor || '',

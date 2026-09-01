@@ -7,6 +7,7 @@ import {
   datentypUnbekannt,
   erwTypVorgabe,
   filterGruppen,
+  suchTypen,
 } from './datentyp.util';
 
 /**
@@ -117,6 +118,37 @@ describe('datentypGruppen — Ableitung aus dem Schema-Index', () => {
   it('haelt die Sondereintraege Container und Freitext bereit', () => {
     const sonder = datentypGruppen(testIndex()).find((g) => g.titel === 'Sonstiges');
     expect(sonder?.eintraege.map((e) => e.art)).toEqual(['container', 'frei']);
+  });
+});
+
+describe('suchTypen — Katalog der zentralen Suche', () => {
+  it('fuehrt fachliche Typen und Codelisten, sortiert', () => {
+    expect(suchTypen(testIndex()).map((e) => e.name)).toEqual([
+      'Code.GDS.Aktentyp',
+      'Type.GDS.Akte',
+      // simpleType steht gleichberechtigt neben den complexTypes
+      'Type.GDS.Aktenzeichen',
+      'Type.GDS.Ref.Beteiligter',
+      'Type.STRAF.Anklage',
+    ]);
+  });
+
+  it('laesst Basistypen, DIN-Typen, Sondereintraege und Nachrichten weg', () => {
+    const namen = suchTypen(testIndex()).map((e) => e.name);
+    expect(namen).not.toContain('string');
+    expect(namen).not.toContain('datatypeC');
+    // Die Restriktion hinter einer Codeliste ist kein waehlbarer Typ.
+    expect(namen).not.toContain('gds.aktentyp');
+    expect(namen).not.toContain('nachricht.gds.test.0001');
+    expect(
+      suchTypen(testIndex()).every((e) => e.art === 'typ' && e.quelle === 'schema'),
+    ).toBeTrue();
+  });
+
+  it('nimmt den Klartext als Suchtext mit', () => {
+    const akte = suchTypen(testIndex()).find((e) => e.name === 'Type.GDS.Akte');
+    expect(akte?.info).toBe('Die Akte eines Verfahrens.');
+    expect(suchTypen(null)).toEqual([]);
   });
 });
 

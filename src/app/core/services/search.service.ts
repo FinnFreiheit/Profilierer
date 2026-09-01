@@ -1,6 +1,8 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { TreeItem, itemPath } from '../../models/node.model';
+import { MessageRef } from '../../models/xsd-index.model';
 import { pretty } from '../util/pretty.util';
+import { DatentypEintrag, suchTypen } from '../util/datentyp.util';
 import { TreeService } from './tree.service';
 import { StateService } from './state.service';
 
@@ -13,6 +15,16 @@ export interface SearchEntry {
   value: string;
   crumb: string;
 }
+
+/** Das Ergebnis der zentralen Suche, nach Treffer-Art getrennt. */
+export interface ZentralTreffer {
+  baum: SearchEntry[];
+  nachrichten: MessageRef[];
+  typen: DatentypEintrag[];
+}
+
+/** Trefferzahl je Katalog-Sektion — der Baum behaelt seine 40 aus dem Bestand. */
+const KATALOG_LIMIT = 10;
 
 /**
  * Suche im Baum (Profilierer.html Z.694-742). Der Index traversiert den Baum
@@ -81,5 +93,54 @@ export class SearchService {
       if (starts.length > 40) break;
     }
     return [...starts, ...contains].slice(0, 40);
+  }
+
+  /**
+   * Der Datentyp-Katalog des geladenen Schemas, memoisiert — er haengt allein
+   * am Index und darf nicht pro Tastendruck neu aus ~1000 Typen entstehen.
+   */
+  private readonly typKatalog = computed<DatentypEintrag[]>(() => suchTypen(this.state.idx()));
+
+  /**
+   * **Zentrale Suche**: derselbe Begriff gegen den geladenen Baum, die
+   * waehlbaren Nachrichten und den Datentyp-Katalog. Anders als `run` braucht
+   * sie keinen Baum — gesucht wird, sobald ein Schema geladen ist.
+   */
+  runZentral(query: string): ZentralTreffer {
+    const q = query.trim().toLowerCase();
+    if (!q) return { baum: [], nachrichten: [], typen: [] };
+    return {
+      baum: this.run(query),
+      nachrichten: this.sucheNachrichten(q),
+      typen: this.sucheTypen(q),
+    };
+  }
+
+  /** Nachrichten ueber Name und Beschreibung; Praefix-Treffer zuerst. */
+  private sucheNachrichten(q: string): MessageRef[] {
+    const idx = this.state.idx();
+    if (!idx) return [];
+    const starts: MessageRef[] = [];
+    const contains: MessageRef[] = [];
+    for (const m of idx.messages) {
+      const name = m.name.toLowerCase();
+      if (name.split('.').some((w) => w.startsWith(q))) starts.push(m);
+      else if (name.includes(q) || m.doc.toLowerCase().includes(q)) contains.push(m);
+      if (starts.length >= KATALOG_LIMIT) break;
+    }
+    return [...starts, ...contains].slice(0, KATALOG_LIMIT);
+  }
+
+  /** Datentypen ueber Typname und Klartext; Segment-Praefixe zuerst. */
+  private sucheTypen(q: string): DatentypEintrag[] {
+    const starts: DatentypEintrag[] = [];
+    const contains: DatentypEintrag[] = [];
+    for (const e of this.typKatalog()) {
+      const label = e.label.toLowerCase();
+      if (label.split('.').some((w) => w.startsWith(q))) starts.push(e);
+      else if (label.includes(q) || e.info.toLowerCase().includes(q)) contains.push(e);
+      if (starts.length >= KATALOG_LIMIT) break;
+    }
+    return [...starts, ...contains].slice(0, KATALOG_LIMIT);
   }
 }

@@ -1,9 +1,9 @@
 <div class="toolgroup" style="position: relative">
   <input
     type="text"
-    placeholder="Im Baum suchen…"
+    placeholder="Suchen: Baum, Nachricht, Datentyp…"
     style="width: 160px"
-    [disabled]="!hasRoot()"
+    [disabled]="!hasIdx()"
     [value]="query()"
     (input)="onInput($event)"
     (focus)="onFocus($event)"
@@ -17,34 +17,74 @@
       style="position: absolute; top: calc(100% + 4px)"
       [style.left.px]="panelLeft()"
     >
-      @for (h of hits(); track h.path; let i = $index) {
-        <div class="srItem" [class.hot]="i === 0" (mousedown)="pick(h.path)">
-          <div class="sl">
-            {{ h.label }}
-            @if (h.tech && h.tech !== h.label) {
-              <span
-                style="
-                  font-weight: 400;
-                  color: var(--muted);
-                  font-family: var(--mono);
-                  font-size: 11px;
-                "
-                >{{ h.tech }}</span
-              >
+      @if (treffer().baum.length) {
+        <div class="srGroup">Im Baum</div>
+        @for (h of treffer().baum; track h.path; let i = $index) {
+          <div class="srItem" [class.hot]="i === 0" (mousedown)="pick(h.path)">
+            <div class="sl">
+              {{ h.label }}
+              @if (h.tech && h.tech !== h.label) {
+                <span
+                  style="
+                    font-weight: 400;
+                    color: var(--muted);
+                    font-family: var(--mono);
+                    font-size: 11px;
+                  "
+                  >{{ h.tech }}</span
+                >
+              }
+              <span class="srArt">Element</span>
+            </div>
+            @if (h.crumb) {
+              <div class="sc">{{ h.crumb }}</div>
+            }
+            @if (h.value) {
+              <div class="sd" style="color: var(--accent)">Wert: {{ h.value }}</div>
+            }
+            @if (h.doc) {
+              <div class="sd">{{ h.doc }}</div>
             }
           </div>
-          @if (h.crumb) {
-            <div class="sc">{{ h.crumb }}</div>
-          }
-          @if (h.value) {
-            <div class="sd" style="color: var(--accent)">Wert: {{ h.value }}</div>
-          }
-          @if (h.doc) {
-            <div class="sd">{{ h.doc }}</div>
-          }
-        </div>
+        }
       }
-      @if (!hits().length) {
+      @if (treffer().nachrichten.length) {
+        <div class="srGroup">Nachrichten</div>
+        @for (m of treffer().nachrichten; track m.name; let i = $index) {
+          <div
+            class="srItem"
+            [class.hot]="i === 0 && !treffer().baum.length"
+            (mousedown)="waehleNachricht(m.name)"
+          >
+            <div class="sl">
+              {{ m.name }}
+              <span class="srArt">Nachricht</span>
+            </div>
+            @if (m.doc) {
+              <div class="sd">{{ firstLine(m.doc) }}</div>
+            }
+          </div>
+        }
+      }
+      @if (treffer().typen.length) {
+        <div class="srGroup">Datentypen</div>
+        @for (t of treffer().typen; track t.name; let i = $index) {
+          <div
+            class="srItem"
+            [class.hot]="i === 0 && !treffer().baum.length && !treffer().nachrichten.length"
+            (mousedown)="oeffneTyp(t.name)"
+          >
+            <div class="sl">
+              {{ t.label }}
+              <span class="srArt">{{ typArt(t.name) }}</span>
+            </div>
+            @if (t.info) {
+              <div class="sd">{{ t.info }}</div>
+            }
+          </div>
+        }
+      }
+      @if (leer()) {
         <div style="padding: 12px 14px; color: var(--muted); font-size: 12.5px">keine Treffer</div>
       }
     </div>

@@ -47,6 +47,14 @@ export class StateService {
   readonly version = signal('');
   readonly standardKennung = signal('');
   readonly msgName = signal<string | null>(null);
+  /**
+   * Datentyp als Baumwurzel (zentrale Suche: Datentyp nachschlagen). Steht
+   * **statt** `msgName` — das bleibt dabei null, womit sich Autosave, Diff,
+   * XML-/Schematron-Export und die Instanz-Wege von selbst abschalten. Die
+   * Ansicht ist fluechtig: sie wird nirgends gesichert, ein Reload landet
+   * wieder auf dem Dashboard.
+   */
+  readonly typName = signal<string | null>(null);
   readonly root = signal<TreeNode | null>(null);
 
   /** Im Projekt hinterlegte Schemaversionen (public/schemas/, aus dem Manifest). */
@@ -353,6 +361,8 @@ export class StateService {
 
   /** Ist eine Nachricht geladen (Baum vorhanden)? */
   readonly hasRoot = computed(() => !!this.root());
+  /** Steht ein Datentyp statt einer Nachricht als Baumwurzel? */
+  readonly istTypAnsicht = computed(() => !!this.typName());
   /** Nachrichten-Bearbeitung (geladene Instanz) statt Profil/Szenario. */
   readonly isMessageEdit = computed(() => !!this.messageEdit());
   /** Gefuehrte Testnachricht-Erstellung (US "Testnachricht gefuehrt erstellen"). */
@@ -1081,8 +1091,10 @@ export class StateService {
     this.clearVorgabe();
     // Die reine Schema-Ansicht endet mit jedem Profil-Einstieg; bei der
     // Nachrichtenwahl innerhalb der Schema-Ansicht stellt loadMessage sie
-    // danach wieder her.
+    // danach wieder her. Die Typ-Wurzel gehoert zu dieser Ansicht und faellt
+    // mit ihr (oeffneTypAnsicht setzt sie danach neu).
     this.schemaView.set(false);
+    this.typName.set(null);
     // `guided` bleibt hier bewusst unangetastet: loadProfile laeuft auch bei der
     // Nachrichtenwahl innerhalb eines gefuehrten neuen Profils (loadMessage →
     // resetProfile). Die Einstiege setzen den Modus explizit (createNew: an;

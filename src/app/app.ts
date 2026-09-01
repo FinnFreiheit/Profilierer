@@ -281,6 +281,7 @@ export class App implements OnInit {
     const v = this.state.bundledVersions().find((x) => x.dir === dir);
     if (!v) return false;
     const prevMsg = this.state.msgName();
+    const prevTyp = this.state.typName();
     // Gespeicherte Versionen kommen aus dem Backend; nur was wirklich geholt
     // werden muss, wird als Abruf angekuendigt.
     const holt = !!v.zipUrl && (opts.erneuern || !this.schemas.hatDateien(v.id));
@@ -288,7 +289,17 @@ export class App implements OnInit {
     try {
       if (holt) this.toast.show(`Lade XJustiz ${v.label} von xjustiz.de…`);
       const n = await this.persistence.loadBundle(v, opts);
-      if (prevMsg) {
+      if (prevTyp) {
+        const idx = this.state.idx();
+        if (idx?.ct[prevTyp] || idx?.st[prevTyp]) this.nav.oeffneTypAnsicht(prevTyp);
+        else {
+          // Praezedenzfall Type.GDS.GeheimhaltungType (3.6.2 → 4.0.0 entfallen):
+          // die Schema-Ansicht bleibt stehen, ihre Wurzel gibt es nicht mehr.
+          this.state.typName.set(null);
+          this.state.root.set(null);
+          this.toast.show(`Datentyp ${prevTyp} ist in XJustiz ${v.label} nicht enthalten.`);
+        }
+      } else if (prevMsg) {
         if (this.state.idx()?.el[prevMsg]) this.nav.loadMessage(prevMsg, true);
         else this.toast.show(`Nachricht ${prevMsg} ist in XJustiz ${v.label} nicht enthalten.`);
       }

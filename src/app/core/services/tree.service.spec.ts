@@ -110,6 +110,86 @@ const XSD_ERW = `<?xml version="1.0" encoding="UTF-8"?>
   </xs:simpleType>
 </xs:schema>`;
 
+/** Schema fuer die Typ-Wurzel: Struktur, Codeliste, Rekursion, simpleType. */
+const XSD_TYP = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0001" type="Type.Test.Root"/>
+  <xs:complexType name="Type.Test.Root">
+    <xs:sequence><xs:element name="hersteller" type="Type.Test.Herstellerinformation"/></xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Type.Test.Herstellerinformation">
+    <xs:annotation><xs:documentation>Angaben zum Hersteller.</xs:documentation></xs:annotation>
+    <xs:sequence>
+      <xs:element name="produktname" type="xs:string"/>
+      <xs:element name="hersteller" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <!-- Traegt sich selbst: der Rekursionsschutz muss ab der Wurzel greifen. -->
+  <xs:complexType name="Type.Test.Ordner">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="unterordner" type="Type.Test.Ordner" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Code.Test.Aktentyp">
+    <xs:annotation>
+      <xs:appinfo>
+        <codeliste><nameLang>Aktentyp</nameLang><kennung>test:aktentyp</kennung></codeliste>
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:sequence><xs:element name="code" type="test.aktentyp"/></xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="test.aktentyp">
+    <xs:restriction base="xs:token"><xs:enumeration value="001"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Type.Test.Aktenzeichen">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`;
+
+describe('TreeService — buildTypRoot (Datentyp als Baumwurzel)', () => {
+  let tree: TreeService;
+  let idx: XsdIndex;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    tree = TestBed.inject(TreeService);
+    const dom = new DOMParser().parseFromString(XSD_TYP, 'application/xml');
+    idx = TestBed.inject(XsdParserService).buildIndexFrom([{ file: 'typ.xsd', dom }]).idx;
+  });
+
+  it('baut aus einem complexType eine Wurzel mit Kindern', () => {
+    const root = tree.buildTypRoot('Type.Test.Herstellerinformation', idx);
+    expect(root.path).toBe('Type.Test.Herstellerinformation');
+    expect(root.typeName).toBe('Type.Test.Herstellerinformation');
+    expect(root.xsdEl).toBeNull();
+    expect(root.doc).toBe('Angaben zum Hersteller.');
+    expect(tree.isLeaf(root)).toBeFalse();
+    expect(tree.kinder(root).map((k) => k.name)).toEqual(['produktname', 'hersteller']);
+    expect(tree.kinder(root)[0]!.path).toBe('Type.Test.Herstellerinformation/produktname');
+  });
+
+  it('macht aus einem Code.*-Typ ein Blatt mit Codelisten-Info', () => {
+    const root = tree.buildTypRoot('Code.Test.Aktentyp', idx);
+    expect(root.codelist?.kennung).toBe('test:aktentyp');
+    expect(tree.isLeaf(root)).toBeTrue();
+    expect(tree.kinder(root)).toEqual([]);
+  });
+
+  it('erkennt Rekursion schon eine Ebene unter der Wurzel', () => {
+    const root = tree.buildTypRoot('Type.Test.Ordner', idx);
+    const unter = tree.kinder(root).find((k) => k.name === 'unterordner')!;
+    expect(unter.recursive).toBeTrue();
+    expect(tree.childItems({ kind: 'el', node: unter })).toEqual([]);
+  });
+
+  it('macht aus einem simpleType ein Blatt', () => {
+    const root = tree.buildTypRoot('Type.Test.Aktenzeichen', idx);
+    expect(tree.isLeaf(root)).toBeTrue();
+    expect(tree.kinder(root)).toEqual([]);
+  });
+});
+
 describe('TreeService', () => {
   let tree: TreeService;
   let state: StateService;
