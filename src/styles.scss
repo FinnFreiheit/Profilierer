@@ -356,7 +356,10 @@ a:focus-visible {
   margin-top: 1px;
 }
 
-#searchPanel {
+/* Trefferliste der Suche — in der Werkzeugleiste (#searchPanel) wie auf dem
+   Dashboard (.srPanel); die Positionierung setzt die jeweilige Stelle. */
+#searchPanel,
+.srPanel {
   position: absolute;
   z-index: 41;
   background: var(--panel);
@@ -370,7 +373,8 @@ a:focus-visible {
   display: none;
   padding: 4px 0;
 }
-#searchPanel.open {
+#searchPanel.open,
+.srPanel.open {
   display: block;
 }
 .srItem {
@@ -2091,6 +2095,25 @@ app-dashboard {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+/* Schema-Suche in der Aktionszeile: das Feld ist das Flex-Element, die
+   Trefferliste haengt absolut darunter. */
+app-schema-suche {
+  display: contents;
+}
+.dashSuche {
+  position: relative;
+  flex: 1;
+  min-width: 280px;
+  max-width: 420px;
+}
+.dashSuche .suchfeld {
+  width: 100%;
+  max-width: none;
+}
+.dashSuche .srPanel {
+  top: calc(100% + 4px);
+  left: 0;
 }
 #dashGrid {
   max-width: 1120px;
