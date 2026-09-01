@@ -24,6 +24,8 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 | `MatrixService`             | n-Wege-Vergleich mehrerer Testnachrichten eines Szenarios (Merkmals-Matrix, #136)                                                             |
 | `UeberlagerungService`      | Nachrichten-Überlagerung: alle Testnachrichten eines Szenarios gleichzeitig im Baum (#147)                                                    |
 | `ProjektStoreService`       | Projekte: Behälter über den Profilierungen (`/api/projekte`)                                                                                  |
+| `KlientService`             | Anonyme Kennung dieses Browsers (`xjp.klientId`, Header `x-klient`) für die Nutzungszählung — keine IP, kein Name                             |
+| `KennzahlenStoreService`    | Abruf der Kennzahlen (`/api/kennzahlen`, AG-exklusiv); lädt bewusst **nicht** im Konstruktor, 403 heißt „fehlende Rolle", nicht „Ausfall"     |
 | `VergleichService`          | Zustand der beiden Vergleichsdialoge (Ziel: Profil+Version bzw. Testnachricht)                                                                |
 | `BundledSchemaService`      | Im Projekt hinterlegte Schemaversionen (public/schemas/) per fetch laden                                                                      |
 | `RemoteSchemaService`       | Veröffentlichte Schemaversionen von xjustiz.de abrufen (Versionsseite + XSD-ZIP)                                                              |

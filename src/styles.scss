@@ -2410,6 +2410,21 @@ app-tag-eingabe input {
   background: #fdeecd;
   color: #9a6a00;
 }
+/* BETA-Kennzeichnung des Werkzeugs: steht in jeder Kopfzeile neben der Rolle. */
+.betaPill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: #fdeecd;
+  color: #9a6a00;
+}
+/* In der Uebersichts-Kopfzeile (space-between) zieht das Badge den freien Raum
+   an sich, damit es zusammen mit dem Rollen-Badge rechts steht. */
+.dashTop app-beta-badge {
+  margin-left: auto;
+  margin-right: 8px;
+}
 .rolleBadge {
   display: inline-flex;
   align-items: center;
@@ -3569,4 +3584,139 @@ app-tree-context-menu {
   color: var(--text);
   text-align: left;
   cursor: pointer;
+}
+
+/* ── Kennzahlen (#kennzahlen) ───────────────────────────────────────────
+   Nutzung und Bestand der Instanz, AG-exklusiv. Kacheln und Diagramme
+   teilen sich die 1120-px-Spur der uebrigen Uebersichten; die Kacheln
+   sehen aus wie .dashCard, sind aber nicht anklickbar — deshalb kein
+   Zeiger und kein Hover-Rahmen, sonst verspricht die Kachel eine Aktion,
+   die es nicht gibt. Diagramme sind handgezeichnetes SVG (keine
+   Bibliothek), Farben kommen aus den Tokens. */
+.kzKacheln {
+  max-width: 1120px;
+  margin: 0 auto 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+}
+.kzKachel {
+  background: var(--panel);
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+}
+.kzZahl {
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1.1;
+  color: var(--text-stark);
+  /* Gleich breite Ziffern: sonst zappeln die Zahlen beim Aktualisieren. */
+  font-variant-numeric: tabular-nums;
+}
+.kzLabel {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.kzEinheit {
+  color: var(--muted-schwach);
+}
+.kzStand {
+  font-size: 12px;
+  color: var(--muted);
+  align-self: center;
+}
+/* Zeitraumwahl: der aktive Knopf muss sich abheben, sonst weiss niemand,
+   welche 30 Tage er gerade sieht. Gleiche Sprache wie .viewToggle. */
+.kzZeitraumAktiv {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--weiss);
+}
+.kzDiagramm {
+  max-width: 1120px;
+  margin: 0 auto 18px;
+  background: var(--panel);
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  padding: 12px 16px 8px;
+}
+.kzDiagrammKopf {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+
+  h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 650;
+    color: var(--text-stark);
+  }
+}
+.kzSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.kzGitter {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.kzAchse {
+  font-size: 10px;
+  fill: var(--muted);
+}
+.kzFlaeche {
+  fill: var(--accent-soft);
+}
+.kzLinie {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.kzPunkt {
+  fill: var(--accent);
+}
+.kzBalken {
+  fill: var(--accent-soft-tief);
+}
+/* Fehleranteil: Signalrot bewusst ausserhalb der Markenpalette, wie die
+   uebrigen fachlichen Warnfarben. */
+.kzBalkenFehler {
+  fill: #b23a3a;
+}
+.kzBalkenText {
+  font-family: var(--mono);
+  font-size: 11px;
+  fill: var(--text);
+}
+.kzBalkenZahl {
+  font-size: 11px;
+  fill: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.kzLeer {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 22px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.kzDatenschutz {
+  max-width: 1120px;
+  margin: 6px auto 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
 }

@@ -54,6 +54,31 @@ Wichtig: Die Klassen `.ntree/.nkids/.box/.addBox/.excluded/.phantom` und die `da
 | `NachrichtSpeichernDialog` | `app-nachricht-speichern-dialog` | Rückfrage beim Verlassen der Baumansicht: soll die **hochgeladene** (noch nicht abgelegte) Testnachricht in den Speicher — und unter welchem Namen? Der Vorschlag (Dateiname) steht markiert im Feld, Enter speichert. Drei Ausgänge: Speichern, Nicht speichern, Abbrechen (bleibt im Baum). Gesteuert vom `NachrichtSpeichernService`, Muster `ErweiterungDialog`.                                                                           |
 | `EinordnenDialog`          | `app-einordnen-dialog`           | Der eine Dialog „wohin gehört dieser Eintrag?" (#145): Kommunikationsszenario (nur Testnachrichten), Projekt und Schlagworte. Ersetzt drei Menüpunkte, die für Anwender nicht unterscheidbar waren. Gesteuert vom `EinordnenService` (Muster `VergleichService`), genutzt von Profil-Übersicht, Testdaten-Speicher und Projektseite. Sobald ein Szenario gewählt ist, entfällt die Projektwahl — die Nachricht erbt es von ihrer Profilierung. |
 
+### Kennzahlen (`app-kennzahlen`)
+
+Der Reiter „Kennzahlen" ([ADR 0021](adr/0021-nutzungszahlen-als-aggregat.md)), gesteuert über
+`StateService.view === 'kennzahlen'`. Er erscheint im Umschalter der vier Übersichten **nur mit
+AG-Rolle**; fällt die Rolle weg, wechselt ein `effect` zurück in die Bibliothek (der Endpunkt
+antwortet ohnehin 403).
+
+Oben Kacheln (`.kzKachel`, Aufbau wie `.dashCard`, aber nicht anklickbar): aktive Klienten heute
+und im Zeitraum, wiederkehrende, API-Zugriffe, Fehlerquote, mittlere Antwortzeit; unten dieselbe
+Machart für den Bestand (Profilierungen mit Fortschrittsbalken, Abnahmequote, Testnachrichten,
+Projekte, offene Hinweise). Zeitraum 7/30/90 Tage, darunter eine feste Zeile, die die anonyme
+Zählung erklärt — ohne sie wird „Klienten" als „Personen" gelesen.
+
+Die Diagramme sind **handgezeichnetes SVG**, keine Bibliothek — anders als der `TreeCanvas`
+([ADR 0003](adr/0003-svg-verbindungslinien.md)) ohne DOM-Messung, weil die Werte vollständig aus
+den Daten kommen: `computed()` statt `signal()` + `effect()`. Die Geometrie liegt als reine
+Funktionen in `diagramm.util.ts` (`netteObergrenze`, `xPos`, `yPos`) und ist dort einzeln
+getestet — die Randfälle (leere Reihe, ein einzelner Tag, Höchstwert 0) sind genau die, die sonst
+ein `NaN` in den Pfad schreiben und die Grafik unsichtbar machen.
+
+| Komponente        | Selector               | Zweck                                                                                                                    |
+| ----------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `VerlaufDiagramm` | `app-verlauf-diagramm` | Tagesreihe als Fläche mit Linie. Je Reihe ein Diagramm: Zugriffe und Klienten liegen um ein Vielfaches auseinander.      |
+| `BalkenDiagramm`  | `app-balken-diagramm`  | Zugriffsstärkste Routen als liegende Balken (Routennamen wären als senkrechte Achse unlesbar), Fehleranteil eingelagert. |
+
 ### Projektansicht (`app-projekte`)
 
 Der Reiter „Projekte" (#135), gesteuert über `StateService.view === 'projekte'`; das

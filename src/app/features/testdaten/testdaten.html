@@ -13,7 +13,13 @@
         >
           Anleitung
         </button>
+        @if (rolle.agAktiv()) {
+          <button title="Nutzung und Bestand dieser Instanz (AG)" (click)="goKennzahlen()">
+            Kennzahlen
+          </button>
+        }
       </div>
+      <app-beta-badge></app-beta-badge>
       <app-rolle-badge></app-rolle-badge>
     </div>
     <h1><span>Testdaten</span>-Speicher</h1>

@@ -17,6 +17,7 @@ import { VergleichService } from '../../core/services/vergleich.service';
 import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
 import { TeilenService } from '../../core/services/teilen.service';
+import { BetaBadge } from '../../shared/beta-badge/beta-badge';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { LibraryEntry } from '../../models/profile.model';
@@ -59,7 +60,15 @@ interface Sektion {
 @Component({
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu, KeinAutofillDirective, NeuesProfilWizard, TagFilter, TagEingabe],
+  imports: [
+    BetaBadge,
+    RolleBadge,
+    Menu,
+    KeinAutofillDirective,
+    NeuesProfilWizard,
+    TagFilter,
+    TagEingabe,
+  ],
   templateUrl: './dashboard.html',
 })
 export class Dashboard {
@@ -252,6 +261,11 @@ export class Dashboard {
   /** Zur bebilderten Anleitung wechseln. */
   protected goHowto(): void {
     this.state.view.set('howto');
+  }
+
+  /** Zu den Kennzahlen wechseln (nur mit AG-Rolle sichtbar). */
+  protected goKennzahlen(): void {
+    this.state.view.set('kennzahlen');
   }
 
   /** US "Schema ansehen": reine Schema-Ansicht ohne Profilierung oeffnen. */

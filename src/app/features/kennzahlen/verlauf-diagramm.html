@@ -1,0 +1,37 @@
+@if (leer()) {
+  <p class="kzLeer">Noch zu wenig Daten für einen Verlauf.</p>
+} @else {
+  <svg
+    class="kzSvg"
+    role="img"
+    [attr.viewBox]="'0 0 ' + vb.breite + ' ' + vb.hoehe"
+    [attr.aria-label]="vorlesetext()"
+    preserveAspectRatio="none"
+  >
+    <title>{{ vorlesetext() }}</title>
+    @for (g of gitter(); track g.wert) {
+      <line
+        class="kzGitter"
+        [attr.x1]="rand.links"
+        [attr.y1]="g.y"
+        [attr.x2]="vb.breite - rand.rechts"
+        [attr.y2]="g.y"
+      />
+      <text class="kzAchse" [attr.x]="rand.links - 6" [attr.y]="g.y + 3" text-anchor="end">
+        {{ g.wert }}
+      </text>
+    }
+    <path class="kzFlaeche" [attr.d]="flaeche()" />
+    <path class="kzLinie" [attr.d]="linie()" />
+    @for (p of punkte(); track p.tag) {
+      <circle class="kzPunkt" [attr.cx]="p.x" [attr.cy]="p.y" r="2.5">
+        <title>{{ p.titel }}</title>
+      </circle>
+    }
+    @for (a of achse(); track a.x) {
+      <text class="kzAchse" [attr.x]="a.x" [attr.y]="vb.hoehe - 6" text-anchor="middle">
+        {{ a.text }}
+      </text>
+    }
+  </svg>
+}

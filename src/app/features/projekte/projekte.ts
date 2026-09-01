@@ -10,6 +10,7 @@ import {
 import { ProjektStoreService } from '../../core/services/projekt-store.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { TestmessageStoreService } from '../../core/services/testmessage-store.service';
+import { RolleService } from '../../core/services/rolle.service';
 import { StateService } from '../../core/services/state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { VergleichService } from '../../core/services/vergleich.service';
@@ -21,6 +22,7 @@ import { TestnachrichtStartService } from '../../core/services/testnachricht-sta
 import { LibraryEntry } from '../../models/profile.model';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { Projekt } from '../../models/projekt.model';
+import { BetaBadge } from '../../shared/beta-badge/beta-badge';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
@@ -52,7 +54,7 @@ interface Szenario {
 @Component({
   selector: 'app-projekte',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge, Menu, KeinAutofillDirective, TagEingabe],
+  imports: [BetaBadge, RolleBadge, Menu, KeinAutofillDirective, TagEingabe],
   templateUrl: './projekte.html',
 })
 export class Projekte {
@@ -60,6 +62,7 @@ export class Projekte {
   private readonly profile = inject(ProfileStoreService);
   private readonly testmessages = inject(TestmessageStoreService);
   private readonly state = inject(StateService);
+  protected readonly rolle = inject(RolleService);
   private readonly toast = inject(ToastService);
   private readonly vergleich = inject(VergleichService);
   protected readonly ueberlagerung = inject(UeberlagerungService);
@@ -180,6 +183,11 @@ export class Projekte {
 
   protected goHowto(): void {
     this.state.view.set('howto');
+  }
+
+  /** Zu den Kennzahlen wechseln (nur mit AG-Rolle sichtbar). */
+  protected goKennzahlen(): void {
+    this.state.view.set('kennzahlen');
   }
 
   /** Eine Profilierung des Projekts oeffnen (wie ein Klick auf ihre Kachel). */

@@ -39,3 +39,14 @@ Ablauf, Skripte und Rollback: [`deploy/README.md`](../deploy/README.md) (`deploy
 ## Datenhaltung
 
 Profilierungen liegen in der SQLite-DB des Backends (`XJP_DB`) — **Backup = diese Datei** (bei WAL zusätzlich `*-wal`/`*-shm`) sichern. Der Codelisten-Cache und einige UI-Flags bleiben clientseitig im `localStorage` (`xjp.clcache`, `xjp.corsproxy`, Migrations-Marker `xjp.migrated`). Profile lassen sich weiterhin als JSON exportieren/importieren. Datenmodell und Migration: [data-model.md](data-model.md).
+
+### Nutzungszahlen (Kennzahlen-Ansicht)
+
+Die Instanz zählt seit [ADR 0021](adr/0021-nutzungszahlen-als-aggregat.md) ihre eigene Nutzung — **anonym**: eine im Browser erzeugte Zufalls-UUID (`localStorage` `xjp.klientId`) geht als Header `x-klient` an jeden API-Request, gespeichert werden daraus nur Stunden- und Tagessummen (Tabellen `nutzung_*` in derselben DB, vom Backup also mitgesichert). Keine IP-Adressen, keine Namen, keine Inhalte; Rohwerte werden nach 30 Tagen zu Tagessummen verdichtet, die Kennungen dabei zur bloßen Anzahl.
+
+Zu wissen für den Betrieb:
+
+- Den Header schickt **jeder** Client mit, auch externe — sichtbar sind die Zahlen aber nur der AG-Rolle (`GET /api/kennzahlen` und die Ansicht prüfen `XJP_AG_KEY`). Ohne konfigurierten Schlüssel gibt es beides nicht.
+- Tagesgrenzen sind die **lokalen** des Servers; die systemd-Unit sollte daher in der erwarteten Zeitzone laufen (Pi: Europe/Berlin).
+- Beim Herunterfahren über `SIGTERM`/`SIGINT` schreibt der Puffer noch weg; ein `SIGKILL` verliert bis zu fünf Sekunden Zugriffe.
+- Abschalten lässt sich die Zählung im Code an einer Stelle (`createApp(db, { nutzung: false })`); ein DB-Restore dreht auch die Nutzungszahlen zurück.

@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { toEntry, zaehleFortschritt } from './fortschritt.js';
 import { normalisiereTags } from './tags.js';
+import { lokalerTag, tagPlus, tagesSpanne } from './zeit.js';
 
 /** Wie viele Automatik-Versionen (Oeffnen-Snapshot, Sicherheits-Version) je Profil bleiben. */
 const AUTO_DECKEL = 10;
@@ -242,6 +243,74 @@ export function openDb(path) {
       angelegt INTEGER,
       aktualisiert INTEGER
     );
+
+    -- Nutzungszahlen (#kennzahlen): anonyme Zaehlung der API-Zugriffe. Bewusst
+    -- KEINE Zeile je Request -- better-sqlite3 schreibt synchron, das blockiert
+    -- auf dem Pi den Event-Loop, und die SPA feuert beim Seitenaufbau schon
+    -- mehrere Requests. Ein Puffer im Prozess (server/nutzung.js) sammelt und
+    -- rechnet alle paar Sekunden in Stundenkuebel hoch; alle Kennzahlen der
+    -- Ansicht sind ohnehin Aggregate.
+    --
+    -- Die Spalte tag wird beim Schreiben in JS gesetzt und nicht in SQL aus
+    -- stunde gerechnet: sonst wandern Zeilen beim Sommerzeitwechsel zwischen
+    -- Tagen.
+    CREATE TABLE IF NOT EXISTS nutzung_stunde (
+      tag TEXT NOT NULL,             -- 'YYYY-MM-DD' (lokale Zeit des Servers)
+      stunde INTEGER NOT NULL,       -- Unix-ms des Stundenbeginns
+      route TEXT NOT NULL,           -- normalisiert, z. B. 'GET /api/profiles/:id'
+      zugriffe INTEGER NOT NULL DEFAULT 0,
+      fehler INTEGER NOT NULL DEFAULT 0,     -- Antworten mit Status >= 400
+      dauer_summe INTEGER NOT NULL DEFAULT 0, -- Mikrosekunden; Mittel = dauer_summe/zugriffe
+      dauer_max INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (stunde, route)
+    ) WITHOUT ROWID;
+    CREATE INDEX IF NOT EXISTS idx_nutzung_stunde_tag ON nutzung_stunde(tag);
+
+    -- Gesehene Klienten je Tag. Die Kennung ist ein im Browser erzeugtes
+    -- Pseudonym (localStorage xjp.klientId) -- keine IP, kein Name. Nach der
+    -- Verdichtung bleibt nur noch ihre Anzahl uebrig.
+    CREATE TABLE IF NOT EXISTS nutzung_klient_tag (
+      tag TEXT NOT NULL,
+      klient TEXT NOT NULL,          -- '-' = Zugriff ohne Kennung (Sammelzeile)
+      zugriffe INTEGER NOT NULL DEFAULT 0,
+      zuletzt INTEGER,
+      PRIMARY KEY (tag, klient)
+    ) WITHOUT ROWID;
+
+    -- Langzeit: verdichtete Tageswerte (die Stundenkuebel werden dabei geloescht).
+    CREATE TABLE IF NOT EXISTS nutzung_tag (
+      tag TEXT NOT NULL,
+      route TEXT NOT NULL,
+      zugriffe INTEGER NOT NULL DEFAULT 0,
+      fehler INTEGER NOT NULL DEFAULT 0,
+      dauer_summe INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (tag, route)
+    ) WITHOUT ROWID;
+
+    CREATE TABLE IF NOT EXISTS nutzung_tag_klienten (
+      tag TEXT PRIMARY KEY,
+      klienten INTEGER NOT NULL DEFAULT 0,
+      zugriffe INTEGER NOT NULL DEFAULT 0
+    ) WITHOUT ROWID;
+
+    -- Die Auswertung fragt nur diese Sichten: ob ein Tag noch in Stundenkuebeln
+    -- liegt oder schon verdichtet ist, bleibt ihr verborgen. Ueberschneidungsfrei,
+    -- weil die Verdichtung je Tag in einer Transaktion einfuegt und loescht.
+    CREATE VIEW IF NOT EXISTS nutzung_tage AS
+      SELECT tag, route, SUM(zugriffe) AS zugriffe, SUM(fehler) AS fehler,
+             SUM(dauer_summe) AS dauer_summe
+        FROM (SELECT tag, route, zugriffe, fehler, dauer_summe FROM nutzung_stunde
+              UNION ALL
+              SELECT tag, route, zugriffe, fehler, dauer_summe FROM nutzung_tag)
+       GROUP BY tag, route;
+
+    CREATE VIEW IF NOT EXISTS nutzung_klienten_tage AS
+      SELECT tag, SUM(klienten) AS klienten
+        FROM (SELECT tag, COUNT(*) AS klienten FROM nutzung_klient_tag
+               WHERE klient <> '-' GROUP BY tag
+              UNION ALL
+              SELECT tag, klienten FROM nutzung_tag_klienten)
+       GROUP BY tag;
   `);
 
   // Migration: Spalten der gefuehrten Testnachricht-Erstellung nachziehen
@@ -883,6 +952,107 @@ export function openDb(path) {
     const projektId = stmt.getProjekt.get(id)?.projekt_id ?? undefined;
     return { ...entry, projektId, ...versionsInfo(id, hash, fHash), ...hinweisInfo(id) };
   }
+
+  /**
+   * Nutzungszaehlung (#kennzahlen). Geschrieben wird ausschliesslich gebuendelt
+   * aus dem Puffer in server/nutzung.js -- ein Aufruf je Flush-Intervall, nicht
+   * je Request.
+   */
+  const nutzungStmt = {
+    stunde: db.prepare(`
+      INSERT INTO nutzung_stunde (tag, stunde, route, zugriffe, fehler, dauer_summe, dauer_max)
+      VALUES (@tag, @stunde, @route, @zugriffe, @fehler, @dauerSumme, @dauerMax)
+      ON CONFLICT(stunde, route) DO UPDATE SET
+        zugriffe = zugriffe + excluded.zugriffe,
+        fehler = fehler + excluded.fehler,
+        dauer_summe = dauer_summe + excluded.dauer_summe,
+        dauer_max = MAX(dauer_max, excluded.dauer_max)`),
+    klient: db.prepare(`
+      INSERT INTO nutzung_klient_tag (tag, klient, zugriffe, zuletzt)
+      VALUES (@tag, @klient, @zugriffe, @zuletzt)
+      ON CONFLICT(tag, klient) DO UPDATE SET
+        zugriffe = zugriffe + excluded.zugriffe,
+        zuletzt = MAX(COALESCE(zuletzt, 0), excluded.zuletzt)`),
+
+    // Verdichtung: Stundenkuebel -> Tageszeilen, Kennungen -> blosse Anzahl.
+    tagAus: db.prepare(`
+      INSERT INTO nutzung_tag (tag, route, zugriffe, fehler, dauer_summe)
+      SELECT tag, route, SUM(zugriffe), SUM(fehler), SUM(dauer_summe)
+        FROM nutzung_stunde WHERE tag < @grenze
+       GROUP BY tag, route
+      ON CONFLICT(tag, route) DO UPDATE SET
+        zugriffe = zugriffe + excluded.zugriffe,
+        fehler = fehler + excluded.fehler,
+        dauer_summe = dauer_summe + excluded.dauer_summe`),
+    tagKlientenAus: db.prepare(`
+      INSERT INTO nutzung_tag_klienten (tag, klienten, zugriffe)
+      SELECT tag, SUM(CASE WHEN klient <> '-' THEN 1 ELSE 0 END), SUM(zugriffe)
+        FROM nutzung_klient_tag WHERE tag < @grenze
+       GROUP BY tag
+      ON CONFLICT(tag) DO UPDATE SET
+        klienten = excluded.klienten,
+        zugriffe = excluded.zugriffe`),
+    stundeWeg: db.prepare('DELETE FROM nutzung_stunde WHERE tag < @grenze'),
+    klientWeg: db.prepare('DELETE FROM nutzung_klient_tag WHERE tag < @grenze'),
+
+    // Auswertung: immer ueber die Sichten, damit verdichtete und frische Tage
+    // gleich aussehen.
+    tage: db.prepare(`
+      SELECT tag, SUM(zugriffe) AS zugriffe, SUM(fehler) AS fehler,
+             SUM(dauer_summe) AS dauer_summe
+        FROM nutzung_tage WHERE tag >= @von GROUP BY tag`),
+    klientenTage: db.prepare('SELECT tag, klienten FROM nutzung_klienten_tage WHERE tag >= @von'),
+    routen: db.prepare(`
+      SELECT route, SUM(zugriffe) AS zugriffe, SUM(fehler) AS fehler,
+             SUM(dauer_summe) AS dauer_summe
+        FROM nutzung_tage WHERE tag >= @von
+       GROUP BY route ORDER BY zugriffe DESC LIMIT @grenze`),
+    stunden: db.prepare(
+      'SELECT stunde, SUM(zugriffe) AS zugriffe FROM nutzung_stunde WHERE tag >= @von GROUP BY stunde',
+    ),
+    // Zugriffe ohne Kennung sind nur so lange bekannt, wie die Rohzeilen leben.
+    ohneKennung: db.prepare(
+      "SELECT COALESCE(SUM(zugriffe), 0) AS n FROM nutzung_klient_tag WHERE tag >= @von AND klient = '-'",
+    ),
+    // Nur ueber die Rohzeilen bekannt: nach der Verdichtung bleibt je Tag eine
+    // Anzahl, aus der sich ein Fenster-Distinct nicht mehr bilden laesst.
+    fensterKlienten: db.prepare(
+      "SELECT COUNT(DISTINCT klient) AS n FROM nutzung_klient_tag WHERE tag >= @von AND klient <> '-'",
+    ),
+    wiederkehrend: db.prepare(`
+      SELECT COUNT(*) AS n FROM (
+        SELECT klient FROM nutzung_klient_tag
+         WHERE tag >= @von AND klient <> '-'
+         GROUP BY klient HAVING COUNT(*) >= @tage)`),
+    bestand: db.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM profiles) AS profile,
+        (SELECT COUNT(*) FROM profiles WHERE abnahme_version_id IS NOT NULL) AS profile_abgenommen,
+        (SELECT COALESCE(SUM(n_entschieden), 0) FROM profiles) AS punkte_entschieden,
+        (SELECT COALESCE(SUM(n_punkte), 0) FROM profiles) AS punkte_gesamt,
+        (SELECT MAX(aktualisiert) FROM profiles) AS zuletzt,
+        (SELECT COUNT(*) FROM testmessages) AS testnachrichten,
+        (SELECT COUNT(*) FROM testmessages WHERE abnahme_xml IS NOT NULL) AS tn_abgenommen,
+        (SELECT COUNT(*) FROM testmessages WHERE entwurf = 1) AS tn_entwuerfe,
+        (SELECT COUNT(*) FROM projekte) AS projekte,
+        (SELECT COUNT(*) FROM hinweise) AS hinweise_gesamt,
+        (SELECT COUNT(*) FROM hinweise WHERE erledigt IS NULL) AS hinweise_offen,
+        (SELECT COUNT(DISTINCT profil_id) FROM hinweise WHERE erledigt IS NULL) AS profile_mit_hinweisen,
+        (SELECT COUNT(*) FROM schemas) AS schema_versionen`),
+  };
+
+  const nutzungSchreiben = db.transaction((stunden, klienten) => {
+    for (const s of stunden) nutzungStmt.stunde.run(s);
+    for (const k of klienten) nutzungStmt.klient.run(k);
+  });
+
+  const nutzungVerdichten = db.transaction((grenze) => {
+    nutzungStmt.tagAus.run({ grenze });
+    nutzungStmt.tagKlientenAus.run({ grenze });
+    const stunden = nutzungStmt.stundeWeg.run({ grenze }).changes;
+    const klientTage = nutzungStmt.klientWeg.run({ grenze }).changes;
+    return { stunden, klientTage };
+  });
 
   const api = {
     _db: db,
@@ -1932,6 +2102,103 @@ export function openDb(path) {
         }
       })();
       return n;
+    },
+
+    /**
+     * Gebuendelte Nutzungszahlen schreiben. Aufrufer ist ausschliesslich der
+     * Puffer in server/nutzung.js (ein Aufruf je Flush-Intervall).
+     */
+    nutzungSchreiben(stunden = [], klienten = []) {
+      if (!stunden.length && !klienten.length) return;
+      nutzungSchreiben(stunden, klienten);
+    },
+
+    /**
+     * Rohdaten vor `grenze` ('YYYY-MM-DD') zu Tageszeilen verdichten und
+     * loeschen. Idempotent: die Quelle verschwindet in derselben Transaktion.
+     */
+    nutzungVerdichten(grenze) {
+      return nutzungVerdichten(grenze);
+    },
+
+    /**
+     * Kennzahlen der Ansicht: Nutzung (aus der Zaehlung) und Bestand (aus den
+     * Fachtabellen). Reines Lesen -- die Verdichtung laeuft anderswo.
+     */
+    kennzahlen({ tage = 30 } = {}) {
+      const spanne = Math.min(365, Math.max(1, Math.trunc(tage) || 30));
+      const bis = lokalerTag();
+      const von = tagPlus(bis, -(spanne - 1));
+
+      const proTag = new Map(nutzungStmt.tage.all({ von }).map((r) => [r.tag, r]));
+      const klientenProTag = new Map(
+        nutzungStmt.klientenTage.all({ von }).map((r) => [r.tag, r.klienten]),
+      );
+      const verlauf = tagesSpanne(von, bis).map((tag) => ({
+        tag,
+        zugriffe: proTag.get(tag)?.zugriffe ?? 0,
+        fehler: proTag.get(tag)?.fehler ?? 0,
+        klienten: klientenProTag.get(tag) ?? 0,
+      }));
+
+      // Gespeichert wird in Mikrosekunden; nach aussen eine Millisekunden-Zahl
+      // mit einer Nachkommastelle.
+      const dauerMs = (summe, n) => (n > 0 ? Math.round(summe / n / 100) / 10 : 0);
+      const zugriffe = verlauf.reduce((s, t) => s + t.zugriffe, 0);
+      const fehler = verlauf.reduce((s, t) => s + t.fehler, 0);
+      const dauerSumme = [...proTag.values()].reduce((s, r) => s + r.dauer_summe, 0);
+      const heute = proTag.get(bis);
+
+      // Tagesprofil der letzten 7 Tage: die Stunde kommt aus dem Zeitstempel,
+      // nicht aus SQL (lokale Zeit, siehe zeit.js).
+      const stundenprofil = Array(24).fill(0);
+      for (const r of nutzungStmt.stunden.all({ von: tagPlus(bis, -6) }))
+        stundenprofil[new Date(r.stunde).getHours()] += r.zugriffe;
+
+      const b = nutzungStmt.bestand.get();
+      return {
+        erzeugt: Date.now(),
+        zeitraum: { von, bis, tage: spanne },
+        nutzung: {
+          heute: {
+            zugriffe: heute?.zugriffe ?? 0,
+            klienten: klientenProTag.get(bis) ?? 0,
+            fehler: heute?.fehler ?? 0,
+            dauerMs: dauerMs(heute?.dauer_summe ?? 0, heute?.zugriffe ?? 0),
+          },
+          fenster: {
+            zugriffe,
+            klienten: nutzungStmt.fensterKlienten.get({ von }).n,
+            fehler,
+            dauerMs: dauerMs(dauerSumme, zugriffe),
+          },
+          ohneKennung: nutzungStmt.ohneKennung.get({ von }).n,
+          wiederkehrend: nutzungStmt.wiederkehrend.get({ von, tage: 5 }).n,
+          verlauf,
+          stundenprofil,
+          routen: nutzungStmt.routen.all({ von, grenze: 10 }).map((r) => ({
+            route: r.route,
+            zugriffe: r.zugriffe,
+            fehler: r.fehler,
+            dauerMs: dauerMs(r.dauer_summe, r.zugriffe),
+          })),
+        },
+        bestand: {
+          profile: b.profile,
+          profileAbgenommen: b.profile_abgenommen,
+          profileMitOffenenHinweisen: b.profile_mit_hinweisen,
+          punkteEntschieden: b.punkte_entschieden,
+          punkteGesamt: b.punkte_gesamt,
+          testnachrichten: b.testnachrichten,
+          testnachrichtenAbgenommen: b.tn_abgenommen,
+          testnachrichtenEntwuerfe: b.tn_entwuerfe,
+          projekte: b.projekte,
+          hinweiseOffen: b.hinweise_offen,
+          hinweiseGesamt: b.hinweise_gesamt,
+          schemaVersionen: b.schema_versionen,
+          zuletztAktualisiert: b.zuletzt ?? null,
+        },
+      };
     },
 
     close() {

@@ -1,4 +1,5 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { KlientService } from './klient.service';
 
 /** Browser-Storage-Schluessel des gemerkten AG-Schluessels. */
 export const AG_KEY_STORAGE = 'xjp.agKey';
@@ -18,6 +19,8 @@ export type AnmeldeErgebnis = 'ok' | 'falsch' | 'nicht-konfiguriert';
  */
 @Injectable({ providedIn: 'root' })
 export class RolleService {
+  private readonly klient = inject(KlientService);
+
   /** Der gemerkte AG-Schluessel (null = Rolle Extern). */
   private readonly key = signal<string | null>(localStorage.getItem(AG_KEY_STORAGE));
 
@@ -31,7 +34,7 @@ export class RolleService {
   async anmelden(schluessel: string): Promise<AnmeldeErgebnis> {
     const r = await fetch('api/login', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...this.klient.header() },
       body: JSON.stringify({ key: schluessel }),
     });
     if (!r.ok) throw new Error(`Login-Pruefung: POST /login → ${r.status}`);

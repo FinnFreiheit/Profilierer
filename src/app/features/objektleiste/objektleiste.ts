@@ -7,6 +7,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { Menu } from '../../shared/menu/menu';
+import { BetaBadge } from '../../shared/beta-badge/beta-badge';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
@@ -31,7 +32,7 @@ const DRUCK_SPERRE =
 @Component({
   selector: 'app-objektleiste',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Menu, RolleBadge, KeinAutofillDirective],
+  imports: [BetaBadge, Menu, RolleBadge, KeinAutofillDirective],
   templateUrl: './objektleiste.html',
 })
 export class Objektleiste {

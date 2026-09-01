@@ -29,8 +29,21 @@ const app = express();
 // express.json, damit auch Body-Parse-Fehler erfasst werden.
 app.use(requestFehlerLog);
 
-// REST-API (Profil-Bibliothek, Testdaten, Login) — gemeinsame Fabrik mit den Tests.
-app.use(createApp(db, { agKey: process.env.XJP_AG_KEY }));
+// REST-API (Profil-Bibliothek, Testdaten, Kennzahlen, Login) — gemeinsame Fabrik mit den Tests.
+const api = createApp(db, { agKey: process.env.XJP_AG_KEY });
+app.use(api);
+
+// Nutzungszahlen: einmal beim Start verdichten (faengt Instanzen ab, die
+// tagelang standen; danach uebernimmt der Tageswechsel im Zaehler-Timer) und
+// beim Herunterfahren den Puffer noch wegschreiben.
+api.locals.nutzung?.verdichteBeiTageswechsel();
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    api.locals.nutzung?.flush();
+    db.close();
+    process.exit(0);
+  });
+}
 
 // XRepository-Proxy (same-origin, loest den Produktions-Proxy-Bedarf).
 app.use(

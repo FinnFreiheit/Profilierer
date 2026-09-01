@@ -1,0 +1,40 @@
+@if (leer()) {
+  <p class="kzLeer">Noch keine Zugriffe erfasst.</p>
+} @else {
+  <svg
+    class="kzSvg"
+    role="img"
+    [attr.viewBox]="'0 0 ' + breite + ' ' + hoehe()"
+    [attr.aria-label]="'Zugriffe je Route — ' + vorlesetext()"
+  >
+    <title>Zugriffe je Route</title>
+    @for (z of zeilen(); track z.route) {
+      <text class="kzBalkenText" [attr.x]="0" [attr.y]="z.y + 14">{{ z.route }}</text>
+      <rect
+        class="kzBalken"
+        [attr.x]="label"
+        [attr.y]="z.y + 3"
+        [attr.width]="z.breite"
+        [attr.height]="14"
+        rx="3"
+      >
+        <title>{{ z.titel }}</title>
+      </rect>
+      @if (z.fehler > 0) {
+        <rect
+          class="kzBalkenFehler"
+          [attr.x]="label"
+          [attr.y]="z.y + 3"
+          [attr.width]="z.fehlerBreite"
+          [attr.height]="14"
+          rx="3"
+        >
+          <title>{{ z.fehler }} Fehlerantworten</title>
+        </rect>
+      }
+      <text class="kzBalkenZahl" [attr.x]="label + z.breite + 6" [attr.y]="z.y + 14">
+        {{ z.zugriffe }}
+      </text>
+    }
+  </svg>
+}

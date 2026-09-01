@@ -255,9 +255,11 @@ export class StateService {
   // ── Ansicht / Bibliothek ────────────────────────────────────────────
   /**
    * Projekte vs. Dashboard (Bibliothek) vs. Baum-Editor vs. Testdaten-Speicher
-   * vs. Anleitung. Startseite ist das Dashboard.
+   * vs. Anleitung vs. Kennzahlen (AG-exklusiv). Startseite ist das Dashboard.
    */
-  readonly view = signal<'dashboard' | 'editor' | 'testdaten' | 'howto' | 'projekte'>('dashboard');
+  readonly view = signal<
+    'dashboard' | 'editor' | 'testdaten' | 'howto' | 'projekte' | 'kennzahlen'
+  >('dashboard');
   /**
    * Geoeffnetes Projekt (#135) — null zeigt die Projektuebersicht. Der Zustand
    * liegt hier und nicht in der Komponente, damit der Sprung aus einer anderen

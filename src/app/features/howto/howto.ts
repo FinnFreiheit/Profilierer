@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { RolleService } from '../../core/services/rolle.service';
 import { StateService } from '../../core/services/state.service';
+import { BetaBadge } from '../../shared/beta-badge/beta-badge';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 
 /** Ein Schritt der Anleitung: Fliesstext, Bild, optionaler Merksatz. */
@@ -35,11 +37,12 @@ interface Teil {
 @Component({
   selector: 'app-howto',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RolleBadge],
+  imports: [BetaBadge, RolleBadge],
   templateUrl: './howto.html',
 })
 export class Howto {
   private readonly state = inject(StateService);
+  protected readonly rolle = inject(RolleService);
 
   /** Grossansicht eines Bildes (Klick aufs Bild) — null = geschlossen. */
   protected readonly lupe = signal<string | null>(null);
@@ -343,5 +346,10 @@ export class Howto {
 
   protected goTestdaten(): void {
     this.state.view.set('testdaten');
+  }
+
+  /** Zu den Kennzahlen wechseln (nur mit AG-Rolle sichtbar). */
+  protected goKennzahlen(): void {
+    this.state.view.set('kennzahlen');
   }
 }

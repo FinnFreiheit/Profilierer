@@ -12,6 +12,7 @@ import { UeberlagerungService } from '../services/ueberlagerung.service';
 import { unterPfad } from '../util/pfad.util';
 import { pretty } from '../util/pretty.util';
 import { datentypAnzeige } from '../util/datentyp.util';
+import { diffWorte } from '../util/diff-richtung.util';
 import { erwTypFehltText } from '../util/erweiterung.util';
 import { REF_LABELS, refKindOf } from '../refs';
 import { sperrGrundText } from './sperrgrund';
@@ -229,7 +230,10 @@ export class BaumkastenAnsicht {
     const ausps = this.state.auspsOf(it.node.path);
     if (ausps && ausps.length) return [];
     const relParent = this.relativerPfad(itemPath(it));
-    const vB = this.state.idxB()?.version || '?';
+    // Der Phantomkasten steht fuer ein Element, das es nur in der
+    // Vergleichsversion gibt — wie das zu lesen ist, haengt daran, ob die
+    // Vergleichsversion die neuere oder die aeltere ist (diff-richtung.util).
+    const worte = diffWorte(this.state.version(), this.state.idxB()?.version);
     const out: Phantomkasten[] = [];
     for (const [rel, r] of diffMap) {
       if (r.art !== 'neu' || !rel.startsWith(relParent + '/')) continue;
@@ -239,7 +243,7 @@ export class BaumkastenAnsicht {
       out.push({
         name: pretty(base),
         tech: base + (r.typ ? ' : ' + r.typ : ''),
-        kard: `neu in ${vB}${r.info ? ' · ' + r.info : ''}`,
+        kard: `${worte.nurInVergleich.text}${r.info ? ' · ' + r.info : ''}`,
       });
     }
     return out;
@@ -496,7 +500,7 @@ export class BaumkastenAnsicht {
     const diffMap = this.state.diffMap();
     if (this.state.showDiff() && diffMap && it.kind === 'el') {
       const rel = this.relativerPfad(path);
-      const vB = this.state.idxB()?.version || 'neu';
+      const worte = diffWorte(this.state.version(), this.state.idxB()?.version);
       let ownArt: string | null = null;
       if (!it.node.synthetic && it.node !== this.state.root()) {
         const dr = diffMap.get(rel);
@@ -505,11 +509,15 @@ export class BaumkastenAnsicht {
           if (dr.art === 'entfernt')
             tags.push({
               cls: 't-dent',
-              text: `entfällt in ${vB}`,
-              title: `Element ist in Version ${vB} nicht mehr enthalten`,
+              text: worte.nurInBasis.text,
+              title: worte.nurInBasis.title,
             });
           else if (dr.art === 'geändert')
-            tags.push({ cls: 't-daend', text: `geändert in ${vB}`, title: dr.info });
+            tags.push({
+              cls: 't-daend',
+              text: worte.geaendert.text,
+              title: dr.info || worte.geaendert.title,
+            });
         }
       }
       const anc = this.state.diffAnc()?.get(rel);
