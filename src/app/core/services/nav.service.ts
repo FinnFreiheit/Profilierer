@@ -23,6 +23,9 @@ export class NavService {
     if (!idx) return;
     const schemaView = this.state.schemaView();
     this.state.msgName.set(name);
+    // Eine Nachricht loest die Typ-Wurzel ab — auch bei keepProfile, wo
+    // loadProfile nicht laeuft.
+    this.state.typName.set(null);
     this.state.root.set(this.tree.buildRoot(name, idx));
     if (!keepProfile) {
       this.state.resetProfile();
@@ -58,6 +61,41 @@ export class NavService {
     this.state.guided.set(false);
     this.state.schemaView.set(true);
     this.state.readOnly.set(true);
+    this.state.view.set('editor');
+  }
+
+  /**
+   * US "Datentyp nachschlagen": einen `Type.*`/`Code.*` als Baumwurzel in der
+   * reinen Schema-Ansicht oeffnen — dieselbe Visualisierung wie bei einer
+   * Nachricht, nur zum Betrachten. Semantik von `openSchemaView` plus Wurzel;
+   * `msgName` bleibt null, damit Autosave, Diff und die Exportwege stumm
+   * bleiben. Die Ansicht wird nirgends gesichert: nach einem Reload steht man
+   * wieder auf dem Dashboard.
+   *
+   * Eine offene Profilierung wird dabei geschlossen — der Aufrufer muss ihren
+   * Stand vorher sichern (`PersistenceService.flushAutosave`), weil
+   * `activeProfileId` hier entfaellt.
+   */
+  oeffneTypAnsicht(typName: string): void {
+    const idx = this.state.idx();
+    if (!idx || !(idx.ct[typName] || idx.st[typName])) return;
+    this.state.activeProfileId.set(null);
+    this.state.msgName.set(null);
+    this.state.resetProfile();
+    this.state.guided.set(false);
+    this.state.schemaView.set(true);
+    this.state.readOnly.set(true);
+    this.state.typName.set(typName);
+    const root = this.tree.buildTypRoot(typName, idx);
+    this.state.root.set(root);
+    this.state.selItem.set({ kind: 'el', node: root });
+    this.state.open.set(new Set([root.path]));
+    // Der Diff bezieht sich auf eine Nachricht (computeDiffMap ist ueber
+    // msgName geguardet) — ohne Nullen blieben die Marker der zuvor geladenen
+    // Nachricht auf den Pfaden des Typ-Baums stehen.
+    this.state.diffMap.set(null);
+    this.state.diffAnc.set(null);
+    this.state.clearValidierungsMarker();
     this.state.view.set('editor');
   }
 

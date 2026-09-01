@@ -233,6 +233,22 @@ export function datentypGruppen(idx: XsdIndex | null): DatentypGruppe[] {
 }
 
 /**
+ * Der Suchkatalog der zentralen Suche: alles, was sich als eigener Baum
+ * ansehen laesst — die fachlichen `Type.*` (complexType vor simpleType) und
+ * die Codelisten-`Code.*`. Ohne Sondereintraege, ohne xs:-Basistypen und ohne
+ * die DIN-Typen: die tragen keine Struktur, die eine Ansicht lohnte.
+ */
+export function suchTypen(idx: XsdIndex | null): DatentypEintrag[] {
+  if (!idx) return [];
+  const gefunden = new Map<string, Element>();
+  for (const [n, el] of Object.entries(idx.ct))
+    if (n.startsWith(TYPE_PRAEFIX) || n.startsWith(CODE_PRAEFIX)) gefunden.set(n, el);
+  for (const [n, el] of Object.entries(idx.st))
+    if (n.startsWith(TYPE_PRAEFIX) && !gefunden.has(n)) gefunden.set(n, el);
+  return sortiert(gefunden.keys()).map((n) => typEintrag(n, gefunden.get(n)!));
+}
+
+/**
  * Freitextsuche ueber den Katalog: Typname **und** Klartext, wie im
  * Nachrichtenwaehler. Leergefilterte Gruppen fallen weg, damit keine
  * Ueberschrift ohne Inhalt stehen bleibt.

@@ -26,6 +26,7 @@ import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiter
 import { nachrichtTeile } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { NeuesProfilWizard } from '../dialogs/neues-profil-wizard';
+import { SchemaSuche } from './schema-suche';
 import { TagFilter } from '../../shared/tag-filter/tag-filter';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
 import { ProjektStoreService } from '../../core/services/projekt-store.service';
@@ -68,6 +69,7 @@ interface Sektion {
     NeuesProfilWizard,
     TagFilter,
     TagEingabe,
+    SchemaSuche,
   ],
   templateUrl: './dashboard.html',
 })

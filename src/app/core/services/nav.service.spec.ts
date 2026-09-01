@@ -78,6 +78,73 @@ describe('NavService — Schema-Ansicht (US "Schema ansehen")', () => {
   });
 });
 
+describe('NavService — oeffneTypAnsicht (Datentyp als Baumwurzel)', () => {
+  let nav: NavService;
+  let state: StateService;
+  const TYP = 'Type.GDS.Herstellerinformation';
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: TreeService,
+          useValue: {
+            buildRoot: () => node('nachricht.test'),
+            buildTypRoot: (t: string) => node(t),
+          },
+        },
+      ],
+    });
+    nav = TestBed.inject(NavService);
+    state = TestBed.inject(StateService);
+    state.idx.set({
+      ct: { [TYP]: document.createElement('x') },
+      st: {},
+      el: {},
+      messages: [],
+    } as unknown as XsdIndex);
+  });
+
+  it('oeffnet den Typ gesperrt, ohne Nachricht und ohne Autosave-Ziel', () => {
+    state.activeProfileId.set('p1');
+    state.msgName.set('nachricht.test');
+    nav.oeffneTypAnsicht(TYP);
+    expect(state.view()).toBe('editor');
+    expect(state.typName()).toBe(TYP);
+    expect(state.istTypAnsicht()).toBeTrue();
+    expect(state.msgName()).toBeNull();
+    expect(state.schemaView()).toBeTrue();
+    expect(state.readOnly()).toBeTrue();
+    expect(state.activeProfileId()).toBeNull();
+    expect(state.root()?.path).toBe(TYP);
+    expect([...state.open()]).toEqual([TYP]);
+  });
+
+  it('raeumt die Marker der zuvor geladenen Nachricht', () => {
+    state.diffMap.set(new Map());
+    state.diffAnc.set(new Map());
+    state.valFehler.set(new Map());
+    nav.oeffneTypAnsicht(TYP);
+    expect(state.diffMap()).toBeNull();
+    expect(state.diffAnc()).toBeNull();
+    expect(state.valFehler()).toBeNull();
+  });
+
+  it('tut nichts, wenn das Schema den Typ nicht kennt', () => {
+    nav.oeffneTypAnsicht('Type.GDS.GibtEsNicht');
+    expect(state.typName()).toBeNull();
+    expect(state.root()).toBeNull();
+    expect(state.schemaView()).toBeFalse();
+  });
+
+  it('loadMessage loest die Typ-Wurzel ab — auch mit keepProfile', () => {
+    nav.oeffneTypAnsicht(TYP);
+    nav.loadMessage('nachricht.test', true);
+    expect(state.typName()).toBeNull();
+    expect(state.msgName()).toBe('nachricht.test');
+  });
+});
+
 /** Baum-Attrappe: Kind-Pfade je Pfad, Items lazy erzeugt (wie childItems). */
 function mockTree(children: Record<string, string[]>): Partial<TreeService> {
   const itemFor = (p: string): TreeItem => ({ kind: 'el', node: node(p) });

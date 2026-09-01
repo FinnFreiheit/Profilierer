@@ -117,6 +117,33 @@ export class TreeService {
     });
   }
 
+  /**
+   * Wurzelknoten eines **Datentyps** (zentrale Suche: Datentyp nachschlagen) —
+   * derselbe Baum wie bei einer Nachricht, nur ohne Element-Deklaration
+   * darueber. Setzt den aktiven Index wie `buildRoot`.
+   *
+   * `typeStack` traegt den Typ bereits an der Wurzel: sonst griffe der
+   * Rekursionsschutz bei einem Typ, der sich selbst enthaelt, erst eine Ebene
+   * zu spaet. Ein `Code.*` wird ueber `codelistOf` zum Blatt mit Codelisten-Info.
+   */
+  buildTypRoot(typName: string, idx: XsdIndex): TreeNode {
+    this.nodeId = 0;
+    this.ctxCache = {};
+    this.ctModell = {};
+    this.idx = idx;
+    const el = idx.ct[typName] ?? idx.st[typName] ?? null;
+    return this.makeNode({
+      name: typName,
+      path: typName,
+      xsdEl: null,
+      doc: docOf(el),
+      depth: 0,
+      typeName: typName,
+      codelist: this.parser.codelistOf(typName, idx),
+      typeStack: [typName],
+    });
+  }
+
   /** expandNode (Z.474-492): fuellt `children` lazy. */
   expandNode(n: TreeNode): void {
     if (n.children !== null) return;
@@ -138,6 +165,10 @@ export class TreeService {
     else if (n.xsdEl) {
       ct = kid(n.xsdEl, 'complexType');
       if (!ct && n.typeName && this.i.ct[n.typeName]) ct = this.i.ct[n.typeName]!;
+    } else if (n.typeName && this.i.ct[n.typeName]) {
+      // Nur die Typ-Wurzel (buildTypRoot) kommt hier an: ein Knoten ohne
+      // Element-Deklaration, der seine Struktur allein aus dem Typnamen zieht.
+      ct = this.i.ct[n.typeName]!;
     }
     if (!ct) return;
     const cm = this.parser.particlesOfCT(ct, this.i);
@@ -307,6 +338,11 @@ export class TreeService {
         return cm.simple || cm.parts.length === 0;
       }
       return true;
+    }
+    // Typ-Wurzel (buildTypRoot): kein xsdEl, die Struktur haengt am Typnamen.
+    if (n.typeName && this.i.ct[n.typeName]) {
+      const cm = this.modellVon(n.typeName, this.i.ct[n.typeName]!);
+      return cm.simple || cm.parts.length === 0;
     }
     return true;
   }
