@@ -5,6 +5,12 @@ import { StateService } from '../services/state.service';
 import { TreeService } from '../services/tree.service';
 import { XsdParserService } from '../services/xsd-parser.service';
 import { TreeNode as TNode } from '../../models/node.model';
+import {
+  STANDARD_ERKLAERUNG,
+  STANDARD_TASTE,
+  WIRKUNG_ERKLAERUNG,
+  WIRKUNG_TASTE,
+} from '../profile-defaults';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
@@ -112,5 +118,83 @@ describe('DetailAnsicht', () => {
     waehle('datum');
 
     expect(ansicht.punkt()!.beispielProblem).toBeTruthy();
+  });
+});
+
+/**
+ * Antwort-Liste des Detailbereichs (Editor v4): der Statusname ist frei
+ * gewaehlt — Klartext und Taste haengen an der **Wirkung**. Fuehrt eine
+ * Profilierung mehrere Stufen derselben Wirkung, traegt nur die erste die
+ * Taste; sonst zeigten zwei Zeilen dieselbe an und eine davon loege.
+ */
+describe('DetailAnsicht — Antworten mit Klartext und Taste', () => {
+  let ansicht: DetailAnsicht;
+  let state: StateService;
+  let tree: TreeService;
+  let root: TNode;
+
+  const M = 'nachricht.test.0001';
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    ansicht = TestBed.inject(DetailAnsicht);
+    state = TestBed.inject(StateService);
+    tree = TestBed.inject(TreeService);
+    const dom = new DOMParser().parseFromString(XSD, 'application/xml');
+    const idx = TestBed.inject(XsdParserService).buildIndexFrom([
+      { file: 'xjustiz_0000_test.xsd', dom },
+    ]).idx;
+    state.idx.set(idx);
+    state.msgName.set(M);
+    root = tree.buildRoot(M, idx);
+    state.root.set(root);
+    const node = tree.kinder(root).find((k) => k.path === `${M}/datum`)!;
+    state.selItem.set({ kind: 'el', node });
+  });
+
+  it('nennt zu jeder Antwort die Erklärung ihrer Wirkung und die Taste', () => {
+    const knoepfe = ansicht.punkt()!.statusButtons;
+
+    expect(knoepfe.map((b) => b.taste)).toEqual([
+      STANDARD_TASTE,
+      WIRKUNG_TASTE.pflicht,
+      WIRKUNG_TASTE.optional,
+      WIRKUNG_TASTE.ausgeschlossen,
+      WIRKUNG_TASTE.markierung,
+    ]);
+    expect(knoepfe[0]!.erklaerung).toBe(STANDARD_ERKLAERUNG);
+    expect(knoepfe[1]!.erklaerung).toBe(WIRKUNG_ERKLAERUNG.pflicht);
+    // Die getönte Fläche der aktiven Zeile — nicht die volle Statusfarbe.
+    expect(knoepfe[1]!.farbeHell).toContain('color-mix');
+    expect(knoepfe[1]!.farbeHell).toContain(state.statuses()[0]!.farbe);
+  });
+
+  it('gibt die Taste nur der ersten Stufe je Wirkung', () => {
+    state.statuses.set([
+      { id: 'a', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' },
+      { id: 'b', name: 'zwingend, sobald bekannt', farbe: '#12684F', wirkung: 'pflicht' },
+    ]);
+
+    const knoepfe = ansicht.punkt()!.statusButtons;
+    expect(knoepfe.map((b) => b.taste)).toEqual([STANDARD_TASTE, WIRKUNG_TASTE.pflicht, null]);
+  });
+
+  it('meldet die getroffene Antwort im Klartext — ohne eigene Vorgabe null', () => {
+    expect(ansicht.punkt()!.curStatus).toBeNull();
+
+    state.setElementProfile(`${M}/datum`, { status: 's1' });
+    const cur = ansicht.punkt()!.curStatus!;
+    expect(cur.name).toBe('zwingend');
+    expect(cur.wirkung).toBe('pflicht');
+    expect(cur.erklaerung).toBe(WIRKUNG_ERKLAERUNG.pflicht);
+  });
+
+  it('schreibt die Kardinalität im Klartext — eigene Vorgabe schlägt den Standard', () => {
+    const node = tree.kinder(root).find((k) => k.path === `${M}/akte`)!;
+    state.selItem.set({ kind: 'el', node });
+    expect(ansicht.punkt()!.kardText).toBe('beliebig viele');
+
+    state.setElementProfile(`${M}/akte`, { min: '1', max: '3' });
+    expect(ansicht.punkt()!.kardText).toBe('eigene Vorgabe: 1 bis 3');
   });
 });

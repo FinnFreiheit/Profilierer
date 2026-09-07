@@ -447,3 +447,116 @@ describe('DetailPanel — Wert-Feld im gefuehrten Durchlauf', () => {
     expect(state.selItem() && itemPath(state.selItem()!)).toBe(`${M}/az`);
   });
 });
+
+/**
+ * Detailbereich als Karte (Editor v4): eine Antwort-Zeile je Statusstufe mit
+ * ihrer Taste, die Alternativen einer Auswahl auch im Bearbeiten-Modus (bisher
+ * nur gefuehrt) und die letzten beiden Stationen des Pfads ueber dem Titel.
+ */
+describe('DetailPanel — Antwort-Liste, Alternativen und Krümel', () => {
+  const XSD = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0011" type="Type.Test11.Root"/>
+  <xs:complexType name="Type.Test11.Root"><xs:sequence>
+    <xs:element name="kopf" type="Type.Test11.Kopf"/>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="Type.Test11.Kopf"><xs:sequence>
+    <xs:element name="auswahl_partner" type="Type.Test11.Wahl"/>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="Type.Test11.Wahl"><xs:choice>
+    <xs:element name="behoerde" type="xs:string"/>
+    <xs:element name="person" type="xs:string"/>
+  </xs:choice></xs:complexType>
+</xs:schema>`;
+  const M = 'nachricht.test.0011';
+
+  let fixture: ComponentFixture<DetailPanel>;
+  let state: StateService;
+  let nav: NavService;
+
+  beforeEach(async () => {
+    localStorage.removeItem('xjp.ui.detailBreite');
+    localStorage.removeItem('xjp.ui.detailZu');
+    await TestBed.configureTestingModule({ imports: [DetailPanel] }).compileComponents();
+    state = TestBed.inject(StateService);
+    nav = TestBed.inject(NavService);
+    const tree = TestBed.inject(TreeService);
+    const parser = TestBed.inject(XsdParserService);
+    const dom = new DOMParser().parseFromString(XSD, 'application/xml');
+    const idx = parser.buildIndexFrom([{ file: 'xjustiz_0000_test11.xsd', dom }]).idx;
+    state.idx.set(idx);
+    state.msgName.set(M);
+    state.root.set(tree.buildRoot(M, idx));
+    fixture = TestBed.createComponent(DetailPanel);
+  });
+
+  const zeige = (path: string): HTMLElement => {
+    nav.jumpTo(path);
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  };
+
+  it('zeigt je Antwort eine Zeile mit ihrer Taste', () => {
+    const zeilen = zeige(`${M}/kopf`).querySelectorAll<HTMLElement>('.antwortZeile');
+
+    // „wie Standard" plus die vier Standard-Statusstufen.
+    expect(zeilen.length).toBe(5);
+    expect(zeilen[0]!.textContent).toContain('wie Standard');
+    expect([...zeilen].map((z) => z.querySelector('.antwortTaste')?.textContent?.trim())).toEqual([
+      'S',
+      'Z',
+      'O',
+      'N',
+      'K',
+    ]);
+  });
+
+  it('setzt beim Klick auf eine Antwort-Zeile den Status', () => {
+    const zeilen = zeige(`${M}/kopf`).querySelectorAll<HTMLButtonElement>('.antwortZeile');
+    zeilen[1]!.click();
+    fixture.detectChanges();
+
+    expect(state.elemente()[`${M}/kopf`]?.status).toBe('s1');
+    expect(zeilen[1]!.classList).toContain('aktiv');
+  });
+
+  it('zeigt die Alternativen einer Auswahl im Bearbeiten-Modus; Klick ruft setzeZweig', () => {
+    const guided = TestBed.inject(GuidedService);
+    const setze = spyOn(guided, 'setzeZweig');
+    const zweige = zeige(`${M}/kopf/auswahl_partner`).querySelectorAll<HTMLButtonElement>(
+      '.zweigZeile',
+    );
+
+    expect(zweige.length).toBe(2);
+    expect(zweige[0]!.classList).toContain('an'); // nichts ausgeschlossen
+    zweige[0]!.click();
+
+    expect(setze).toHaveBeenCalledWith(
+      `${M}/kopf/auswahl_partner`,
+      `${M}/kopf/auswahl_partner/behoerde`,
+      false,
+    );
+  });
+
+  it('zeigt als Krümel die letzten beiden Vorfahren', () => {
+    const krumen = zeige(`${M}/kopf/auswahl_partner`).querySelectorAll<HTMLButtonElement>(
+      '.detailKrumen .krumeBtn',
+    );
+
+    expect(krumen.length).toBe(2);
+    expect(krumen[1]!.textContent?.trim()).toBe('Kopf');
+    const jump = spyOn(nav, 'jumpTo');
+    krumen[1]!.click();
+    expect(jump).toHaveBeenCalledWith(`${M}/kopf`, true);
+  });
+
+  it('zeigt im Nur-Lesen-Modus „Festgelegt als" statt der Antwort-Zeilen', () => {
+    state.setElementProfile(`${M}/kopf`, { status: 's1' });
+    state.readOnly.set(true);
+    const el = zeige(`${M}/kopf`);
+
+    expect(el.querySelector('.antwortZeile')).toBeNull();
+    expect(el.querySelector('.festgelegtName')?.textContent).toContain('zwingend');
+    expect(el.querySelector('.festgelegtErkl')?.textContent?.trim()).toBeTruthy();
+  });
+});

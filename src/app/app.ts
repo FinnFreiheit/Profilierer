@@ -51,7 +51,10 @@ import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
 import { BundledVersion } from './models/schema-bundle.model';
 import { vereineVersionen } from './core/util/schema-quellen.util';
 import { ansichtAusUrl } from './core/util/ansicht-url.util';
+import { DispositionService } from './core/services/disposition.service';
 import { NachrichtSpeichernDialog } from './features/dialogs/nachricht-speichern-dialog';
+import { itemPath } from './models/node.model';
+import { STANDARD_TASTE, wirkungFuerTaste } from './core/profile-defaults';
 
 /**
  * Ist das Ziel ein **Zweig-Radio** der gefuehrten Auswahl? Solche Knoepfe geben
@@ -114,6 +117,7 @@ export class App implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly state = inject(StateService);
   private readonly guided = inject(GuidedService);
+  private readonly disposition = inject(DispositionService);
   private readonly bundled = inject(BundledSchemaService);
   private readonly schemas = inject(SchemaStoreService);
   private readonly remoteSchemas = inject(RemoteSchemaService);
@@ -415,9 +419,12 @@ export class App implements OnInit {
   }
 
   /**
-   * Tastatur-Navigation (Z.2443-2463): Pfeiltasten im Baum; im gefuehrten
-   * Profil-Modus zusaetzlich Links/Rechts = Spur (vorheriger Punkt / naechster
-   * offener) und z/o/n = Disposition mit Auto-Sprung.
+   * Tastatur-Navigation (Z.2443-2463): Pfeiltasten im Baum. Beim Profilieren
+   * kommen die **Antwort-Tasten** dazu — S (wie Standard), Z/O/N/K je Wirkung
+   * und Enter (naechstes offenes Feld). Sie gelten im Bearbeiten- wie im
+   * gefuehrten Modus, weil die Antwort-Liste im Detailbereich dieselbe ist;
+   * gefuehrt blaettert eine Antwort zusaetzlich weiter, und Links/Rechts
+   * steuern dort die Spur (vorheriger Punkt / naechster offener).
    *
    * Im gefuehrten **Instanz**-Durchlauf blaettert man statt zu entscheiden
    * (ADR 0016): **senkrecht die Spur** (↓ zur naechsten Station — zugleich das
@@ -503,37 +510,55 @@ export class App implements OnInit {
       }
     }
 
-    // Gefuehrter Profil-Modus (gleiche Bedingung wie gv im Detail-Panel).
-    if (
-      this.state.guided() &&
-      !this.state.readOnly() &&
-      !this.guided.instanzModus() &&
-      this.state.selItem()
-    ) {
+    // Antwort-Tasten beim Profilieren: im Bearbeiten- **und** im gefuehrten
+    // Modus, weil die Antwort-Liste im Detailbereich dieselbe ist. Der
+    // Unterschied liegt allein im Weiterspringen — gefuehrt blaettert die
+    // Antwort zur naechsten offenen Stelle, beim Bearbeiten bleibt der Blick,
+    // wo er ist.
+    const sel = this.state.selItem();
+    if (!this.state.readOnly() && !this.guided.instanzModus() && !this.state.msgMode() && sel) {
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      if (key === 'ArrowLeft') {
-        this.guided.gotoPrev();
+      const inBedienelement = !!t && ['BUTTON', 'INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName);
+      if (this.state.guided()) {
+        if (key === 'ArrowLeft') {
+          this.guided.gotoPrev();
+          e.preventDefault();
+          return;
+        }
+        if (key === 'ArrowRight') {
+          this.guided.gotoNextOpen();
+          e.preventDefault();
+          return;
+        }
+      }
+      // Enter fuehrt zum naechsten offenen Feld — die Bewegung, die den
+      // Durchlauf ohne Maus traegt. Auf einem Bedienelement gehoert die Taste
+      // diesem (sie loest es aus), sonst waere kein Knopf mehr per Tastatur
+      // bedienbar.
+      if (key === 'Enter' && !e.shiftKey && !inBedienelement) {
+        if (!this.guided.gotoNextOpen()) this.toast.show('Alle Felder beantwortet.');
         e.preventDefault();
         return;
       }
-      if (key === 'ArrowRight') {
-        this.guided.gotoNextOpen();
+      // s = „wie Standard": nimmt die eigene Antwort zurueck.
+      if (key === STANDARD_TASTE.toLowerCase()) {
+        this.disposition.setzeStatus(itemPath(sel), undefined);
         e.preventDefault();
         return;
       }
-      // k = „zu klären": parkt den Punkt sichtbar (#41).
-      const wirkung =
-        key === 'z'
-          ? 'pflicht'
-          : key === 'o'
-            ? 'optional'
-            : key === 'n'
-              ? 'ausgeschlossen'
-              : key === 'k'
-                ? 'markierung'
-                : null;
+      // z/o/n/k setzen die Antwort ueber ihre Wirkung; k („zu klären") parkt
+      // den Punkt sichtbar (#41).
+      const wirkung = wirkungFuerTaste(key);
       if (wirkung) {
-        if (this.guided.setzeDisposition(wirkung)) e.preventDefault();
+        if (this.state.guided()) {
+          if (this.guided.setzeDisposition(wirkung)) e.preventDefault();
+          return;
+        }
+        const st = this.state.statusFuerTaste(key);
+        if (st) {
+          this.disposition.setzeStatus(itemPath(sel), st.id);
+          e.preventDefault();
+        }
         return;
       }
     }

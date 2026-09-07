@@ -673,6 +673,8 @@ app-crumbs {
   flex: 1;
   display: flex;
   min-height: 0;
+  position: relative;
+  background: var(--bg);
 }
 #colWrap {
   flex: 1;
@@ -685,7 +687,7 @@ app-crumbs {
    (refCurve: +50px Bauch) — das Polster rechts ist ihr Raum, nicht Luft. */
 #treeCanvas {
   position: relative;
-  padding: 18px 20px 26px;
+  padding: 18px 40px 26px 20px;
   min-width: max-content;
   cursor: grab;
 }
@@ -1445,18 +1447,24 @@ app-detail-panel {
    vorher hing ihre Sichtbarkeit an der Auswahl, und der erste Klick auf
    einen Kasten verschmaelerte den Baumbereich schlagartig um ~400px.
 
-   Die Breite waechst mit dem Fenster (clamp) und laesst sich am Griff
-   ziehen; der gezogene Wert kommt als Inline-Style und gewinnt dann.
+   Seit Editor v4 ist sie eine schwebende Karte auf dem Seitengrund, keine
+   angeklebte Randspalte: eingerueckt, gerundet, mit Schatten. Die
+   Standardbreite ist fest (394px) und laesst sich am Griff ziehen; der
+   gezogene Wert kommt als Inline-Style und gewinnt dann.
    ------------------------------------------------------------------ */
 #detail {
-  width: clamp(340px, 28%, 560px);
-  border-left: 1px solid var(--border);
+  width: 394px;
+  margin: 12px 12px 12px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+  box-shadow: var(--schatten-panel);
   background: var(--panel);
   padding: 0;
   display: flex;
   flex: none;
   position: relative;
   min-height: 0;
+  overflow: hidden;
 }
 #detail.zu {
   width: auto;
@@ -1466,23 +1474,29 @@ app-detail-panel {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  padding: 16px;
+  padding: 16px 17px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
 }
 /* Griff: schmal sichtbar, grosszuegig greifbar (Pseudo-Element verbreitert
-   die Trefferflaeche, ohne Layout zu kosten). */
+   die Trefferflaeche, ohne Layout zu kosten). Er liegt an der linken Kante
+   der Karte auf — `overflow: hidden` schneidet alles ab, was darueber
+   hinausragt. */
 .detailGriff {
-  flex: none;
-  width: 5px;
-  margin-left: -3px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 6px;
   cursor: col-resize;
-  position: relative;
   z-index: 2;
   touch-action: none;
 }
 .detailGriff::before {
   content: '';
   position: absolute;
-  inset: 0 -4px;
+  inset: 0 -3px 0 0;
 }
 .detailGriff:hover::after,
 .detailGriff:active::after {
@@ -1494,8 +1508,8 @@ app-detail-panel {
 }
 /* Eingeklappt: nur noch ein Streifen mit dem Wiederaufklapp-Knopf. */
 .detailAuf {
+  flex: 1;
   border: none;
-  border-left: 1px solid var(--border);
   background: var(--panel);
   color: var(--muted);
   padding: 0 6px;
@@ -1513,12 +1527,46 @@ app-detail-panel {
   top: -16px;
   z-index: 1;
   background: var(--panel);
-  margin: -16px -16px 8px;
-  padding: 12px 16px 8px;
+  margin: -16px -17px 0;
+  padding: 15px 17px 13px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
+}
+/* Die letzten beiden Stationen des Pfads: kurzer Weg zurueck, ohne die
+   Kopfzone selbst zum Pfad zu machen — die ganze Kette traegt die Fusszeile. */
+.detailKrumen {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-bottom: 5px;
+  overflow: hidden;
+}
+.krumeSep {
+  color: var(--muted);
+  flex: none;
+}
+.krumeBtn {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 18ch;
+  font-size: 12px;
+  padding: 2px 5px;
+  border: 0;
+  border-radius: var(--rund-tag);
+  background: transparent;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 auto;
+}
+.krumeBtn:hover {
+  background: var(--accent-hauch);
+  color: var(--accent);
 }
 .detailKopfText {
   flex: 1;
@@ -1526,21 +1574,20 @@ app-detail-panel {
 }
 .detailZu {
   flex: none;
-  border: none;
-  background: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--rund-bedienung);
+  background: transparent;
   color: var(--muted);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
-  padding: 2px 6px;
 }
 .detailZu:hover {
-  background: var(--accent-soft);
+  border-color: var(--border);
+  background: var(--bg);
   color: var(--accent);
-}
-/* Trennt Entscheidungen von Nachschlagbarem. */
-.detailTrenner {
-  border-top: 1px dashed var(--border);
-  margin: 16px 0 4px;
 }
 .detailRuhe {
   color: var(--muted);
@@ -1580,53 +1627,316 @@ app-detail-panel {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Standard-Beschreibung gedeckelt: bei gut dokumentierten Elementen schob sie
-   Status und Kardinalitaet sonst unter die Falz. */
-.docDeckel {
-  max-height: 5.6em;
+/* Standard-Beschreibung: Fliesstext, bei langen Erlaeuterungen auf drei
+   Zeilen gedeckelt — sonst schob sie Antwort und Karte unter die Falz. */
+.dokuText {
+  margin: 0;
+  min-width: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.dokuText.dokuKurz {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.docDeckel.docOffen {
-  max-height: none;
-}
 .docMehr {
+  align-self: flex-start;
   border: none;
   background: none;
   color: var(--accent);
-  font-size: 12px;
-  padding: 2px 0;
+  font-size: 13px;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .docMehr:hover {
   background: none;
-  text-decoration: underline;
+  color: var(--accent-hover);
 }
 #detail h3 {
   color: var(--text-stark);
-  margin: 0 0 2px;
-  font-size: 15px;
-  word-break: break-word;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 640;
+  letter-spacing: -0.014em;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
 }
 #detail .sub {
   color: var(--muted);
-  font-size: 12px;
-  margin-bottom: 10px;
-  font-family: var(--mono);
-  word-break: break-all;
+  font-size: 12.5px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
 }
+/* Die Abschnitte liegen als Spalte mit festem Abstand im Inhalt (`gap`); ein
+   eigener Aussenabstand doppelte ihn. */
 .dsec {
-  margin: 14px 0;
+  margin: 0;
+  min-width: 0;
 }
-/* `.dsecTitel` ist die Variante fuer Abschnitte ohne Formularfeld (dort waere
-   ein <label> ohne Bezug — siehe label-has-associated-control). */
-.dsec > label,
-.dsec > .dsecTitel {
+/* Abschnitts-Label des Detailbereichs. Ein <span>, kein <label>: die meisten
+   Abschnitte tragen kein einzelnes Formularfeld, an das es gehoerte (siehe
+   label-has-associated-control). */
+.dLabel {
   display: block;
-  font-size: 11.5px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--muted);
   margin-bottom: 5px;
+}
+/* Kopf der gefuehrten Entscheidung: Titel und Zustandsmerker, die Antwort
+   selbst steht darunter in der gemeinsamen Liste. */
+.gefuehrtKopf {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.gefuehrtKopf .dLabel {
+  margin-bottom: 0;
+}
+/* ── Antwort-Liste: das meistbenutzte Bedienelement der Seite ────────
+   Eine Zeile je Antwort, 32px hoch, ohne Erklaertext — der steht im Tooltip
+   und in der Hilfe der Fusszeile. Ausgeschrieben machten die vier Saetze den
+   Block viermal so hoch wie noetig. Sie loest den alten Status-Strip **und**
+   die vier Dispositions-Knoepfe des gefuehrten Modus ab: eine Quelle. */
+.antwortListe {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.antwortZeile {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-bedienung);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+}
+.antwortZeile:hover {
+  border-color: var(--border-stark);
+}
+.antwortPunkt {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--border-stark);
+  background: var(--panel);
+}
+.antwortZeile.aktiv .antwortPunkt {
+  border-width: 3.5px;
+}
+.antwortName {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.antwortZeile.aktiv .antwortName {
+  font-weight: 650;
+}
+.antwortFuell {
+  flex: 1;
+  min-width: 2px;
+}
+.antwortTaste {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10px;
   font-weight: 600;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: var(--rund-tag);
+  background: var(--bg);
+  color: var(--muted);
+}
+.antwortZeile.aktiv .antwortTaste {
+  background: var(--accent-soft);
+}
+/* Dieselbe Aussage ohne Bedienelemente — was in der freigegebenen Fassung
+   festgelegt ist, samt Klartext der Wirkung. */
+.festgelegt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+  background: var(--accent-soft);
+}
+.festgelegtPunkt {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  margin-top: 4px;
+  border-radius: 50%;
+  border: 3.5px solid var(--accent);
+  background: var(--panel);
+}
+.festgelegtText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.festgelegtName {
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--text);
+}
+.festgelegtErkl {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+/* Alternativen einer Auswahl: angehakt = im Szenario zulaessig. */
+.zweigListe {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.zweigZeile {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-bedienung);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 450;
+}
+.zweigZeile.an {
+  border-color: var(--accent-soft-tief);
+  background: var(--accent-hauch);
+  font-weight: 550;
+}
+.zweigZeile:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.zweigBox {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: var(--rund-tag);
+  border: 1px solid var(--border-stark);
+  background: var(--panel);
+  font-size: 10px;
+  line-height: 1;
+  color: transparent;
+}
+.zweigZeile.an .zweigBox {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.zweigName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* ── Karte: Kardinalitaet, Wert und der technische Name ──────────────
+   Was zusammen gelesen wird, steht zusammen in einer Flaeche — der
+   technische Name als Fussnote darunter, nicht als Untertitel oben. */
+.detailKarte {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 13px;
+  background: var(--flaeche-hell);
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+}
+.karteFeld {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.karteText {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.kardHint {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.karteSchema {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.karteSchema .dLabel {
+  flex: none;
+  margin-bottom: 0;
+}
+.karteTech {
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Die Notiz geht ins Team, nicht in die Nachricht — das muss dabeistehen. */
+.notizHinweis {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  margin-top: 6px;
+}
+/* Schmales Fenster: die Karte schwebt ueber der Flaeche statt sie zu
+   halbieren — die Kaskade braucht die Breite dringender. Die Flaeche haelt
+   den Platz trotzdem frei, sonst laege ihr rechter Rand unter dem Panel.
+   Ebene 60: unter den Menues der Kopfzonen, ueber allem im Baum. */
+@media (max-width: 1040px) {
+  #detail {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: min(340px, calc(100% - 24px));
+    max-width: calc(100% - 24px);
+    margin: 0;
+    z-index: 60;
+  }
+  #main:has(#detail:not(.zu)) #colWrap {
+    padding-right: 364px;
+  }
 }
 .docbox {
   background: var(--bg);
@@ -1642,7 +1952,7 @@ app-detail-panel {
   padding: 10px;
   background: var(--bg);
 }
-.guidedSec .gOffen {
+.gOffen {
   background: var(--warn-bg);
   color: var(--warn-fg);
   border-radius: var(--rund-tag);
@@ -1854,9 +2164,11 @@ app-detail-panel {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 .kardRow input {
-  width: 70px;
+  width: 62px;
   font-family: var(--mono);
 }
 textarea {

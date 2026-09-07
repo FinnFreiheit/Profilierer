@@ -3,6 +3,7 @@ import { WritableSignal, signal } from '@angular/core';
 import { App } from './app';
 import { StateService } from './core/services/state.service';
 import { GuidedService } from './core/services/guided.service';
+import { DispositionService } from './core/services/disposition.service';
 import { NavService } from './core/services/nav.service';
 import { ToastService } from './core/services/toast.service';
 import { NachrichtSpeichernService } from './core/services/nachricht-speichern.service';
@@ -203,6 +204,57 @@ describe('App', () => {
       state.readOnly.set(true);
       app.onKeydown(key('z'));
       expect(guided.setzeDisposition).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Editor v4: die Antwort-Tasten gelten auch im **Bearbeiten**-Modus — die
+     * Antwort-Liste im Detailbereich ist dieselbe. Der Unterschied liegt allein
+     * im Weiterspringen: gefuehrt blaettert die Antwort zur naechsten offenen
+     * Stelle, hier bleibt der Blick, wo er ist.
+     */
+    describe('Bearbeiten-Modus (nicht gefuehrt)', () => {
+      let disposition: DispositionService;
+
+      beforeEach(() => {
+        state.guided.set(false);
+        disposition = TestBed.inject(DispositionService);
+        spyOn(disposition, 'setzeStatus');
+      });
+
+      it('s nimmt die eigene Antwort zurueck („wie Standard")', () => {
+        const ev = key('s');
+        app.onKeydown(ev);
+
+        expect(disposition.setzeStatus).toHaveBeenCalledWith('x', undefined);
+        expect(ev.defaultPrevented).toBeTrue();
+      });
+
+      it('z setzt den Status ohne Sprung — nicht ueber die Fuehrung', () => {
+        const ev = key('z');
+        app.onKeydown(ev);
+
+        expect(disposition.setzeStatus).toHaveBeenCalledWith('x', 's1');
+        expect(guided.setzeDisposition).not.toHaveBeenCalled();
+        expect(ev.defaultPrevented).toBeTrue();
+      });
+
+      it('Enter springt zum naechsten offenen Feld', () => {
+        (guided.gotoNextOpen as jasmine.Spy).and.returnValue(true);
+        const ev = key('Enter');
+        app.onKeydown(ev);
+
+        expect(guided.gotoNextOpen).toHaveBeenCalled();
+        expect(ev.defaultPrevented).toBeTrue();
+      });
+
+      it('laesst einem fokussierten Knopf sein Enter', () => {
+        const ev = key('Enter');
+        Object.defineProperty(ev, 'target', { value: document.createElement('button') });
+        app.onKeydown(ev);
+
+        expect(guided.gotoNextOpen).not.toHaveBeenCalled();
+        expect(ev.defaultPrevented).toBeFalse();
+      });
     });
 
     // ── Gefuehrter Durchlauf einer Nachricht (ADR 0016) ────────────────

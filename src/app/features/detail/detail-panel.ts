@@ -28,7 +28,7 @@ import { pretty } from '../../core/util/pretty.util';
 import { hinweisFehlerText, hinweisHerkunft } from '../../core/util/hinweis.util';
 import { erwLoeschFrage, erwTypwechselFrage } from '../../core/util/erweiterung.util';
 import { Hinweis } from '../../models/profile.model';
-import { ERW_NAME_MUSTER } from '../../core/profile-defaults';
+import { ERW_NAME_MUSTER, STANDARD_ERKLAERUNG } from '../../core/profile-defaults';
 import { DatentypWahl } from '../../core/util/datentyp.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { DatentypPicker } from '../datentyp-picker/datentyp-picker';
@@ -176,6 +176,59 @@ export class DetailPanel {
   /** Aufgeklappte Standard-Beschreibung; sie ist sonst auf wenige Zeilen gedeckelt. */
   protected readonly dokuOffen = signal(false);
 
+  /**
+   * Ab wann die Beschreibung gedeckelt wird. Kurze Saetze bekommen keinen
+   * „mehr anzeigen"-Knopf — der Klick brachte dann nichts.
+   */
+  private static readonly DOKU_LANG = 150;
+
+  /** Ist die Beschreibung lang genug fuer den Deckel? */
+  protected readonly dokuLang = computed(
+    () => (this.vm()?.doc?.length ?? 0) > DetailPanel.DOKU_LANG,
+  );
+
+  /** Klartext fuer „keine eigene Antwort" in der Karte „Festgelegt als". */
+  protected readonly standardErklaerung = STANDARD_ERKLAERUNG;
+
+  /**
+   * Die letzten beiden Vorfahren des ausgewaehlten Punkts — der kurze Weg
+   * zurueck ueber dem Titel. Die volle Kette steht in der Fusszeile; hier
+   * genuegen zwei Stationen, damit die Kopfzone nicht selbst zum Pfad wird.
+   */
+  protected readonly krumen = computed(() => {
+    const it = this.state.selItem();
+    if (!it || !this.state.root()) return [];
+    return this.nav
+      .findChainByPath(itemPath(it))
+      .slice(0, -1)
+      .slice(-2)
+      .map((k) => ({
+        path: itemPath(k),
+        label: k.kind === 'ausp' ? k.ausp.name : pretty(k.node.name),
+      }));
+  });
+
+  /**
+   * Die Alternativen einer Auswahl („nur eine pro Nachricht"). Sie standen
+   * bisher nur im gefuehrten Block; die Frage stellt sich aber im
+   * Bearbeiten-Modus genauso — dieselbe Ableitung wie in `gv()`, nur ohne
+   * dessen Modus-Bindung. Im Nachrichten-Modus faellt die Wahl an der Station
+   * des Durchlaufs (`giv()`), nicht hier.
+   */
+  protected readonly auswahl = computed(() => {
+    if (this.msgMode()) return null;
+    const it = this.state.selItem();
+    if (!it || it.kind !== 'el' || it.node.recursive || this.tree.isLeaf(it.node)) return null;
+    this.tree.expandNode(it.node);
+    if (it.node.model !== 'choice') return null;
+    const zweige = (it.node.children ?? []).map((c) => ({
+      path: c.path,
+      label: c.synthetic ? c.name : pretty(c.name),
+      an: this.state.wirkungOf(c.path) !== 'ausgeschlossen',
+    }));
+    return zweige.length ? zweige : null;
+  });
+
   // ── Ruhezustand: offene Punkte statt leerer Spalte (#82) ────────────
 
   private readonly suche = inject(SearchService);
@@ -224,8 +277,8 @@ export class DetailPanel {
     this.nav.jumpTo(path, true);
   }
 
-  /** Untere Grenze: darunter passen Statusknoepfe und Kardinalitaet nicht mehr nebeneinander. */
-  private static readonly MIN_BREITE = 300;
+  /** Untere Grenze: darunter passen Antwort-Zeilen und Kardinalitaet nicht mehr. */
+  private static readonly MIN_BREITE = 340;
 
   /** Obere Grenze: dem Baum muss die Mehrheit des Fensters bleiben. */
   private maxBreite(): number {
@@ -302,47 +355,22 @@ export class DetailPanel {
     const it = this.state.selItem();
     if (!it) return null;
     const path = itemPath(it);
-    const cur = this.state.elemente()[path]?.status ?? null;
+    // Die vier Dispositionen stehen seit Editor v4 in der Antwort-Liste
+    // (`vm().statusButtons`) — eine Quelle fuer Bearbeiten- und gefuehrten
+    // Modus. Hier bleibt, was den Durchlauf selbst betrifft.
 
-    // Vier feste Dispositionen, an die Wirkung gebunden (Fallback: disabled,
-    // wenn die Profilierung keine Stufe mit passender Wirkung konfiguriert hat).
-    // Die vierte parkt den Punkt sichtbar, statt ihn offen zu lassen (#41).
-    const dispo = [
-      { st: this.state.pflichtStatus(), fallback: 'zwingend', taste: 'z' },
-      { st: this.state.optionalStatus(), fallback: 'anzugeben, wenn vorhanden', taste: 'o' },
-      { st: this.state.exclStatus(), fallback: 'nicht verwendet', taste: 'n' },
-      { st: this.state.markierungStatus(), fallback: 'zu klären', taste: 'k' },
-    ].map((d) => ({
-      id: d.st?.id ?? '',
-      label: d.st?.name ?? d.fallback,
-      farbe: d.st?.farbe ?? 'var(--muted)',
-      active: !!d.st && cur === d.st.id,
-      disabled: !d.st,
-      taste: d.taste,
-      /** „Zu klären": setzt den Status und stellt den Cursor ins Hinweisfeld (#41). */
-      markierung: d.st?.wirkung === 'markierung',
-    }));
-
-    // Auswahl-Schritt: zulaessige Alternativen einschraenken — sowohl fuer
-    // synthetische choice-Gruppen als auch fuer den XJustiz-Normalfall
-    // benannter auswahl_*-Elemente (Element mit choice-Inhalt; model steht
-    // erst nach expandNode fest).
+    // Auswahl-Schritt: die zulaessigen Alternativen stehen in `auswahl()`; hier
+    // bleibt nur die Bestaetigung einer **synthetischen** choice-Gruppe, die
+    // sonst keine eigene Antwort tragen kann (model steht erst nach expandNode
+    // fest).
     let isChoice = false;
     let synthChoice = false;
-    let zweige: { path: string; label: string; zulaessig: boolean }[] | null = null;
     let minChoice = '1';
     if (it.kind === 'el' && !it.node.recursive && !this.tree.isLeaf(it.node)) {
       this.tree.expandNode(it.node);
       isChoice = it.node.model === 'choice';
       synthChoice = isChoice && it.node.synthetic;
-      if (isChoice) {
-        minChoice = it.node.min;
-        zweige = (it.node.children ?? []).map((c) => ({
-          path: c.path,
-          label: c.synthetic ? c.name : pretty(c.name),
-          zulaessig: this.state.wirkungOf(c.path) !== 'ausgeschlossen',
-        }));
-      }
+      if (isChoice) minChoice = it.node.min;
     }
 
     const offene = this.guided.offeneSet();
@@ -353,11 +381,8 @@ export class DetailPanel {
       nOffen: offene.size,
       /** Punkt geparkt („zu klären", #41) — weder offen noch entschieden. */
       geparkt: this.guided.geparkteSet().has(path),
-      dispo,
-      isChoice,
       synthChoice,
       minChoice,
-      zweige,
       bestaetigt: isChoice ? this.guided.istEntschieden(path) : false,
       // Eigenen aktuellen Text nicht als Vorschlag anbieten.
       vorschlaege: this.guided.anmerkungVorschlaege().filter((t) => t !== anm),
@@ -897,8 +922,12 @@ export class DetailPanel {
 
   // ── Gefuehrte Entscheidung ──────────────────────────────────────────
 
-  protected onZweig(childPath: string, e: Event): void {
-    this.guided.setzeZweig(this.path(), childPath, (e.target as HTMLInputElement).checked);
+  /**
+   * Eine Alternative der Auswahl zulassen bzw. ausschliessen. `an` ist der
+   * **aktuelle** Zustand der Zeile — geklickt wird, um ihn umzudrehen.
+   */
+  protected toggleZweig(childPath: string, an: boolean): void {
+    this.guided.setzeZweig(this.path(), childPath, !an);
   }
 
   // ── Gefuehrte Instanz-Entscheidung (Testnachricht erstellen) ────────

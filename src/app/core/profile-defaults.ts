@@ -52,6 +52,20 @@ export const WIRKUNG_TASTE: Record<Wirkung, string> = {
 export const STANDARD_TASTE = 'S';
 
 /**
+ * Umkehrung von `WIRKUNG_TASTE`: welche Wirkung meint der Tastendruck?
+ * Gross-/Kleinschreibung spielt keine Rolle (Shift zaehlt mit). `null` fuer
+ * jede andere Taste — auch fuer `STANDARD_TASTE`, die keine Wirkung setzt,
+ * sondern die eigene Antwort zuruecknimmt.
+ */
+export function wirkungFuerTaste(taste: string): Wirkung | null {
+  const t = taste.toUpperCase();
+  const treffer = (Object.entries(WIRKUNG_TASTE) as [Wirkung, string][]).find(
+    ([, k]) => k === t,
+  )?.[0];
+  return treffer ?? null;
+}
+
+/**
  * Elementname einer Schema-Erweiterung: NCName ohne Doppelpunkt
  * (Erweiterungen liegen im Default-Namespace der Nachricht).
  */

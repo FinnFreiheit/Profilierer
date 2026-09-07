@@ -4,7 +4,14 @@ import { TreeService } from '../services/tree.service';
 import { ValueService } from '../services/value.service';
 import { GuidedService } from '../services/guided.service';
 import { HinweisStoreService } from '../services/hinweis-store.service';
+import { Wirkung } from '../../models/profile.model';
 import { itemPath } from '../../models/node.model';
+import {
+  STANDARD_ERKLAERUNG,
+  STANDARD_TASTE,
+  WIRKUNG_ERKLAERUNG,
+  WIRKUNG_TASTE,
+} from '../profile-defaults';
 import { fmtKard, kardText, pretty } from '../util/pretty.util';
 import { erwTypFehltText } from '../util/erweiterung.util';
 import { REF_LABELS, refKindEff, refKindOf, refTraeger } from '../refs';
@@ -42,18 +49,48 @@ export class DetailAnsicht {
     const p = this.state.elemente()[path] ?? {};
     const st = this.state.statusOf(path);
 
+    // Die Antwort-Liste des Detailbereichs (Editor v4): eine Zeile je Antwort,
+    // mit Klartext und Taste. Der Statusname ist frei gewaehlt — verstaendlich
+    // wird eine Antwort erst ueber ihre Wirkung, darum haengen Erklaerung und
+    // Taste an ihr. Die Taste traegt nur die **erste** Stufe je Wirkung
+    // (`state.statusFuerTaste`, dieselbe Regel wie `pflichtStatus()`).
     const statusButtons = [
-      { id: '', name: 'wie Standard', farbe: 'var(--accent)', active: !st },
+      {
+        id: '',
+        name: 'wie Standard',
+        farbe: 'var(--accent)',
+        farbeHell: 'var(--accent-soft)',
+        active: !st,
+        wirkung: null as Wirkung | null,
+        erklaerung: STANDARD_ERKLAERUNG,
+        taste: STANDARD_TASTE as string | null,
+      },
       ...this.state.statuses().map((s) => ({
         id: s.id,
         name: s.name,
         farbe: s.farbe,
+        farbeHell: farbeHell(s.farbe),
         active: !!st && st.id === s.id,
+        wirkung: s.wirkung as Wirkung | null,
+        erklaerung: WIRKUNG_ERKLAERUNG[s.wirkung],
+        taste:
+          this.state.statusFuerTaste(WIRKUNG_TASTE[s.wirkung])?.id === s.id
+            ? WIRKUNG_TASTE[s.wirkung]
+            : null,
       })),
     ];
 
     const kmin = isAusp ? '1' : n.min;
     const kmax = isAusp ? '1' : n.max === 'unbounded' ? '*' : n.max;
+
+    // Kardinalitaet im Klartext — im Nur-Lesen-Fall steht sie statt der beiden
+    // Eingabefelder. Eigene Vorgabe schlaegt den Standard.
+    const kardKlartext =
+      p.min || p.max
+        ? `eigene Vorgabe: ${p.min || '0'} bis ${p.max || 'n'}`
+        : isAusp
+          ? 'genau 1'
+          : kardText(n.min, n.max);
 
     const showAusps = !isAusp && this.tree.isRepeatable(n) && !n.synthetic;
     // Je Vorkommen der Grund, warum es nicht entfernbar ist (zwingend gesetzt,
@@ -179,6 +216,7 @@ export class DetailAnsicht {
       minValue: p.min ?? '',
       maxValue: p.max ?? '',
       kardHint: isAusp ? 'genau 1' : 'Standard',
+      kardText: kardKlartext,
       showAusps,
       auspList,
       auspKopieKandidaten,
@@ -210,6 +248,20 @@ export class DetailAnsicht {
           )
         : null,
       curStatusName: st?.name ?? 'wie Standard',
+      /**
+       * Die getroffene Antwort im Klartext — fuer den Nur-Lesen-Fall
+       * („Festgelegt als"). `null` heisst: keine eigene Vorgabe, es gilt der
+       * Standard; die Anzeige setzt dort `STANDARD_ERKLAERUNG` ein.
+       */
+      curStatus: st
+        ? {
+            name: st.name,
+            farbe: st.farbe,
+            farbeHell: farbeHell(st.farbe),
+            wirkung: st.wirkung,
+            erklaerung: WIRKUNG_ERKLAERUNG[st.wirkung],
+          }
+        : null,
     };
   }
 
@@ -226,4 +278,13 @@ export class DetailAnsicht {
       this.state.anmerkungOf(path),
     );
   }
+}
+
+/**
+ * Die leiseste Toenung einer Statusfarbe: 12 % auf Weiss. Sie traegt die
+ * aktive Antwort-Zeile und die Karte „Festgelegt als" — die volle Statusfarbe
+ * waere dort als Flaeche zu laut, der Punkt daneben nennt sie ohnehin.
+ */
+function farbeHell(farbe: string): string {
+  return `color-mix(in srgb, ${farbe} 12%, white)`;
 }
