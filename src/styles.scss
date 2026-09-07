@@ -2383,25 +2383,29 @@ app-schema-suche {
      schwanken lassen; laengere machen ihre Kachelzeile hoeher. */
   min-height: 2.6em;
 }
-/* Werkzeuge auf Abruf — sichtbar beim Ueberfahren und sobald sie den
-   Tastaturfokus tragen (nicht display:none, sonst waeren sie unerreichbar). */
 .dcMenuBtn {
-  opacity: 0;
   padding: 2px 8px;
   line-height: 1.1;
   color: var(--muted);
   transition: opacity 0.12s ease-out;
 }
+/* Auf der **Kachel** auf Abruf — sichtbar beim Ueberfahren und sobald der
+   Knopf den Tastaturfokus traegt (nicht display:none, sonst waere er
+   unerreichbar). Nur dort: in Listenzeile und Szenario-Kopf steht er
+   dauerhaft, und zwar ohne Gegenregel, die die Ausblendung wieder aufhebt. */
+.dashCard .dcMenuBtn {
+  opacity: 0;
+}
 .dashCard:hover .dcMenuBtn,
 .dashCard:focus-within .dcMenuBtn,
-.dcMenuBtn:focus-visible {
+.dashCard .dcMenuBtn:focus-visible {
   opacity: 1;
 }
 /* Ohne Hover (Tablet, Touchscreen) bleibt der Knopf sichtbar — sonst waeren
    Umbenennen, Kopie, Export und Loeschen dort unerreichbar: er liegt zwar an
    seinem Platz und trifft bei einem Tipp, ist aber nicht zu sehen. */
 @media (hover: none) {
-  .dcMenuBtn {
+  .dashCard .dcMenuBtn {
     opacity: 1;
   }
 }
@@ -3290,17 +3294,27 @@ app-tree-context-menu {
    helle Flaeche hebt den Kopf von seinen Testnachrichten ab, ohne dass es
    dafuer einen zweiten Rahmen braucht.
 
-   Kein Umbruch (wie im Kachelkopf, `.dcKopf`): die Aktionen bleiben rechts,
-   und was nicht passt, kuerzt — der Nachrichtentyp zuerst, dann der Name.
-   Kuerzel, Pillen und Knoepfe bleiben ganz. */
+   Was nicht passt, kuerzt — der Nachrichtentyp zuerst, dann der Name; Kuerzel
+   und Pillen bleiben ganz. Die Aktionen kuerzen nie: sie sind der einzige
+   Zugang zu Vergleichen, Ueberlagern und Entfernen. Reicht die Breite nicht
+   (schmale Spalte, ~850px), rutschen sie als Gruppe in eine zweite Zeile —
+   `overflow: hidden` hatte sie dort einfach abgeschnitten. */
 .szenarioKopf {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   padding: 11px 14px;
-  overflow: hidden;
   background: var(--flaeche-hell);
   border-bottom: 1px solid var(--border);
+}
+/* Rechts am Kopf, und beim Umbruch zusammen in die naechste Zeile. */
+.szenarioKopf > .szenarioAktionen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  margin-left: auto;
 }
 .szenarioKopf > .pill,
 .szenarioKopf > .metaPill,
@@ -3368,12 +3382,8 @@ app-tree-context-menu {
   font-size: 12px;
   padding: 3px 8px;
 }
-/* Im Szenario-Kopf steht das ⋯-Menue dauerhaft: er ist weder Kachel noch
-   Listenzeile, deren Hover den Knopf sonst einblendet, und er traegt hier die
-   einzigen Wege zu Vergleichen, Ueberlagern und Entfernen. */
-.szenarioKopf .dcMenuBtn {
-  opacity: 1;
-}
+/* Im Szenario-Kopf steht das ⋯-Menue dauerhaft (die Ausblendung gilt nur auf
+   der Kachel); der Hover gibt ihm hier nur seinen Rahmen. */
 .szenarioKopf:hover .dcMenuBtn {
   border-color: var(--border);
   background: var(--bg);
@@ -4136,6 +4146,21 @@ app-bibliothek {
   justify-content: space-between;
   gap: 20px;
 }
+/* Unter ~900px passen Reiter, Suche und Badges nicht mehr nebeneinander: die
+   Leiste schob das Dokument in den Querscroll. Die Suche rutscht darum in
+   eine zweite Zeile (order 3) und bekommt dort die volle Breite; Reiter und
+   Badges bleiben in Zeile 1. */
+@media (max-width: 900px) {
+  .dashLeisteInnen {
+    flex-wrap: wrap;
+    gap: 10px 16px;
+  }
+  .dashLeiste .dashSuche {
+    order: 3;
+    flex: 1 1 100%;
+    margin: 0;
+  }
+}
 .dashLeisteRechts {
   display: flex;
   align-items: center;
@@ -4809,7 +4834,6 @@ app-bibliothek {
 }
 .listeZeile .dcMenuBtn {
   width: 32px;
-  opacity: 1;
 }
 
 /* Leerer Zustand der Sammlung: eine Flaeche mit dem naechsten Schritt. */

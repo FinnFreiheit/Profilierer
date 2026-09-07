@@ -209,7 +209,7 @@ Profil frei konfigurierbar):
 ### A. Einstieg und Bindung
 
 - Der Weg startet an der Profil-Kachel im Dashboard **und** im Testspeicher über
-  „Neue Testnachricht erstellen…" mit der Wahl „aus Schema" / „aus
+  „+ Neue Testnachricht" mit der Wahl „aus Schema" / „aus
   Profilierung"; beide führen in denselben Ablauf.
 - Bei „aus Profilierung" werden Version und Nachricht **nicht** abgefragt — sie
   stammen aus dem Profil; fehlt die passende Schemaversion, bricht der Start mit

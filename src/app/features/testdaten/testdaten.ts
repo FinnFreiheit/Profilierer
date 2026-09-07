@@ -40,6 +40,7 @@ import { MessageRef } from '../../models/xsd-index.model';
 import { parseTestmessage } from '../../core/util/testmessage.util';
 import { nachrichtTeile } from '../../core/util/pretty.util';
 import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiterung-sperre';
+import { datumKurz } from '../../core/util/datum.util';
 import { firstLine } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { FileDropDirective } from '../../shared/file-drop.directive';
@@ -241,18 +242,23 @@ export class Testdaten {
   protected readonly sortKey = signal<SortKey>('datum');
   protected readonly sortDir = signal<'auf' | 'ab'>('ab');
 
-  /** Profilierungen, an die ueberhaupt Testnachrichten gebunden sind. */
-  protected readonly profilFilterOptionen = computed<{ id: string; name: string; n: number }[]>(
-    () => {
-      const map = new Map<string, { id: string; name: string; n: number }>();
-      for (const e of this.store.entries()) {
-        if (!e.profilId) continue;
-        const t = map.get(e.profilId);
-        if (t) t.n++;
-        else map.set(e.profilId, { id: e.profilId, name: e.profilName || '(ohne Namen)', n: 1 });
-      }
-      return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'de'));
-    },
+  /**
+   * Profilierungen, an die ueberhaupt Testnachrichten gebunden sind. Ohne
+   * Haeufigkeit: die Zahl an der Achse kommt aus dem Zaehler der Filterspalte,
+   * der die uebrigen Eingrenzungen mitrechnet.
+   */
+  protected readonly profilFilterOptionen = computed<{ id: string; name: string }[]>(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    for (const e of this.store.entries()) {
+      if (!e.profilId || map.has(e.profilId)) continue;
+      map.set(e.profilId, { id: e.profilId, name: e.profilName || '(ohne Namen)' });
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  });
+
+  /** Profilname nach id — die Gliederung und die Chips fragen je Eintrag danach. */
+  private readonly profilNamen = computed(
+    () => new Map(this.profilFilterOptionen().map((p) => [p.id, p.name])),
   );
 
   /** Laufende Generierung (Profil-id) — sperrt Doppelklicks im Dialog. */
@@ -280,14 +286,15 @@ export class Testdaten {
     tagOptionen(this.store.entries(), (e) => e.tags),
   );
 
-  /** Vorkommende Fachmodule in der Reihenfolge ihres ersten Auftretens. */
+  /**
+   * Vorkommende Fachmodule, alphabetisch. **Nicht** in der Reihenfolge des
+   * ersten Auftretens: der Index kommt neueste-zuerst, also haetten Achse,
+   * Gliederung und Modul-Spaltensortierung sich mit jedem Upload umsortiert.
+   */
   private readonly module = computed(() => {
-    const out: string[] = [];
-    for (const e of this.store.entries()) {
-      const m = e.fachmodul ?? '';
-      if (!out.includes(m)) out.push(m);
-    }
-    return out;
+    const set = new Set<string>();
+    for (const e of this.store.entries()) set.add(e.fachmodul ?? '');
+    return [...set].sort((a, b) => a.localeCompare(b, 'de'));
   });
 
   /** Vorkommende Nachrichtentypen, alphabetisch (Gliederung „Nach Nachricht"). */
@@ -334,7 +341,7 @@ export class Testdaten {
       return false;
     if (ohne !== 'zustand' && this.fZustand().length) {
       // ODER: eine Nachricht kann mehrere Kennzeichen zugleich tragen.
-      const k = this.kennzeichen(e);
+      const k = this.kennzeichenJe(e);
       if (!this.fZustand().some((z) => k.includes(z))) return false;
     }
     if (ohne !== 'tag' && this.gewaehlteTags().length && !hatAlleTags(e.tags, this.gewaehlteTags()))
@@ -359,6 +366,19 @@ export class Testdaten {
     if (e.profilWeiterentwickelt) out.push('weiterentwickelt');
     if (!e.profilId) out.push('ohneBindung');
     return out;
+  }
+
+  /**
+   * Dieselben Kennzeichen, aber **einmal je Eintrag** statt je Filterpruefung:
+   * `passt` und die Zustands-Achse fragen sie sonst bei jedem Tastendruck
+   * Werte × Eintraege mal ab und legen dabei jedes Mal eine neue Liste an.
+   */
+  private readonly kennzeichenMap = computed(
+    () => new Map(this.store.entries().map((e) => [e.id, this.kennzeichen(e)])),
+  );
+
+  private kennzeichenJe(e: TestmessageEntry): readonly Kennzeichen[] {
+    return this.kennzeichenMap().get(e.id) ?? this.kennzeichen(e);
   }
 
   /** Alle Treffer, sortiert — die Grundlage jeder Gruppe. */
@@ -399,37 +419,67 @@ export class Testdaten {
       if (g === 'profil') return e.profilId ?? '';
       return e.projektId ?? '';
     };
-    const reihenfolge: readonly string[] =
-      g === 'modul'
+    /**
+     * Nur eine **Sortierhilfe**, keine Auswahl: die Gruppen entstehen aus den
+     * Schluesseln, die in der gefilterten Liste wirklich vorkommen. Wer die
+     * Reihenfolge als Auswahl nahm, verlor jeden Eintrag, dessen Projekt- oder
+     * Profil-id der Index nicht (mehr) fuehrt — die Nachricht war dann in der
+     * Gliederung unsichtbar, obwohl der Zaehler sie mitzaehlte.
+     */
+    const rang = new Map<string, number>(
+      (g === 'modul'
         ? this.module()
         : g === 'nachricht'
           ? this.nachrichten()
           : g === 'profil'
             ? [...this.profilFilterOptionen().map((p) => p.id), '']
-            : [...this.projekte.entries().map((p) => p.id), ''];
+            : [...this.projekte.entries().map((p) => p.id), '']
+      ).map((k, i) => [k, i]),
+    );
     const labelVon = (k: string): string => {
       if (g === 'modul') return k || 'sonstige';
       if (g === 'nachricht') return k || 'keine Nachricht erkannt';
-      if (g === 'profil') return this.profilNameVon(k) || 'ohne Profilbindung';
-      return this.projektName(k) || 'ohne Projekt';
+      if (g === 'profil')
+        return k ? this.profilNameVon(k) || 'unbekannte Profilierung' : 'ohne Profilbindung';
+      return k ? this.projektName(k) || 'unbekanntes Projekt' : 'ohne Projekt';
     };
-    return reihenfolge
-      .map((k) => ({ k, items: liste.filter((e) => schluesselVon(e) === k) }))
-      .filter((x) => x.items.length)
-      .map((x) => ({
-        schluessel: x.k,
-        label: labelVon(x.k),
+    const gruppen = new Map<string, TestmessageEntry[]>();
+    for (const e of liste) {
+      const k = schluesselVon(e);
+      const items = gruppen.get(k);
+      if (items) items.push(e);
+      else gruppen.set(k, [e]);
+    }
+    // Unbekanntes ans Ende, dort alphabetisch — es soll auffallen, nicht fehlen.
+    const unbekannt = rang.size;
+    return [...gruppen.keys()]
+      .sort(
+        (a, b) =>
+          (rang.get(a) ?? unbekannt) - (rang.get(b) ?? unbekannt) ||
+          labelVon(a).localeCompare(labelVon(b), 'de'),
+      )
+      .map((k) => ({
+        schluessel: k,
+        label: labelVon(k),
         mono: g === 'modul' || g === 'nachricht',
         zeigeKopf: true,
-        items: x.items,
+        items: gruppen.get(k) ?? [],
       }));
   });
 
-  /** Die Achsen der Filterspalte mit Zaehlern (Muster: dashboard.ts). */
+  /**
+   * Die Achsen der Filterspalte mit Zaehlern (Muster: dashboard.ts). Die
+   * Grundmenge einer Achse wird **einmal** gefiltert, nicht je Wert erneut —
+   * sonst laeuft bei jedem Tastendruck in der Suche Werte × Eintraege durch
+   * `passt`.
+   *
+   * Bei den ODER-Achsen faellt die eigene Achse aus der Grundmenge: der
+   * Zaehler sagt, was der Klick braechte. Die Schlagworte wirken dagegen mit
+   * UND — dort zaehlt die Schnittmenge aus den bereits gewaehlten und diesem
+   * einen, sonst verspraeche der Zaehler Treffer, die der Klick nicht bringt.
+   */
   protected readonly achsen = computed<FilterAchse[]>(() => {
     const alle = this.store.entries();
-    const zaehle = (key: AchsenKey, trifft: (e: TestmessageEntry) => boolean): number =>
-      alle.filter((e) => this.passt(e, key) && trifft(e)).length;
     const achse = (
       key: AchsenKey,
       label: string,
@@ -437,18 +487,21 @@ export class Testdaten {
       werte: readonly { id: string; label: string }[],
       gewaehlt: readonly string[],
       trifft: (e: TestmessageEntry, id: string) => boolean,
-    ): FilterAchse => ({
-      key,
-      label,
-      mono,
-      aktiv: gewaehlt.length > 0,
-      werte: werte.map((w) => ({
-        id: w.id,
-        label: w.label,
-        n: zaehle(key, (e) => trifft(e, w.id)),
-        aktiv: gewaehlt.includes(w.id),
-      })),
-    });
+    ): FilterAchse => {
+      const basis = alle.filter((e) => this.passt(e, key === 'tag' ? undefined : key));
+      return {
+        key,
+        label,
+        mono,
+        aktiv: gewaehlt.length > 0,
+        werte: werte.map((w) => ({
+          id: w.id,
+          label: w.label,
+          n: basis.filter((e) => trifft(e, w.id)).length,
+          aktiv: gewaehlt.includes(w.id),
+        })),
+      };
+    };
     const tagSchluessel = (t: string): string => t.toLocaleLowerCase('de');
     return [
       achse(
@@ -484,7 +537,7 @@ export class Testdaten {
         false,
         KENNZEICHEN_ORDER.map((z) => ({ id: z, label: KENNZEICHEN_LABEL[z] })),
         this.fZustand(),
-        (e, id) => this.kennzeichen(e).includes(id as Kennzeichen),
+        (e, id) => this.kennzeichenJe(e).includes(id as Kennzeichen),
       ),
       achse(
         'tag',
@@ -530,7 +583,8 @@ export class Testdaten {
   protected readonly trefferText = computed(() => {
     const n = this.treffer().length;
     const gesamt = this.store.entries().length;
-    return n === gesamt ? `${gesamt} Einträge` : `${n} von ${gesamt}`;
+    if (n !== gesamt) return `${n} von ${gesamt}`;
+    return gesamt === 1 ? '1 Eintrag' : `${gesamt} Einträge`;
   });
 
   /** Einen Wert einer Achse an- bzw. abwaehlen. */
@@ -609,7 +663,7 @@ export class Testdaten {
 
   /** Name der gebundenen Profilierung aus dem Index (ohne Zusatz-Request). */
   private profilNameVon(id: string): string {
-    return id ? (this.profilFilterOptionen().find((p) => p.id === id)?.name ?? '') : '';
+    return id ? (this.profilNamen().get(id) ?? '') : '';
   }
 
   // ── Neu erstellen (gefuehrt aus Schema oder Profilierung) ───────────
@@ -1315,11 +1369,7 @@ export class Testdaten {
    * "24.07.2026" in derselben Zeile nebeneinander.
    */
   protected datum(e: TestmessageEntry): string {
-    return new Date(e.hochgeladen).toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+    return datumKurz(e.hochgeladen);
   }
 
   /** Nachrichtenname fuer die Mitte-Kuerzung (gemeinsam mit der Profil-Uebersicht). */
@@ -1408,6 +1458,10 @@ export class Testdaten {
    */
   protected fussTitel(e: TestmessageEntry): string {
     const teile: string[] = [];
+    // Im gefuehrten Durchlauf zeigt die Kennzahl-Pille die Pflichtangaben; die
+    // Dateigroesse haette dann nirgends mehr gestanden.
+    if (e.fortschritt) teile.push(`${e.fortschritt.x} von ${e.fortschritt.y} Pflichtangaben`);
+    teile.push(this.groesse(e));
     teile.push(e.xjustizVersion ? `XJustiz ${e.xjustizVersion}` : 'Version unbekannt');
     if (e.notiz) teile.push(e.notiz);
     return teile.join(' · ');

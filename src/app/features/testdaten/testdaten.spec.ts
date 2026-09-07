@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Testdaten } from './testdaten';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
@@ -12,6 +13,7 @@ import { TestmessageEditService } from '../../core/services/testmessage-edit.ser
 import { XmlValidationService } from '../../core/services/xml-validation.service';
 import { ValidationReportService } from '../../core/services/validation-report.service';
 import { DownloadService } from '../../core/services/download.service';
+import { ProjektStoreService } from '../../core/services/projekt-store.service';
 
 /**
  * Testdaten-Speicher, Schritt "aus Profilierung" (#98): Profilierungen mit
@@ -412,16 +414,18 @@ describe('Testdaten — Filterspalte, Gliederung und Kennzahl', () => {
         .achsen()
         .find((a) => a.key === 'modul')!
         .werte.map((w) => ({ id: w.id, n: w.n }));
+    // Alphabetisch, nicht in Eintragsreihenfolge: „gds" steht vor „genuva",
+    // obwohl der erste Eintrag der Liste ein genuva-Eintrag ist.
     expect(module()).toEqual([
-      { id: 'genuva', n: 2 },
       { id: 'gds', n: 1 },
+      { id: 'genuva', n: 2 },
     ]);
     // Die eigene Achse bleibt beim Zaehlen aussen vor: „gds" verspricht
     // weiterhin einen Treffer, obwohl gerade „genuva" gesetzt ist.
     td.fModul.set(['genuva']);
     expect(module()).toEqual([
-      { id: 'genuva', n: 2 },
       { id: 'gds', n: 1 },
+      { id: 'genuva', n: 2 },
     ]);
   });
 
@@ -604,5 +608,119 @@ describe('Testdaten — Download', () => {
   it('laedt eine unauffaellige Nachricht unveraendert herunter', async () => {
     await td.download(nachricht(), new MouseEvent('click'));
     expect(geladen).toEqual([{ name: 'a.xml', inhalt: '<nachricht.genuva.ersuchen/>' }]);
+  });
+});
+
+/**
+ * Gliederung, Reihenfolge und Zaehler (B5). Drei Befunde des Reviews stecken
+ * hier: die Gliederung darf keinen Eintrag verlieren, die Reihenfolge darf
+ * nicht an der Aktualitaet des Index haengen, und der Zaehler der
+ * Schlagwort-Achse muss dieselbe UND-Verknuepfung nennen, die der Filter
+ * anwendet.
+ */
+describe('Testdaten — Gliederung, Reihenfolge und Zaehler', () => {
+  let td: {
+    gliederung: { set: (v: string) => void };
+    gruppen: () => { schluessel: string; label: string; items: TestmessageEntry[] }[];
+    achsen: () => { key: string; werte: { id: string; n: number; aktiv: boolean }[] }[];
+    gewaehlteTags: { set: (v: string[]) => void };
+    trefferText: () => string;
+    search: { set: (v: string) => void };
+  };
+
+  const nachricht = (over: Partial<TestmessageEntry> = {}): TestmessageEntry =>
+    ({
+      id: 'x',
+      name: 'a.xml',
+      nachricht: 'nachricht.genuva.ersuchen',
+      fachmodul: 'genuva',
+      groesse: 10,
+      hochgeladen: 0,
+      aktualisiert: 0,
+      ...over,
+    }) as TestmessageEntry;
+
+  // Der Index kommt neueste-zuerst: „zwang" steht vorn, „gds" hinten.
+  const nachrichten = [
+    nachricht({ id: 'imProjekt', projektId: 'prj1', tags: ['Pilot', 'eNoVA'] }),
+    nachricht({ id: 'fremdesProjekt', projektId: 'geloescht', tags: ['Pilot'] }),
+    nachricht({ id: 'ohneProjekt', fachmodul: 'zwang', tags: ['eNoVA'] }),
+    nachricht({ id: 'gds', fachmodul: 'gds' }),
+  ];
+  /** Veraenderlich, damit der Singular des Zaehlers pruefbar ist. */
+  const bestand = signal<TestmessageEntry[]>(nachrichten);
+
+  const alle = (): string[] => td.gruppen().flatMap((g) => g.items.map((e) => e.id));
+
+  beforeEach(async () => {
+    bestand.set(nachrichten);
+    await TestBed.configureTestingModule({
+      imports: [Testdaten],
+      providers: [
+        { provide: ProfileStoreService, useValue: { entries: () => [] } },
+        {
+          provide: TestmessageStoreService,
+          useValue: { entries: () => bestand(), refresh: async () => {} },
+        },
+        { provide: ToastService, useValue: { show: () => {}, showError: () => {} } },
+      ],
+    }).compileComponents();
+    TestBed.inject(ProjektStoreService).entries.set([
+      {
+        id: 'prj1',
+        name: 'GenUVA',
+        angelegt: 0,
+        aktualisiert: 0,
+        nProfile: 1,
+        nTestnachrichten: 1,
+      },
+    ]);
+    td = TestBed.createComponent(Testdaten).componentInstance as unknown as typeof td;
+  });
+
+  it('verliert bei der Gliederung nach Projekt keinen Eintrag', () => {
+    td.gliederung.set('projekt');
+    // „geloescht" steht in keiner Projektliste. Frueher fiel dieser Eintrag
+    // aus der Gliederung, obwohl der Zaehler ihn weiter mitzaehlte.
+    expect(alle().sort()).toEqual(['fremdesProjekt', 'gds', 'imProjekt', 'ohneProjekt']);
+    const fremd = td.gruppen().find((g) => g.schluessel === 'geloescht');
+    expect(fremd?.items.map((e) => e.id)).toEqual(['fremdesProjekt']);
+    expect(fremd?.label).toBe('unbekanntes Projekt');
+    // Unbekanntes steht hinten, „ohne Projekt" als bekannter Schluessel davor.
+    expect(td.gruppen().map((g) => g.label)).toEqual([
+      'GenUVA',
+      'ohne Projekt',
+      'unbekanntes Projekt',
+    ]);
+  });
+
+  it('gliedert die Fachmodule alphabetisch, nicht nach Eintragsreihenfolge', () => {
+    td.gliederung.set('modul');
+    expect(td.gruppen().map((g) => g.schluessel)).toEqual(['gds', 'genuva', 'zwang']);
+  });
+
+  it('nennt im Zaehler eines zweiten Schlagworts die Schnittmenge', () => {
+    const tag = (): { id: string; n: number; aktiv: boolean }[] =>
+      td.achsen().find((a) => a.key === 'tag')!.werte;
+    // Ohne Eingrenzung: beide Schlagworte zaehlen ihre eigenen Traeger.
+    expect(tag().find((w) => w.id === 'eNoVA')?.n).toBe(2);
+    // Mit „Pilot": Schlagworte wirken mit UND, also bleibt nur der Eintrag,
+    // der beide traegt — nicht die zwei eNoVA-Traeger.
+    td.gewaehlteTags.set(['Pilot']);
+    expect(tag().find((w) => w.id === 'eNoVA')?.n).toBe(1);
+    // Ein bereits gewaehltes Schlagwort zaehlt die aktuelle Treffermenge.
+    expect(tag().find((w) => w.id === 'Pilot')).toEqual(
+      jasmine.objectContaining({ n: 2, aktiv: true }),
+    );
+  });
+
+  it('setzt den Zaehler neben der Suche in den Singular', () => {
+    expect(td.trefferText()).toBe('4 Einträge');
+    td.search.set('gds');
+    expect(td.trefferText()).toBe('1 von 4');
+    // Der einzige Eintrag des Speichers stand vorher als „1 Einträge" da.
+    td.search.set('');
+    bestand.set([nachricht({ id: 'gds', fachmodul: 'gds' })]);
+    expect(td.trefferText()).toBe('1 Eintrag');
   });
 });

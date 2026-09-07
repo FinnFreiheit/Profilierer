@@ -46,6 +46,7 @@
             <button
               class="fWert"
               [class.aktiv]="w.aktiv"
+              [attr.aria-pressed]="w.aktiv"
               [class.leer]="!w.n && !w.aktiv"
               [title]="w.label + ' — ' + w.n + ' Einträge'"
               (click)="schalte(a.key, w.id)"

@@ -41,8 +41,10 @@ import {
   ZUSTAND_LABEL,
   ZUSTAND_ORDER,
   Zustand,
+  zustandLabel,
   zustandVon,
 } from '../../core/util/profil-zustand.util';
+import { datumKurz } from '../../core/util/datum.util';
 
 /** Die Achsen der Filterspalte. `hinweise` hat nur einen Wert (#43). */
 type AchsenKey = 'modul' | 'projekt' | 'tag' | 'zustand' | 'hinweise' | 'version';
@@ -318,11 +320,18 @@ export class Dashboard {
       }));
   });
 
-  /** Die Achsen der Filterspalte mit Zaehlern. */
+  /**
+   * Die Achsen der Filterspalte mit Zaehlern. Die Grundmenge einer Achse wird
+   * **einmal** gefiltert, nicht je Wert erneut — sonst laeuft bei jedem
+   * Tastendruck in der Suche Werte × Eintraege durch `passt`.
+   *
+   * Bei den ODER-Achsen faellt die eigene Achse aus der Grundmenge: der
+   * Zaehler sagt, was der Klick braechte. Die Schlagworte wirken dagegen mit
+   * UND — dort zaehlt die Schnittmenge aus den bereits gewaehlten und diesem
+   * einen, sonst verspraeche der Zaehler Treffer, die der Klick nicht bringt.
+   */
   protected readonly achsen = computed<FilterAchse[]>(() => {
     const alle = this.store.entries();
-    const zaehle = (key: AchsenKey, trifft: (e: LibraryEntry) => boolean): number =>
-      alle.filter((e) => this.passt(e, key) && trifft(e)).length;
     const achse = (
       key: AchsenKey,
       label: string,
@@ -330,18 +339,21 @@ export class Dashboard {
       werte: readonly { id: string; label: string }[],
       gewaehlt: readonly string[],
       trifft: (e: LibraryEntry, id: string) => boolean,
-    ): FilterAchse => ({
-      key,
-      label,
-      mono,
-      aktiv: gewaehlt.length > 0,
-      werte: werte.map((w) => ({
-        id: w.id,
-        label: w.label,
-        n: zaehle(key, (e) => trifft(e, w.id)),
-        aktiv: gewaehlt.includes(w.id),
-      })),
-    });
+    ): FilterAchse => {
+      const basis = alle.filter((e) => this.passt(e, key === 'tag' ? undefined : key));
+      return {
+        key,
+        label,
+        mono,
+        aktiv: gewaehlt.length > 0,
+        werte: werte.map((w) => ({
+          id: w.id,
+          label: w.label,
+          n: basis.filter((e) => trifft(e, w.id)).length,
+          aktiv: gewaehlt.includes(w.id),
+        })),
+      };
+    };
     const tagSchluessel = (t: string): string => t.toLocaleLowerCase('de');
     return [
       achse(
@@ -509,13 +521,8 @@ export class Dashboard {
   // ── Anzeige je Eintrag ─────────────────────────────────────────────
 
   /** Abgeleitet, nicht gespeichert — die Regel steht in `profil-zustand.util`. */
-  protected zustandVon(e: LibraryEntry): Zustand {
-    return zustandVon(e);
-  }
-
-  protected zustandLabel(e: LibraryEntry): string {
-    return ZUSTAND_LABEL[this.zustandVon(e)];
-  }
+  protected readonly zustandVon = zustandVon;
+  protected readonly zustandLabel = zustandLabel;
 
   /** Tooltip der Zustandspille — bei Freigabe mit Datum und Kommentar. */
   protected zustandTitel(e: LibraryEntry): string {
@@ -872,8 +879,7 @@ export class Dashboard {
    * auf den Kacheln sonst "2026-07-24" und "3.8.2026" (#88).
    */
   protected datum(e: LibraryEntry): string {
-    const roh = e.gespeichert ? new Date(e.gespeichert) : new Date(e.aktualisiert);
-    if (Number.isNaN(roh.getTime())) return e.gespeichert ?? '';
-    return roh.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    // Unlesbares Datum: lieber die Rohangabe als eine leere Zelle.
+    return datumKurz(e.gespeichert ?? e.aktualisiert) || (e.gespeichert ?? '');
   }
 }

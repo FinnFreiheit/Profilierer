@@ -64,6 +64,13 @@ die Fehlertexte der Serverantworten — sie sind kein Oberflächentext und ihre 
 wäre ein Bruch am Datenbestand. Die Entwicklerdokumentation (dieser ADR, ADR 0013,
 `docs/services.md`) führt den Begriff **Abnahme** darum weiter; gemeint ist dasselbe.
 
+_Nachgezogen 26.09.07 (Bibliothek v4):_ Im Testspeicher ist aus der Checkbox „nur
+freigegebene" die Zustands-Achse der Filterspalte geworden — „freigegeben" und „seit
+Freigabe geändert" stehen dort als zwei eigene Werte nebeneinander (dieselben Wörter wie
+auf der Profil-Kachel, `ZUSTAND_LABEL`/`KENNZEICHEN_LABEL`), und die Pille am Eintrag
+trägt das Warnzeichen „⚠" nicht mehr: die Farbe sagt es, und ein Warnzeichen an jedem
+zweiten Eintrag einer Liste warnt vor nichts mehr.
+
 ## Nachtrag 26.08.18: „Geändert seit Freigabe" ist eine fachliche Aussage, kein doc-Hash
 
 Der oben festgelegte doc-Hash-Vergleich war zu grob. Der Autosave schreibt nach dem

@@ -32,8 +32,9 @@ import {
   tagOptionen,
   tagsAlsText,
 } from '../../core/util/tags.util';
-import { ZUSTAND_LABEL, zustandVon } from '../../core/util/profil-zustand.util';
+import { zustandKlasse, zustandLabel } from '../../core/util/profil-zustand.util';
 import { fachmodulOf } from '../../core/util/fachmodul.util';
+import { datumKurz } from '../../core/util/datum.util';
 
 /**
  * Die Achsen der Filterspalte der Uebersicht. Muster und Bezeichner folgen der
@@ -97,7 +98,7 @@ interface Sprung {
   name: string;
   /** Fortschritt in Prozent; null, solange es keine Punkte gibt. */
   anteil: number | null;
-  nTest: number;
+  /** Tooltip: "x von y entschieden · n Testnachrichten". */
   titel: string;
 }
 
@@ -197,11 +198,19 @@ export class Projekte {
   /** Die Treffer der Uebersicht — der Name bleibt, er ist eingefuehrt. */
   protected readonly gefiltert = computed(() => this.store.entries().filter((p) => this.passt(p)));
 
-  /** Die Achsen der Filterspalte mit Zaehlern (Muster: dashboard.ts). */
+  /**
+   * Die Achsen der Filterspalte mit Zaehlern (Muster: dashboard.ts). Die
+   * Grundmenge einer Achse wird **einmal** gefiltert, nicht je Wert erneut.
+   *
+   * Der Zaehler einer ODER-Achse laesst die eigene Achse weg — er sagt, was
+   * der Klick braechte. Die Schlagworte wirken dagegen mit UND: dort zaehlt
+   * die Schnittmenge aus den bereits gewaehlten und diesem einen, sonst
+   * verspraeche der Zaehler Treffer, die der Klick gar nicht bringt.
+   */
   protected readonly achsen = computed<FilterAchse[]>(() => {
     const alle = this.store.entries();
-    const zaehle = (key: AchsenKey, trifft: (p: Projekt) => boolean): number =>
-      alle.filter((p) => this.passt(p, key) && trifft(p)).length;
+    const inhaltBasis = alle.filter((p) => this.passt(p, 'inhalt'));
+    const tagBasis = alle.filter((p) => this.passt(p));
     const schluessel = (t: string): string => t.toLocaleLowerCase('de');
     return [
       {
@@ -211,7 +220,8 @@ export class Projekte {
         werte: this.verfuegbareTags().map((t) => ({
           id: t.tag,
           label: t.tag,
-          n: zaehle('tag', (p) => (p.tags ?? []).some((x) => schluessel(x) === schluessel(t.tag))),
+          n: tagBasis.filter((p) => (p.tags ?? []).some((x) => schluessel(x) === schluessel(t.tag)))
+            .length,
           aktiv: this.tagAktiv(t.tag),
         })),
       },
@@ -222,7 +232,7 @@ export class Projekte {
         werte: INHALT_ORDER.map((i) => ({
           id: i,
           label: INHALT_LABEL[i],
-          n: zaehle('inhalt', (p) => this.hatInhalt(p, i)),
+          n: inhaltBasis.filter((p) => this.hatInhalt(p, i)).length,
           aktiv: this.fInhalt().includes(i),
         })),
       },
@@ -352,7 +362,6 @@ export class Projekte {
         id: s.profil.id,
         name: s.profil.name || '(ohne Namen)',
         anteil: a,
-        nTest: s.nachrichten.length,
         titel:
           (punkte ? `${entschieden} von ${punkte} entschieden` : 'noch nichts entschieden') +
           ' · ' +
@@ -644,9 +653,7 @@ export class Projekte {
 
   /** Datum der letzten Aenderung im Kachelfuss. */
   protected datum(p: Projekt): string {
-    const roh = new Date(p.aktualisiert);
-    if (Number.isNaN(roh.getTime())) return '';
-    return roh.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return datumKurz(p.aktualisiert);
   }
 
   /** Fachmodul-Kuerzel der Szenario-Zeile (wie auf der Profil-Kachel). */
@@ -669,11 +676,6 @@ export class Projekte {
    * (`core/util/profil-zustand.util`), damit dasselbe Profil in beiden
    * Ansichten dasselbe sagt.
    */
-  protected zustandKlasse(e: LibraryEntry): string {
-    return 'z-' + zustandVon(e);
-  }
-
-  protected zustandLabel(e: LibraryEntry): string {
-    return ZUSTAND_LABEL[zustandVon(e)];
-  }
+  protected readonly zustandKlasse = zustandKlasse;
+  protected readonly zustandLabel = zustandLabel;
 }

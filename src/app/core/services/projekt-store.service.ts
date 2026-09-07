@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { Projekt, ProjektPatch } from '../../models/projekt.model';
 import { LoggerService } from './logger.service';
 import { BackendClient } from './backend-client.service';
@@ -64,9 +64,16 @@ export class ProjektStoreService {
     this.entries.update((list) => ohneEintrag(list, id));
   }
 
+  /**
+   * Namen nach id. Die Kacheln fragen zweimal je Eintrag danach (Zeile und
+   * Tooltip), und die Filterspalte einmal je Achsenwert — als lineare Suche
+   * ueber den Index waere das bei jedem Tastendruck n×m Vergleiche.
+   */
+  private readonly nameMap = computed(() => new Map(this.entries().map((p) => [p.id, p.name])));
+
   /** Anzeigename zu einer id — fuer Kacheln und Filterleisten. */
   name(id: string | undefined): string | undefined {
     if (!id) return undefined;
-    return this.entries().find((p) => p.id === id)?.name;
+    return this.nameMap().get(id);
   }
 }

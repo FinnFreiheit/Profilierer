@@ -1,18 +1,21 @@
 <!--
   Projekte im gemeinsamen Rahmen der Bibliothek (`app-bibliothek`, B3). Zwei
-  Seiten in einem Template:
+  Seiten in **einer** Rahmen-Instanz:
 
   * die Uebersicht mit Filterspalte (Schlagworte, Inhalt), Werkzeugzeile,
     Chips und den Projekt-Kacheln,
   * die Projektseite, auf der die linke Spalte keine Achsen traegt, sondern die
     Sprungliste der Szenarien — auf der Seite gehoert alles zusammen, was da
     steht; die Frage ist nicht "welche zeigen?", sondern "wo steht das eine?".
+
+  Zwei Rahmen in @if/@else waeren zwei Instanzen: jeder Projektwechsel baute
+  die Kopfleiste samt Schema-Suche neu und warf eine getippte Suche weg.
 -->
-@if (offenes(); as p) {
-  <app-bibliothek aktiv="projekte" filterLabel="Szenarien">
-    <!-- Sprungliste statt Achsen: dieselbe Bauform (fWert), aber ohne
+<app-bibliothek aktiv="projekte" [filterLabel]="offenes() ? 'Szenarien' : 'Eingrenzen'">
+  <div filter>
+    @if (offenes()) {
+      <!-- Sprungliste statt Achsen: dieselbe Bauform (fWert), aber ohne
          Kaestchen — hier wird nichts an- und abgewaehlt, sondern gerollt. -->
-    <div filter>
       <div class="fKopf">
         <span class="fAchseTitel fKopfTitel">Szenarien</span>
         <span class="fZahl">{{ sprungliste().length }}</span>
@@ -37,8 +40,63 @@
           }
         </div>
       </div>
-    </div>
+    } @else {
+      <!-- Filterspalte: Achsen kombinieren mit UND, Werte einer Achse mit ODER.
+         Die Zaehler sagen, wie viele Treffer der Klick braechte. -->
+      <div class="fKopf">
+        <span class="fAchseTitel">Eingrenzen</span>
+        @if (hatFilter()) {
+          <button class="fReset" title="Alle Eingrenzungen entfernen" (click)="resetAlles()">
+            alle
+          </button>
+        }
+      </div>
+      <button
+        class="fAlle"
+        [class.aktiv]="!hatFilter()"
+        title="Eingrenzung aufheben"
+        (click)="resetAlles()"
+      >
+        <span class="fMarke"></span>
+        <span class="fLabel">Alle Projekte</span>
+        <span class="fZahl">{{ store.entries().length }}</span>
+      </button>
+      <div class="fAchsen">
+        @for (a of achsen(); track a.key) {
+          <div class="fAchse">
+            <div class="fAchseKopf">
+              <span class="fAchseTitel">{{ a.label }}</span>
+              @if (a.aktiv) {
+                <button
+                  class="fAchseReset"
+                  title="Diese Achse zurücksetzen"
+                  (click)="leereAchse(a.key)"
+                >
+                  ×
+                </button>
+              }
+            </div>
+            @for (w of a.werte; track w.id) {
+              <button
+                class="fWert"
+                [class.aktiv]="w.aktiv"
+                [attr.aria-pressed]="w.aktiv"
+                [class.leer]="!w.n && !w.aktiv"
+                [title]="w.label + ' — ' + w.n + ' Projekte'"
+                (click)="schalte(a.key, w.id)"
+              >
+                <span class="fBox">{{ w.aktiv ? '✓' : '' }}</span>
+                <span class="fLabel">{{ w.label }}</span>
+                <span class="fZahl">{{ w.n }}</span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
 
+  @if (offenes(); as p) {
     <div class="dashKopf">
       <div class="dashKopfText">
         <button class="crumbZurueck" (click)="zurUebersicht()">← alle Projekte</button>
@@ -90,7 +148,10 @@
           <span class="szenarioMsg" [title]="nachrichtKurz(s.profil)">{{
             nachrichtKurz(s.profil)
           }}</span>
-          @if (anteil(s.profil); as a) {
+          <!-- `!== null`, nicht `; as a`: die Null ist ein gueltiger Stand
+               ("0 % entschieden") und darf die Pille nicht wegblenden. -->
+          @let a = anteil(s.profil);
+          @if (a !== null) {
             <span class="metaPill" [class.meta-voll]="a === 100">{{ a }} % entschieden</span>
           }
           <!-- Nur bei vorhandenen Nachrichten: die Null sagt der Leerzustand
@@ -98,40 +159,45 @@
           @if (s.nachrichten.length) {
             <span class="szenarioProg">{{ zaehlText(s.nachrichten.length) }}</span>
           }
-          <span class="spacer"></span>
-          <button
-            title="Weitere Testnachricht zu diesem Szenario erstellen (geführter Durchlauf mit Bindung)"
-            (click)="neueTestnachricht(s.profil, $event)"
-          >
-            + Testnachricht
-          </button>
-          <app-menu label="⋯" [pfeil]="false" btnClass="dcMenuBtn" titel="Weitere Aktionen" #sw>
-            @if (s.nachrichten.length > 1) {
-              <button
-                class="menuItem"
-                title="Alle Testnachrichten dieses Szenarios nebeneinander: worin unterscheiden sie sich?"
-                (click)="sw.close(); vergleiche(s.profil, $event)"
-              >
-                Vergleichen
-              </button>
-              <button
-                class="menuItem"
-                [disabled]="ueberlagerung.laedt()"
-                title="Alle Testnachrichten gemeinsam im Baum: unter jedem Blatt steht der Wert jeder Nachricht"
-                (click)="sw.close(); ueberlagere(s.profil, $event)"
-              >
-                Überlagern
-              </button>
-              <div class="menuSep"></div>
-            }
+          <!-- Die Aktionen als eigene Gruppe: bei schmaler Spalte rutschen sie
+               gemeinsam in die zweite Zeile, statt abgeschnitten zu werden —
+               das ⋯-Menue ist der einzige Zugang zu Vergleichen, Ueberlagern
+               und Entfernen. -->
+          <div class="szenarioAktionen">
             <button
-              class="menuItem del"
-              title="Aus diesem Projekt nehmen — die Profilierung selbst bleibt erhalten"
-              (click)="sw.close(); entferneSzenario(s.profil, $event)"
+              title="Weitere Testnachricht zu diesem Szenario erstellen (geführter Durchlauf mit Bindung)"
+              (click)="neueTestnachricht(s.profil, $event)"
             >
-              Entfernen
+              + Testnachricht
             </button>
-          </app-menu>
+            <app-menu label="⋯" [pfeil]="false" btnClass="dcMenuBtn" titel="Weitere Aktionen" #sw>
+              @if (s.nachrichten.length > 1) {
+                <button
+                  class="menuItem"
+                  title="Alle Testnachrichten dieses Szenarios nebeneinander: worin unterscheiden sie sich?"
+                  (click)="sw.close(); vergleiche(s.profil, $event)"
+                >
+                  Vergleichen
+                </button>
+                <button
+                  class="menuItem"
+                  [disabled]="ueberlagerung.laedt()"
+                  title="Alle Testnachrichten gemeinsam im Baum: unter jedem Blatt steht der Wert jeder Nachricht"
+                  (click)="sw.close(); ueberlagere(s.profil, $event)"
+                >
+                  Überlagern
+                </button>
+                <div class="menuSep"></div>
+              }
+              <button
+                class="menuItem del"
+                title="Aus diesem Projekt nehmen — die Profilierung selbst bleibt erhalten"
+                (click)="sw.close(); entferneSzenario(s.profil, $event)"
+              >
+                Entfernen
+              </button>
+            </app-menu>
+          </div>
         </div>
 
         @for (t of s.nachrichten; track t.id) {
@@ -210,63 +276,7 @@
         <button class="primary" (click)="openHinzu()">+ Szenario</button>
       </div>
     }
-  </app-bibliothek>
-} @else {
-  <app-bibliothek aktiv="projekte">
-    <!-- Filterspalte: Achsen kombinieren mit UND, Werte einer Achse mit ODER.
-         Die Zaehler sagen, wie viele Treffer der Klick braechte. -->
-    <div filter>
-      <div class="fKopf">
-        <span class="fAchseTitel">Eingrenzen</span>
-        @if (hatFilter()) {
-          <button class="fReset" title="Alle Eingrenzungen entfernen" (click)="resetAlles()">
-            alle
-          </button>
-        }
-      </div>
-      <button
-        class="fAlle"
-        [class.aktiv]="!hatFilter()"
-        title="Eingrenzung aufheben"
-        (click)="resetAlles()"
-      >
-        <span class="fMarke"></span>
-        <span class="fLabel">Alle Projekte</span>
-        <span class="fZahl">{{ store.entries().length }}</span>
-      </button>
-      <div class="fAchsen">
-        @for (a of achsen(); track a.key) {
-          <div class="fAchse">
-            <div class="fAchseKopf">
-              <span class="fAchseTitel">{{ a.label }}</span>
-              @if (a.aktiv) {
-                <button
-                  class="fAchseReset"
-                  title="Diese Achse zurücksetzen"
-                  (click)="leereAchse(a.key)"
-                >
-                  ×
-                </button>
-              }
-            </div>
-            @for (w of a.werte; track w.id) {
-              <button
-                class="fWert"
-                [class.aktiv]="w.aktiv"
-                [class.leer]="!w.n && !w.aktiv"
-                [title]="w.label + ' — ' + w.n + ' Projekte'"
-                (click)="schalte(a.key, w.id)"
-              >
-                <span class="fBox">{{ w.aktiv ? '✓' : '' }}</span>
-                <span class="fLabel">{{ w.label }}</span>
-                <span class="fZahl">{{ w.n }}</span>
-              </button>
-            }
-          </div>
-        }
-      </div>
-    </div>
-
+  } @else {
     <div class="dashKopf">
       <div class="dashKopfText">
         <h1>Projekte</h1>
@@ -405,8 +415,8 @@
         }
       </div>
     }
-  </app-bibliothek>
-}
+  }
+</app-bibliothek>
 
 <dialog #bearbeitenDlg id="projektDlg">
   <h3 style="margin-top: 0">{{ bearbId() ? 'Projekt bearbeiten' : 'Neues Projekt' }}</h3>

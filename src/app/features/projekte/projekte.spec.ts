@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Projekte } from './projekte';
 import { ProjektStoreService } from '../../core/services/projekt-store.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
@@ -29,7 +29,7 @@ describe('Projekte — Szenarien einer Projektseite', () => {
     hatFilter: () => boolean;
     trefferText: () => string;
     resetAlles: () => void;
-    sprungliste: () => { id: string; name: string; anteil: number | null; nTest: number }[];
+    sprungliste: () => { id: string; name: string; anteil: number | null; titel: string }[];
   };
 
   const profil = (over: Partial<LibraryEntry> = {}): LibraryEntry =>
@@ -208,14 +208,90 @@ describe('Projekte — Szenarien einer Projektseite', () => {
     expect(tag?.werte.find((w) => w.id === 'Pilot')?.n).toBe(1);
   });
 
+  it('nennt im Zaehler eines zweiten Schlagworts die Schnittmenge', () => {
+    // Schlagworte wirken mit UND. Waere "Pilot" wie eine ODER-Achse gezaehlt
+    // (eigene Achse weggelassen), verspraeche der Zaehler 2 Treffer — der
+    // Klick brachte aber nur prj1, das beide Schlagworte traegt.
+    prj.gewaehlteTags.set(['Schulung']);
+    const tag = (): { id: string; n: number; aktiv: boolean }[] =>
+      prj.achsen().find((a) => a.key === 'tag')!.werte;
+    expect(tag().find((w) => w.id === 'Pilot')?.n).toBe(1);
+    // Ein bereits gewaehltes Schlagwort zaehlt die aktuelle Treffermenge.
+    expect(tag().find((w) => w.id === 'Schulung')).toEqual(
+      jasmine.objectContaining({ n: 1, aktiv: true }),
+    );
+    prj.gewaehlteTags.set(['Pilot']);
+    expect(tag().find((w) => w.id === 'Pilot')?.n).toBe(2);
+  });
+
   it('liefert die Sprungliste mit Anteilen und Nachrichtenzahl', () => {
     prj.oeffne('prj1');
     expect(prj.sprungliste().map((s) => s.id)).toEqual(['gericht', 'gemeinde', 'sach']);
     const gemeinde = prj.sprungliste().find((s) => s.id === 'gemeinde');
     expect(gemeinde?.name).toBe('Ersuchen an die Gemeinde');
     expect(gemeinde?.anteil).toBe(75);
-    expect(gemeinde?.nTest).toBe(2);
+    // Die Nachrichtenzahl steht im Tooltip — die Liste selbst zeigt den Anteil.
+    expect(gemeinde?.titel).toBe('6 von 8 entschieden · 2 Testnachrichten');
     // Ohne Punkte gibt es keinen Anteil — die Spalte zeigt dann "—".
-    expect(prj.sprungliste().find((s) => s.id === 'sach')?.anteil).toBeNull();
+    const sach = prj.sprungliste().find((s) => s.id === 'sach');
+    expect(sach?.anteil).toBeNull();
+    expect(sach?.titel).toBe('noch nichts entschieden · 0 Testnachrichten');
+  });
+});
+
+/**
+ * Ein Rahmen fuer beide Seiten (B5): Uebersicht und Projektseite standen in
+ * `@if/@else` je in einer eigenen `app-bibliothek`. Angular baute damit bei
+ * jedem Projektwechsel die Kopfleiste samt Schema-Suche neu — eine getippte
+ * Suche war weg, sobald jemand ein Projekt oeffnete.
+ */
+describe('Projekte — eine Rahmen-Instanz fuer Uebersicht und Projektseite', () => {
+  let fixture: ComponentFixture<Projekte>;
+  let el: HTMLElement;
+  let state: StateService;
+
+  const projekte: Projekt[] = [
+    { id: 'prj1', name: 'GenUVA', angelegt: 0, aktualisiert: 0, nProfile: 0, nTestnachrichten: 0 },
+  ];
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [Projekte],
+      providers: [
+        { provide: ProfileStoreService, useValue: { entries: () => [], refresh: async () => {} } },
+        {
+          provide: TestmessageStoreService,
+          useValue: { entries: () => [], refresh: async () => {} },
+        },
+      ],
+    }).compileComponents();
+    TestBed.inject(ProjektStoreService).entries.set(projekte);
+    state = TestBed.inject(StateService);
+    state.offenesProjekt.set(null);
+    fixture = TestBed.createComponent(Projekte);
+    fixture.detectChanges();
+    el = fixture.nativeElement as HTMLElement;
+  });
+
+  it('haelt Rahmen und Schema-Suche ueber das Oeffnen und Schliessen hinweg', () => {
+    expect(el.querySelectorAll('app-bibliothek').length).toBe(1);
+    const suche = el.querySelector('app-schema-suche');
+    const feld = el.querySelector<HTMLInputElement>('app-schema-suche .suchfeld')!;
+    // Ein getippter Stand: er ueberlebt nur, wenn das Feld dasselbe bleibt.
+    feld.value = 'genuva';
+
+    state.offenesProjekt.set('prj1');
+    fixture.detectChanges();
+    expect(el.querySelectorAll('app-bibliothek').length).toBe(1);
+    expect(el.querySelector('app-schema-suche')).toBe(suche);
+    expect(el.querySelector<HTMLInputElement>('app-schema-suche .suchfeld')!.value).toBe('genuva');
+    // Die Filterspalte wechselt dagegen ihren Inhalt — Szenarien statt Achsen.
+    expect(el.querySelector('aside.dashFilter')!.getAttribute('aria-label')).toBe('Szenarien');
+
+    state.offenesProjekt.set(null);
+    fixture.detectChanges();
+    expect(el.querySelector('app-schema-suche')).toBe(suche);
+    expect(el.querySelector<HTMLInputElement>('app-schema-suche .suchfeld')!.value).toBe('genuva');
+    expect(el.querySelector('aside.dashFilter')!.getAttribute('aria-label')).toBe('Eingrenzen');
   });
 });
