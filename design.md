@@ -17,6 +17,7 @@ colors:
   accent-hover: '#223357'
   accent-soft: '#e8ecf5'
   accent-soft-tief: '#ccd5e8'
+  accent-hauch: '#f2f5fa'
   signal: '#fca311'
   signal-soft: '#fef1db'
   flaeche-hell: '#f7f8fa'
@@ -39,6 +40,8 @@ colors:
   belegt-bg: '#f0f9f2'
   auswahl-bg: '#f1eaf8'
   auswahl-fg: '#7a4fa3'
+  schema-pflicht: '#a9dcc9'
+  xml-wert: '#0f6e56'
 
 typography:
   seitentitel:
@@ -488,6 +491,7 @@ Drei Oberflächen teilen sich ein Chassis: die **Übersichten** (Profile: Reiter
 - **Accent** (`{colors.accent}` — #14213d) und **Accent Hover** (`{colors.accent-hover}` — #223357): Primärknopf und sein einziger Zustandswechsel — Preußischblau leicht aufgehellt, nur für `:hover` auf gefüllten Flächen.
 - **Bg** (`{colors.bg}` — #f4f5f8): Der Seitengrund — Preußischblau zu vier Prozent auf Weiß. Bewusst kein Weiß, damit weiße Flächen als Flächen lesbar sind.
 - **Accent Soft** (`{colors.accent-soft}` — #e8ecf5) und **Accent Soft Tief** (`{colors.accent-soft-tief}` — #ccd5e8): Auswahl-Hintergrund, Grund der Standard-Pille, gewählter Filterwert, aktiver Umschalter, Rahmen der Filter-Chips.
+- **Accent Hauch** (`{colors.accent-hauch}` — #f2f5fa): Die leiseste Stufe des Accents — aktiver Ast-Chip, aktive Zeile der XML-Darstellung, Pfad-Krümel beim Überfahren. Markiert Ort, nicht Bedeutung.
 - **Signal Soft** (`{colors.signal-soft}` — #fef1db): Grund der Fortschrittsbalken, auf dem das Orange läuft.
 
 ### Neutralstufen
@@ -511,6 +515,8 @@ Außerhalb der Palette, weil sie Zustände bedeuten, nicht Marke. Immer als Paar
 - **Fehler** (`{colors.fehler-bg}` / `{colors.fehler-fg}` — #f9e9e9 / #b23a3a): Löschen beim Überfahren, fehlender Datentyp, Typfehler-Tag.
 - **Belegt** (`{colors.belegt-bg}` — #f0f9f2): Blätter mit eigenem Testwert im Nachrichten-Modus.
 - **Auswahl** (`{colors.auswahl-bg}` / `{colors.auswahl-fg}` — #f1eaf8 / #7a4fa3): Choice-Tag im Baum — Stellvertreter der rund zwanzig Tag-Varianten, die je eine eigene Fläche tragen.
+- **Schema-Pflicht** (`{colors.schema-pflicht}` — #a9dcc9): Statusstreifen am Baumkasten für Elemente, die das Schema verlangt, zu denen die Profilierung aber keine eigene Antwort trägt — gedämpftes Grün, damit es sich von den frei wählbaren Statusfarben absetzt.
+- **XML-Wert** (`{colors.xml-wert}` — #0f6e56): Werte in der XML-Darstellung (Petrol) — hebt den Inhalt vom Tag ab.
 
 ### Verläufe
 

@@ -30,7 +30,7 @@ describe('Styleguide — Karten', () => {
 
   it('zeigt jeden Farb-Token mit dem Wert aus dem Stylesheet', () => {
     const swatches = Array.from(render().querySelectorAll('.sgSwatch'));
-    expect(swatches.length).toBe(35);
+    expect(swatches.length).toBe(38);
     const blau = swatches.find((s) => s.querySelector('code')?.textContent === '--preussischblau');
     expect(blau?.querySelector('.sgWert')?.textContent?.trim()).toBe('#14213d');
   });

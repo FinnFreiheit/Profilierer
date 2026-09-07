@@ -34,6 +34,7 @@ const FARB_TOKENS: readonly (readonly [string, string, string])[] = [
   ['Abgeleitet', '--accent-hover', 'Primaeraktion beim Ueberfahren'],
   ['Abgeleitet', '--accent-soft', 'Auswahl-Hintergrund, Pillen'],
   ['Abgeleitet', '--accent-soft-tief', 'Auswahl, kraeftiger'],
+  ['Abgeleitet', '--accent-hauch', 'aktiver Ast-Chip, aktive XML-Zeile, Kruemel beim Ueberfahren'],
   ['Abgeleitet', '--on-accent', 'Text auf Accent'],
   ['Abgeleitet', '--signal', 'Fokusring, Fortschrittsbalken'],
   ['Abgeleitet', '--signal-soft', 'Balkengrund'],
@@ -56,6 +57,12 @@ const FARB_TOKENS: readonly (readonly [string, string, string])[] = [
   ['Fachliche Signalfarben', '--belegt-bg', 'Blatt mit Testwert'],
   ['Fachliche Signalfarben', '--auswahl-bg', 'Choice-Tag — Flaeche (stellvertretend)'],
   ['Fachliche Signalfarben', '--auswahl-fg', 'Choice-Tag — Text'],
+  [
+    'Fachliche Signalfarben',
+    '--schema-pflicht',
+    'Statusstreifen: Pflicht laut Schema, ohne Antwort',
+  ],
+  ['Fachliche Signalfarben', '--xml-wert', 'Werte in der XML-Darstellung'],
 ];
 
 /** Eine Stufe der Schriftleiter (design.md `typography`). */

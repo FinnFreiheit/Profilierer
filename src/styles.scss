@@ -27,6 +27,9 @@
   --accent-hover: #223357;
   --accent-soft: #e8ecf5;
   --accent-soft-tief: #ccd5e8;
+  /* Die leiseste Stufe des Accents — aktiver Ast-Chip, aktive XML-Zeile,
+     Kruemel beim Ueberfahren. Traegt keine Bedeutung, nur einen Hauch Ort. */
+  --accent-hauch: #f2f5fa;
   --signal: var(--orange);
   --signal-soft: #fef1db;
   /* Neutralstufen: Alabaster gegen Weiss bzw. Preussischblau verrechnet. */
@@ -56,6 +59,11 @@
   --belegt-bg: #f0f9f2;
   --auswahl-bg: #f1eaf8;
   --auswahl-fg: #7a4fa3;
+  /* Statusstreifen am Baumkasten: laut Schema Pflicht, aber ohne eigene
+     Antwort in der Profilierung — gedaempftes Gruen, kein Statusfarbton. */
+  --schema-pflicht: #a9dcc9;
+  /* Werte in der XML-Darstellung (Petrol) — hebt den Inhalt vom Tag ab. */
+  --xml-wert: #0f6e56;
   --mono: ui-monospace, 'SF Mono', Consolas, monospace;
   /* Radien (design.md): drei Familien — Bedienung, Kasten, Pille. */
   --rund-balken: 3px;

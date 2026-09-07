@@ -21,6 +21,37 @@ export const WIRKUNGEN: ReadonlyArray<readonly [Wirkung, string]> = [
 ];
 
 /**
+ * Klartext zu jeder Wirkung — ein Satz ohne Fachjargon, der im Detailbereich,
+ * in der Hilfe und in Kurzhinweisen erklaert, was eine Antwort fuer die
+ * Nachricht bedeutet. Die Statusnamen der Profilierung sind frei waehlbar;
+ * verstaendlich wird eine Antwort erst ueber ihre Wirkung.
+ */
+export const WIRKUNG_ERKLAERUNG: Record<Wirkung, string> = {
+  pflicht: 'Die Angabe muss in jeder Nachricht enthalten sein.',
+  optional: 'Ausfüllen, sofern die Information vorliegt — sonst weglassen.',
+  ausgeschlossen: 'Wird in diesem Szenario nicht verwendet.',
+  markierung: 'Fachlich offen — kommt auf die Klärungsliste.',
+};
+
+/** Klartext fuer „keine eigene Antwort" — der Standard entscheidet. */
+export const STANDARD_ERKLAERUNG = 'Keine eigene Vorgabe — es gilt die Regel des Standards.';
+
+/**
+ * Tastenkuerzel je Wirkung im Bearbeiten- und im gefuehrten Modus. Die Taste
+ * haengt an der Wirkung, nicht am Status: gibt es mehrere Stufen derselben
+ * Wirkung, greift sie am ersten Status je Wirkung.
+ */
+export const WIRKUNG_TASTE: Record<Wirkung, string> = {
+  pflicht: 'Z',
+  optional: 'O',
+  ausgeschlossen: 'N',
+  markierung: 'K',
+};
+
+/** Taste fuer „wie der Standard" — setzt die eigene Antwort zurueck. */
+export const STANDARD_TASTE = 'S';
+
+/**
  * Elementname einer Schema-Erweiterung: NCName ohne Doppelpunkt
  * (Erweiterungen liegen im Default-Namespace der Nachricht).
  */

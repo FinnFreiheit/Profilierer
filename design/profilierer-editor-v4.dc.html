@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  html, body { margin: 0; padding: 0; }
+  * { box-sizing: border-box; }
+  body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #14213d; background: #f4f5f8; -webkit-font-smoothing: antialiased; }
+  a { color: #14213d; text-decoration: underline; text-underline-offset: 2px; }
+  a:hover { color: #223357; }
+  a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #fca311; outline-offset: 2px; }
+  input:focus, textarea:focus { outline: 2px solid #fca311; outline-offset: 1px; border-color: #14213d; }
+  ::selection { background: #e8ecf5; }
+</style>
+</helmet>
+<div style="height: 100vh; display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; min-width: 0; font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #14213d; background: #f4f5f8;">
+
+  <header style="position: relative; z-index: 80; display: flex; align-items: center; gap: 12px; padding: 9px 18px; background: #ffffff; border-bottom: 1px solid #e4e6eb; min-width: 0;">
+    <button title="Zurück zur Übersicht — Ihr Stand bleibt gesichert" style="display: inline-flex; align-items: center; gap: 6px; flex: none; font: inherit; font-size: 13px; padding: 7px 12px; border: 1px solid #dfe2e8; border-radius: 9px; background: #ffffff; color: #14213d; cursor: pointer;" style-hover="border-color: #14213d; background: #f4f5f8;">← Übersicht</button>
+    <div style="display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1;">
+      <input type="text" value="{{ szenario }}" onChange="{{ onSzenario }}" title="Name dieses Szenarios — zum Ändern hineinklicken" style="min-width: 0; flex: 0 1 300px; font: inherit; font-size: 15px; font-weight: 620; letter-spacing: -0.012em; color: #14213d; padding: 5px 9px; margin-left: -9px; border: 1px solid transparent; border-radius: 8px; background: transparent;" style-hover="border-color: #dfe2e8; background: #f4f5f8;">
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; flex: none;">
+      <span title="Von der BLK-AG geprüft und freigegeben" style="{{ freigabeStyle }}">✔ freigegeben</span>
+      <button style="flex: none; font: inherit; font-size: 13px; font-weight: 550; padding: 7px 15px; border: 1px solid #14213d; border-radius: 9px; background: #14213d; color: #ffffff; cursor: pointer;" style-hover="background: #223357;">Speichern</button>
+      <div style="position: relative; flex: none;">
+        <button onClick="{{ toggleMore }}" title="Weitere Aktionen" style="{{ moreBtnStyle }}">⋯</button>
+        <sc-if value="{{ moreOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; top: calc(100% + 6px); right: 0; z-index: 90; min-width: 280px; background: #ffffff; border: 1px solid #e4e6eb; border-radius: 12px; box-shadow: 0 12px 32px rgba(20,33,61,0.14); padding: 6px;">
+            <sc-for list="{{ moreItems }}" as="m" hint-placeholder-count="5">
+              <button onClick="{{ m.onClick }}" title="{{ m.title }}" style="display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; text-align: left; border: 0; border-radius: 7px; background: none; padding: 8px 10px; font: inherit; font-size: 13.5px; color: #14213d; cursor: pointer;" style-hover="background: #f4f5f8;">{{ m.label }}<span style="font-size: 12px; color: #545e70;">{{ m.hint }}</span></button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </header>
+
+  <div style="position: relative; z-index: 78; display: flex; align-items: center; gap: 10px; padding: 8px 18px; background: #ffffff; border-bottom: 1px solid #e4e6eb; min-width: 0;">
+    <button title="Anderen Nachrichtentyp wählen" style="display: inline-flex; align-items: center; gap: 7px; min-width: 0; flex: 0 1 auto; font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 12px; padding: 7px 11px; border: 1px solid #dfe2e8; border-radius: 9px; background: #ffffff; color: #14213d; cursor: pointer;" style-hover="border-color: #14213d; background: #f4f5f8;"><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">nachricht.enova.entscheidung.2900003</span><span style="color: #545e70; flex: none;">▾</span></button>
+
+    <span style="flex: 1; min-width: 6px;"></span>
+
+    <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 11px; background: #ffffff; border: 1px solid #dfe2e8; border-radius: 9px; flex: 0 1 210px; min-width: 110px;">
+      <span aria-hidden="true" style="color: #545e70; font-size: 14px; line-height: 1; flex: none;">⌕</span>
+      <input type="text" value="{{ suche }}" onChange="{{ onSuche }}" placeholder="Feld suchen…" style="flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font: inherit; font-size: 13px; color: #14213d;">
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 2px; padding: 3px; background: #f4f5f8; border-radius: 10px; flex: none;">
+      <sc-for list="{{ darstellungen }}" as="d" hint-placeholder-count="2">
+        <button onClick="{{ d.onClick }}" title="{{ d.title }}" style="{{ d.style }}">{{ d.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="position: relative; z-index: 76; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 7px 18px; background: #ffffff; border-bottom: 1px solid #e4e6eb;">
+    <div style="display: flex; align-items: center; gap: 2px; padding: 3px; background: #f4f5f8; border-radius: 10px; flex: none;">
+      <sc-for list="{{ modi }}" as="m" hint-placeholder-count="3">
+        <button onClick="{{ m.onClick }}" title="{{ m.title }}" style="{{ m.style }}">{{ m.label }}</button>
+      </sc-for>
+    </div>
+
+    <span style="{{ trennerStyle }}"></span>
+
+    <span title="Bei den übrigen Feldern gilt die Regel des Standards" style="{{ standTextStyle }}"><span style="font-weight: 650; color: #14213d; font-variant-numeric: tabular-nums;">{{ gesamtBeantwortet }}</span> {{ standCaption }}</span>
+    <span aria-hidden="true" style="flex: none; display: inline-block; width: 64px; height: 6px; border-radius: 999px; background: #e4e6eb; overflow: hidden;">
+      <span style="{{ gesamtBalkenStyle }}"></span>
+    </span>
+    <span style="{{ trennerStyle }}"></span>
+
+    <sc-for list="{{ aeste }}" as="a" hint-placeholder-count="3">
+      <button onClick="{{ a.onClick }}" title="{{ a.title }}" style="{{ a.style }}">{{ a.name }}<span style="{{ a.zahlStyle }}">{{ a.zahl }}</span></button>
+    </sc-for>
+
+    <div style="{{ abschnittWrapStyle }}">
+      <button onClick="{{ toggleAbschnitte }}" title="Stand der drei Abschnitte" style="{{ abschnittBtnStyle }}">Abschnitte <span style="color: #545e70;">▾</span></button>
+      <sc-if value="{{ abschnitteOffen }}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; top: calc(100% + 6px); left: 0; z-index: 70; min-width: 246px; background: #ffffff; border: 1px solid #e4e6eb; border-radius: 12px; box-shadow: 0 12px 32px rgba(20,33,61,0.14); padding: 6px;">
+          <sc-for list="{{ aeste }}" as="a" hint-placeholder-count="3">
+            <button onClick="{{ a.onMenuClick }}" title="{{ a.title }}" style="{{ a.menuStyle }}">
+              <span style="display: flex; align-items: baseline; gap: 8px; min-width: 0;">
+                <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ a.name }}</span>
+                <span style="{{ a.zahlStyle }}">{{ a.zahl }}</span>
+              </span>
+              <span style="display: block; height: 5px; border-radius: 999px; background: #e4e6eb; overflow: hidden;">
+                <span style="{{ a.balkenStyle }}"></span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+    <span style="flex: 1; min-width: 6px;"></span>
+
+    <div style="position: relative; flex: none;">
+      <button onClick="{{ toggleMehrFilter }}" title="Darstellung des Baums und Hervorhebungen" style="{{ hervorBtnStyle }}">Ansicht <span style="color: #545e70;">▾</span></button>
+      <sc-if value="{{ mehrFilterOffen }}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; top: calc(100% + 6px); right: 0; z-index: 70; min-width: 268px; background: #ffffff; border: 1px solid #e4e6eb; border-radius: 12px; box-shadow: 0 12px 32px rgba(20,33,61,0.14); padding: 6px;">
+          <div style="padding: 6px 10px 5px; font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: #545e70;">Darstellung</div>
+          <sc-for list="{{ ansichtItems }}" as="a" hint-placeholder-count="2">
+            <button onClick="{{ a.onClick }}" title="{{ a.title }}" style="{{ a.style }}">
+              <span style="{{ a.boxStyle }}">{{ a.mark }}</span>
+              <span style="flex: 1; min-width: 0; text-align: left;">{{ a.label }}</span>
+            </button>
+          </sc-for>
+          <div style="height: 1px; background: #e4e6eb; margin: 5px 8px;"></div>
+          <div style="padding: 6px 10px 5px; font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: #545e70;">Farbig umranden</div>
+          <sc-for list="{{ filter }}" as="f" hint-placeholder-count="3">
+            <button onClick="{{ f.onClick }}" title="{{ f.title }}" style="{{ f.style }}">
+              <span style="{{ f.boxStyle }}">{{ f.mark }}</span>
+              <span style="flex: 1; min-width: 0; text-align: left;">{{ f.label }}</span>
+              <span style="flex: none; font-size: 12px; color: #545e70; font-variant-numeric: tabular-nums;">{{ f.count }}</span>
+            </button>
+          </sc-for>
+          <div style="height: 1px; background: #e4e6eb; margin: 5px 8px;"></div>
+          <button onClick="{{ alleZu }}" style="display: block; width: 100%; text-align: left; border: 0; border-radius: 7px; background: none; padding: 8px 10px; font: inherit; font-size: 13.5px; color: #14213d; cursor: pointer;" style-hover="background: #f4f5f8;">Auf den Anfang zurück</button>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ hatOffene }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ gNaechster }}" title="Zum nächsten Feld springen, das noch keine eigene Antwort hat" style="{{ naechsterStyle }}">Nächstes offenes Feld ›</button>
+    </sc-if>
+  </div>
+
+  <div style="position: relative; display: grid; grid-template-columns: {{ spaltenLayout }}; grid-template-rows: minmax(0, 1fr); min-height: 0; min-width: 0; overflow: hidden;">
+    <div style="{{ flaecheStyle }}">
+      <sc-if value="{{ istXml }}" hint-placeholder-val="{{ false }}">
+        <div style="max-width: 940px; margin: 0 auto; background: #ffffff; border: 1px solid #e4e6eb; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 3px rgba(20,33,61,0.05);">
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 13px 16px; border-bottom: 1px solid #e4e6eb; background: #fafbfc;">
+            <div style="min-width: 0; flex: 1;">
+              <div style="font-size: 14px; font-weight: 620; letter-spacing: -0.01em;">Beispiel-Nachricht</div>
+              <div style="font-size: 12.5px; line-height: 1.45; color: #545e70; text-wrap: pretty;">So sieht eine Nachricht aus, die zu Ihren Antworten passt. Die Werte sind Beispiele.</div>
+            </div>
+            <button onClick="{{ xmlKopieren }}" title="XML in die Zwischenablage kopieren" style="flex: none; font: inherit; font-size: 12.5px; padding: 6px 12px; border: 1px solid #dfe2e8; border-radius: 9px; background: #ffffff; color: #14213d; cursor: pointer;" style-hover="border-color: #14213d; background: #f4f5f8;">{{ kopierLabel }}</button>
+            <button onClick="{{ xmlLaden }}" title="Als XML-Datei herunterladen" style="flex: none; font: inherit; font-size: 12.5px; font-weight: 550; padding: 6px 12px; border: 1px solid #14213d; border-radius: 9px; background: #14213d; color: #ffffff; cursor: pointer;" style-hover="background: #223357;">Herunterladen</button>
+          </div>
+
+          <div style="padding: 14px 0 18px; overflow-x: auto;">
+            <sc-for list="{{ xmlZeilen }}" as="z" hint-placeholder-count="14">
+              <div onClick="{{ z.onClick }}" title="{{ z.title }}" style="{{ z.rowStyle }}">
+                <span style="{{ z.nrStyle }}">{{ z.nr }}</span>
+                <span style="{{ z.codeStyle }}"><span style="{{ z.tagStyle }}">{{ z.pre }}</span><span style="{{ z.wertStyle }}">{{ z.wert }}</span><span style="{{ z.tagStyle }}">{{ z.post }}</span></span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 11px 16px; border-top: 1px solid #e4e6eb; background: #fafbfc; font-size: 12px; color: #545e70;">
+            <span style="flex: none;">{{ xmlBilanz }}</span>
+            <span style="flex: 1; min-width: 8px;"></span>
+            <span style="min-width: 0;">Nicht enthalten: Felder mit „Weglassen“ und Felder ohne Antwort, die der Standard nicht verlangt.</span>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ istBaum }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; align-items: flex-start; gap: 0; min-width: min-content;">
+        <sc-for list="{{ spalten }}" as="sp" hint-placeholder-count="3">
+          <div style="{{ sp.style }}">
+            <sc-for list="{{ sp.items }}" as="n" hint-placeholder-count="5">
+              <div style="{{ n.rowStyle }}">
+                <span style="{{ n.railStyle }}"></span>
+                <span style="{{ n.elbowStyle }}"></span>
+                <div onClick="{{ n.onSelect }}" onMouseEnter="{{ n.onEnter }}" onMouseLeave="{{ n.onLeave }}" title="{{ n.title }}" style="{{ n.boxStyle }}">
+                  <span style="{{ n.stripStyle }}"></span>
+                  <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                    <span style="{{ n.nameStyle }}">{{ n.name }}</span>
+                    <span style="flex: 1; min-width: 4px;"></span>
+                    <span style="{{ n.wertStyle }}">{{ n.wert }}</span>
+                    <sc-if value="{{ n.hatKinder }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ n.onToggle }}" title="{{ n.togTitle }}" style="{{ n.togStyle }}">{{ n.tog }}</button>
+                    </sc-if>
+                  </div>
+                  <sc-if value="{{ n.hatAttrs }}" hint-placeholder-val="{{ false }}">
+                    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px;">
+                      <sc-for list="{{ n.attrs }}" as="a" hint-placeholder-count="1">
+                        <span title="{{ a.title }}" style="{{ a.style }}">{{ a.label }}</span>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ n.zeigeKard }}" hint-placeholder-val="{{ false }}">
+                    <div style="{{ n.kardStyle }}">{{ n.kard }}</div>
+                  </sc-if>
+                  <sc-if value="{{ n.zeigeDoc }}" hint-placeholder-val="{{ false }}">
+                    <div style="{{ n.docStyle }}">{{ n.doc }}</div>
+                  </sc-if>
+                  <sc-if value="{{ n.hatTags }}" hint-placeholder-val="{{ false }}">
+                    <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                      <sc-for list="{{ n.tags }}" as="t" hint-placeholder-count="1">
+                        <span title="{{ t.title }}" style="{{ t.style }}">{{ t.label }}</span>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+
+            <sc-if value="{{ sp.zeigeAdd }}" hint-placeholder-val="{{ false }}">
+              <div style="{{ sp.addRowStyle }}">
+                <span style="{{ sp.addRailStyle }}"></span>
+                <span style="{{ sp.addElbowStyle }}"></span>
+                <button title="Fehlendes Element festhalten, das beim Standard nachbeauftragt werden soll" style="flex: 1; min-width: 0; text-align: center; font: inherit; font-size: 12.5px; color: #545e70; padding: 8px 11px; border: 1px dashed #c3ccdd; border-radius: 10px; background: transparent; cursor: pointer;" style-hover="border-color: #14213d; color: #14213d; background: #ffffff;">+ Element</button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+    </div>
+
+    <aside style="{{ panelStyle }}">
+      <div style="display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 15px 17px 13px; border-bottom: 1px solid #e4e6eb;">
+        <div style="min-width: 0; flex: 1;">
+          <div style="display: flex; align-items: center; gap: 4px; min-width: 0; margin-bottom: 5px; overflow: hidden;">
+            <sc-for list="{{ dPfad }}" as="p" hint-placeholder-count="2">
+              <button onClick="{{ p.onClick }}" title="{{ p.title }}" style="{{ p.style }}"><span style="{{ p.sepStyle }}">›</span>{{ p.label }}</button>
+            </sc-for>
+          </div>
+          <h2 style="margin: 0; font-size: 17px; font-weight: 640; letter-spacing: -0.014em; line-height: 1.28; overflow-wrap: anywhere;">{{ dTitel }}</h2>
+        </div>
+        <button onClick="{{ panelZu }}" title="Schließen" style="flex: none; width: 28px; height: 28px; border: 1px solid transparent; border-radius: 8px; background: transparent; font-family: inherit; font-size: 15px; line-height: 1; color: #545e70; cursor: pointer;" style-hover="border-color: #dfe2e8; background: #f4f5f8; color: #14213d;">✕</button>
+      </div>
+
+      <div style="min-height: 0; min-width: 0; overflow: auto; padding: 16px 17px 32px; display: flex; flex-direction: column; gap: 22px;">
+
+        <sc-if value="{{ darfEntscheiden }}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0;">
+            <span style="font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: #545e70;">Ihre Antwort</span>
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+              <sc-for list="{{ antworten }}" as="a" hint-placeholder-count="5">
+                <button onClick="{{ a.onClick }}" title="{{ a.title }}" style="{{ a.style }}">
+                  <span style="{{ a.dotStyle }}"></span>
+                  <span style="{{ a.labelStyle }}">{{ a.label }}</span>
+                  <span style="flex: 1; min-width: 2px;"></span>
+                  <span style="{{ a.tasteStyle }}">{{ a.taste }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ nurLesen }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0;">
+            <span style="font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: #545e70;">Festgelegt als</span>
+            <div style="{{ leseStatusStyle }}">
+              <span style="{{ leseDotStyle }}"></span>
+              <span style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 13.5px; font-weight: 650; line-height: 1.3; color: #14213d;">{{ leseStatusName }}</span>
+                <span style="font-size: 12.5px; line-height: 1.4; color: #545e70; text-wrap: pretty;">{{ leseStatusErklaerung }}</span>
+              </span>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ zeigeAlternativen }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0;">
+            <span style="font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: #545e70;">Erlaubte Angaben — nur eine pro Nachricht</span>
+            <sc-for list="{{ alternativen }}" as="a" hint-placeholder-count="2">
+              <button onClick="{{ a.onClick }}" title="{{ a.title }}" style="{{ a.style }}">
+                <span style="{{ a.boxStyle }}">{{ a.mark }}</span>
+                <span style="min-width: 0; overflow-wrap: anywhere;">{{ a.label }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; min-width: 0; padding: 12px 13px; background: #fafbfc; border: 1px solid #e4e6eb; border-radius: 12px;">
+          <div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 5px; min-width: 0;">
+            <span style="font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: #545e70;">Wie oft darf es vorkommen?</span>
+            <sc-if value="{{ darfEntscheiden }}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0;">
+                <input type="text" value="{{ dMin }}" onChange="{{ onMin }}" placeholder="{{ dMinStd }}" title="Mindestens so oft" style="width: 62px; font: inherit; font-size: 13.5px; padding: 7px 9px; border: 1px solid #dfe2e8; border-radius: 9px; background: #ffffff; color: #14213d;" />
+                <span style="font-size: 13px; color: #545e70;">bis</span>
+                <input type="text" value="{{ dMax }}" onChange="{{ onMax }}" placeholder="{{ dMaxStd }}" title="Höchstens so oft" style="width: 62px; font: inherit; font-size: 13.5px; padding: 7px 9px; border: 1px solid #dfe2e8; border-radius: 9px; background: #ffffff; color: #14213d;" />
+                <span style="min-width: 0; font-size: 12.5px; color: #545e70;">leer = {{ dStdKard }}</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ nurLesen }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size: 13.5px; line-height: 1.45; color: #14213d;">{{ dKardText }}</span>
+            </sc-if>
+          </div>
+
+          <div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 5px; min-width: 0;">
+            <span style="font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: #545e70;">Beispielwert</span>
+            <sc-if value="{{ darfEntscheiden }}" hint-placeholder-val="{{ true }}">
+              <input type="text" value="{{ dBeispiel }}" onChange="{{ onBeispiel }}" placeholder="konkretes Beispiel für die Beispiel-Nachricht" style="width: 100%; min-width: 0; font: inherit; font-size: 13.5px; padding: 8px 10px; border: 1px solid #dfe2e8; border-radius: 9px; background: #ffffff; color: #14213d;" />
+            </sc-if>
+            <sc-if value="{{ nurLesen }}" hint-placeholder-val="{{ false }}">
+              <span style="{{ dBeispielTextStyle }}">{{ dBeispielText }}</span>
+            </sc-if>
+          </div>
+
+          <div style="grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; min-width: 0; border-top: 1px solid #e4e6eb; padding-top: 10px;">
+            <span style="flex: none; font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: #545e70;">Im Schema</span>
+            <span title="{{ dTech }}" style="min-width: 0; font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 11.5px; color: #545e70; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ dTech }}</span>
+          </div>
+        </div>
+
+        <sc-if value="{{ hatBeschreibung }}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 7px; min-width: 0;">
+            <span style="font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: #545e70;">Was ist das?</span>
+            <p style="{{ dBeschreibungStyle }}">{{ dBeschreibung }}</p>
+            <sc-if value="{{ dLang }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ toggleBesch }}" style="align-self: flex-start; font: inherit; font-size: 13px; padding: 0; border: 0; background: none; color: #14213d; text-decoration: underline; text-underline-offset: 2px; cursor: pointer;" style-hover="color: #223357;">{{ beschLabel }}</button>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ zeigeNotiz }}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 7px; min-width: 0;">
+            <span style="font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: #545e70;">Notiz für das Team</span>
+            <sc-if value="{{ darfEntscheiden }}" hint-placeholder-val="{{ true }}">
+              <textarea value="{{ dAnmerkung }}" onChange="{{ onAnmerkung }}" rows="2" placeholder="Warum diese Antwort? Offene Frage?" style="width: 100%; min-width: 0; resize: vertical; font: inherit; font-size: 13.5px; line-height: 1.5; padding: 9px 11px; border: 1px solid #dfe2e8; border-radius: 9px; background: #ffffff; color: #14213d;"></textarea>
+              <span style="font-size: 12px; color: #545e70; line-height: 1.45;">Erscheint im Excel-Export, nie in der Nachricht selbst.</span>
+            </sc-if>
+            <sc-if value="{{ nurLesen }}" hint-placeholder-val="{{ false }}">
+              <p style="margin: 0; font-size: 13.5px; line-height: 1.55; color: #14213d; text-wrap: pretty;">{{ dAnmerkung }}</p>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </aside>
+  </div>
+
+  <footer style="position: relative; z-index: 74; display: flex; align-items: center; gap: 12px; padding: 6px 18px; background: #ffffff; border-top: 1px solid #e4e6eb; min-width: 0;">
+    <div style="display: flex; align-items: center; gap: 1px; min-width: 0; flex: 1 1 auto; overflow-x: auto; overflow-y: hidden; padding: 2px 0;">
+      <sc-for list="{{ pfadVoll }}" as="c" hint-placeholder-count="4">
+        <span style="{{ c.sepStyle }}">›</span>
+        <button onClick="{{ c.onClick }}" title="{{ c.title }}" style="{{ c.style }}">{{ c.label }}</button>
+      </sc-for>
+    </div>
+    <span style="flex: none; width: 1px; height: 16px; background: #e4e6eb;"></span>
+    <span style="{{ sicherungStyle }}">{{ sicherung }}</span>
+    <div style="position: relative; flex: none;">
+      <button onClick="{{ toggleHilfe }}" title="Bedeutung der Antworten und Tastenkürzel" style="{{ hilfeBtnStyle }}">Hilfe <span style="color: #545e70;">{{ hilfePfeil }}</span></button>
+      <sc-if value="{{ hilfeOffen }}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; bottom: calc(100% + 8px); right: 0; z-index: 90; width: min(390px, 84vw); background: #ffffff; border: 1px solid #e4e6eb; border-radius: 12px; box-shadow: 0 12px 32px rgba(20,33,61,0.14); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 9px;">
+            <span style="font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: #545e70;">Die Antworten bedeuten</span>
+            <sc-for list="{{ hilfeAntworten }}" as="l" hint-placeholder-count="5">
+              <div style="display: flex; align-items: flex-start; gap: 9px; font-size: 12.5px; line-height: 1.45; color: #545e70;">
+                <span style="{{ l.dotStyle }}"></span>
+                <span style="min-width: 0;"><span style="font-weight: 600; color: #14213d;">{{ l.name }}</span> — {{ l.text }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #e4e6eb; padding-top: 11px;">
+            <span style="font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: #545e70;">Schneller mit der Tastatur</span>
+            <span style="font-size: 12.5px; line-height: 1.5; color: #545e70;">Antwort setzen: S · Z · O · N · K — Bewegen: ← Eltern, → Kind, ↑ ↓ Geschwister, +/− Ast auf und zu, Enter nächstes offenes Feld</span>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </footer>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startModus&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Bearbeiten&quot;,&quot;Geführt&quot;,&quot;Ansehen&quot;],&quot;default&quot;:&quot;Bearbeiten&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Aufbau&quot;},&quot;startDarstellung&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Baum&quot;,&quot;XML&quot;],&quot;default&quot;:&quot;Baum&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Aufbau&quot;},&quot;detailOffen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Aufbau&quot;}}">
+const MONO = "ui-monospace, 'SF Mono', Consolas, monospace";
+
+/* Statusfarben unverändert aus src/app/core/profile-defaults.ts (defaultStatuses):
+   zwingend #1D9E75, anzugeben wenn vorhanden #BA7517, nicht verwendet #888780,
+   zu klären #D4537E. Die Farbe trägt Punkt, Streifen und Rand; der Text läuft
+   im Grundton, damit er auf Weiß lesbar bleibt. */
+const STATUS = {
+  standard: { name: "So wie im Standard", kurz: "Standard", fg: "#14213d", bg: "#e8ecf5", rand: "#14213d", punkt: "#14213d", strip: null,
+    erklaerung: "Keine eigene Vorgabe — es gilt die Regel des Standards." },
+  zwingend: { name: "Immer ausfüllen", kurz: "immer", fg: "#14213d", bg: "#e3f5ee", rand: "#1D9E75", punkt: "#1D9E75", strip: "#1D9E75",
+    erklaerung: "Die Angabe muss in jeder Nachricht enthalten sein." },
+  optional: { name: "Nur wenn vorhanden", kurz: "wenn vorhanden", fg: "#14213d", bg: "#f9eeda", rand: "#BA7517", punkt: "#BA7517", strip: "#BA7517",
+    erklaerung: "Ausfüllen, sofern die Information vorliegt — sonst weglassen." },
+  nicht:    { name: "Weglassen", kurz: "weglassen", fg: "#14213d", bg: "#f0f0ee", rand: "#888780", punkt: "#888780", strip: "#888780",
+    erklaerung: "Wird in diesem Szenario nicht verwendet." },
+  klaeren:  { name: "Noch unklar", kurz: "unklar", fg: "#14213d", bg: "#fbe8ee", rand: "#D4537E", punkt: "#D4537E", strip: "#D4537E",
+    erklaerung: "Fachlich offen — kommt auf die Klärungsliste." }
+};
+/* „wie Standard“ ist der Zustand ohne eigenen Status (detail-ansicht.ts) und
+   dort ebenfalls eine wählbare, angezeigte Antwort. */
+const ANTWORT_ORDER = ["standard", "zwingend", "optional", "nicht", "klaeren"];
+
+const TAG = {
+  auswahl: { bg: "#efedfb", fg: "#5a50c0", label: "Auswahl", title: "Hier ist eine von mehreren Angaben zu wählen" },
+  code:    { bg: "#e8ecf5", fg: "#14213d", label: "Auswahlliste", title: "Der Wert kommt aus einer festen Liste" },
+  verweis: { bg: "#fce8ef", fg: "#a8365c", label: "Verweis", title: "Zeigt auf eine Angabe an anderer Stelle" },
+  offen:   { bg: "#fdeecd", fg: "#9a6a00", label: "offen", title: "Noch keine eigene Antwort" }
+};
+
+const N = [
+  { id: "r", p: null, name: "Enova — Entscheidung", kard: "genau 1", std: "1..1",
+    tech: "nachricht.enova.entscheidung.2900003", pflicht: true, kinder: ["kopf", "grund", "fach"],
+    doc: "Die gesamte Nachricht. Sie besteht aus dem Nachrichtenkopf, den Grunddaten und dem fachlichen Teil." },
+
+  { id: "kopf", p: "r", name: "Nachrichtenkopf", kard: "genau 1", std: "1..1", tech: "nachrichtenkopf",
+    pflicht: true, attrs: [{ n: "xjustizVersion", v: "3.6.2", pflicht: true }],
+    kinder: ["erst", "abs", "akte", "eigid", "empf"],
+    doc: "Der technische Kopf jeder Nachricht: wer sendet, wer empfängt, wann, und zu welcher Akte." },
+  { id: "grund", p: "r", name: "Grunddaten", kard: "genau 1", std: "1..1", tech: "grunddaten",
+    pflicht: true, kinder: ["verf"],
+    doc: "Angaben zum Verfahren und zu den beteiligten Personen — in allen Nachrichtentypen gleich aufgebaut." },
+  { id: "fach", p: "r", name: "Fachdaten", kard: "0 oder 1", std: "0..1", tech: "fachdaten",
+    kinder: ["entsch"],
+    doc: "Der fachliche Teil der Nachricht. Wie er aufgebaut ist, hängt vom Nachrichtentyp ab." },
+
+  { id: "erst", p: "kopf", name: "Erstellungszeitpunkt", kard: "genau 1", std: "1..1",
+    tech: "erstellungszeitpunkt", pflicht: true, wert: "2026-01-01T12:00…",
+    doc: "Zeitpunkt, zu dem die Nachricht erzeugt wurde — mit Datum, Uhrzeit und Zeitzone." },
+  { id: "abs", p: "kopf", name: "Absender", kard: "genau 1", std: "1..1", tech: "absender",
+    pflicht: true, kinder: ["absinfo"], doc: "Die Stelle, die die Nachricht verschickt." },
+  { id: "akte", p: "kopf", name: "Aktenzeichen", kard: "1 bis n", std: "1..*", tech: "aktenzeichen",
+    pflicht: true, wert: "12 C 345/26",
+    doc: "Das Geschäftszeichen des Verfahrens bei der jeweiligen Stelle." },
+  { id: "eigid", p: "kopf", name: "Eigene Nachrichten-ID", kard: "0 oder 1", std: "0..1",
+    tech: "eigeneNachrichtenID", wert: "1ddc1ccd-dbdf-4b…",
+    doc: "Eigene Kennung des Absenders. Der Empfänger schickt sie unverändert zurück, damit Antworten zugeordnet werden können." },
+  { id: "empf", p: "kopf", name: "Empfaenger", kard: "genau 1", std: "1..1", tech: "empfaenger",
+    pflicht: true, kinder: ["empfinfo"], doc: "Die Stelle, die die Nachricht erhält." },
+
+  { id: "absinfo", p: "abs", name: "Informationen", kard: "genau 1", std: "1..1", tech: "informationen",
+    pflicht: true, kinder: ["kompart", "routing", "verwgd"],
+    doc: "Sammelt die Angaben zur absendenden Stelle." },
+  { id: "empfinfo", p: "empf", name: "Informationen", kard: "genau 1", std: "1..1", tech: "informationen",
+    pflicht: true, kinder: [], doc: "Sammelt die Angaben zur empfangenden Stelle." },
+
+  { id: "kompart", p: "absinfo", name: "Auswahl: Kommunikationspartner", kard: "genau 1", std: "1..1",
+    tech: "auswahl_kommunikationspartner", pflicht: true, auswahl: true,
+    kinder: ["ger", "sonst", "rvt", "pol", "fin"],
+    doc: "Um welche Art von Stelle handelt es sich? Genau eine der folgenden Angaben wird mitgeschickt; davon hängt ab, welche Kennungen nötig sind." },
+  { id: "routing", p: "absinfo", name: "Routing Information Aus …", kard: "0 oder 1", std: "0..1",
+    tech: "routingInformationAusSafeverzeichnis", verweis: true, wert: "Beispieltext",
+    doc: "Zustellangabe, die automatisch aus dem Verzeichnisdienst übernommen wird." },
+  { id: "verwgd", p: "absinfo", name: "Auswahl: Verweis Grunddaten", kard: "0 oder 1", std: "0..1",
+    tech: "auswahl_verweisGrunddaten", auswahl: true, kinder: ["vinst", "vroll"],
+    doc: "Verweist auf eine Person in den Grunddaten, statt die Angaben zu wiederholen." },
+
+  { id: "ger", p: "kompart", name: "Gericht", kard: "genau 1", std: "1..1", tech: "gerichte",
+    alt: true, code: true, attrs: [{ n: "listURI", v: "urn:xoev-…" }, { n: "listVersionID", v: "3.7" }],
+    doc: "Ein Gericht, gewählt aus der amtlichen Gerichtsliste." },
+  { id: "sonst", p: "kompart", name: "Sonstige", kard: "genau 1", std: "1..1", tech: "sonstige",
+    alt: true, code: true, doc: "Eine Stelle, die zu keiner der anderen Gruppen passt." },
+  { id: "rvt", p: "kompart", name: "Rv Traeger", kard: "genau 1", std: "1..1", tech: "rvTraeger",
+    alt: true, code: true, attrs: [{ n: "listURI", v: "urn:xoev-…" }, { n: "listVersionID", v: "2.0" }],
+    doc: "Ein Träger der gesetzlichen Rentenversicherung." },
+  { id: "pol", p: "kompart", name: "Polizeibehoerde", kard: "genau 1", std: "1..1", tech: "polizei",
+    alt: true, code: true, attrs: [{ n: "listURI", v: "urn:xoev-…" }, { n: "listVersionID", v: "1.1" }],
+    doc: "Eine Polizeibehörde." },
+  { id: "fin", p: "kompart", name: "Finanzbehoerde", kard: "genau 1", std: "1..1", tech: "finanzamt",
+    alt: true, code: true, attrs: [{ n: "listURI", v: "urn:xoev-…" }, { n: "listVersionID", v: "1.0" }],
+    doc: "Ein Finanzamt." },
+
+  { id: "vinst", p: "verwgd", name: "Verweis: Instanznummer", kard: "genau 1", std: "1..1",
+    tech: "verweis_instanznummer", alt: true, verweis: true, wert: "Beispieltext",
+    doc: "Hier wird die Instanznummer des Kommunikationspartners aus den Grunddaten angegeben." },
+  { id: "vroll", p: "verwgd", name: "Verweis: Rollennummer", kard: "genau 1", std: "1..1",
+    tech: "verweis_rollennummer", alt: true, verweis: true,
+    doc: "Hier wird die Rollennummer der Beteiligung aus den Grunddaten angegeben." },
+
+  { id: "verf", p: "grund", name: "Verfahrensdaten", kard: "genau 1", std: "1..1",
+    tech: "verfahrensdaten", pflicht: true, kinder: ["vnr", "sach", "bet"],
+    doc: "Beschreibt das Verfahren, um das es geht." },
+  { id: "vnr", p: "verf", name: "Verfahrensnummer", kard: "genau 1", std: "1..1",
+    tech: "verfahrensnummer", pflicht: true, wert: "12 C 345/26",
+    doc: "Das Geschäftszeichen beim führenden Gericht." },
+  { id: "sach", p: "verf", name: "Sachgebiet", kard: "0 oder 1", std: "0..1", tech: "sachgebiet",
+    code: true, doc: "Ordnet das Verfahren einem Sachgebiet zu. Der Empfänger steuert damit die weitere Bearbeitung." },
+  { id: "bet", p: "verf", name: "Beteiligung", kard: "1 bis n", std: "1..*", tech: "beteiligung",
+    pflicht: true, kinder: [],
+    doc: "Eine am Verfahren beteiligte Person oder Stelle. Kann mehrfach vorkommen." },
+
+  { id: "entsch", p: "fach", name: "Entscheidung", kard: "genau 1", std: "1..1", tech: "entscheidung",
+    pflicht: true, kinder: ["etyp", "edat"],
+    doc: "Die gerichtliche Entscheidung, die übermittelt wird." },
+  { id: "etyp", p: "entsch", name: "Entscheidungsart", kard: "genau 1", std: "1..1",
+    tech: "entscheidungsart", pflicht: true, code: true,
+    doc: "Um welche Art von Entscheidung es sich handelt, etwa Urteil oder Beschluss." },
+  { id: "edat", p: "entsch", name: "Entscheidungsdatum", kard: "genau 1", std: "1..1",
+    tech: "entscheidungsdatum", pflicht: true, wert: "2026-01-01", doc: "Das Datum der Entscheidung." }
+];
+
+class Component extends DCLogic {
+  state = {
+    szenario: "Notar an Justiz",
+    suche: "", modus: null, sel: "verwgd",
+    pfad: ["r", "kopf", "abs", "absinfo", "verwgd"],
+    festlegung: { kopf: "zwingend", erst: "zwingend", abs: "zwingend", absinfo: "zwingend",
+      akte: "zwingend", empf: "zwingend", grund: "zwingend", verf: "zwingend", vnr: "zwingend",
+      sach: "optional", sonst: "nicht", rvt: "nicht", pol: "nicht", fin: "nicht", routing: "nicht" },
+    darstellung: null, kopiert: false,
+    mehrFilterOffen: false, expertOffen: false, abschnitteOffen: false, crumbAusOffen: false,
+    filter: { offen: false, abweichend: false, notiz: false },
+    kardMin: "", kardMax: "", beispiel: "", anmerkung: "",
+    beschLang: false, moreOpen: false, ansichtOpen: false, hilfeOffen: false, panelOffen: null,
+    ansicht: { technik: false, kompakt: false },
+    hover: null,
+    breite: typeof window === "undefined" ? 1440 : window.innerWidth
+  };
+
+  componentDidMount() {
+    this._r = () => this.setState({ breite: window.innerWidth });
+    window.addEventListener("resize", this._r);
+    this._r();
+  }
+  componentWillUnmount() { if (this._r) window.removeEventListener("resize", this._r); }
+
+  k(id) { return N.find(x => x.id === id); }
+  fest(id) { return this.state.festlegung[id] || "standard"; }
+  kinder(id) { const n = this.k(id); return (n && n.kinder ? n.kinder : []).map(x => this.k(x)).filter(Boolean); }
+  modus() { return this.state.modus || ({ "Bearbeiten": "bearbeiten", "Ansehen": "betrachten" }[this.props.startModus] || "bearbeiten"); }
+  panelOffen() { return this.state.panelOffen === null ? this.props.detailOffen !== false : this.state.panelOffen; }
+
+  tiefe(id) { let t = 0, c = this.k(id); while (c && c.p) { t++; c = this.k(c.p); } return t; }
+  ahnen(id) { const out = []; let c = this.k(id); while (c && c.p) { c = this.k(c.p); if (c) out.unshift(c); } return out; }
+  nachfahren(id) { const out = []; const lauf = x => (this.k(x).kinder || []).forEach(k => { out.push(k); lauf(k); }); lauf(id); return out; }
+
+  spaltenIds() {
+    const out = [["r"]];
+    this.state.pfad.forEach(id => {
+      const kids = this.k(id) && this.k(id).kinder;
+      if (kids && kids.length) out.push(kids);
+    });
+    return out;
+  }
+
+  oeffne(id) {
+    this.setState(st => {
+      const t = this.tiefe(id);
+      const pfad = st.pfad.slice(0, t);
+      if (st.pfad[t] !== id) pfad[t] = id;
+      return { pfad, sel: id, panelOffen: true };
+    });
+  }
+
+  hervor(n) {
+    const fl = this.state.filter;
+    const s = this.fest(n.id);
+    if (fl.offen && s === "standard") return true;
+    if (fl.abweichend && s !== "standard") return true;
+    if (fl.notiz && n.notiz) return true;
+    const q = this.state.suche.trim().toLowerCase();
+    if (q && [n.name, n.tech, n.wert].some(v => (v || "").toLowerCase().includes(q))) return true;
+    return false;
+  }
+
+  hervorAktiv() {
+    const fl = this.state.filter;
+    return !!(fl.offen || fl.abweichend || fl.notiz || this.state.suche.trim());
+  }
+
+  offeneIds() { return N.filter(n => this.fest(n.id) === "standard").map(n => n.id); }
+
+  darstellung() { return this.state.darstellung || (this.props.startDarstellung === "XML" ? "xml" : "baum"); }
+
+  /* Ein Element steht in der Beispiel-Nachricht, wenn der Standard es verlangt
+     oder eine Antwort es fordert. „Weglassen“ schneidet den Ast ab. */
+  imXml(n) {
+    const f = this.fest(n.id);
+    if (f === "nicht") return false;
+    return !!n.pflicht || f === "zwingend" || f === "optional";
+  }
+
+  xmlText() {
+    return this.xmlBauen().map(z => {
+      const ein = "  ".repeat(z.tiefe);
+      if (z.kind === "decl") return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+      if (z.kind === "open") return ein + "<" + z.name + (z.tiefe === 0 ? " xmlns=\"http://www.xjustiz.de\"" : "") + ">";
+      if (z.kind === "close") return ein + "</" + z.name + ">";
+      if (z.kind === "leer") return ein + "<" + z.name + "/>";
+      if (z.kind === "offen") return ein + "<!-- " + z.name + ": noch keine Angabe gewählt -->";
+      return ein + "<" + z.name + ">" + z.wert + "</" + z.name + ">";
+    }).join("\n");
+  }
+
+  platzhalter(n) {
+    if (n.wert) return n.wert;
+    if (n.code) return "CODE";
+    if (/datum|zeitpunkt/i.test(n.tech)) return "2026-01-01";
+    return "Beispieltext";
+  }
+
+  xmlBauen() {
+    const zeilen = [];
+    const schreib = (kind, tiefe, name, wert, id) => zeilen.push({ kind, tiefe, name, wert, id });
+
+    schreib("decl", 0, "", "", null);
+
+    /* Ob ein Element Text tragen darf, entscheidet allein seine Schemaform:
+       ein deklariertes Kinderfeld (auch leer) oder eine Auswahl ist komplex
+       und bekommt niemals einen Wert. Erst danach wird gefiltert. */
+    const lauf = (id, tiefe, zwingen) => {
+      const n = this.k(id);
+      if (!n) return;
+      if (!zwingen && !this.imXml(n)) return;
+
+      const komplex = Array.isArray(n.kinder) || !!n.auswahl;
+      if (!komplex) { schreib("leaf", tiefe, n.tech, this.platzhalter(n), n.id); return; }
+
+      if (n.auswahl) {
+        const erlaubt = this.kinder(id).filter(k => this.fest(k.id) !== "nicht");
+        if (!erlaubt.length) { schreib("offen", tiefe, n.tech, "", n.id); return; }
+        schreib("open", tiefe, n.tech, "", n.id);
+        lauf(erlaubt[0].id, tiefe + 1, true);
+        schreib("close", tiefe, n.tech, "", n.id);
+        return;
+      }
+
+      const kinder = this.kinder(id).filter(k => this.imXml(k));
+      if (!kinder.length) { schreib("leer", tiefe, n.tech, "", n.id); return; }
+      schreib("open", tiefe, n.tech, "", n.id);
+      kinder.forEach(k => lauf(k.id, tiefe + 1, false));
+      schreib("close", tiefe, n.tech, "", n.id);
+    };
+    lauf("r", 0, true);
+    return zeilen;
+  }
+
+  box(n, index, anzahl, wurzelSpalte) {
+    const st = this.state;
+    const sel = st.sel === n.id;
+    const h = st.hover === n.id;
+    const f = this.fest(n.id);
+    const m = STATUS[f];
+    const aus = f === "nicht";
+    const offen = st.pfad.indexOf(n.id) >= 0;
+    const kinder = !!(n.kinder && n.kinder.length);
+    const gross = sel || offen;
+    const kompakt = st.ansicht.kompakt && !gross;
+    const markiert = this.hervorAktiv() && this.hervor(n);
+
+    const tags = [];
+    if (n.auswahl) tags.push(TAG.auswahl);
+    if (n.verweis) tags.push(TAG.verweis);
+    if (n.code) tags.push(TAG.code);
+    if (f === "standard") tags.push(TAG.offen);
+
+    const oben = index === 0, unten = index === anzahl - 1 && !wurzelSpalte;
+    const strichel = n.verweis ? "dashed" : "solid";
+
+    return {
+      name: n.name,
+      title: n.name + " — " + m.name,
+      rowStyle: "position: relative; display: flex; align-items: flex-start; padding-bottom: " +
+        (index === anzahl - 1 ? "0" : "9px") + ";",
+      railStyle: wurzelSpalte ? "display: none;"
+        : "position: absolute; left: -22px; top: " + (oben ? "20px" : "0") +
+          "; bottom: " + (unten ? "calc(100% - 20px)" : "0") + "; border-left: 1.5px " + strichel + " #c9d2df;",
+      elbowStyle: wurzelSpalte ? "display: none;"
+        : "position: absolute; left: -22px; top: 8px; width: 22px; height: 12px; border-left: 1.5px " +
+          strichel + " #c9d2df; border-bottom: 1.5px " + strichel +
+          " #c9d2df; border-bottom-left-radius: 10px;",
+      boxStyle: "position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: " +
+        (kompakt ? "0" : "5px") + "; padding: " + (kompakt ? "6px 11px 6px 15px" : "9px 12px 10px 15px") +
+        "; background: #ffffff; border: 1px solid " +
+        (sel ? "#14213d" : (markiert ? "#fca311" : (h ? "#c3ccdd" : "#e4e6eb"))) +
+        "; border-radius: 12px; cursor: pointer; overflow: hidden; opacity: " + (aus ? "0.62" : "1") +
+        "; box-shadow: " + (sel ? "0 0 0 1px #14213d, 0 6px 18px rgba(20,33,61,0.10)"
+          : (markiert ? "0 0 0 1px #fca311" : (h ? "0 3px 12px rgba(20,33,61,0.07)" : "0 1px 2px rgba(20,33,61,0.04)"))) +
+        "; transition: box-shadow .13s, border-color .13s;",
+      stripStyle: "position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: " +
+        (m.strip ? m.strip : (n.pflicht ? "#a9dcc9" : "#e4e6eb")) + ";",
+      nameStyle: "min-width: 0; font-size: " + (kompakt ? "12.5px" : "13.5px") + "; font-weight: " +
+        (gross ? "650" : "550") + "; letter-spacing: -0.006em; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: " +
+        (aus ? "line-through" : "none") + ";",
+      wert: n.wert || "",
+      wertStyle: "flex: none; max-width: 48%; font-family: " + MONO +
+        "; font-size: 11px; color: #545e70; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: " +
+        (n.wert ? "block" : "none") + ";",
+      hatKinder: kinder,
+      tog: offen ? "−" : "+",
+      togTitle: offen ? "Ast zuklappen" : "Ast aufklappen",
+      togStyle: "flex: none; width: 22px; height: 20px; border: 1px solid " + (h || sel ? "#dfe2e8" : "transparent") +
+        "; border-radius: 6px; background: " + (h || sel ? "#f4f5f8" : "transparent") +
+        "; font-family: inherit; font-size: 13px; line-height: 1; color: #545e70; cursor: pointer;",
+      hatAttrs: gross && !!(n.attrs || []).length,
+      attrs: (n.attrs || []).map(a => ({
+        label: "@" + a.n + (a.v ? "=" + a.v : ""),
+        title: "Technische Zusatzangabe" + (a.pflicht ? " (verpflichtend)" : ""),
+        style: "max-width: 100%; font-family: " + MONO +
+          "; font-size: 10.5px; padding: 1px 6px; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #f4f5f8; border: 1px solid " +
+          (a.pflicht ? "#ccd5e8" : "#e4e6eb") + "; color: #545e70;"
+      })),
+      zeigeKard: !kompakt,
+      kard: (f === "standard" ? "" : m.kurz + " · ") + n.kard,
+      kardStyle: "font-size: 12px; line-height: 1.4; color: " + (f === "standard" ? "#545e70" : m.fg) +
+        "; font-weight: " + (f === "standard" ? "400" : "600") + ";",
+      zeigeDoc: gross && !!n.doc,
+      doc: n.doc || "",
+      docStyle: "font-size: 12px; line-height: 1.45; color: #545e70; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;",
+      hatTags: !kompakt && tags.length > 0,
+      tags: tags.map(t => ({
+        label: t.label, title: t.title,
+        style: "font-size: 10.5px; font-weight: 550; line-height: 1.4; padding: 2px 7px; border-radius: 999px; white-space: nowrap; background: " +
+          t.bg + "; color: " + t.fg + ";"
+      })),
+      onSelect: () => this.setState({ sel: n.id, panelOffen: true }),
+      onToggle: ev => { ev.stopPropagation(); this.oeffne(n.id); },
+      onEnter: () => this.setState({ hover: n.id }),
+      onLeave: () => this.setState(s => (s.hover === n.id ? { hover: null } : null))
+    };
+  }
+
+  renderVals() {
+    const st = this.state;
+    const sel = this.k(st.sel) || this.k("r");
+    const f = this.fest(sel.id);
+    const meta = STATUS[f];
+    const modus = this.modus();
+    const darst = this.darstellung();
+    const xmlZeilen = darst === "xml" ? this.xmlBauen() : [];
+    const panel = this.panelOffen();
+    const eng = st.breite < 1240;
+    const sehrEng = st.breite < 1040;
+
+    const BTN = "font: inherit; font-size: 13px; padding: 8px 12px; border: 1px solid #dfe2e8; border-radius: 9px; background: #ffffff; color: #14213d; cursor: pointer; flex: none;";
+
+    const spaltenIds = this.spaltenIds();
+    const spalten = spaltenIds.map((ids, si) => {
+      const items = ids.map(id => this.k(id)).filter(Boolean);
+      const wurzel = si === 0;
+      const letzte = si === spaltenIds.length - 1;
+      return {
+        style: "display: flex; flex-direction: column; flex: none; width: " + (wurzel ? "234px" : "250px") +
+          "; padding-left: " + (wurzel ? "0" : "22px") + ";",
+        items: items.map((n, i, a) => this.box(n, i, a.length, wurzel)),
+        zeigeAdd: !wurzel && letzte,
+        addRowStyle: "position: relative; display: flex; align-items: flex-start; padding-top: 9px;",
+        addRailStyle: "position: absolute; left: -22px; top: 0; bottom: calc(100% - 18px); border-left: 1.5px dashed #c9d2df;",
+        addElbowStyle: "position: absolute; left: -22px; top: 6px; width: 22px; height: 12px; border-left: 1.5px dashed #c9d2df; border-bottom: 1.5px dashed #c9d2df; border-bottom-left-radius: 10px;"
+      };
+    });
+
+    /* Pfadleiste wie crumbs.html: die mittleren Glieder wandern in ein
+       „…“-Menü, damit Wurzel und aktuelles Glied lesbar bleiben — statt alle
+       Glieder auf Stummel zu kürzen. */
+    const pfad = st.pfad;
+    const springe = (id, i) => this.setState(s => ({
+      pfad: s.pfad.slice(0, i + 1), sel: id, panelOffen: true, crumbAusOffen: false
+    }));
+    const crumbBtn = (id, i, letzte) => {
+      const n = this.k(id);
+      return {
+        istCrumb: true, istAus: false, items: [],
+        label: n ? n.name : id, title: n ? n.name : "",
+        sepStyle: "flex: none; color: #545e70; margin-right: 4px;" + (i === 0 ? " display: none;" : ""),
+        wrapStyle: "position: relative; display: flex; align-items: center; min-width: 0; flex: " +
+          (letzte ? "0 1 auto" : "0 0 auto") + ";",
+        onClick: () => springe(id, i),
+        style: "display: inline-flex; align-items: center; min-width: 0; font: inherit; font-size: 12.5px; font-weight: " +
+          (letzte ? "600" : "450") + "; padding: 5px 8px; border: 0; border-radius: 7px; background: " +
+          (letzte ? "#e8ecf5" : "transparent") + "; color: " + (letzte ? "#14213d" : "#545e70") +
+          "; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+      };
+    };
+
+    const grenze = eng ? 2 : 3;
+    let crumbs;
+    if (pfad.length <= grenze) {
+      crumbs = pfad.map((id, i) => crumbBtn(id, i, i === pfad.length - 1));
+    } else {
+      const kopf = eng ? [] : [crumbBtn(pfad[0], 0, false)];
+      const mitte = pfad.slice(kopf.length, pfad.length - 1).map((id, k) => {
+        const i = kopf.length + k;
+        const n = this.k(id);
+        return {
+          label: n ? n.name : id,
+          onClick: () => springe(id, i),
+          style: "display: block; width: 100%; text-align: left; border: 0; border-radius: 7px; background: none; padding: 8px 10px; font: inherit; font-size: 13.5px; color: #14213d; cursor: pointer;"
+        };
+      });
+      crumbs = kopf.concat([{
+        istCrumb: false, istAus: true, items: mitte,
+        label: "…", title: mitte.map(m => m.label).join(" › "),
+        sepStyle: "flex: none; color: #545e70; margin-right: 4px;" + (kopf.length === 0 ? " display: none;" : ""),
+        wrapStyle: "position: relative; display: flex; align-items: center; flex: none;",
+        ausOffen: st.crumbAusOffen,
+        onAus: () => this.setState(s => ({ crumbAusOffen: !s.crumbAusOffen })),
+        ausBtnStyle: "display: inline-flex; align-items: center; flex: none; font: inherit; font-size: 12.5px; padding: 5px 9px; border: 1px solid " +
+          (st.crumbAusOffen ? "#c3ccdd" : "transparent") + "; border-radius: 7px; background: " +
+          (st.crumbAusOffen ? "#f4f5f8" : "transparent") + "; color: #545e70; cursor: pointer;",
+        onClick: () => {}, style: ""
+      }]).concat([crumbBtn(pfad[pfad.length - 1], pfad.length - 1, true)]);
+    }
+
+    const offene = this.offeneIds();
+    const beantwortet = N.length - offene.length;
+
+    const aeste = N.filter(n => n.p === "r").map(n => {
+      const ids = [n.id].concat(this.nachfahren(n.id));
+      const offen = ids.filter(id => this.fest(id) === "standard").length;
+      const fertig = ids.length - offen;
+      const aktiv = st.pfad.indexOf(n.id) >= 0;
+      return {
+        name: n.name,
+        title: fertig + " von " + ids.length + " Feldern mit eigener Antwort — bei den übrigen gilt der Standard",
+        zahl: fertig + "/" + ids.length,
+        zahlStyle: "flex: none; margin-left: 6px; font-size: 11.5px; color: " + (offen ? "#545e70" : "#0F6E56") +
+          "; font-weight: " + (offen ? "450" : "600") + "; font-variant-numeric: tabular-nums;",
+        balkenStyle: "display: block; height: 100%; width: " + Math.round((fertig / ids.length) * 100) +
+          "%; border-radius: 999px; background: " + (offen ? "#14213d" : "#1D9E75") + ";",
+        onClick: () => this.oeffne(n.id),
+        onMenuClick: () => { this.oeffne(n.id); this.setState({ abschnitteOffen: false }); },
+        menuStyle: "display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; padding: 8px 10px; border: 0; border-radius: 8px; background: " +
+          (aktiv ? "#f2f5fa" : "transparent") + "; cursor: pointer; font: inherit; font-size: 13.5px; font-weight: " +
+          (aktiv ? "600" : "450") + "; color: #14213d;",
+        /* Abschnitte sind im Band Chips, keine Karten — sie kosten dort nur eine Zeile. */
+        style: "display: " + (eng ? "none" : "inline-flex") +
+          "; align-items: center; flex: none; height: 26px; padding: 0 10px; border: 1px solid " +
+          (aktiv ? "#ccd5e8" : "#e4e6eb") + "; border-radius: 999px; background: " +
+          (aktiv ? "#f2f5fa" : "#ffffff") + "; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: " +
+          (aktiv ? "600" : "450") + "; color: #14213d; white-space: nowrap;"
+      };
+    });
+
+    const kasten = on => ({
+      boxStyle: "flex: none; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 4px; font-size: 9px; line-height: 1; color: #ffffff; border: 1px solid " +
+        (on ? "#14213d" : "#c6c8cc") + "; background: " + (on ? "#14213d" : "#ffffff") + ";",
+      mark: on ? "✓" : ""
+    });
+
+    const filterDefs = [
+      { key: "offen", label: "ohne eigene Antwort", title: "Diese Felder im Baum orange umranden",
+        count: offene.length },
+      { key: "abweichend", label: "mit eigener Antwort", title: "Felder, bei denen Sie eine Antwort gesetzt haben",
+        count: beantwortet },
+      { key: "notiz", label: "mit Notiz", title: "Felder mit einer Notiz für das Team",
+        count: N.filter(n => n.notiz).length }
+    ].map(x => {
+      const on = !!st.filter[x.key];
+      const kb = kasten(on);
+      return {
+        label: x.label, title: x.title, count: x.count,
+        onClick: () => this.setState(s => ({ filter: Object.assign({}, s.filter, { [x.key]: !s.filter[x.key] }) })),
+        style: "display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border: 0; border-radius: 7px; background: " +
+          (on ? "#e8ecf5" : "transparent") + "; font: inherit; font-size: 13.5px; font-weight: " +
+          (on ? "600" : "450") + "; color: #14213d; cursor: pointer;",
+        boxStyle: kb.boxStyle, mark: kb.mark
+      };
+    });
+
+    /* Meistbenutztes Element der Seite: eine Zeile je Antwort, 32px hoch, ohne
+       Erklärtext (der steht im Tooltip und in der Hilfe) — die Erklärungen
+       machten den Block viermal so hoch wie nötig. */
+    const TASTEN = { standard: "S", zwingend: "Z", optional: "O", nicht: "N", klaeren: "K" };
+    const antworten = ANTWORT_ORDER.map(key => {
+      const m = STATUS[key];
+      const on = f === key;
+      return {
+        label: m.name, erklaerung: m.erklaerung,
+        title: m.name + " — " + m.erklaerung + " (Taste " + TASTEN[key] + ")",
+        taste: TASTEN[key],
+        onClick: () => this.setState(s => {
+          const neu = Object.assign({}, s.festlegung);
+          if (key === "standard") delete neu[sel.id];
+          else neu[sel.id] = key;
+          return { festlegung: neu };
+        }),
+        style: "display: flex; align-items: center; gap: 9px; width: 100%; min-width: 0; height: 32px; padding: 0 9px 0 10px; border: 1px solid " +
+          (on ? m.punkt : "#dfe2e8") + "; border-radius: 8px; background: " + (on ? m.bg : "#ffffff") +
+          "; cursor: pointer; font: inherit; color: #14213d;" + (on ? " box-shadow: inset 0 0 0 1px " + m.punkt + ";" : ""),
+        dotStyle: "flex: none; width: 11px; height: 11px; border-radius: 50%; border: " +
+          (on ? "3.5px" : "2px") + " solid " + (on ? m.punkt : "#c9d2df") + "; background: #ffffff;",
+        labelStyle: "min-width: 0; font-size: 13px; font-weight: " + (on ? "650" : "500") +
+          "; line-height: 1.3; color: #14213d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;",
+        tasteStyle: "flex: none; font-family: " + MONO + "; font-size: 10px; font-weight: 600; line-height: 1; padding: 3px 5px; border-radius: 4px; background: " +
+          (on ? "rgba(20,33,61,0.09)" : "#f4f5f8") + "; color: #545e70;"
+      };
+    });
+
+    const altKinder = sel.auswahl ? this.kinder(sel.id) : [];
+    const alternativen = altKinder.map(kid => {
+      const on = this.fest(kid.id) !== "nicht";
+      const kb = kasten(on);
+      return {
+        label: kid.name,
+        title: on ? "Diese Angabe ist erlaubt" : "Diese Angabe ist ausgeschlossen",
+        onClick: () => this.setState(s => ({
+          festlegung: Object.assign({}, s.festlegung, { [kid.id]: on ? "nicht" : "standard" })
+        })),
+        style: "display: flex; align-items: center; gap: 9px; width: 100%; min-width: 0; text-align: left; font: inherit; font-size: 13px; font-weight: " +
+          (on ? "550" : "450") + "; min-height: 32px; padding: 6px 10px; border: 1px solid " + (on ? "#ccd5e8" : "#e4e6eb") +
+          "; border-radius: 8px; background: " + (on ? "#f2f5fa" : "#ffffff") + "; color: #14213d; cursor: pointer;",
+        boxStyle: kb.boxStyle,
+        mark: kb.mark
+      };
+    });
+
+    const lang = !!sel.doc && sel.doc.length > 150;
+    const stdTeile = (sel.std || "1..1").split("..");
+
+    return {
+      szenario: st.szenario, onSzenario: e => this.setState({ szenario: e.target.value }),
+      freigabeStyle: "display: " + (sehrEng ? "none" : "inline-flex") +
+        "; flex: 0 1 auto; min-width: 0; align-items: center; gap: 5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #ddf3e4; color: #0f6e56;",
+      moreOpen: st.moreOpen,
+      toggleMore: () => this.setState(s => ({ moreOpen: !s.moreOpen, ansichtOpen: false })),
+      moreBtnStyle: BTN + "padding: 7px 11px; line-height: 1;" + (st.moreOpen ? " border-color: #c3ccdd; background: #f4f5f8;" : ""),
+      moreItems: [
+        { label: "Angaben zum Szenario…", hint: "Name, Beteiligte", title: "Kopfdaten bearbeiten" },
+        { label: "Freigabe…", hint: "", title: "Freigabestand und Abnahme" },
+        { label: "Frühere Fassungen…", hint: "7", title: "Fassungen vergleichen und sichern" },
+        { label: "Pflichtfelder vorbelegen", hint: "", title: "Alle vom Standard verlangten Felder auf „Immer ausfüllen“ setzen" },
+        { label: "Herunterladen…", hint: "Excel · XML", title: "Profil und Beispiel-Nachricht ausgeben" },
+        { label: "Grundlage…", hint: "XJustiz 3.6.2", title: "XJustiz-Version und Codelisten wählen — wird selten geändert" }
+      ].map(m => ({ label: m.label, hint: m.hint, title: m.title, onClick: () => this.setState({ moreOpen: false }) })),
+
+      /* Der Pfad steht ungekürzt in der Fußzeile — dort ist Platz für die
+         ganze Kette, und die Werkzeugleiste bleibt frei. */
+      pfadVoll: pfad.map((id, i) => {
+        const n = this.k(id);
+        const letzte = i === pfad.length - 1;
+        return {
+          label: n ? n.name : id,
+          title: (n ? n.tech : "") + (letzte ? " — aktuell geöffnet" : " — hierher springen"),
+          sepStyle: "flex: none; margin: 0 3px; font-size: 12px; color: #c9d2df;" + (i === 0 ? " display: none;" : ""),
+          onClick: () => springe(id, i),
+          style: "flex: none; font: inherit; font-size: 12.5px; font-weight: " + (letzte ? "650" : "450") +
+            "; white-space: nowrap; padding: 3px 8px; border: 0; border-radius: 7px; background: " +
+            (letzte ? "#e8ecf5" : "transparent") + "; color: " + (letzte ? "#14213d" : "#545e70") +
+            "; cursor: " + (letzte ? "default" : "pointer") + ";"
+        };
+      }),
+      sicherungStyle: "flex: none; font-size: 12px; color: #545e70; white-space: nowrap; display: " +
+        (sehrEng ? "none" : "block") + ";",
+      suche: st.suche, onSuche: e => this.setState({ suche: e.target.value }),
+      modi: [
+        { key: "betrachten", label: "Ansehen", title: "Nur lesen — es wird nichts geändert" },
+        { key: "bearbeiten", label: "Bearbeiten", title: "Felder einzeln beantworten" },
+        { key: "gefuehrt", label: "Geführt", title: "Schritt für Schritt durch alle offenen Felder" }
+      ].map(m => {
+        const on = modus === m.key;
+        return {
+          label: m.label, title: m.title,
+          onClick: () => this.setState({ modus: m.key }),
+          style: "font: inherit; font-size: 13px; font-weight: " + (on ? "600" : "450") +
+            "; padding: 6px 12px; border: 0; border-radius: 8px; cursor: " + (on ? "default" : "pointer") +
+            "; background: " + (on ? "#ffffff" : "transparent") + "; color: " + (on ? "#14213d" : "#545e70") +
+            ";" + (on ? " box-shadow: 0 1px 2px rgba(20,33,61,0.08);" : "")
+        };
+      }),
+      ansichtItems: [
+        { key: "technik", label: "Namen aus dem Schema zeigen" },
+        { key: "kompakt", label: "Umfeld kompakt darstellen" }
+      ].map(a => {
+        const on = !!st.ansicht[a.key];
+        const kb = kasten(on);
+        return {
+          label: a.label,
+          title: a.key === "kompakt" ? "Nur der aktive Pfad wird groß dargestellt" : "",
+          onClick: () => this.setState(s => ({ ansicht: Object.assign({}, s.ansicht, { [a.key]: !s.ansicht[a.key] }) })),
+          boxStyle: kb.boxStyle, mark: kb.mark,
+          style: "display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border: 0; border-radius: 7px; background: " +
+            (on ? "#e8ecf5" : "transparent") + "; font: inherit; font-size: 13.5px; font-weight: " +
+            (on ? "600" : "450") + "; color: #14213d; cursor: pointer;"
+        };
+      }),
+      alleZu: () => this.setState({ mehrFilterOffen: false, pfad: ["r"], sel: "r" }),
+
+      spaltenLayout: ["minmax(0, 1fr)", panel && !sehrEng ? "394px" : null].filter(Boolean).join(" "),
+      /* Der Stand bleibt bei jeder Breite stehen — er war der Anlass für das
+         Band. Nur seine Beschriftung kürzt, und die Abschnitte weichen vom
+         Chip-Streifen in ein Menü. */
+      standCaption: sehrEng ? ("/ " + N.length) : ("von " + N.length + " eigens beantwortet"),
+      standTextStyle: "flex: 0 1 auto; min-width: 0; font-size: 12.5px; color: #545e70; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;",
+      trennerStyle: "flex: none; width: 1px; height: 18px; background: #e4e6eb;",
+      abschnittWrapStyle: "position: relative; flex: none; display: " + (eng ? "block" : "none") + ";",
+      abschnitteOffen: st.abschnitteOffen,
+      toggleAbschnitte: () => this.setState(s => ({ abschnitteOffen: !s.abschnitteOffen, mehrFilterOffen: false })),
+      abschnittBtnStyle: BTN + "padding: 5px 11px; font-size: 12.5px;" +
+        (st.abschnitteOffen ? " border-color: #c3ccdd; background: #f4f5f8;" : ""),
+      hervorBtnStyle: BTN + "padding: 5px 11px; font-size: 12.5px;" +
+        (st.mehrFilterOffen ? " border-color: #c3ccdd; background: #f4f5f8;" : ""),
+      naechsterStyle: "flex: none; font: inherit; font-size: 12.5px; font-weight: 550; padding: 6px 12px; border: 1px solid #14213d; border-radius: 9px; background: #14213d; color: #ffffff; cursor: pointer; white-space: nowrap;",
+
+      gesamtBeantwortet: beantwortet, gesamtPunkte: N.length,
+      gesamtBalkenStyle: "display: block; height: 100%; width: " +
+        Math.round((beantwortet / N.length) * 100) + "%; border-radius: 999px; background: #14213d;",
+      hatOffene: offene.length > 0,
+      gNaechster: () => { if (offene.length) this.oeffne(offene[0]); },
+      aeste,
+      mehrFilterOffen: st.mehrFilterOffen,
+      toggleMehrFilter: () => this.setState(s => ({ mehrFilterOffen: !s.mehrFilterOffen })),
+      filter: filterDefs,
+
+      spalten,
+
+      darstellungen: [
+        { key: "baum", label: "Baum", title: "Die Nachricht als Baum bearbeiten" },
+        { key: "xml", label: "XML", title: "Die Nachricht als XJustiz-XML ansehen" }
+      ].map(d => {
+        const on = darst === d.key;
+        return {
+          label: d.label, title: d.title,
+          onClick: () => this.setState({ darstellung: d.key }),
+          style: "font: inherit; font-size: 13px; font-weight: " + (on ? "600" : "450") +
+            "; padding: 6px 12px; border: 0; border-radius: 8px; cursor: " + (on ? "default" : "pointer") +
+            "; background: " + (on ? "#ffffff" : "transparent") + "; color: " + (on ? "#14213d" : "#545e70") +
+            ";" + (on ? " box-shadow: 0 1px 2px rgba(20,33,61,0.08);" : "")
+        };
+      }),
+      /* Im Ansehen-Modus fällt der Entscheidungsteil weg: die Leiste zeigt nur,
+         was über das Feld bekannt ist, und den festgelegten Status als Marke. */
+      darfEntscheiden: modus !== "betrachten",
+      nurLesen: modus === "betrachten",
+      zeigeAlternativen: alternativen.length > 0 && modus !== "betrachten",
+      zeigeNotiz: modus !== "betrachten" || !!st.anmerkung,
+      dKardText: (st.kardMin || st.kardMax)
+        ? "eigene Vorgabe: " + (st.kardMin || "0") + " bis " + (st.kardMax || "n")
+        : sel.kard,
+      dBeispielText: st.beispiel || "kein Beispielwert hinterlegt",
+      dBeispielTextStyle: "font-size: 13.5px; line-height: 1.45; color: " +
+        (st.beispiel ? "#14213d" : "#545e70") + ";",
+      leseStatusName: meta.name,
+      leseStatusErklaerung: meta.erklaerung,
+      leseStatusStyle: "display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 11px 12px; border: 1px solid " +
+        meta.rand + "; border-radius: 11px; background: " + meta.bg + ";",
+      leseDotStyle: "flex: none; width: 11px; height: 11px; margin-top: 4px; border-radius: 50%; border: 3.5px solid " +
+        meta.punkt + "; background: #ffffff;",
+      istBaum: darst === "baum", istXml: darst === "xml",
+      /* Bei Enge schwebt die Detailleiste über der Fläche; die Fläche muss ihren
+         Platz freihalten, sonst liegt die zentrierte XML-Karte darunter. */
+      flaecheStyle: "min-width: 0; min-height: 0; overflow: auto; padding: 18px 20px 26px; background: #f4f5f8;" +
+        (sehrEng && panel ? " padding-right: 364px;" : ""),
+      xmlKopieren: () => {
+        const t = this.xmlText();
+        if (navigator.clipboard) navigator.clipboard.writeText(t).catch(() => {});
+        this.setState({ kopiert: true });
+        setTimeout(() => this.setState({ kopiert: false }), 1600);
+      },
+      kopierLabel: st.kopiert ? "Kopiert ✓" : "Kopieren",
+      xmlLaden: () => {
+        const b = new Blob([this.xmlText()], { type: "application/xml" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(b);
+        a.download = "beispiel-nachricht.xml";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      },
+      xmlZeilen: xmlZeilen.map((z, i) => {
+        const hier = z.id === st.sel;
+        const ein = 14 + z.tiefe * 18;
+        let pre = "", wert = "", post = "";
+        let hinweis = "";
+        if (z.kind === "decl") pre = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+        else if (z.kind === "open") pre = "<" + z.name + (z.tiefe === 0 ? " xmlns=\"http://www.xjustiz.de\"" : "") + ">";
+        else if (z.kind === "close") pre = "</" + z.name + ">";
+        else if (z.kind === "leer") { pre = "<" + z.name + "/>"; hinweis = "Container ohne Inhalt — hier ist noch nichts ausgefüllt"; }
+        else if (z.kind === "offen") { pre = "<!-- " + z.name + ": noch keine Angabe gewählt -->"; hinweis = "Der Standard verlangt hier eine der Alternativen — noch keine erlaubt"; }
+        else { pre = "<" + z.name + ">"; wert = z.wert; post = "</" + z.name + ">"; }
+        return {
+          nr: i + 1, pre, wert, post,
+          title: hinweis || (z.id ? "Zu diesem Feld springen" : ""),
+          rowStyle: "display: flex; align-items: baseline; gap: 12px; padding-right: 16px; background: " +
+            (hier ? "#f2f5fa" : "transparent") + "; cursor: " + (z.id ? "pointer" : "default") +
+            "; border-left: 2px solid " + (hier ? "#14213d" : "transparent") + ";",
+          nrStyle: "flex: none; width: 34px; text-align: right; font-family: " + MONO +
+            "; font-size: 11px; line-height: 1.7; color: #8d93a1;",
+          codeStyle: "min-width: 0; white-space: pre; font-family: " + MONO +
+            "; font-size: 12.5px; line-height: 1.7; padding-left: " + ein + "px;",
+          tagStyle: "color: " + (z.kind === "decl" ? "#8d93a1"
+            : (z.kind === "offen" ? "#BA7517" : (z.kind === "leer" ? "#888780" : "#5a50c0"))) + ";",
+          wertStyle: "color: #0F6E56;",
+          onClick: () => { if (z.id) this.oeffne(z.id); }
+        };
+      }),
+      xmlBilanz: xmlZeilen.filter(z => z.kind === "open" || z.kind === "leaf" || z.kind === "leer").length +
+        " Elemente · " + xmlZeilen.filter(z => z.kind === "offen").length + " offene Auswahl · XJustiz 3.6.2",
+
+      /* Die Leiste liegt als eigene Ebene über der Fläche: eingerückt, gerundet,
+         mit Schatten — nicht als angeklebte Randspalte. */
+      panelStyle: "min-width: 0; min-height: 0; grid-template-rows: auto minmax(0, 1fr); background: #ffffff; border: 1px solid #e4e6eb; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 30px rgba(20,33,61,0.13);" +
+        (sehrEng
+          /* Ebenen: Chrome-Zeilen 74–80, Schublade 60, Fläche 0 — so bleiben
+             Menüs immer über der Schublade, egal wie tief sie im Baum sitzen. */
+          ? " position: absolute; top: 12px; right: 12px; bottom: 12px; width: min(340px, calc(100% - 24px)); z-index: 60;"
+          : " margin: 12px 12px 12px 0;") +
+        " display: " + (panel ? "grid" : "none") + ";",
+      panelZu: () => this.setState({ panelOffen: false }),
+
+      dPfad: this.ahnen(sel.id).slice(-2).map((a, i) => ({
+        label: a.name, title: a.name,
+        sepStyle: "color: #545e70; margin-right: 4px;" + (i === 0 ? " display: none;" : ""),
+        onClick: () => this.oeffne(a.id),
+        style: "display: inline-flex; align-items: center; min-width: 0; max-width: 18ch; font: inherit; font-size: 12px; padding: 2px 5px; border: 0; border-radius: 6px; background: transparent; color: #545e70; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto;"
+      })),
+      dTitel: sel.name, dTech: sel.tech,
+      dFrage: sel.auswahl
+        ? "Wie soll dieses Feld behandelt werden?"
+        : "Soll „" + sel.name + "“ in diesem Szenario ausgefüllt werden?",
+      antworten,
+      hatAlternativen: alternativen.length > 0, alternativen,
+      dAnmerkung: st.anmerkung, onAnmerkung: e => this.setState({ anmerkung: e.target.value }),
+
+      dMin: st.kardMin, onMin: e => this.setState({ kardMin: e.target.value }),
+      dMax: st.kardMax, onMax: e => this.setState({ kardMax: e.target.value }),
+      dMinStd: stdTeile[0], dMaxStd: stdTeile[1] === "*" ? "n" : stdTeile[1],
+      dStdKard: sel.kard,
+      dBeispiel: st.beispiel, onBeispiel: e => this.setState({ beispiel: e.target.value }),
+
+      hatBeschreibung: !!sel.doc,
+      dBeschreibung: sel.doc || "",
+      dBeschreibungStyle: "margin: 0; min-width: 0; font-size: 13.5px; line-height: 1.55; color: #14213d; text-wrap: pretty; overflow-wrap: anywhere;" +
+        (lang && !st.beschLang ? " display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;" : ""),
+      dLang: lang,
+      beschLabel: st.beschLang ? "weniger anzeigen" : "mehr anzeigen",
+      toggleBesch: () => this.setState(s => ({ beschLang: !s.beschLang })),
+
+      sicherung: "Automatisch gesichert 19:49",
+      hilfeOffen: st.hilfeOffen,
+      toggleHilfe: () => this.setState(s => ({ hilfeOffen: !s.hilfeOffen })),
+      hilfeBtnStyle: BTN + "padding: 5px 12px; font-size: 12.5px;" + (st.hilfeOffen ? " border-color: #c3ccdd; background: #f4f5f8;" : ""),
+      hilfePfeil: st.hilfeOffen ? "▾" : "▴",
+      hilfeAntworten: ANTWORT_ORDER.map(k => ({
+        name: STATUS[k].name, text: STATUS[k].erklaerung,
+        dotStyle: "flex: none; width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: " + STATUS[k].punkt + ";"
+      }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>
