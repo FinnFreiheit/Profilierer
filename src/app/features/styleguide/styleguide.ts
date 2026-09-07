@@ -57,6 +57,8 @@ const FARB_TOKENS: readonly (readonly [string, string, string])[] = [
   ['Fachliche Signalfarben', '--belegt-bg', 'Blatt mit Testwert'],
   ['Fachliche Signalfarben', '--auswahl-bg', 'Choice-Tag — Flaeche (stellvertretend)'],
   ['Fachliche Signalfarben', '--auswahl-fg', 'Choice-Tag — Text'],
+  ['Fachliche Signalfarben', '--verweis-bg', 'Verweis-Tag — Flaeche'],
+  ['Fachliche Signalfarben', '--verweis-fg', 'Verweis-Tag, Verweislinien — Text'],
   [
     'Fachliche Signalfarben',
     '--schema-pflicht',

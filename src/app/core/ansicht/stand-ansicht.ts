@@ -77,20 +77,23 @@ export class StandAnsicht {
   readonly gesamt = computed(() => this.guided.fortschritt());
 
   /**
-   * Zaehler der drei Hervorhebungen im Ansicht-Menue. "beantwortet" und
-   * "notiz" zaehlen Eintraege der Profilierung, nicht Entscheidungspunkte:
-   * eine Notiz kann auch an einem Element haengen, das keiner ist.
+   * Zaehler der drei Hervorhebungen im Ansicht-Menue. "offen" und
+   * "beantwortet" zaehlen Entscheidungspunkte — dieselbe Zaehlweise, nach der
+   * der Baum faerbt (`BaumkastenAnsicht.markiert`) und nach der der Stand links
+   * in der Zeile rechnet: beantwortet ist ein Punkt, der weder offen noch
+   * geparkt ("zu klaeren") ist. Eine Notiz dagegen kann auch an einem Element
+   * haengen, das gar kein Entscheidungspunkt ist — sie zaehlt an den
+   * Eintraegen der Profilierung.
    */
   readonly hervorhebungZaehler = computed<{ offen: number; beantwortet: number; notiz: number }>(
     () => {
-      const el = this.state.elemente();
-      let beantwortet = 0;
       let notiz = 0;
-      for (const e of Object.values(el)) {
-        if (e.status) beantwortet++;
+      for (const e of Object.values(this.state.elemente())) {
         if (e.anmerkung?.trim()) notiz++;
       }
-      return { offen: this.guided.offeneSet().size, beantwortet, notiz };
+      const offen = this.guided.offeneSet().size;
+      const beantwortet = this.guided.punkte().length - offen - this.guided.geparkteSet().size;
+      return { offen, beantwortet, notiz };
     },
   );
 }

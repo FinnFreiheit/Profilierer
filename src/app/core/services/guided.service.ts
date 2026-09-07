@@ -418,6 +418,15 @@ export class GuidedService {
   readonly punkte: Signal<DecisionPoint[]> = computed(() => this.walk().punkte);
 
   /**
+   * Die Pfade aller Entscheidungspunkte — O(1)-Lookup fuer den Baum. Die
+   * farbige Umrandung fragt an jedem Kasten "ist das hier ueberhaupt eine
+   * Frage?"; ueber `punkte()` waere das je Kasten eine Suche durch die Liste.
+   */
+  readonly punkteSet: Signal<ReadonlySet<string>> = computed(
+    () => new Set(this.walk().punkte.map((p) => p.path)),
+  );
+
+  /**
    * **Geparkte** Punkte (Issue #41): das Element traegt eine Statusstufe mit
    * Wirkung `markierung` ("zu klaeren"). Sie sind bewusst weder entschieden noch
    * offen — die fachliche Frage steht noch aus, der Durchlauf soll aber

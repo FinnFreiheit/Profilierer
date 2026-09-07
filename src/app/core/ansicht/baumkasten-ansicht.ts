@@ -56,6 +56,8 @@ export interface Kastenansicht {
   /** Fokus-Modus: Kasten abseits des gewaehlten Astes wird klein dargestellt. */
   mini: boolean;
   selected: boolean;
+  /** Farbige Umrandung (Ansicht-Menue): offen / beantwortet / mit Notiz. */
+  markiert: boolean;
   /** Selbst ausgeschlossen bzw. nur geerbt — der Kasten faerbt beides anders. */
   excluded: boolean;
   exclInherit: boolean;
@@ -65,7 +67,12 @@ export interface Kastenansicht {
   /** Belegte Angabe (Blatt) bzw. Zahl belegter Angaben darunter (Container). */
   belegt: boolean;
   belegtSub: number | null;
-  statusStrip: string | null;
+  /**
+   * Der Farbstreifen links am Kasten — immer gesetzt: die Statusfarbe, sonst
+   * das gedaempfte Gruen der Schema-Pflicht und sonst die Rahmenfarbe. Ohne
+   * Streifen sprangen die Kaesten in der Breite, sobald ein Status gesetzt war.
+   */
+  statusStrip: string;
   statusName: string;
   kardText: string;
   kardColor: string;
@@ -306,6 +313,7 @@ export class BaumkastenAnsicht {
       title: it.kind === 'ausp' ? it.ausp.name : pretty(n.name),
       mini: this.mini(path, sel),
       selected: sel ? itemPath(sel) === path : false,
+      markiert: this.markiert(path, pe.anmerkung),
       excluded: isExcl,
       exclInherit: !isExcl && inhExcl,
       leafBox: isValueBox,
@@ -315,7 +323,10 @@ export class BaumkastenAnsicht {
       belegtSub: belegtSub || null,
       // Im Durchlauf gewinnt die Farbe der Station: sie sagt, was die Nachricht
       // verlangt — und bleibt anders als die Kennzeichen auch im Mini-Kasten
-      // sichtbar. Sonst wie bisher die Farbe der gesetzten Statusstufe.
+      // sichtbar. Sonst die Farbe der gesetzten Statusstufe und, wo keine
+      // gesetzt ist, die Aussage des Schemas: Pflicht (gedaempftes Gruen) oder
+      // frei (Rahmenfarbe). Ein synthetischer Knoten ("Auswahl", "Alternative")
+      // ist kein Element und schuldet nichts.
       statusStrip:
         stationArt === 'pflicht'
           ? '#1D9E75'
@@ -323,10 +334,15 @@ export class BaumkastenAnsicht {
             ? '#BA7517'
             : st
               ? st.farbe
-              : null,
+              : !n.synthetic && n.min !== '0' && !n.inChoice
+                ? 'var(--schema-pflicht)'
+                : 'var(--border)',
       statusName: msgMode ? (isExcl ? 'entfernt' : '') : (st?.name ?? ''),
       kardText,
-      kardColor: st ? st.farbe : 'var(--muted)',
+      // Die Farbe der Statusstufe traegt der Streifen links; die Zeile selbst
+      // steht mit Antwort in Textfarbe (und faellt durch das Gewicht auf),
+      // ohne Antwort gedaempft.
+      kardColor: st ? 'var(--text)' : 'var(--muted)',
       standardHint,
       doc: it.kind === 'el' ? (n.doc ? n.doc.split('\n')[0]! : null) : pe.anmerkung || null,
       showTech: this.state.showTech() && it.kind === 'el',
@@ -383,6 +399,29 @@ export class BaumkastenAnsicht {
   /** Pfad ohne Vorkommen und ohne Nachrichtennamen — die Adresse im Diff. */
   private relativerPfad(path: string): string {
     return path.replace(/@[^/]+/g, '').slice((this.state.msgName() || '').length);
+  }
+
+  /**
+   * Farbige Umrandung (Ansicht-Menue der Arbeits-Zeile): traegt der Kasten
+   * eine der drei hervorgehobenen Eigenschaften?
+   *
+   * "beantwortet" ist dieselbe Zaehlweise wie der Stand in der Arbeits-Zeile:
+   * ein Entscheidungspunkt, der weder offen noch geparkt ist. Ein geparkter
+   * Punkt ("zu klaeren") ist bewusst keins von beidem — sonst zaehlte die Zeile
+   * anders als der Baum faerbt.
+   *
+   * Die Reihenfolge der Pruefungen ist Absicht: die Mengen des GuidedService
+   * werden erst angefasst, wenn einer der beiden Schalter an ist — die Methode
+   * laeuft je Kasten.
+   */
+  private markiert(path: string, anmerkung: string | undefined): boolean {
+    const h = this.state.hervorhebung();
+    if (h.notiz && anmerkung?.trim()) return true;
+    if (!h.offen && !h.beantwortet) return false;
+    const offen = this.guided.offeneSet().has(path);
+    if (h.offen && offen) return true;
+    if (!h.beantwortet || offen) return false;
+    return this.guided.punkteSet().has(path) && !this.guided.geparkteSet().has(path);
   }
 
   /** Fokus-Modus (Z.1216-1227): alles abseits des gewaehlten Astes wird klein. */

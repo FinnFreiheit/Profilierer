@@ -40,6 +40,8 @@ colors:
   belegt-bg: '#f0f9f2'
   auswahl-bg: '#f1eaf8'
   auswahl-fg: '#7a4fa3'
+  verweis-bg: '#fbeaf0'
+  verweis-fg: '#993556'
   schema-pflicht: '#a9dcc9'
   xml-wert: '#0f6e56'
 
@@ -515,6 +517,7 @@ Außerhalb der Palette, weil sie Zustände bedeuten, nicht Marke. Immer als Paar
 - **Fehler** (`{colors.fehler-bg}` / `{colors.fehler-fg}` — #f9e9e9 / #b23a3a): Löschen beim Überfahren, fehlender Datentyp, Typfehler-Tag.
 - **Belegt** (`{colors.belegt-bg}` — #f0f9f2): Blätter mit eigenem Testwert im Nachrichten-Modus.
 - **Auswahl** (`{colors.auswahl-bg}` / `{colors.auswahl-fg}` — #f1eaf8 / #7a4fa3): Choice-Tag im Baum — Stellvertreter der rund zwanzig Tag-Varianten, die je eine eigene Fläche tragen.
+- **Verweis** (`{colors.verweis-bg}` / `{colors.verweis-fg}` — #fbeaf0 / #993556): Verweis-Tag am Baumkasten und die Verweislinien im Baum — Rosé, damit die Querbezüge sich von Struktur- und Statusfarben abheben.
 - **Schema-Pflicht** (`{colors.schema-pflicht}` — #a9dcc9): Statusstreifen am Baumkasten für Elemente, die das Schema verlangt, zu denen die Profilierung aber keine eigene Antwort trägt — gedämpftes Grün, damit es sich von den frei wählbaren Statusfarben absetzt.
 - **XML-Wert** (`{colors.xml-wert}` — #0f6e56): Werte in der XML-Darstellung (Petrol) — hebt den Inhalt vom Tag ab.
 

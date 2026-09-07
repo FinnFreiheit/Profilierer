@@ -130,4 +130,16 @@ describe('StandAnsicht', () => {
     expect(z.notiz).toBe(1);
     expect(z.offen).toBe(ansicht.gesamt().y - ansicht.gesamt().x - ansicht.gesamt().zuKlaeren);
   });
+
+  it('ein geparkter Punkt („zu klaeren") ist weder offen noch beantwortet', () => {
+    // Dieselbe Zaehlweise wie der Stand links in der Zeile und wie die farbige
+    // Umrandung im Baum: sonst faerbte der Baum, was der Zaehler nicht kennt.
+    const vorher = ansicht.hervorhebungZaehler();
+    state.elemente.set({ [`${M}/frei`]: { status: 's4' } });
+
+    const z = ansicht.hervorhebungZaehler();
+    expect(z.offen).toBe(vorher.offen - 1);
+    expect(z.beantwortet).toBe(vorher.beantwortet);
+    expect(z.beantwortet).toBe(ansicht.gesamt().x);
+  });
 });

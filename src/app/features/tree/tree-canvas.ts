@@ -426,8 +426,10 @@ export class TreeCanvas {
         const wertFarbe = to.dataset['farbe'] ?? null;
         out.push({
           d,
-          stroke: wertFarbe ?? (onP ? 'var(--accent)' : imErw ? '#7f77dd' : 'var(--border-stark)'),
-          width: onP ? '2.2' : '1.4',
+          stroke:
+            wertFarbe ??
+            (onP ? 'var(--accent)' : imErw ? 'var(--erweiterung-fg)' : 'var(--border-stark)'),
+          width: onP ? '2.2' : '1.5',
           dash: excl ? '4 4' : imErw ? '5 4' : to.classList.contains('wertFehlt') ? '3 3' : null,
           opacity: wertFarbe ? '0.75' : null,
           markerEnd: null,
@@ -475,10 +477,12 @@ export class TreeCanvas {
       const bulge = Math.max(x1, x2) + 50 + Math.min(130, Math.abs(y2 - y1) / 6);
       return {
         d: `M ${x1} ${y1} C ${bulge} ${y1}, ${bulge} ${y2}, ${x2 + 6} ${y2}`,
-        stroke: strong ? '#d4537e' : '#e8a8c0',
+        stroke: 'var(--verweis-fg)',
         width: strong ? '1.8' : '1.2',
         dash: strong ? '6 4' : '2 5',
-        opacity: exact ? null : '0.6',
+        // Der dezente Schema-Verweis traegt dieselbe Farbe, nur leiser: eine
+        // eigene Aufhellung waere eine zweite Verweisfarbe ohne zweite Aussage.
+        opacity: strong ? (exact ? null : '0.6') : '0.45',
         markerEnd: `url(#${strong ? 'refArr' : 'refArrL'})`,
       };
     };

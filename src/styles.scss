@@ -59,6 +59,10 @@
   --belegt-bg: #f0f9f2;
   --auswahl-bg: #f1eaf8;
   --auswahl-fg: #7a4fa3;
+  /* Verweise (Type.GDS.Ref.*): Tag am Kasten und die Verweislinien im Baum —
+     Rosé, damit sie sich von den Struktur- und Statusfarben abheben. */
+  --verweis-bg: #fbeaf0;
+  --verweis-fg: #993556;
   /* Statusstreifen am Baumkasten: laut Schema Pflicht, aber ohne eigene
      Antwort in der Profilierung — gedaempftes Gruen, kein Statusfarbton. */
   --schema-pflicht: #a9dcc9;
@@ -675,10 +679,13 @@ app-crumbs {
   overflow: auto;
   min-width: 0;
   position: relative;
+  background: var(--bg);
 }
+/* Die Verweislinien schwingen rechts ueber den letzten Kasten hinaus
+   (refCurve: +50px Bauch) — das Polster rechts ist ihr Raum, nicht Luft. */
 #treeCanvas {
   position: relative;
-  padding: 14px 40px 40px 16px;
+  padding: 18px 20px 26px;
   min-width: max-content;
   cursor: grab;
 }
@@ -703,6 +710,14 @@ app-crumbs {
   pointer-events: all;
   cursor: pointer;
 }
+/* Pfeilspitze der Verweislinien — im Stylesheet, weil ein Marker die Farbe
+   seiner Linie nicht erbt. */
+#linkSvg .refPfeil {
+  fill: var(--verweis-fg);
+}
+#linkSvg .refPfeilLeise {
+  fill-opacity: 0.45;
+}
 #linkSvg .lineLabel.onPath {
   fill: var(--accent);
   font-weight: 600;
@@ -720,7 +735,7 @@ app-crumbs {
 .nkids {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 9px;
   margin-left: 44px;
   padding: 0 0 4px;
 }
@@ -731,42 +746,51 @@ app-crumbs {
   margin-top: 0;
 }
 
-/* Kästen */
+/* Kästen — der Statusstreifen sitzt links in der Fläche, daher das größere
+   Polster auf dieser Seite. `overflow: hidden` hält ihn in der Rundung.
+   Rahmenstärke bleibt in jedem Zustand 1px: der ausgewählte Kasten bekommt
+   seinen zweiten Strich als Ring (box-shadow), damit beim Anklicken nichts
+   springt — die SVG-Linien vermessen die Kanten. */
 .box {
   background: var(--panel);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--rund-kasten);
-  padding: 7px 10px;
+  padding: 9px 12px 10px 15px;
   cursor: pointer;
   position: relative;
+  overflow: hidden;
   flex: none;
   width: 270px;
-  margin-bottom: 7px;
+  box-shadow: var(--schatten-kasten);
+  transition:
+    box-shadow 0.13s,
+    border-color 0.13s;
 }
 .box:hover {
   border-color: var(--border-stark);
+  box-shadow: var(--schatten-hover);
+}
+/* Farbige Umrandung (Ansicht-Menü): steht vor `.sel`, damit die Auswahl den
+   Ring gewinnt — beide Regeln haben dieselbe Spezifität. */
+.box.markiert {
+  border-color: var(--signal);
+  box-shadow: 0 0 0 1px var(--signal);
 }
 .box.sel {
-  border: 2.5px solid var(--accent);
-  padding: 6px 9px;
-}
-.box.parentBox {
-  background: var(--flaeche);
-}
-.box.leafBox {
-  background: var(--panel);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    var(--schatten-hover);
 }
 .box.mini {
-  padding: 3px 9px;
-  margin-bottom: 4px;
+  padding: 6px 11px 6px 15px;
   opacity: 0.75;
 }
 .box.mini:hover {
   opacity: 1;
 }
 .box.mini .bt {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 12.5px;
   display: flex;
   gap: 6px;
   align-items: center;
@@ -775,8 +799,8 @@ app-crumbs {
 .box.mini .bdoc,
 .box.mini .tags,
 .box.mini .tech,
+.box.mini .attrs,
 .box.mini .kard,
-.box.mini .togBtn,
 .box.mini .vrow {
   display: none;
 }
@@ -791,13 +815,10 @@ app-crumbs {
   background: var(--belegt-bg);
 }
 .box.belegt:not(.sel) {
-  border-color: #6fb98a;
-}
-.box.belegt:not(.sel):hover {
-  border-color: #4f9f6d;
+  border-color: var(--frei-fg);
 }
 .box.belegtSub:not(.belegt):not(.sel) {
-  border-color: #c3ddcb;
+  border-color: var(--schema-pflicht);
 }
 /* Der Haken gehört zum Namen und steht direkt dahinter; der Zähler ist ein
    Badge und sitzt rechts. Im Mini-Kasten schiebt der Testwert (.mv, margin-left:
@@ -807,7 +828,7 @@ app-crumbs {
   font-size: 12px;
   font-weight: 700;
   line-height: 1;
-  color: #1e7d3e;
+  color: var(--frei-fg);
 }
 .wsub {
   margin-left: auto;
@@ -816,9 +837,8 @@ app-crumbs {
   font-size: 10.5px;
   font-weight: 600;
   line-height: 1;
-  color: #2f7d51;
-  background: #e6f4ea;
-  border: 1px solid #c3ddcb;
+  color: var(--frei-fg);
+  background: var(--frei-bg);
   border-radius: var(--rund-pill);
   padding: 2px 6px;
 }
@@ -828,8 +848,9 @@ app-crumbs {
 }
 /* Steht der Zähler davor, hat der schon rechtsbündig geschoben — sonst teilten
    sich zwei `margin-left: auto` den freien Raum und das Badge rutschte in die
-   Mitte. */
-.wsub ~ .togBtn {
+   Mitte. Für den Wert am kompakten Kasten gilt dasselbe. */
+.wsub ~ .togBtn,
+.mv ~ .togBtn {
   margin-left: 6px;
 }
 .bname {
@@ -842,7 +863,8 @@ app-crumbs {
   margin-left: auto;
   font-family: var(--mono);
   font-size: 11px;
-  color: #1e7d3e;
+  font-style: italic;
+  color: var(--muted);
   max-width: 48%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -866,7 +888,7 @@ app-crumbs {
 .roval code {
   font-family: var(--mono);
   font-size: 12px;
-  color: #14532d;
+  color: var(--xml-wert);
   flex: none;
 }
 .roval .rolabel {
@@ -888,24 +910,24 @@ app-crumbs {
   font-family: var(--mono);
   font-size: 12px;
   padding: 3px 7px;
-  border: 1px solid #cfe0d3;
-  border-radius: var(--rund-tag);
-  background: #f6fbf7;
-  color: #14532d;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-bedienung);
+  background: var(--flaeche-hell);
+  color: var(--xml-wert);
 }
 .vin::placeholder {
-  color: #a3b8ab;
+  color: var(--muted-schwach);
   font-style: italic;
 }
 /* Typwidrige Beispiel-/Testwerte (ValueService.wertProblem) */
 .vin.invalid,
 #detail textarea.invalid {
-  border-color: #c62828;
-  background: #fdf3f3;
-  color: #8e1c1c;
+  border-color: var(--fehler-fg);
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
 .feldProblem {
-  color: #c62828;
+  color: var(--fehler-fg);
   font-size: 11.5px;
   margin-top: 3px;
 }
@@ -935,41 +957,50 @@ app-crumbs {
   display: none;
 }
 .box .bt {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 13.5px;
+  font-weight: 550;
+  letter-spacing: -0.006em;
+  line-height: 1.4;
   display: flex;
   align-items: center;
   gap: 6px;
   padding-right: 16px;
 }
+/* Ausgewählt und auf dem offenen Pfad (Container) kräftiger: die Kette, an der
+   man gerade arbeitet, soll sich vom Umfeld abheben. */
+.box.sel .bt,
+.box.parentBox .bt {
+  font-weight: 650;
+}
 .hideBtn,
 .dupBtn {
   position: absolute;
-  top: 5px;
+  top: 7px;
   display: none;
-  border: none;
-  background: var(--flaeche);
+  border: 1px solid var(--border);
+  background: var(--bg);
   color: var(--muted);
-  border-radius: var(--rund-tag);
-  width: 20px;
+  border-radius: var(--rund-bedienung);
+  width: 22px;
   height: 20px;
-  line-height: 20px;
+  line-height: 18px;
   padding: 0;
   font-size: 11px;
   text-align: center;
   z-index: 2;
 }
 .hideBtn {
-  right: 5px;
+  right: 7px;
 }
 .dupBtn {
-  right: 28px;
+  right: 33px;
   font-size: 12px;
 }
 .hideBtn:hover,
 .dupBtn:hover {
   background: var(--flaeche-tief);
   color: var(--text);
+  border-color: var(--border-stark);
 }
 /* Gesperrt (Mindestanzahl der Profilierung, kein Duplizieren an der Vorgabe):
    sichtbar untaetig — ohne eigenen Zustand sieht das ✕ aus wie ein aktives und
@@ -982,8 +1013,9 @@ app-crumbs {
 }
 .hideBtn:disabled:hover,
 .dupBtn:disabled:hover {
-  background: var(--flaeche);
+  background: var(--bg);
   color: var(--muted);
+  border-color: var(--border);
 }
 /* Auswahl-Zweig, auf den nicht umgeschaltet werden darf (Issue #50). */
 .gZweig.gesperrt {
@@ -1004,19 +1036,26 @@ app-crumbs {
 .box.auspBox:hover .delBtn {
   display: block;
 }
+/* Auf-/Zuklappen: im Ruhezustand nur das Zeichen — der Rahmen erscheint erst,
+   wenn der Kasten unter dem Zeiger liegt oder ausgewählt ist. */
 .togBtn {
   margin-left: auto;
   flex: none;
-  border: 1px solid var(--border);
-  background: var(--flaeche);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--muted);
-  border-radius: var(--rund-tag);
-  width: 20px;
+  border-radius: var(--rund-bedienung);
+  width: 22px;
   height: 20px;
-  line-height: 18px;
+  line-height: 1;
   padding: 0;
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
+}
+.box:hover .togBtn,
+.box.sel .togBtn {
+  border-color: var(--border);
+  background: var(--bg);
 }
 .togBtn:hover {
   background: var(--accent-soft);
@@ -1035,13 +1074,20 @@ app-crumbs {
   word-break: break-all;
 }
 .box .kard {
-  font-size: 11.5px;
-  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 3px;
+}
+/* Mit eigener Antwort trägt die Zeile den Statusnamen — sie ist dann Aussage,
+   nicht Fußnote. */
+.box .kard.kardStatus {
+  font-weight: 600;
 }
 .box .bdoc {
-  font-size: 11.5px;
+  font-size: 12px;
+  line-height: 1.45;
   color: var(--muted);
-  margin-top: 2px;
+  margin-top: 3px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -1060,11 +1106,12 @@ app-crumbs {
    title. */
 .attr {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 10.5px;
   line-height: 1.5;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--rund-tag);
-  padding: 0 4px;
+  padding: 1px 6px;
   color: var(--muted);
   max-width: 100%;
   white-space: nowrap;
@@ -1076,7 +1123,7 @@ app-crumbs {
   opacity: 0.6;
 }
 .attr.attrPflicht {
-  border-color: var(--accent);
+  border-color: var(--accent-soft-tief);
   color: var(--accent);
 }
 .attr .attrWert {
@@ -1094,47 +1141,51 @@ app-crumbs {
   flex-wrap: wrap;
   margin-top: 3px;
 }
+/* Kennzeichen als Pillen: Fläche und Textfarbe tragen die Aussage, kein
+   Rahmen. Jede Variante ist ein Token-Paar — die Farben stehen in :root. */
 .tag {
-  font-size: 10px;
-  border-radius: var(--rund-tag);
-  padding: 0 5px;
-  font-weight: 600;
+  font-size: 10.5px;
+  font-weight: 550;
+  line-height: 1.4;
+  border-radius: var(--rund-pill);
+  padding: 2px 7px;
+  white-space: nowrap;
 }
 .tag.t-choice {
   background: var(--auswahl-bg);
   color: var(--auswahl-fg);
 }
 .tag.t-wert {
-  background: #e5f4ea;
-  color: #1e7d3e;
+  background: var(--frei-bg);
+  color: var(--frei-fg);
 }
 .tag.t-ref {
-  background: #fbeaf0;
-  color: #993556;
+  background: var(--verweis-bg);
+  color: var(--verweis-fg);
 }
 .tag.t-dent {
   background: var(--fehler-bg);
   color: var(--fehler-fg);
 }
 .tag.t-daend {
-  background: #fdf3d7;
-  color: #8a6d0b;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 .box.phantom {
-  border: 1.5px dashed #1d9e75;
-  background: #f2faf5;
+  border: 1px dashed var(--xml-wert);
+  background: var(--belegt-bg);
   cursor: default;
 }
 .box.phantom .bt {
-  color: #0f6e56;
+  color: var(--xml-wert);
 }
 .tag.t-dsub {
-  background: #fdf3d7;
-  color: #8a6d0b;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 .box.mini.dfA .bname::after {
   content: ' Δ';
-  color: #8a6d0b;
+  color: var(--warn-fg);
   font-weight: 700;
 }
 .box.mini.dfR .bname::after {
@@ -1150,18 +1201,21 @@ app-crumbs {
   background: var(--fehler-bg);
   color: var(--fehler-fg);
 }
+/* Schema-Fehler des letzten Prüflaufs: der Ring gewinnt gegen Auswahl und
+   farbige Umrandung — ein ungültiger Kasten ist die dringlichere Aussage. */
 .box.valErr {
   border-color: var(--fehler-fg);
-  box-shadow: inset 0 0 0 1px var(--fehler-fg);
+  box-shadow: 0 0 0 1px var(--fehler-fg);
 }
 .box.mini.valErr .bname::after {
   content: ' !';
   color: var(--fehler-fg);
   font-weight: 700;
 }
+/* Auswahlliste (Codeliste): der Wert kommt aus einer festen Liste. */
 .tag.t-code {
-  background: #faf1e2;
-  color: #b07018;
+  background: var(--accent-soft);
+  color: var(--text);
 }
 .tag.t-rec {
   background: var(--flaeche-tief);
@@ -1175,93 +1229,83 @@ app-crumbs {
   background: var(--accent-soft);
   color: var(--accent);
 }
-.tag.t-hint {
-  background: #dff2f0;
-  color: #0d7268;
-}
+.tag.t-hint,
 .tag.t-hsub {
-  background: #eef7f6;
-  color: #0d7268;
+  background: var(--frei-bg);
+  color: var(--frei-fg);
 }
 .tag.t-open {
   background: var(--warn-bg);
   color: var(--warn-fg);
-  border: 1px dashed #d9a927;
 }
 /* Durchlauf einer Nachricht: was die Nachricht verlangt (grün) und was frei
    ist (orange) — dieselben Farben wie die Dispositionen der Profilierung. */
 .tag.t-mand {
-  background: #e6f5ef;
-  color: #12684f;
-  border: 1px solid #1d9e75;
+  background: var(--frei-bg);
+  color: var(--frei-fg);
 }
 .tag.t-frei {
-  background: #fbf1e2;
-  color: #8a560f;
-  border: 1px solid #ba7517;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 /* Gebundener Durchlauf: die Profilierung laesst die Frage offen ("zu klaeren"). */
 .tag.t-klaeren {
-  background: #fdf3d8;
-  color: #8a6400;
-  border: 1px solid #e2c469;
+  background: var(--verweis-bg);
+  color: var(--verweis-fg);
 }
 /* Gebundener Durchlauf: die Profilierung sagt zu diesem Element nichts. */
 .tag.t-nprof {
   background: var(--flaeche);
   color: var(--muted);
-  border: 1px dotted var(--border);
 }
 /* Gebundener Durchlauf: von der Profilierung ausgeschlossen (gesperrt). */
 .tag.t-lock {
   background: var(--flaeche-tief);
   color: var(--muted);
-  border: 1px solid var(--border-stark);
 }
-.box.excluded {
-  opacity: 0.55;
-  background: var(--flaeche);
-}
-.box.excluded .bt {
-  text-decoration: line-through;
-}
+/* Ausgeschlossen: durchgestrichener Name und gedämpft — keine graue Fläche
+   mehr, die den Kasten aus der Reihe der übrigen nähme. */
+.box.excluded,
 .box.exclInherit {
-  opacity: 0.4;
+  opacity: 0.62;
 }
-.box.exclInherit .bt {
+.box.excluded .bname,
+.box.exclInherit .bname {
   text-decoration: line-through;
 }
 .box.auspBox .bt {
   font-style: normal;
 }
 .box.addBox {
-  border-style: dashed;
+  border: 1px dashed var(--border-stark);
+  padding: 9px 12px;
   color: var(--muted);
   text-align: center;
   font-size: 12.5px;
   background: transparent;
+  box-shadow: none;
 }
 .box.addBox:hover {
-  color: var(--accent);
+  color: var(--text);
   border-color: var(--accent);
+  background: var(--panel);
 }
 /* Schema-Erweiterung: benutzerdefiniertes Element ausserhalb des XJustiz-Schemas. */
 .box.extBox {
-  border: 1.5px dashed #7f77dd;
-  background: #f7f6fd;
+  border: 1px dashed var(--erweiterung-fg);
+  background: var(--erweiterung-bg);
 }
 .tag.t-ext {
   background: var(--erweiterung-bg);
   color: var(--erweiterung-fg);
-  border: 1px dashed #7f77dd;
 }
 .box.addBox.addExt:hover {
   color: var(--erweiterung-fg);
-  border-color: #7f77dd;
+  border-color: var(--erweiterung-fg);
 }
 /* Datentyp der Nachbeauftragung (#97) — dezenter als die Kennzeichnung selbst. */
 .tag.t-typ {
-  background: #f5f4fc;
+  background: var(--erweiterung-bg);
   color: var(--erweiterung-fg);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -1269,7 +1313,6 @@ app-crumbs {
 .tag.t-typerr {
   background: var(--fehler-bg);
   color: var(--fehler-fg);
-  border: 1px solid #d98b8b;
 }
 .typFehlt {
   color: var(--fehler-fg);
@@ -1278,13 +1321,14 @@ app-crumbs {
   background: var(--erweiterung-bg);
   color: var(--erweiterung-fg);
 }
+/* Der Streifen läuft über die volle Höhe; die Rundung des Kastens schneidet
+   ihn zu (`.box { overflow: hidden }`). */
 .statusStrip {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 5px;
-  border-radius: var(--rund-kasten) 0 0 var(--rund-kasten);
+  width: 4px;
 }
 
 /* ── Nachrichten-Überlagerung (#147) ────────────────────────────────────
@@ -1303,7 +1347,6 @@ app-crumbs {
 .box.wertBox {
   width: 250px;
   padding: 3px 8px 3px 12px;
-  margin-bottom: 0;
   display: flex;
   align-items: baseline;
   gap: 7px;
@@ -1349,7 +1392,7 @@ app-crumbs {
   align-self: center;
   font-weight: 700;
   line-height: 1;
-  color: #b45309;
+  color: var(--warn-fg);
 }
 .box.wertBox.wertFehlt {
   background: transparent;
@@ -1386,7 +1429,7 @@ app-crumbs {
   margin-left: 4px;
 }
 .wbilanz.wbilanzAbw {
-  color: #b45309;
+  color: var(--warn-fg);
   background: var(--signal-soft);
 }
 
