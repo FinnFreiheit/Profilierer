@@ -33,20 +33,23 @@ xjustiz-profilierer/
 │   │   │                      XmlValidationService, ValidationReportService,
 │   │   │                      DownloadService, ToastService, SearchService, TeilenService,
 │   │   │                      BackendClient (der eine Weg ans Backend)
-│   │   ├── ansicht/           Anzeige-Ableitungen (BaumkastenAnsicht, DetailAnsicht, sperrgrund)
+│   │   ├── ansicht/           Anzeige-Ableitungen (BaumkastenAnsicht, DetailAnsicht, StandAnsicht, sperrgrund)
 │   │   ├── util/              xml.util, pretty.util, testmessage.util, pattern-sample.util,
 │   │   │                      eintragsliste.util, positions-pfad.util
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
 │   │   └── profile-defaults.ts
-│   ├── features/              Objektleiste, Werkzeugleiste, Crumbs, Search, MessagePicker, Ueberlagerung, Tree (TreeCanvas +
-│   │                          rekursive TreeNode), Detail, Dialoge (Status/Meta/Diff), Legend, Print,
+│   ├── features/              Kopfzone in drei Zeilen: Objektleiste (Kopfzeile mit ⋯-Menue), Ortzeile
+│   │                          (MessagePicker + Search + Baum|XML), Werkzeugleiste (Arbeitszeile);
+│   │                          Fusszeile (Pfad/Zustand/Hilfe, ersetzt Legend), Crumbs, Ueberlagerung,
+│   │                          Tree (TreeCanvas + rekursive TreeNode), XmlAnsicht, Detail,
+│   │                          Dialoge (Status/Meta/Diff/Grundlage), Print, Styleguide,
 │   │                          Dashboard, Testdaten, Howto (bebilderte Anleitung, Bilder in public/howto/)
-│   ├── shared/                Toast, FileDropDirective
+│   ├── shared/                Menu (richtung/breite/ausrichtung), Toast, FileDropDirective
 │   ├── app.ts / app.html      Shell (Komposition + Tastatur-Nav + Drop-Routing)
 │   └── styles.scss            globale Styles (aus der Single-File-Version portiert)
 ├── public/schemas/           Hinterlegte XJustiz-Schemata (3.6.2, 4.0.0) + index.json (Manifest)
 ├── design-system/            Generierter Design-System-Spiegel (Karten + CSS) für Claude Design (ADR 0022)
-├── design/                    Canvas-Artboards aus Claude Design (Belege, kein Quellcode)
+├── design/                    Canvas-Artboards aus Claude Design (Uebersicht v4, Editor v4 — Belege, kein Quellcode)
 ├── server/                    Backend (Node/Express + SQLite): Profil-API /api, liefert prod. SPA + /xrep-api
 ├── proxy.conf.json            Dev-Proxy /xrep-api → xrepository.de, /api → localhost:3001 (Backend)
 ├── scripts/test-headless.mjs  Headless-Testlauf (setzt CHROME_BIN via puppeteer)
@@ -73,7 +76,7 @@ Node ≥ 22.12 nötig (Angular 20). Die Anforderung steht in `.nvmrc` (24) und i
 - **Prüfkette vor dem Commit:** `npm run check` — Lint, Formatprüfung, Frontend-Tests, Backend-Tests, Build. Genau das fährt auch CI (`.github/workflows/ci.yml`, bei Push auf `main` und bei jedem PR). Einzeln: `npm run lint`, `npm run lint:fix`, `npm run format`, `npm run format:check`.
 - **Lint/Format:** ESLint 9 Flat Config (`eslint.config.mjs`, angular-eslint 20), Formatierung ausschließlich Prettier. Die drei Barrierefreiheits-Regeln für Templates stehen bewusst auf `warn` — 68 Altlast-Treffer im Bestand, siehe [ADR 0011](docs/adr/0011-lint-format-ci.md). Neue Warnungen dort nicht vermehren.
 - **E2E-Prüfung:** Puppeteer-Skript, das XSDs per Drag&Drop-Event lädt (`uploadFile` befüllt `webkitdirectory`-Inputs nicht).
-- **Hinterlegte Schemata:** 3.6.2 und 4.0.0 liegen unter `public/schemas/<version>/`; die App lädt 3.6.2 automatisch beim Start (`BundledSchemaService`, Umschalter im Datenbasis-Menü der Werkzeugleiste, Diff-Vergleich per Klick) — Ordner-Upload nur noch für Fremdschemata. Nach dem Ändern der XSDs `npm run schemas:manifest` ausführen. **Aktualisieren aus der Quelle:** `npm run schemas:fetch` holt die veröffentlichten ZIPs von xjustiz.de, entpackt sie nach `public/schemas/` und baut das Manifest neu (`-- --dry` zeigt nur den Abgleich). Zur Laufzeit macht „Laden → Schemata: xjustiz.de" dasselbe im Browser (`RemoteSchemaService`, Proxy `/xjustiz-api`) — die abgerufenen Versionen ersetzen die hinterlegten Einträge.
+- **Hinterlegte Schemata:** 3.6.2 und 4.0.0 liegen unter `public/schemas/<version>/`; die App lädt 3.6.2 automatisch beim Start (`BundledSchemaService`, Umschalter im Grundlage-Dialog (⋯-Menü der Kopfzeile), Diff-Vergleich per Klick) — Ordner-Upload nur noch für Fremdschemata. Nach dem Ändern der XSDs `npm run schemas:manifest` ausführen. **Aktualisieren aus der Quelle:** `npm run schemas:fetch` holt die veröffentlichten ZIPs von xjustiz.de, entpackt sie nach `public/schemas/` und baut das Manifest neu (`-- --dry` zeigt nur den Abgleich). Zur Laufzeit macht „Grundlage… → Von xjustiz.de aktualisieren" dasselbe im Browser (`RemoteSchemaService`, Proxy `/xjustiz-api`) — die abgerufenen Versionen ersetzen die hinterlegten Einträge.
 - **Styleguide / Design-System:** `http://localhost:4200/?ansicht=styleguide` zeigt die UI-Bausteine mit dem echten Stylesheet (kein Reiter, Entwicklerwerkzeug). `npm run build && npm run design:bundle` exportiert sie als Karten nach `design-system/`; der Sync ins Claude-Design-Projekt „XJustiz Pfadfinder" läuft über das DesignSync-Tool in Claude Code (`design-system/README.md`). Fluss ist Code → Claude Design; Änderungen aus Claude Design werden per Diff nach `styles.scss` portiert. Siehe [ADR 0022](docs/adr/0022-design-system-spiegel.md).
 - Testdaten (Quellen der hinterlegten Kopien): `/Users/finnfreiheit/code/XJustiz_3_6_2_XSD` (3.6.2) und `/Users/finnfreiheit/code/XJustiz_4.0.0_Schemata` (4.0.0, Vergleichsversion für den Diff).
 

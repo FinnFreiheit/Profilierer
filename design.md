@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: XJustiz-Pfadfinder
-description: 'Ein Werkzeug-Interface für Fachleute, das wie ein ruhiges Formular liest. Kühler Hellgrund, weiße Flächen, eine Strukturfarbe (Preußischblau #14213d) für Text, Auswahl und Primäraktion, ein Signal (Orange #fca311) für Fokus und Fortschritt — sonst nichts Markenhaftes. Bedeutung tragen fachliche Farben (grün frei, bernstein geändert, violett Erweiterung, rot Fehler), nie die Palette. Systemschrift bei 14px, Mono für alles, was aus dem Schema kommt. Schatten nur auf Schwebendem (Menü, Dialog), nie auf Chrome.'
+description: 'Ein Werkzeug-Interface für Fachleute, das wie ein ruhiges Formular liest. Kühler Hellgrund, weiße Flächen, eine Strukturfarbe (Preußischblau #14213d) für Text, Auswahl und Primäraktion, ein Signal (Orange #fca311) für Fokus und Fortschritt — sonst nichts Markenhaftes. Bedeutung tragen fachliche Farben (grün frei, bernstein geändert, violett Erweiterung, rot Fehler), nie die Palette. Systemschrift bei 14px, Mono für alles, was aus dem Schema kommt. Schatten nur auf Schwebendem (Menü, Dialog, Detailkarte) und als Haarlinie unter Kacheln und Baumkästen, nie auf Kopf- und Fußzeile.'
 
 colors:
   schwarz: '#000000'
@@ -171,15 +171,17 @@ components:
     minWidth: 280px
     maxWidth: 420px
   modus-segment:
-    backgroundColor: '{colors.panel}'
-    textColor: '{colors.text}'
+    backgroundColor: '{colors.bg}'
+    textColor: '{colors.muted}'
     typography: '{typography.bedienung}'
-    rounded: '{rounded.bedienung}'
-    border: '1px solid {colors.border}'
-  modus-segment-aktiv:
-    backgroundColor: '{colors.accent}'
-    textColor: '{colors.on-accent}'
-    rounded: '{rounded.bedienung}'
+    rounded: '{rounded.umschalter}'
+    padding: 3px
+  darstellung-segment:
+    backgroundColor: '{colors.bg}'
+    textColor: '{colors.muted}'
+    typography: '{typography.bedienung}'
+    rounded: '{rounded.umschalter}'
+    padding: 3px
   ansicht-umschalter:
     backgroundColor: '{colors.bg}'
     textColor: '{colors.muted}'
@@ -262,9 +264,10 @@ components:
   baum-tag:
     backgroundColor: '{colors.auswahl-bg}'
     textColor: '{colors.auswahl-fg}'
-    typography: '{typography.baum-tag}'
-    rounded: '{rounded.tag}'
-    padding: 0 5px
+    rounded: '{rounded.pill}'
+    padding: 2px 7px
+    fontSize: 10.5px
+    fontWeight: 550
   kachel:
     backgroundColor: '{colors.panel}'
     textColor: '{colors.text}'
@@ -381,32 +384,245 @@ components:
     typography: '{typography.bedienung}'
     border: '0 0 1px 0 solid {colors.border}'
     padding: 7px 16px
+  kopfzeile:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    typography: '{typography.bedienung}'
+    border: '0 0 1px 0 solid {colors.border}'
+    padding: 9px 18px
+    gap: 12px
+  kopfname:
+    backgroundColor: transparent
+    textColor: '{colors.text}'
+    rounded: '{rounded.bedienung}'
+    border: '1px solid transparent'
+    padding: 5px 9px
+    width: 300px
+    fontSize: 15px
+    fontWeight: 620
+    letterSpacing: -0.012em
+  kopfname-hover:
+    backgroundColor: '{colors.bg}'
+    textColor: '{colors.text}'
+    rounded: '{rounded.bedienung}'
+    border: '1px solid {colors.border}'
+  menu-neben:
+    backgroundColor: transparent
+    textColor: '{colors.muted}'
+    typography: '{typography.nebentext}'
+  ortzeile:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    typography: '{typography.bedienung}'
+    border: '0 0 1px 0 solid {colors.border}'
+    padding: 8px 18px
+    gap: 10px
+  nachrichtentyp:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    typography: '{typography.schema-mono}'
+    rounded: '{rounded.bedienung}'
+    border: '1px solid {colors.border}'
+    padding: 7px 11px
+    maxWidth: 420px
+  suchfeld-editor:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    typography: '{typography.bedienung}'
+    rounded: '{rounded.bedienung}'
+    border: '1px solid {colors.border}'
+    height: 34px
+    padding: 0 11px
+    width: 210px
+  arbeitszeile:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    typography: '{typography.bedienung}'
+    border: '0 0 1px 0 solid {colors.border}'
+    padding: 7px 18px
+    gap: 10px
+  zeilentrenner:
+    backgroundColor: '{colors.border}'
+    width: 1px
+    height: 18px
+  stand:
+    backgroundColor: transparent
+    textColor: '{colors.muted}'
+    fontSize: 12.5px
+  stand-zahl:
+    backgroundColor: transparent
+    textColor: '{colors.text}'
+    fontWeight: 650
+  stand-balken:
+    backgroundColor: '{colors.border}'
+    fillColor: '{colors.accent}'
+    rounded: '{rounded.pill}'
+    width: 64px
+    height: 6px
+  ast-chip:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    rounded: '{rounded.pill}'
+    border: '1px solid {colors.border}'
+    height: 26px
+    padding: 0 10px
+    fontSize: 12.5px
+    fontWeight: 450
+  ast-chip-aktiv:
+    backgroundColor: '{colors.accent-hauch}'
+    textColor: '{colors.text}'
+    rounded: '{rounded.pill}'
+    border: '1px solid {colors.accent-soft-tief}'
+    fontWeight: 600
+  button-primary-klein:
+    backgroundColor: '{colors.accent}'
+    textColor: '{colors.on-accent}'
+    rounded: '{rounded.bedienung}'
+    border: '1px solid {colors.accent}'
+    padding: 6px 12px
+    fontSize: 12.5px
+    fontWeight: 550
   baum-kasten:
     backgroundColor: '{colors.panel}'
     textColor: '{colors.text}'
     typography: '{typography.bedienung}'
     rounded: '{rounded.kasten}'
-    border: '1.5px solid {colors.border}'
-    padding: 7px 10px
+    border: '1px solid {colors.border}'
+    shadow: '0 1px 2px rgba(20, 33, 61, 0.04)'
+    padding: 9px 12px 10px 15px
     width: 270px
+    strip: '4px {colors.schema-pflicht}'
   baum-kasten-eltern:
-    backgroundColor: '{colors.flaeche}'
+    backgroundColor: '{colors.panel}'
     textColor: '{colors.text}'
     rounded: '{rounded.kasten}'
-    border: '1.5px solid {colors.border}'
+    border: '1px solid {colors.border}'
+    fontWeight: 650
   baum-kasten-selected:
     backgroundColor: '{colors.panel}'
     textColor: '{colors.text}'
     rounded: '{rounded.kasten}'
-    border: '2.5px solid {colors.accent}'
-    padding: 6px 9px
+    border: '1px solid {colors.accent}'
+    shadow: '0 0 0 1px {colors.accent}, 0 6px 20px rgba(20, 33, 61, 0.1)'
+  baum-kasten-markiert:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    rounded: '{rounded.kasten}'
+    border: '1px solid {colors.signal}'
+    shadow: '0 0 0 1px {colors.signal}'
+  baum-kasten-kompakt:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    rounded: '{rounded.kasten}'
+    border: '1px solid {colors.border}'
+    padding: 6px 11px 6px 15px
+    opacity: 0.75
   detailbereich:
     backgroundColor: '{colors.panel}'
     textColor: '{colors.text}'
     typography: '{typography.body}'
-    border: '0 0 0 1px solid {colors.border}'
-    width: 'clamp(340px, 28%, 560px)'
-    padding: 16px
+    rounded: '{rounded.kasten}'
+    border: '1px solid {colors.border}'
+    shadow: '0 12px 32px rgba(20, 33, 61, 0.14)'
+    width: 394px
+    margin: 12px 12px 12px 0
+    padding: 16px 17px 32px
+  abschnitts-label:
+    backgroundColor: transparent
+    textColor: '{colors.muted}'
+    typography: '{typography.kennzeichen}'
+    fontWeight: 650
+    letterSpacing: 0.07em
+  antwort-zeile:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    typography: '{typography.bedienung}'
+    rounded: '{rounded.bedienung}'
+    border: '1px solid {colors.border}'
+    height: 32px
+    padding: 0 9px 0 10px
+  antwort-zeile-aktiv:
+    backgroundColor: 'Statusfarbe, 12 % auf Weiß'
+    textColor: '{colors.text}'
+    rounded: '{rounded.bedienung}'
+    border: '1px solid Statusfarbe'
+    shadow: 'inset 0 0 0 1px Statusfarbe'
+    fontWeight: 650
+  festgelegt-karte:
+    backgroundColor: '{colors.accent-soft}'
+    textColor: '{colors.text}'
+    rounded: '{rounded.kasten}'
+    border: '1px solid {colors.border}'
+    padding: 11px 12px
+  zweig-zeile:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    typography: '{typography.bedienung}'
+    rounded: '{rounded.bedienung}'
+    border: '1px solid {colors.border}'
+    minHeight: 32px
+    padding: 6px 10px
+  zweig-zeile-an:
+    backgroundColor: '{colors.accent-hauch}'
+    textColor: '{colors.text}'
+    rounded: '{rounded.bedienung}'
+    border: '1px solid {colors.accent-soft-tief}'
+    fontWeight: 550
+  detail-karte:
+    backgroundColor: '{colors.flaeche-hell}'
+    textColor: '{colors.text}'
+    rounded: '{rounded.kasten}'
+    border: '1px solid {colors.border}'
+    padding: 12px 13px
+    gap: 12px
+  fusszeile:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.muted}'
+    typography: '{typography.nebentext}'
+    border: '1px 0 0 0 solid {colors.border}'
+    padding: 6px 18px
+    gap: 12px
+  pfad-kruemel:
+    backgroundColor: transparent
+    textColor: '{colors.muted}'
+    rounded: '{rounded.bedienung}'
+    padding: 3px 8px
+    fontSize: 12.5px
+    fontWeight: 450
+  pfad-kruemel-aktuell:
+    backgroundColor: '{colors.accent-soft}'
+    textColor: '{colors.text}'
+    rounded: '{rounded.bedienung}'
+    padding: 3px 8px
+    fontWeight: 650
+  hilfe-popover:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.muted}'
+    rounded: '{rounded.kasten}'
+    border: '1px solid {colors.border}'
+    shadow: '0 12px 32px rgba(20, 33, 61, 0.14)'
+    maxWidth: 390px
+    padding: 14px 16px
+  kbd:
+    backgroundColor: '{colors.bg}'
+    textColor: '{colors.text}'
+    typography: '{typography.schema-mono}'
+    rounded: '{rounded.tag}'
+    border: '1px solid {colors.border}'
+    padding: 1px 5px
+    fontSize: 10.5px
+  xml-karte:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    typography: '{typography.schema-mono}'
+    rounded: '{rounded.kasten}'
+    border: '1px solid {colors.border}'
+    shadow: '0 1px 2px rgba(20, 33, 61, 0.04)'
+    maxWidth: 940px
+  xml-zeile-aktiv:
+    backgroundColor: '{colors.accent-hauch}'
+    textColor: '{colors.text}'
+    border: '0 0 0 2px solid {colors.accent}'
   menu-panel:
     backgroundColor: '{colors.panel}'
     textColor: '{colors.text}'
@@ -625,13 +841,29 @@ Das System zeigt keine Bilder außer in der Anleitung (Bildschirmfotos, Vollfens
 
 ### Kopfzone
 
-**`kopfleiste`** — Zweizeilige Leiste über dem Editor. Grund `{colors.panel}`, 1px `{colors.border}` unten, 7px × 16px innen. Zeile 1: Objekt-Identität (Name in `{typography.bedienung-stark}`, max. 320px, gekürzt) · Werkzeuge · Zustand (reservierte Breite, wechselnder Text) · Primäraktion (min. 92px). Zeile 2: Ort (Nachrichtenwahl + Pfad, darf als einzige stark schrumpfen) · Modus-Segment · Fortschritt mit `{component.fortschrittsbalken}` (46px breit). Ein senkrechter `{colors.border}`-Trenner zwischen Arbeitsbereich und Zustand/Aktion. Bricht nie um.
+**`kopfleiste`** — Die Grundform jeder Leiste über dem Editor. Grund `{colors.panel}`, 1px `{colors.border}` unten, Flex-Reihe, **bricht nie um**. Seit Editor v4 liegen darüber drei Zeilen, jede mit genau einer Frage: `{component.kopfzeile}` „was bearbeite ich", `{component.ortzeile}` „wo bin ich", `{component.arbeitszeile}` „wie arbeite ich und wie weit bin ich".
+
+**`kopfzeile`** — Zeile 1. 9px × 18px innen, 12px Lücke: zurück (`homeBtn`) · Identität · Spacer · Zustand als Pille · Primäraktion · ⋯. Alle Werkzeuge des Objekts liegen im **⋯-Menü**; die Zeile sieht damit bei jeder Fensterbreite gleich aus, ein Überlauf entfällt.
+
+**`kopfname`** — Der Szenario-Name **ist** das Eingabefeld: 15px / 620 / −0.012em, im Ruhezustand rahmen- und grundlos, damit er als Titel liest; beim Überfahren und im Fokus `{component.kopfname-hover}`. Negativer linker Außenabstand (−9px) hält den Text auf der Fluchtlinie, obwohl das Feld Polster hat.
+
+**`menu-neben`** — Nebenhinweis eines Menüeintrags, rechtsbündig in `{colors.muted}` (`{typography.nebentext}`): „Name, Beteiligte", „XJustiz 3.6.2", „4 offen". Er beantwortet die Rückfrage zum Eintrag, trägt aber nie die Aussage. Passt das Paar nicht in die Panel-Breite, rutscht der Hinweis als Ganzes in die zweite Zeile.
+
+**`ortzeile`** — Zeile 2. 8px × 18px innen: `{component.nachrichtentyp}` · Spacer · `{component.suchfeld-editor}` · `{component.darstellung-segment}` (Baum | XML). Das Suchfeld gibt als Erstes nach, der Nachrichtenname kürzt mit Ellipsis.
+
+**`nachrichtentyp`** — Der Nachrichtenname als Knopf in `{typography.schema-mono}` (12px), max. 420px. Mono, weil er ein technischer Bezeichner ist, und in der Ort-Zeile, weil er die Wurzel des Pfads ist — kein Titel und keine Aktion.
+
+**`arbeitszeile`** — Zeile 3. 7px × 18px innen: `{component.modus-segment}` · `{component.zeilentrenner}` · `{component.stand}` · Trenner · `{component.ast-chip}`-Kette · Spacer · Ansicht ▾ · `{component.button-primary-klein}` „Nächstes offenes Feld ›".
+
+**`stand`** — Die eine Zahl, die bei jeder Breite stehen bleibt: „**37** von 214 eigens beantwortet" (`{component.stand-zahl}`, tabellarische Ziffern) plus `{component.stand-balken}` (64 × 6). Unter 1040px kürzt die Beschriftung auf „37 / 214"; die Zahl selbst verschwindet nie.
+
+**`ast-chip`** — Ein Abschnitt der Nachricht als Pille mit Zähler „12/31". Aktiv (die Auswahl steht unter diesem Ast): `{component.ast-chip-aktiv}`. Der Zähler ist Beiwerk in `{colors.muted}`, bis der Ast vollständig ist — dann wird er `{colors.frei-fg}` / 600 und trägt die Aussage. Unter 1240px weicht die Kette dem Menü „Abschnitte ▾", das dieselben Zeilen mit einem Balken je Ast zeigt.
 
 **`ansicht-umschalter`** — Reiter der Übersichten (Projekte · Profile · Testdaten · Anleitung · Kennzahlen) in der weißen Reiterleiste. Segmentgruppe auf `{colors.bg}` mit `{rounded.umschalter}` und 3px Innenabstand, rahmenlose Knöpfe 7px × 14px in `{typography.bedienung}`, Text `{colors.muted}`. Aktiv: `{component.ansicht-umschalter-aktiv}` — weiß, Text `{colors.text}`, Gewicht 600, Kante `0 1px 2px`, nicht klickbar.
 
 **`kachel-liste-umschalter`** — Kacheln | Liste in der Werkzeugzeile: dieselbe Grammatik, aber weiß mit 1px `{colors.border}`; der aktive Knopf liegt auf `{colors.accent-soft}` (`{component.kachel-liste-umschalter-aktiv}`).
 
-**`modus-segment`** — Betrachten | Bearbeiten | Geführt in der Kopfleiste. Drei Knöpfe ohne Innenradius, außen `{rounded.bedienung}`, -1px überlappende Rahmen. Aktiv: `{component.modus-segment-aktiv}` — Grund und Rahmen `{colors.accent}`, Text `{colors.on-accent}`, Cursor default („der aktive Zustand ist der Zustand, nicht das Ziel").
+**`modus-segment`** und **`darstellung-segment`** — Ansehen | Bearbeiten | Geführt in der Arbeits-Zeile und Baum | XML in der Ort-Zeile. Beide tragen seit Editor v4 die Form von `{component.ansicht-umschalter}`: Segmentgruppe auf `{colors.bg}` mit `{rounded.umschalter}` und 3px Innenabstand, aktiv weiß mit Haarlinien-Kante und Cursor default. Dieselbe Frage — „welche von diesen wenigen Sichten" — bekommt überall dieselbe Form; die frühere gefüllte Accent-Variante des Modus-Segments entfällt.
 
 ### Knöpfe
 
@@ -661,9 +893,9 @@ Das System zeigt keine Bilder außer in der Anleitung (Bildschirmfotos, Vollfens
 
 **`liste`** — Die Sammlung als Tabelle: Grund `{colors.panel}`, 1px `{colors.border}`, `{rounded.kasten}`, Kante. Spalten `minmax(0, 2.6fr) 62px minmax(0, 1.1fr) minmax(0, 1fr) 64px 62px 32px` — alle Textspalten `minmax(0, …)`, damit die Liste auch bei 600px Breite vollständig bleibt. Kopf auf `{colors.flaeche-hell}` in `{typography.kennzeichen}`, klickbar sortierend mit Pfeil; Gruppenzeilen ebenfalls auf `{colors.flaeche-hell}`. `{component.liste-zeile}`: Name in 14px / 600 mit Nachrichtenname in Mono darunter, Modul-Pille, Projekt, Tags, Kennzahl, Datum, ⋯. Beim Überfahren `{component.liste-zeile-active}` mit 3px Accent-Kante links.
 
-**`baum-kasten`** — Ein Element im Baum. Grund `{colors.panel}`, 1.5px `{colors.border}`, `{rounded.kasten}`, 7px × 10px innen, fest 270px breit. Elternknoten: `{component.baum-kasten-eltern}` auf `{colors.flaeche}`. Gewählt: `{component.baum-kasten-selected}` — 2.5px `{colors.accent}`, Innenabstand um 1px reduziert, damit der Kasten nicht wächst. Mini-Variante (zusammengeklappt) mit Opazität 0.75 und nur dem Titel. Belegte Blätter im Nachrichten-Modus auf `{colors.belegt-bg}`.
+**`baum-kasten`** — Ein Element im Baum. Grund `{colors.panel}`, 1px `{colors.border}`, `{rounded.kasten}`, 9px 12px 10px 15px innen, fest 270px breit, Haarlinien-Kante. Links in der Fläche ein **4px-Statusstreifen** über die volle Höhe (die Rundung schneidet ihn zu): in der Farbe der eigenen Antwort, ohne eigene Antwort `{colors.schema-pflicht}` bei Pflichtelementen und `{colors.border}` sonst — der Kasten sagt damit auf einen Blick, ob hier schon entschieden wurde. Das größere linke Polster ist sein Raum. Elternknoten: `{component.baum-kasten-eltern}` — ebenfalls weiß, nur der Name in 650; die frühere graue Fläche nahm sie aus der Reihe. Gewählt: `{component.baum-kasten-selected}` — der zweite Strich kommt als **Ring** (`box-shadow`), nicht als dickerer Rahmen, damit beim Anklicken nichts springt (die SVG-Linien vermessen die Kanten). Farbig umrandet: `{component.baum-kasten-markiert}` in `{colors.signal}`, steht vor `.sel`, damit die Auswahl den Ring gewinnt. Zusammengeklappt: `{component.baum-kasten-kompakt}` (Opazität 0.75, nur Titel und Wert). Ausgeschlossen: durchgestrichener Name, Opazität 0.62. Belegte Blätter im Nachrichten-Modus auf `{colors.belegt-bg}`.
 
-**`detailbereich`** — Rechte Spalte des Editors. Grund `{colors.panel}`, 1px `{colors.border}` links, `clamp(340px, 28%, 560px)` breit, 16px innen, per 5px-Griff ziehbar (Griff beim Ziehen `{colors.accent}` bei 50 %). Eingeklappt ein Streifen mit Aufklapp-Knopf.
+**`detailbereich`** — Rechte Spalte des Editors, seit Editor v4 eine **schwebende Karte** auf dem Seitengrund: 394px breit, 12px eingerückt, `{rounded.kasten}`, 1px `{colors.border}` und Panel-Schatten. 16px × 17px innen mit 22px zwischen den Abschnitten, per 6px-Griff ziehbar (Griff beim Ziehen `{colors.accent}` bei 50 %). Eingeklappt ein Streifen mit Aufklapp-Knopf. Reihenfolge: Krümel (die letzten zwei Stationen) · Name · ✕ · **Ihre Antwort** · **Festgelegt als** · **Erlaubte Angaben** · `{component.detail-karte}` · **Was ist das?** · **Notiz für das Team**. Unter 1040px legt sie sich als Overlay über die Kaskade — die braucht die Breite dringender.
 
 **`gruppenkopf`** — Abschnitt je Fachmodul über dem Kachelraster: `{component.pill-modul}` (Mono, 12px) + Zähler in `{colors.muted}`, 8px unter sich, 22px über sich ab dem zweiten Abschnitt, auf derselben 1120px-Spur wie das Raster.
 
@@ -684,6 +916,28 @@ Das System zeigt keine Bilder außer in der Anleitung (Bildschirmfotos, Vollfens
 **`zweig-chip`** — Zweigwahl im geführten Modus. Grund `{colors.panel}`, 1px `{colors.border}`, Radius 12px, 11.5px; beim Überfahren Rahmen und Text `{colors.accent}`.
 
 **`baum-tag`** — Kennzeichen am Element: `{typography.baum-tag}` (10px / 600), `{rounded.tag}` (4px), 0 × 5px. Rund zwanzig Varianten (`t-choice`, `t-wert`, `t-ref`, `t-ext`, `t-hint`, `t-mand`, `t-lock`, …), jede mit eigenem Fläche-Text-Paar; `t-typerr` mit `inset 0 0 0 1px {colors.fehler-fg}`.
+
+### Detail, Fuß und XML
+
+**`abschnitts-label`** — Der Titel eines Abschnitts im Detailbereich: `{typography.kennzeichen}` in Versalien, 650, 0.07em, `{colors.muted}`, 5px Luft nach unten. Ein `<span>`, kein `<label>` — die meisten Abschnitte tragen kein einzelnes Formularfeld.
+
+**`antwort-zeile`** — Das meistbenutzte Bedienelement der Seite: eine Zeile je Antwort, 32px hoch — Punkt · Name · Taste (`{component.kbd}`-artig, 10px Mono). Ohne Erklärtext; der steht im Tooltip und in der Hilfe der Fußzeile, ausgeschrieben machten die vier Sätze den Block viermal so hoch. Gewählt: `{component.antwort-zeile-aktiv}` — Rahmen und Innenring in der **Statusfarbe der Profilierung**, Fläche dieselbe Farbe zu 12 % auf Weiß (`color-mix`, Rückfall Alpha-Hex). Die Statusfarben kommen aus dem Dokument, nicht aus der Palette: sie sind Daten. Die Liste löst den früheren Status-Streifen **und** die vier Dispositions-Knöpfe des geführten Modus ab — eine Quelle.
+
+**`festgelegt-karte`** — Dieselbe Aussage ohne Bedienelemente (freigegebene Fassung, Betrachten-Modus): Punkt in der Statusfarbe, Name in 13.5px / 650, darunter der Klartext der Wirkung aus `profile-defaults.ts`. Grund `{colors.accent-soft}`, `{rounded.kasten}`.
+
+**`zweig-zeile`** — Eine Alternative einer Auswahl (`xs:choice`): Kästchen · Name, 32px hoch. Angehakt (`{component.zweig-zeile-an}`) heißt „im Szenario zulässig".
+
+**`detail-karte`** — Was zusammen gelesen wird, steht zusammen in einer Fläche: Kardinalität, Beispielwert und — durch eine Linie abgesetzt — der technische Name als Fußnote. Grund `{colors.flaeche-hell}` auf dem weißen Panel, `{rounded.kasten}`, 12px × 13px.
+
+**`fusszeile`** — Eine Zeile hoch, drei Fragen: wo genau stehe ich (der volle Pfad) · ist mein Stand gesichert · was bedeutet das alles. Grund `{colors.panel}`, 1px `{colors.border}` oben, 6px × 18px. Sie ersetzt die frühere Legende: die Erklärungen liegen im Hilfe-Menü und kosten dem Baum keine Höhe mehr.
+
+**`pfad-kruemel`** — Der Pfad **ungekürzt**; er bekommt den ganzen Rest der Zeile und rollt waagerecht, statt Stationen zu verschlucken — im Workshop wird an ihm entlanggezeigt. Glied: `{rounded.bedienung}`, 3px × 8px, `{colors.muted}`, beim Überfahren `{colors.accent-hauch}`. Das aktuelle Glied (`{component.pfad-kruemel-aktuell}`) steht auf `{colors.accent-soft}` in 650 — keine Vollfarbe mehr, es soll die lange Kette nicht überstrahlen.
+
+**`hilfe-popover`** — Das einzige Menü mit Fließtext, 390px breit, öffnet **nach oben** (der Knopf sitzt am unteren Rand). Drei Abschnitte, durch je eine Linie getrennt: „Die Antworten bedeuten" (Punkt in der Statusfarbe, Name, Klartext der Wirkung, Taste), „Schneller mit der Tastatur" (modusabhängig), „Kennzeichen im Baum" (Tags als sie selbst, nicht als Beschreibung).
+
+**`kbd`** — Eine Taste im Text: Mono 10.5px, 1px `{colors.border}`, `{rounded.tag}`, Grund `{colors.bg}`, 1px × 5px.
+
+**`xml-karte`** — Dieselbe Nachricht in der Form, in der sie die Leitung verlässt: eine zentrierte Karte (max. 940px) auf dem Seitengrund, kein randloser Texteditor — sie ist ein Ergebnis, das man ansieht, nicht eine Fläche, in der man tippt. Kopf und Fuß auf `{colors.flaeche-hell}`, dazwischen die Zeilen mit Nummernspalte (34px, rechtsbündig, `{colors.muted-schwach}`) und dem Code in Mono 12.5px / 1.7. Vier Farben trägt der Code: Tag `{colors.erweiterung-fg}`, Wert `{colors.xml-wert}`, Attribut und Attributwert `{colors.muted}`, Deklaration und Kommentar `{colors.muted-schwach}`. Die Zeile des ausgewählten Elements ist `{component.xml-zeile-aktiv}` und klickbar — sie führt zurück in den Baum. Der Fuß nennt die Bilanz und ausdrücklich, was **nicht** drinsteht.
 
 ### Menüs
 
@@ -726,7 +980,7 @@ Das System zeigt keine Bilder außer in der Anleitung (Bildschirmfotos, Vollfens
 ### Don't
 
 - Keine zweite Akzentfarbe, kein Blau neben dem Preußischblau.
-- Keine Schatten auf Kopfleiste, Detailbereich, Reitern oder Kästen im Ruhezustand.
+- Keine Schatten auf Kopfzone, Fußzeile oder Reitern. Kacheln, Baumkästen und die XML-Karte tragen eine Haarlinien-Kante (`0 1px 2px`), Schwebendes (Menü, Dialog, Detailkarte) den Panel-Schatten.
 - Keine Verläufe, kein Blur.
 - Keine neuen Grautöne als Hex — jede Neutralstufe ist aus Alabaster verrechnet und steht in `:root`.
 - Keine halben Pixel bei neuen Schriftgrößen; die Leiter ist 10 / 11 / 12 / 13 / 14 / 15 / 20 / 40.
@@ -738,12 +992,13 @@ Das System zeigt keine Bilder außer in der Anleitung (Bildschirmfotos, Vollfens
 
 ### Breakpoints
 
-| Name           | Breite      | Änderungen                                                                                                                      |
-| -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Halbes Fenster | 900–1050px  | Selten Genutztes der Kopfleiste wandert ins Überlauf-Menü (`.inline-only` → `.overflow-only`)                                   |
-| Schmal         | 1050–1280px | Lange Beschriftungen weichen Kurzform oder Symbol (`.lbl-lang` → `.lbl-kurz`), Felder schrumpfen, Kopfleisten-Innenabstand 12px |
-| Laptop         | 1280–1680px | Volle Kopfleiste; Zielkorridor des Werkzeugs                                                                                    |
-| Breit          | ≥ 1680px    | Übersichten bleiben auf 1120px zentriert; der Editor nutzt die volle Breite                                                     |
+| Name           | Breite      | Änderungen                                                                                                                                                                               |
+| -------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Halbes Fenster | 900–1040px  | `{component.stand}` kürzt auf „37 / 214", der Sicherungsstand der Fußzeile entfällt, `{component.detailbereich}` legt sich als Overlay über die Kaskade (die Fläche hält den Platz frei) |
+| Eng            | 1040–1240px | Die `{component.ast-chip}`-Kette weicht dem Menü „Abschnitte ▾" — sie wächst mit der Zahl der Äste, das Menü nicht                                                                       |
+| Schmal         | 1240–1280px | Das Ansichtsmenü trägt nur noch sein Zeichen (`.lbl-lang` → `.lbl-kurz`), Kopfzonen-Innenabstand 12px, Lücken 8px bzw. 6px                                                               |
+| Laptop         | 1280–1680px | Volle Kopfzone; Zielkorridor des Werkzeugs                                                                                                                                               |
+| Breit          | ≥ 1680px    | Übersichten bleiben auf 1120px zentriert; der Editor nutzt die volle Breite                                                                                                              |
 
 Dazu zwei Zustandsabfragen: `(hover: none)` macht den ⋯-Knopf der Kachel dauerhaft sichtbar (Tablet); `print` liefert das Druckdokument des Baums.
 
@@ -753,10 +1008,10 @@ Desktop und Laptop, halbes Fenster neben einer anderen Anwendung als Untergrenze
 
 ### Nachgeben statt Umbrechen
 
-- **Kopfleiste**: zwei Zeilen bei jeder Breite. Reihenfolge des Nachgebens: Eingabefelder schrumpfen → Knöpfe verlieren die Beschriftung → selten Genutztes ins Überlauf-Menü. Die Nachrichtenwahl gibt vor dem Pfad nach — ihr Name steht als Wurzel ohnehin im Pfad.
+- **Kopfzone**: drei Zeilen bei jeder Breite. Reihenfolge des Nachgebens: das Suchfeld schrumpft → der Nachrichtenname kürzt mit Ellipsis → die Ast-Chips werden zum Menü → die Stand-Beschriftung kürzt. Ein Überlauf-Menü braucht es nicht mehr: alle Werkzeuge des Objekts stehen ohnehin im ⋯-Menü der Kopfzeile.
 - **Kachelraster**: `auto-fill` mit 260px Mindestbreite; die Spaltenzahl folgt der Breite.
-- **Detailbereich**: `clamp(340px, 28%, 560px)`, ziehbar; auf einen Streifen einklappbar.
-- **Objektname**: max. 320px, gekürzt — schrumpft, verschwindet nie.
+- **Detailbereich**: 394px, ziehbar (min. 340px); auf einen Streifen einklappbar; unter 1040px Overlay.
+- **Pfad in der Fußzeile**: rollt waagerecht, statt Stationen auszulassen — die Kette bleibt vollständig.
 
 ## Iterationsleitfaden
 
@@ -773,6 +1028,7 @@ Desktop und Laptop, halbes Fenster neben einer anderen Anwendung als Untergrenze
 - **Halbe Schriftgrößen:** 12.5px (Reiter, Home-Knopf), 11.5px (Datum, Zweig-Chip, Mini-Kasten) und 10.5px kommen im Bestand vor. Sie sind Drift, keine Stufen; eine Bereinigung auf die Leiter steht aus.
 - **Kein dunkles Thema.** Es gibt keine `prefers-color-scheme`-Ableitung; das System ist hell.
 - **Baum-Tags:** rund zwanzig Fläche-Text-Paare in `styles.scss`, hier nur durch `{colors.auswahl-bg}` / `{colors.auswahl-fg}` vertreten. Die vollständige Liste zeigt die Karte „Baum-Tags" des Styleguides.
-- **v4 nur auf der Profil-Übersicht:** Filterspalte, Werkzeugzeile, Liste und die neue Kachel gelten für die Profile. Testdaten und Projekte tragen die neuen Tokens (Grund, Rahmen, Radien, Kachelform), aber noch den älteren Kopf mit Aktionszeile und Filterleiste.
-- **Kopfleiste und Detailbereich** sind hier beschrieben, aber noch nicht als Karten im Design-System-Spiegel.
-- **Typografie, Radien und Abstände** sind Stufen in dieser Datei und Karten im Styleguide, aber keine CSS-Variablen — `styles.scss` trägt die Werte noch als Zahlen in den Regeln.
+- **v4 auf Profil-Übersicht und Editor:** Filterspalte, Werkzeugzeile, Liste, Kachel — und im Editor Kopfzone, Baum-Kasten, Detailbereich, Fußzeile und XML-Darstellung. Testdaten und Projekte tragen die neuen Tokens (Grund, Rahmen, Radien, Kachelform), aber noch den älteren Kopf mit Aktionszeile und Filterleiste.
+- **Typografie, Radien und Abstände** sind Stufen in dieser Datei und Karten im Styleguide, aber keine CSS-Variablen — `styles.scss` trägt die Werte noch als Zahlen in den Regeln. Abstände und Schriftgrößen der neuen Editor-Bausteine sind entsprechend Zahlen, keine Tokens.
+- **Statusfarben sind Daten, keine Tokens:** die Farbe einer Antwort steht im Profil-Dokument (`profile-defaults.ts`), nicht in `:root`. Antwort-Zeile, Statusstreifen und Hilfe-Punkte bekommen sie als Inline-Wert; die Karten des Styleguides zeigen sie stellvertretend mit `{colors.frei-fg}` und Verwandten.
+- **Toast** fehlt weiterhin als Karte im Spiegel (Id-Kollision mit der globalen Instanz), ebenso der Grundlage-Dialog und die Dialoge insgesamt.

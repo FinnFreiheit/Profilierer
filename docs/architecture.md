@@ -24,17 +24,19 @@ src/app/
 ```mermaid
 graph TD
   App["App (Shell)"]
-  App --> Objektleiste
-  App --> Werkzeugleiste
+  App --> Objektleiste["Objektleiste (Kopfzeile)"]
+  App --> Ortzeile
+  App --> Werkzeugleiste["Werkzeugleiste (Arbeitszeile)"]
   App --> Main["#main (colWrap + Detail)"]
-  App --> Legend
+  App --> Fusszeile
   App --> PrintDoc["PrintDoc (@media print)"]
   App --> Toast
-  App --> Dlgs["Status- / Meta- / Diff-Dialog"]
-  Werkzeugleiste --> MessagePicker
-  Werkzeugleiste --> Search
-  Werkzeugleiste --> Crumbs
+  App --> Dlgs["Status- / Meta- / Diff- / Grundlage-Dialog"]
+  Ortzeile --> MessagePicker
+  Ortzeile --> Search
+  Fusszeile --> Crumbs
   Main --> TreeCanvas
+  Main --> XmlAnsicht
   Main --> DetailPanel
   DetailPanel --> DatentypPicker
   Dlgs --> DatentypPicker
@@ -44,6 +46,8 @@ graph TD
 ```
 
 `TreeNode` rendert sich rekursiv (Host-Klasse `ntree`, direkt darin `.box` + `.nkids`) — genau die DOM-Struktur, die `TreeCanvas` für die SVG-Linien vermisst.
+
+Die **Kopfzone hat drei Zeilen** (Editor v4, [ADR 0022](adr/0022-design-system-spiegel.md)), je Zeile eine Frage: `Objektleiste` „was bearbeite ich" (Titel, Zustand, Primäraktion, ⋯-Menü mit allen Werkzeugen), `Ortzeile` „wo bin ich" (Nachrichtentyp, Feldsuche, Baum | XML) und `Werkzeugleiste` „wie arbeite ich und wie weit bin ich" (Modus, Stand, Ast-Chips, Ansicht). Unten schließt die `Fusszeile` mit vollem Pfad, Sicherungsstand und Hilfe ab; sie hat die frühere `Legend` abgelöst. In `#colWrap` steht je nach `StateService.darstellung()` der `TreeCanvas` oder die `XmlAnsicht` — dieselbe Nachricht, zwei Formen.
 
 ## Datenfluss
 
@@ -70,7 +74,7 @@ sequenceDiagram
   participant NV as NavService
   participant ST as StateService
   participant EX as ExportService
-  U->>TB: XSD-Ordner wählen / droppen
+  U->>TB: XSD-Ordner wählen / droppen (Grundlage-Dialog)
   TB->>PS: loadXsdFiles()
   PS->>ST: idx / version / docs setzen
   U->>NV: Nachricht wählen

@@ -110,5 +110,61 @@
     "viewport": {
       "width": 1000
     }
+  },
+  {
+    "name": "Kopfzone",
+    "path": "editor/kopfzone.html",
+    "group": "Editor",
+    "viewport": {
+      "width": 1280
+    }
+  },
+  {
+    "name": "Ast-Chips",
+    "path": "editor/ast-chips.html",
+    "group": "Editor",
+    "viewport": {
+      "width": 720
+    }
+  },
+  {
+    "name": "Baum-Kasten",
+    "path": "editor/baum-kasten.html",
+    "group": "Editor",
+    "viewport": {
+      "width": 1000
+    }
+  },
+  {
+    "name": "Antwort-Liste",
+    "path": "editor/antwort-liste.html",
+    "group": "Editor",
+    "viewport": {
+      "width": 480
+    }
+  },
+  {
+    "name": "Detailbereich",
+    "path": "editor/detail-karte.html",
+    "group": "Editor",
+    "viewport": {
+      "width": 480
+    }
+  },
+  {
+    "name": "Fußzeile",
+    "path": "editor/fusszeile.html",
+    "group": "Editor",
+    "viewport": {
+      "width": 1100
+    }
+  },
+  {
+    "name": "XML-Karte",
+    "path": "editor/xml-karte.html",
+    "group": "Editor",
+    "viewport": {
+      "width": 960
+    }
   }
 ]

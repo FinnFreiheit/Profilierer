@@ -1452,7 +1452,8 @@ app-detail-panel {
    Standardbreite ist fest (394px) und laesst sich am Griff ziehen; der
    gezogene Wert kommt als Inline-Style und gewinnt dann.
    ------------------------------------------------------------------ */
-#detail {
+#detail,
+.sgDetailKarte {
   width: 394px;
   margin: 12px 12px 12px 0;
   border: 1px solid var(--border);
@@ -1658,7 +1659,8 @@ app-detail-panel {
   background: none;
   color: var(--accent-hover);
 }
-#detail h3 {
+#detail h3,
+.sgDetailKarte h3 {
   color: var(--text-stark);
   margin: 0;
   font-size: 17px;
@@ -1667,7 +1669,8 @@ app-detail-panel {
   line-height: 1.28;
   overflow-wrap: anywhere;
 }
-#detail .sub {
+#detail .sub,
+.sgDetailKarte .sub {
   color: var(--muted);
   font-size: 12.5px;
   margin-top: 4px;
@@ -2263,7 +2266,8 @@ textarea {
 
 /* Fusszeile: Grundmasse und Systemtelemetrie. Die Optik der drei Zonen
    steht im Editor-v4-Abschnitt am Ende dieser Datei. */
-#legend {
+#legend,
+.fusszeile {
   border-top: 1px solid var(--border);
   background: var(--panel);
   display: flex;
@@ -2272,7 +2276,8 @@ textarea {
   font-size: 12px;
   color: var(--muted);
 }
-#zustandText {
+#zustandText,
+.sgZustandText {
   flex: none;
   min-width: 0;
   display: flex;
@@ -2281,11 +2286,13 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-#zustandText .warn {
+#zustandText .warn,
+.sgZustandText .warn {
   color: var(--fehler-fg);
   font-weight: 700;
 }
-#zustandText .zustandTeil::before {
+#zustandText .zustandTeil::before,
+.sgZustandText .zustandTeil::before {
   content: '· ';
 }
 .legDot {
@@ -4123,6 +4130,36 @@ app-styleguide {
   border-right: 0;
   padding: 0;
 }
+/* Reihe mit Elementen ungleicher Hoehe (Baum-Kaesten, Menuepanels): oben
+   buendig statt mittig — sonst schwebten die kurzen Kaesten in der Mitte. */
+/* Karte, die breiter als die 1120px-Spur der Seite gezeigt werden muss —
+   die Kopfzone braucht ihre Zielbreite (1280px), sonst draengen sich die
+   Gruppen der Arbeits-Zeile schon im Styleguide. */
+.sgBreit {
+  max-width: 1360px;
+}
+/* Karte eines schmalen Bausteins: sie soll auf der Seite so breit stehen wie
+   spaeter im Spiegel (`data-ds-width`), nicht ueber die ganze Spur gezogen. */
+.sgSchmal {
+  max-width: 480px;
+}
+.sgReiheOben {
+  align-items: flex-start;
+}
+.sgAbstandOben {
+  margin-top: 18px;
+}
+/* Die Karten der Gruppe „Editor" duerfen die Ids der App nicht mitbringen
+   (`#detail`, `#legend`, `#fussPfad`, `#crumbs`, `#zustandText` kommen je
+   Seite nur einmal vor). Statt die Werte zu wiederholen, tragen die Regeln
+   dort einen Klassen-Alias — `.sgDetailKarte`, `.sgFussPfad`,
+   `.sgZustandText`, `.sgCrumbs`. Hier steht nur, was `#crumbs` sonst selbst
+   setzt: die Kette ist im Fuss immer offen. */
+.sgCrumbs {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
 /* Exportierte Karte (design-system/): nur der Baustein auf dem Grund der App. */
 body.dsVorschau {
   margin: 0;
@@ -5046,7 +5083,8 @@ input.kopfName:focus {
 }
 /* Der Nachrichtentyp in Monoschrift: er ist ein technischer Bezeichner,
    kein Titel — und als Wurzel des Pfades der Ort, nicht die Aktion. */
-#msgBtn {
+#msgBtn,
+.msgTyp {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -5273,7 +5311,8 @@ button.primary.klein {
 }
 
 /* Der Pfad: einziges nachgebendes Element der Zeile, mit eigener Rollbahn. */
-#fussPfad {
+#fussPfad,
+.sgFussPfad {
   flex: 1 1 auto;
   min-width: 0;
   overflow-x: auto;
@@ -5286,12 +5325,14 @@ button.primary.klein {
 }
 /* Ungefaltet laeuft die Kette ueber die Zeilenbreite hinaus — geklemmt wird
    sie hier nicht, das erledigt die Rollbahn darum. */
-#fussPfad #crumbs {
+#fussPfad #crumbs,
+.sgFussPfad .sgCrumbs {
   width: max-content;
   overflow: visible;
   gap: 0;
 }
-#fussPfad .crumb {
+#fussPfad .crumb,
+.sgFussPfad .crumb {
   padding: 3px 8px;
   border-radius: var(--rund-bedienung);
   background: transparent;
@@ -5299,18 +5340,21 @@ button.primary.klein {
   font-size: 12.5px;
   font-weight: 450;
 }
-#fussPfad .crumb:hover {
+#fussPfad .crumb:hover,
+.sgFussPfad .crumb:hover {
   background: var(--accent-hauch);
 }
 /* Das aktuelle Glied traegt keine Vollfarbe mehr: es steht am Ende einer
    langen Kette und soll sie nicht ueberstrahlen. */
-#fussPfad .crumb.cur {
+#fussPfad .crumb.cur,
+.sgFussPfad .crumb.cur {
   background: var(--accent-soft);
   color: var(--text);
   font-weight: 650;
   cursor: default;
 }
-#fussPfad .crumbSep {
+#fussPfad .crumbSep,
+.sgFussPfad .crumbSep {
   margin: 0 3px;
   font-size: 12px;
   color: var(--border-stark);

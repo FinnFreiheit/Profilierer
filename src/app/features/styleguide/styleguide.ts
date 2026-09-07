@@ -221,6 +221,89 @@ const TAG_VARIANTEN: readonly string[] = [
   't-typerr',
 ];
 
+/** Eine Marke einer XML-Zeile — Klassennamen wie `MARKEN_KLASSE` in `xml-ansicht.ts`. */
+interface SgXmlMarke {
+  kl: string;
+  text: string;
+}
+
+/** Eine Zeile der XML-Karte: Nummer, Hervorhebung, Marken. */
+interface SgXmlZeile {
+  nr: number;
+  aktiv: boolean;
+  marken: readonly SgXmlMarke[];
+}
+
+/**
+ * Beispielzeilen der XML-Karte. Sie stehen hier und nicht im Template, weil
+ * Angular Leerraum in Textknoten zusammenzieht — die Einrueckung des Codes
+ * ueberlebte das nicht. Der Inhalt ist ein gekuerzter Ausschnitt dessen, was
+ * `ExportService.buildBeispielXmlMitPfaden` erzeugt.
+ */
+const XML_BEISPIEL: readonly SgXmlZeile[] = [
+  {
+    nr: 1,
+    aktiv: false,
+    marken: [{ kl: 'xmlDekl', text: '<?xml version="1.0" encoding="UTF-8"?>' }],
+  },
+  {
+    nr: 2,
+    aktiv: false,
+    marken: [
+      { kl: 'xmlTag', text: '<tns:nachricht.zvstr.vollstreckungsauftrag.0300001' },
+      { kl: 'xmlAttr', text: ' xmlns:tns=' },
+      { kl: 'xmlAttrWert', text: '"http://www.xjustiz.de"' },
+      { kl: 'xmlTag', text: '>' },
+    ],
+  },
+  { nr: 3, aktiv: false, marken: [{ kl: 'xmlTag', text: '  <nachrichtenkopf>' }] },
+  {
+    nr: 4,
+    aktiv: false,
+    marken: [
+      { kl: 'xmlTag', text: '    <erstellungszeitpunkt>' },
+      { kl: 'xmlWert', text: '2026-09-07T09:12:00' },
+      { kl: 'xmlTag', text: '</erstellungszeitpunkt>' },
+    ],
+  },
+  { nr: 5, aktiv: false, marken: [{ kl: 'xmlTag', text: '  </nachrichtenkopf>' }] },
+  { nr: 6, aktiv: false, marken: [{ kl: 'xmlTag', text: '  <grunddaten>' }] },
+  { nr: 7, aktiv: false, marken: [{ kl: 'xmlTag', text: '    <beteiligung>' }] },
+  {
+    nr: 8,
+    aktiv: true,
+    marken: [
+      { kl: 'xmlTag', text: '      <rollennummer>' },
+      { kl: 'xmlWert', text: '01' },
+      { kl: 'xmlTag', text: '</rollennummer>' },
+    ],
+  },
+  {
+    nr: 9,
+    aktiv: false,
+    marken: [
+      { kl: 'xmlTag', text: '      <rolle' },
+      { kl: 'xmlAttr', text: ' listURI=' },
+      { kl: 'xmlAttrWert', text: '"urn:xoev-de:xjustiz:codeliste:gds.rollenbezeichnung"' },
+      { kl: 'xmlTag', text: '>' },
+      { kl: 'xmlWert', text: 'Gläubiger' },
+      { kl: 'xmlTag', text: '</rolle>' },
+    ],
+  },
+  {
+    nr: 10,
+    aktiv: false,
+    marken: [{ kl: 'xmlKommentar', text: '      <!-- weggelassen: nicht verwendet -->' }],
+  },
+  { nr: 11, aktiv: false, marken: [{ kl: 'xmlTag', text: '    </beteiligung>' }] },
+  { nr: 12, aktiv: false, marken: [{ kl: 'xmlTag', text: '  </grunddaten>' }] },
+  {
+    nr: 13,
+    aktiv: false,
+    marken: [{ kl: 'xmlTag', text: '</tns:nachricht.zvstr.vollstreckungsauftrag.0300001>' }],
+  },
+];
+
 function tokenWert(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
@@ -256,6 +339,7 @@ export class Styleguide {
   protected readonly radien = RADIEN;
   protected readonly abstaende = ABSTAENDE;
   protected readonly tagVarianten = TAG_VARIANTEN;
+  protected readonly xmlBeispiel = XML_BEISPIEL;
 
   protected schrift(s: TypoStufe): string {
     return s.mono ? 'var(--mono)' : 'inherit';

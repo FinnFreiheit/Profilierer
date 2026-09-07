@@ -15,7 +15,7 @@
   <h2 class="sgGruppe">Grundlagen</h2>
 
   <h3 class="sgTitel">
-    Farben — die 33 Tokens aus <code>:root</code>, gegliedert wie in design.md
+    Farben — die 40 Tokens aus <code>:root</code>, gegliedert wie in design.md
   </h3>
   <section
     class="sgKarte"
@@ -120,7 +120,9 @@
 
   <h2 class="sgGruppe">Bausteine</h2>
 
-  <h3 class="sgTitel">Buttons — Standard, Primär, deaktiviert; Segment- und Ansichtsumschalter</h3>
+  <h3 class="sgTitel">
+    Buttons — Standard, Primär, deaktiviert; Modus- und Ansichtsumschalter (eine Form)
+  </h3>
   <section
     class="sgKarte"
     data-ds-card="bausteine/buttons"
@@ -135,9 +137,9 @@
       <button class="primary" disabled>Primär deaktiviert</button>
     </div>
     <div class="sgReihe">
-      <div class="modusSeg">
-        <button>Betrachten</button>
-        <button class="aktiv">Bearbeiten</button>
+      <div class="viewToggle modusSeg">
+        <button>Ansehen</button>
+        <button class="active">Bearbeiten</button>
         <button>Geführt</button>
       </div>
       <div class="viewToggle">
@@ -541,6 +543,594 @@ Beauftragung des Gerichtsvollziehers mit Forderungsaufstellung und Titel.</texta
       <span class="gruppeLabel mono">ZVSTR</span>
       <span class="gruppeZahl">4</span>
       <span class="gruppeLinie"></span>
+    </div>
+  </section>
+
+  <h2 class="sgGruppe">Editor</h2>
+
+  <h3 class="sgTitel">
+    Kopfzone — drei Zeilen, drei Fragen: was bearbeite ich · wo bin ich · wie arbeite ich
+  </h3>
+  <section
+    class="sgKarte sgBreit"
+    data-ds-card="editor/kopfzone"
+    data-ds-group="Editor"
+    data-ds-name="Kopfzone"
+    data-ds-width="1280"
+  >
+    <div class="kopfleiste kopfzeile">
+      <button class="homeBtn">
+        <span aria-hidden="true">←</span>
+        <span>Übersicht</span>
+      </button>
+      <div class="zone zoneIdent">
+        <input
+          type="text"
+          class="kopfName"
+          aria-label="Name des Kommunikationsszenarios"
+          value="Vollstreckungsauftrag an den Gerichtsvollzieher"
+        />
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="pill pillBtn pillAbn">✔ freigegeben</button>
+      <button class="primary">Speichern</button>
+      <button class="mWeiteres">⋯</button>
+      <span class="pill betaPill">BETA</span>
+    </div>
+
+    <div class="kopfleiste ortzeile">
+      <button class="msgTyp">
+        <span class="msgTypName">nachricht.zvstr.vollstreckungsauftrag.0300001</span>
+        <span class="msgTypPfeil" aria-hidden="true">▾</span>
+      </button>
+      <span class="spacer"></span>
+      <div class="suchFeld">
+        <span class="suchZeichen" aria-hidden="true">⌕</span>
+        <input type="text" aria-label="Feld suchen" placeholder="Feld suchen…" />
+      </div>
+      <div class="viewToggle darstellungSeg" role="group" aria-label="Darstellung">
+        <button class="active">Baum</button>
+        <button>XML</button>
+      </div>
+    </div>
+
+    <div class="kopfleiste arbeitszeile">
+      <div class="viewToggle modusSeg" role="group" aria-label="Arbeitsweise">
+        <button>Ansehen</button>
+        <button class="active">Bearbeiten</button>
+        <button>Geführt</button>
+      </div>
+
+      <span class="zeilenTrenner"></span>
+
+      <span class="stand">
+        <span class="standText">
+          <b class="standZahl">37</b>
+          <span class="standLang">&ngsp;von 214 eigens beantwortet</span>
+        </span>
+        <span class="fsBalken" aria-hidden="true">
+          <span class="fsBalkenFuell" style="width: 17%"></span>
+        </span>
+      </span>
+
+      <span class="zeilenTrenner"></span>
+
+      <div class="astChips" role="group" aria-label="Abschnitte">
+        <button class="astChip aktiv">Grunddaten <span class="astZahl">12/31</span></button>
+        <button class="astChip">Fachdaten <span class="astZahl">4/58</span></button>
+        <button class="astChip">Schriftgutobjekte <span class="astZahl voll">9/9</span></button>
+      </div>
+
+      <span class="spacer"></span>
+
+      <button class="mAnsicht">
+        <span class="lbl-lang">Ansicht</span>
+        <span class="lbl-kurz">≡</span>
+        ▾
+      </button>
+      <button class="primary klein">Nächstes offenes Feld ›</button>
+    </div>
+
+    <div class="sgReihe sgReiheOben">
+      <div class="menuPanel sgMenuStatisch" style="max-width: 300px">
+        <button class="menuItem">
+          Angaben zum Szenario…<span class="menuNeben">Name, Beteiligte</span>
+        </button>
+        <button class="menuItem">
+          Antworten anpassen…<span class="menuNeben">Statusstufen</span>
+        </button>
+        <button class="menuItem">Frühere Fassungen…<span class="menuNeben">Fassung 4</span></button>
+        <button class="menuItem">
+          Pflichtfelder vorbelegen<span class="menuNeben"
+            >Pflicht-Antwort für alle Pflichtfelder</span
+          >
+        </button>
+        <div class="menuSep"></div>
+        <div class="menuKopf">Herunterladen</div>
+        <button class="menuItem">Excel</button>
+        <span class="menuHuelle">
+          <button class="menuItem" disabled>
+            Schematron
+            <span class="menuGrund">gesperrt: Schema-Erweiterungen</span>
+          </button>
+        </span>
+        <button class="menuItem">Beispiel-XML</button>
+        <button class="menuItem">Drucken</button>
+        <div class="menuSep"></div>
+        <button class="menuItem">Grundlage…<span class="menuNeben">XJustiz 3.6.2</span></button>
+      </div>
+
+      <div class="menuPanel sgMenuStatisch" style="max-width: 320px">
+        <div class="menuKopf">Darstellung</div>
+        <label class="menuItem"><input type="checkbox" /> Namen aus dem Schema zeigen</label>
+        <label class="menuItem"><input type="checkbox" checked /> Umfeld kompakt darstellen</label>
+        <div class="menuSep"></div>
+        <div class="menuKopf">Farbig umranden</div>
+        <label class="menuItem">
+          <input type="checkbox" checked />
+          ohne eigene Antwort
+          <span class="menuNeben">177</span>
+        </label>
+        <label class="menuItem">
+          <input type="checkbox" />
+          mit eigener Antwort
+          <span class="menuNeben">37</span>
+        </label>
+        <label class="menuItem">
+          <input type="checkbox" />
+          mit Notiz
+          <span class="menuNeben">6</span>
+        </label>
+        <div class="menuSep"></div>
+        <button class="menuItem">Auf den Anfang zurück</button>
+        <div class="menuSep"></div>
+        <div class="menuKopf">Weitere</div>
+        <label class="menuItem"><input type="checkbox" /> Verweise</label>
+        <label class="menuItem"><input type="checkbox" /> Blätter ausrichten</label>
+      </div>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">
+    Abschnitte — Ast-Chips im Band, dasselbe als Menü, sobald es eng wird (&lt; 1240px)
+  </h3>
+  <section
+    class="sgKarte"
+    data-ds-card="editor/ast-chips"
+    data-ds-group="Editor"
+    data-ds-name="Ast-Chips"
+    data-ds-width="720"
+  >
+    <div class="sgReihe">
+      <button class="astChip">Fachdaten <span class="astZahl">4/58</span></button>
+      <button class="astChip aktiv">Grunddaten <span class="astZahl">12/31</span></button>
+      <button class="astChip">Schriftgutobjekte <span class="astZahl voll">9/9</span></button>
+      <button class="astMenuBtn">Abschnitte ▾</button>
+    </div>
+    <div class="sgReihe sgReiheOben">
+      <div class="menuPanel sgMenuStatisch" style="max-width: 300px">
+        <button class="menuItem astMenuZeile aktiv">
+          <span class="astMenuKopf">
+            <span class="astMenuName">Grunddaten</span>
+            <span class="astZahl">12/31</span>
+          </span>
+          <span class="astMenuBalken" aria-hidden="true">
+            <span class="astMenuBalkenFuell" style="width: 39%"></span>
+          </span>
+        </button>
+        <button class="menuItem astMenuZeile">
+          <span class="astMenuKopf">
+            <span class="astMenuName">Fachdaten</span>
+            <span class="astZahl">4/58</span>
+          </span>
+          <span class="astMenuBalken" aria-hidden="true">
+            <span class="astMenuBalkenFuell" style="width: 7%"></span>
+          </span>
+        </button>
+        <button class="menuItem astMenuZeile">
+          <span class="astMenuKopf">
+            <span class="astMenuName">Schriftgutobjekte</span>
+            <span class="astZahl voll">9/9</span>
+          </span>
+          <span class="astMenuBalken" aria-hidden="true">
+            <span class="astMenuBalkenFuell" style="width: 100%"></span>
+          </span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">
+    Baum-Kasten — ein Element im Baum: Statusstreifen, Name, Kardinalität, Doku, Kennzeichen
+  </h3>
+  <section
+    class="sgKarte"
+    data-ds-card="editor/baum-kasten"
+    data-ds-group="Editor"
+    data-ds-name="Baum-Kasten"
+    data-ds-width="1000"
+  >
+    <div class="sgReihe sgReiheOben">
+      <div class="box leafBox">
+        <div class="statusStrip" style="background: var(--schema-pflicht)"></div>
+        <div class="bt"><span class="bname">Anschrift</span></div>
+        <div class="kard">1 bis n</div>
+        <div class="bdoc">Anschrift einer natürlichen oder juristischen Person.</div>
+      </div>
+
+      <div class="box leafBox">
+        <div class="statusStrip" style="background: var(--frei-fg)"></div>
+        <div class="bt"><span class="bname">Rollennummer</span></div>
+        <div class="kard kardStatus" style="color: var(--frei-fg)">zwingend · genau 1</div>
+        <div class="attrs">
+          <span class="attr"><span class="attrName">listURI</span></span>
+        </div>
+        <div class="tags">
+          <span class="tag t-code">Auswahlliste</span>
+          <span class="tag t-wert">Wert: 01</span>
+        </div>
+      </div>
+
+      <div class="box leafBox sel">
+        <div class="statusStrip" style="background: var(--warn-fg)"></div>
+        <div class="bt"><span class="bname">Bezeichnung</span></div>
+        <div class="kard kardStatus" style="color: var(--warn-fg)">
+          anzugeben, wenn vorhanden · 0 bis 1
+        </div>
+        <div class="tags"><span class="tag t-note">Notiz</span></div>
+      </div>
+
+      <div class="box leafBox markiert">
+        <div class="statusStrip" style="background: var(--schema-pflicht)"></div>
+        <div class="bt"><span class="bname">Postfachnummer</span></div>
+        <div class="kard">0 bis 1</div>
+        <div class="tags"><span class="tag t-open">ohne Antwort</span></div>
+      </div>
+
+      <div class="box leafBox excluded">
+        <div class="statusStrip" style="background: var(--muted-schwach)"></div>
+        <div class="bt"><span class="bname">Auslandsanschrift</span></div>
+        <div class="kard kardStatus" style="color: var(--muted)">nicht verwendet · 0 bis 1</div>
+      </div>
+
+      <div class="box parentBox">
+        <div class="statusStrip" style="background: var(--border)"></div>
+        <div class="bt">
+          <span class="bname">Beteiligung</span>
+          <button class="togBtn">−</button>
+        </div>
+        <div class="kard">1 bis n</div>
+        <div class="bdoc">Sammelelement für alle Beteiligten des Verfahrens.</div>
+      </div>
+
+      <div class="box mini">
+        <div class="statusStrip" style="background: var(--frei-fg)"></div>
+        <div class="bt">
+          <span class="bname">Aktenzeichen</span>
+          <span class="mv">100 C 1234/26</span>
+        </div>
+      </div>
+
+      <div class="box leafBox">
+        <div class="statusStrip" style="background: var(--verweis-fg)"></div>
+        <div class="bt"><span class="bname">Auswahl_Beteiligter</span></div>
+        <div class="kard kardStatus" style="color: var(--verweis-fg)">zu klären · genau 1</div>
+        <div class="tags">
+          <span class="tag t-choice">Auswahl</span>
+          <span class="tag t-ref">Verweis</span>
+        </div>
+      </div>
+
+      <div class="box addBox">+ Ausprägung</div>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">
+    Antwort-Liste — das meistbenutzte Bedienelement: eine Zeile je Antwort, Taste rechts
+  </h3>
+  <section
+    class="sgKarte sgSchmal"
+    data-ds-card="editor/antwort-liste"
+    data-ds-group="Editor"
+    data-ds-name="Antwort-Liste"
+    data-ds-width="480"
+  >
+    <div class="dsec">
+      <span class="dLabel">Ihre Antwort</span>
+      <div class="antwortListe">
+        <button class="antwortZeile">
+          <span class="antwortPunkt"></span>
+          <span class="antwortName">wie Standard</span>
+          <span class="antwortFuell"></span>
+          <span class="antwortTaste">S</span>
+        </button>
+        <button
+          class="antwortZeile aktiv"
+          style="
+            border-color: var(--frei-fg);
+            box-shadow: inset 0 0 0 1px var(--frei-fg);
+            background: var(--frei-bg);
+          "
+        >
+          <span class="antwortPunkt" style="border-color: var(--frei-fg)"></span>
+          <span class="antwortName">zwingend</span>
+          <span class="antwortFuell"></span>
+          <span class="antwortTaste">Z</span>
+        </button>
+        <button class="antwortZeile">
+          <span class="antwortPunkt"></span>
+          <span class="antwortName">anzugeben, wenn vorhanden</span>
+          <span class="antwortFuell"></span>
+          <span class="antwortTaste">O</span>
+        </button>
+        <button class="antwortZeile">
+          <span class="antwortPunkt"></span>
+          <span class="antwortName">nicht verwendet</span>
+          <span class="antwortFuell"></span>
+          <span class="antwortTaste">N</span>
+        </button>
+        <button class="antwortZeile">
+          <span class="antwortPunkt"></span>
+          <span class="antwortName">zu klären</span>
+          <span class="antwortFuell"></span>
+          <span class="antwortTaste">K</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="dsec sgAbstandOben">
+      <span class="dLabel">Festgelegt als</span>
+      <div class="festgelegt" style="border-color: var(--frei-fg); background: var(--frei-bg)">
+        <span class="festgelegtPunkt" style="border-color: var(--frei-fg)"></span>
+        <span class="festgelegtText">
+          <span class="festgelegtName">zwingend</span>
+          <span class="festgelegtErkl">Die Angabe muss in jeder Nachricht enthalten sein.</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="dsec sgAbstandOben">
+      <span class="dLabel">Erlaubte Angaben — nur eine pro Nachricht</span>
+      <div class="zweigListe">
+        <button class="zweigZeile an">
+          <span class="zweigBox">✓</span>
+          <span class="zweigName">natuerlichePerson</span>
+        </button>
+        <button class="zweigZeile">
+          <span class="zweigBox"></span>
+          <span class="zweigName">organisation</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">
+    Detailbereich — schwebende Karte, 394px: Krümel, Titel, Karte mit Kardinalität und Wert
+  </h3>
+  <section
+    class="sgKarte sgSchmal"
+    data-ds-card="editor/detail-karte"
+    data-ds-group="Editor"
+    data-ds-name="Detailbereich"
+    data-ds-width="480"
+  >
+    <div class="sgDetailKarte">
+      <div class="detailGriff"></div>
+      <div class="detailInhalt">
+        <div class="detailKopf">
+          <div class="detailKopfText">
+            <div class="detailKrumen">
+              <button class="krumeBtn">Beteiligung</button>
+              <span class="krumeSep">›</span>
+              <button class="krumeBtn">Beteiligter</button>
+            </div>
+            <h3>Anschrift</h3>
+          </div>
+          <button class="detailZu">×</button>
+        </div>
+
+        <div class="detailKarte">
+          <div class="karteFeld">
+            <span class="dLabel">Wie oft darf es vorkommen?</span>
+            <div class="kardRow">
+              <input type="text" aria-label="Mindestens" placeholder="1" value="1" />
+              bis
+              <input type="text" aria-label="Höchstens" placeholder="*" value="" />
+              <span class="kardHint">leer = Standard</span>
+            </div>
+          </div>
+          <div class="karteFeld">
+            <span class="dLabel">Beispielwert</span>
+            <div class="wertRow">
+              <textarea
+                aria-label="Beispielwert"
+                style="min-height: 40px"
+                placeholder="konkretes Beispiel für die Beispiel-Nachricht"
+              >
+Musterstraße 12</textarea>
+            </div>
+          </div>
+          <div class="karteSchema">
+            <span class="dLabel">Im Schema</span>
+            <span class="karteTech">anschrift (Type.GDS.Anschrift)</span>
+          </div>
+        </div>
+
+        <div class="dsec">
+          <span class="dLabel">Was ist das?</span>
+          <p class="dokuText dokuKurz">
+            Anschrift einer natürlichen oder juristischen Person. Die Angabe folgt der
+            DIN-91379-konformen Schreibweise; Straße und Hausnummer stehen in getrennten Elementen,
+            das Land als Code aus der Länder-Codeliste.
+          </p>
+          <button class="docMehr">mehr anzeigen</button>
+        </div>
+
+        <div class="dsec">
+          <span class="dLabel">Notiz für das Team</span>
+          <textarea
+            rows="2"
+            aria-label="Notiz für das Team"
+            placeholder="Warum diese Antwort? Offene Frage?"
+          ></textarea>
+          <div class="notizHinweis">Erscheint im Excel-Export, nie in der Nachricht selbst.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">Fußzeile — voller Pfad · Sicherungsstand · Hilfe (öffnet nach oben)</h3>
+  <section
+    class="sgKarte"
+    data-ds-card="editor/fusszeile"
+    data-ds-group="Editor"
+    data-ds-name="Fußzeile"
+    data-ds-width="1100"
+  >
+    <div class="fusszeile">
+      <div class="sgFussPfad">
+        <div class="sgCrumbs">
+          <span class="crumb">nachricht.zvstr.vollstreckungsauftrag.0300001</span>
+          <span class="crumbSep">›</span>
+          <span class="crumb">Grunddaten</span>
+          <span class="crumbSep">›</span>
+          <span class="crumb">Beteiligung</span>
+          <span class="crumbSep">›</span>
+          <span class="crumb cur">Anschrift</span>
+        </div>
+      </div>
+      <span class="fussTrenner"></span>
+      <span class="sgZustandText">
+        <span>Automatisch gesichert · 14:32</span>
+        <span class="zustandTeil">Fassung 4</span>
+      </span>
+      <button class="hilfeBtn">Hilfe ▴</button>
+    </div>
+
+    <div class="sgReihe sgReiheOben">
+      <div class="menuPanel sgMenuStatisch" style="max-width: 390px">
+        <div class="hilfeAbschnitt">
+          <div class="menuKopf">Die Antworten bedeuten</div>
+          <div class="hilfeZeile">
+            <span class="hilfePunkt" style="background: var(--accent)"></span>
+            <span
+              ><b>So wie im Standard</b> — Keine eigene Vorgabe — es gilt die Regel des Standards.
+              <kbd>S</kbd></span
+            >
+          </div>
+          <div class="hilfeZeile">
+            <span class="hilfePunkt" style="background: var(--frei-fg)"></span>
+            <span
+              ><b>zwingend</b> — Die Angabe muss in jeder Nachricht enthalten sein.
+              <kbd>Z</kbd></span
+            >
+          </div>
+          <div class="hilfeZeile">
+            <span class="hilfePunkt" style="background: var(--warn-fg)"></span>
+            <span
+              ><b>anzugeben, wenn vorhanden</b> — Ausfüllen, sofern die Information vorliegt — sonst
+              weglassen. <kbd>O</kbd></span
+            >
+          </div>
+          <div class="hilfeZeile">
+            <span class="hilfePunkt" style="background: var(--muted)"></span>
+            <span
+              ><b>nicht verwendet</b> — Wird in diesem Szenario nicht verwendet. <kbd>N</kbd></span
+            >
+          </div>
+          <div class="hilfeZeile">
+            <span class="hilfePunkt" style="background: var(--verweis-fg)"></span>
+            <span
+              ><b>zu klären</b> — Fachlich offen — kommt auf die Klärungsliste. <kbd>K</kbd></span
+            >
+          </div>
+        </div>
+
+        <div class="hilfeAbschnitt">
+          <div class="menuKopf">Schneller mit der Tastatur</div>
+          <div class="hilfeZeile">
+            <span><kbd>✕</kbd> ausblenden · <kbd>⧉</kbd> duplizieren</span>
+          </div>
+          <div class="hilfeZeile">
+            <span><kbd>+</kbd> <kbd>−</kbd> Ast auf und zu</span>
+          </div>
+          <div class="hilfeZeile">
+            <span
+              ><kbd>←</kbd> Eltern · <kbd>→</kbd> Kind · <kbd>↑</kbd> <kbd>↓</kbd> Geschwister</span
+            >
+          </div>
+          <div class="hilfeZeile">
+            <span>
+              Antwort setzen: <kbd>S</kbd> <kbd>Z</kbd> <kbd>O</kbd> <kbd>N</kbd> <kbd>K</kbd> —
+              <kbd>Enter</kbd> nächstes offenes Feld
+            </span>
+          </div>
+        </div>
+
+        <div class="hilfeAbschnitt">
+          <div class="menuKopf">Kennzeichen im Baum</div>
+          <div class="hilfeKennzeichen">
+            <span><span class="tag t-wert">Wert: Text</span> erhält einen Wert</span>
+            <span
+              ><span class="tag t-ext">Schema-Erweiterung</span> nachzubeauftragendes Element</span
+            >
+            <span><span class="tag t-hint">Hinweis</span> offener Hinweis am Element</span>
+            <span
+              ><span
+                class="legDot"
+                style="background: var(--flaeche); border: 1px solid var(--border)"
+              ></span
+              >Elternelement</span
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">
+    XML-Darstellung — dieselbe Nachricht in der Form, in der sie die Leitung verlässt
+  </h3>
+  <section
+    class="sgKarte"
+    data-ds-card="editor/xml-karte"
+    data-ds-group="Editor"
+    data-ds-name="XML-Karte"
+    data-ds-width="960"
+  >
+    <div class="xmlKarte">
+      <div class="xmlKopf">
+        <div class="xmlKopfText">
+          <div class="xmlTitel">Beispiel-Nachricht</div>
+          <div class="xmlUnter">
+            So sieht eine Nachricht aus, die zu Ihren Antworten passt. Die Werte sind Beispiele.
+          </div>
+        </div>
+        <button class="xmlKnopf">Kopieren</button>
+        <button class="primary xmlKnopf">Herunterladen</button>
+      </div>
+
+      <div class="xmlZeilen">
+        @for (z of xmlBeispiel; track z.nr) {
+          <button class="xmlZeile" [class.aktiv]="z.aktiv">
+            <span class="xmlNr">{{ z.nr }}</span>
+            <span class="xmlCode">
+              @for (m of z.marken; track $index) {
+                <span [class]="m.kl">{{ m.text }}</span>
+              }
+            </span>
+          </button>
+        }
+      </div>
+
+      <div class="xmlFuss">
+        <span class="xmlBilanz">214 Elemente · 6 offene Auswahl · XJustiz 3.6.2</span>
+        <span class="spacer"></span>
+        <span class="xmlFussHinweis">
+          Nicht enthalten: Felder mit „Weglassen“ und Felder ohne Antwort, die der Standard nicht
+          verlangt.
+        </span>
+      </div>
     </div>
   </section>
 </div>
