@@ -2456,17 +2456,6 @@ app-schema-suche {
   font-style: italic;
   opacity: 0.7;
 }
-/* Eine Zeile, auch wenn nichts drinsteht — sonst wandert der Fuss. */
-.dcStatus {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 22px;
-  overflow: hidden;
-}
-.dcStatus .pill {
-  white-space: nowrap;
-}
 .dcProg {
   display: flex;
   align-items: center;
@@ -2513,19 +2502,6 @@ app-schema-suche {
   background: var(--fehler-bg);
   color: var(--fehler-fg);
 }
-#dashEmpty {
-  max-width: 640px;
-  margin: 60px auto;
-  text-align: center;
-  color: var(--muted);
-}
-#dashEmpty .big {
-  font-size: 40px;
-}
-#dashEmpty h2 {
-  color: var(--text-stark);
-}
-
 /* Ansicht-Umschalter Profile ↔ Testdaten */
 .viewToggle {
   display: inline-flex;
@@ -2567,16 +2543,6 @@ app-schema-suche {
   gap: 8px;
   margin: 0 0 8px;
 }
-/* Gruppenueberschrift auf dieselbe Spur wie das Raster darunter (#88) —
-   sie stand bisher links ausserhalb des zentrierten Rasters. Gilt fuer beide
-   Uebersichten: Profile und Testdaten teilen sich `#dash` (#91). */
-.dashMain .tdGroupHead {
-  max-width: 1120px;
-  margin: 0 auto 8px;
-}
-.dashMain .tdGroupHead:not(:first-of-type) {
-  margin-top: 22px;
-}
 .tdGroupHead .pill {
   font-family: var(--mono);
   font-size: 12px;
@@ -2597,7 +2563,6 @@ app-schema-suche {
 /* ── Schlagworte (Tags) ──────────────────────────────────────────────
    Dieselben Chips in Filterleiste, Kachel und Eingabefeld: ein Schlagwort
    sieht ueberall gleich aus, egal ob es gerade filtert oder nur beschreibt. */
-.tagLeiste,
 .tagVorschlaege {
   display: flex;
   flex-wrap: wrap;
@@ -2640,15 +2605,6 @@ app-tag-eingabe input {
 .tagChipN {
   opacity: 0.65;
   font-variant-numeric: tabular-nums;
-}
-.tagReset {
-  font-size: 12px;
-  padding: 2px 8px;
-  border: none;
-  background: none;
-  color: var(--muted);
-  text-decoration: underline;
-  cursor: pointer;
 }
 /* Schlagworte umbrechen auf der Kachel: sie sollen vollstaendig lesbar sein.
    Das laesst Kacheln unterschiedlich hoch werden — innerhalb einer Zeile
@@ -2727,15 +2683,6 @@ app-tag-eingabe input {
   color: #b3261e;
   font-size: 13px;
 }
-.abnFilter {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 13px;
-  color: var(--muted);
-  cursor: pointer;
-}
-
 dialog {
   border: 1px solid var(--border);
   border-radius: var(--rund-kasten);
@@ -4714,6 +4661,24 @@ app-bibliothek {
   flex: none;
   font-weight: 600;
 }
+/* Traegt eine Kachel mehrere Kennzeichen (Entwurf, „Profil weiterentwickelt",
+   Hinweise, Erweiterungen), reicht die schmalste Rasterspalte nicht. Statt ueber
+   die Kante zu laufen, kuerzen die Zustandspillen — Fachmodul und ⋯ bleiben
+   ganz, der volle Text steht im Tooltip. */
+.dcKopf {
+  overflow: hidden;
+}
+.dcKopf .pill {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Das Fachmodul ordnet die Kachel ein und ist kurz — es kuerzt als Letztes. */
+.dcKopf .modulPill {
+  flex: none;
+}
 .z-frei {
   background: var(--frei-bg);
   color: var(--frei-fg);
@@ -4789,6 +4754,22 @@ app-bibliothek {
 .dcAutor.leer {
   font-weight: 400;
   color: var(--muted);
+}
+/* Herkunft der Testnachricht: liest sich als Fusszeilen-Text, springt aber in
+   die gebundene Profilierung — darum ein Knopf ohne Knopf-Optik. */
+.dcAutorBtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  text-align: left;
+  cursor: pointer;
+}
+.dcAutorBtn:hover {
+  background: none;
+  text-decoration: underline;
 }
 .dcProjekt {
   font-size: 12px;

@@ -269,7 +269,7 @@ describe('Testdaten — Variante anlegen', () => {
 describe('Testdaten — Projektfilter und Einordnen-Einstieg', () => {
   let td: {
     openAblage: (e: TestmessageEntry, ev: Event) => void;
-    nurProjekt: { set: (v: string) => void };
+    fProjekt: { set: (v: string[]) => void };
     gruppen: () => { items: TestmessageEntry[] }[];
   };
 
@@ -306,7 +306,7 @@ describe('Testdaten — Projektfilter und Einordnen-Einstieg', () => {
   it('grenzt den Speicher auf ein Projekt ein', () => {
     const treffer = (): string[] => td.gruppen().flatMap((g) => g.items.map((e) => e.id));
     expect(treffer().length).toBe(2);
-    td.nurProjekt.set('prj1');
+    td.fProjekt.set(['prj1']);
     expect(treffer()).toEqual(['geb']);
   });
 
@@ -316,6 +316,124 @@ describe('Testdaten — Projektfilter und Einordnen-Einstieg', () => {
     td.openAblage(upload, ev);
     expect(ev.stopPropagation).toHaveBeenCalled();
     expect(TestBed.inject(EinordnenService).ziel()).toEqual({ art: 'testnachricht', id: 'upl' });
+  });
+});
+
+/**
+ * Filterspalte (Bibliothek v4): Achsen kombinieren mit UND, Werte einer Achse
+ * mit ODER — die Zustands-Achse arbeitet auf Kennzeichen, die sich nicht
+ * ausschliessen. Die Zaehler sagen, was ein Klick braechte.
+ */
+describe('Testdaten — Filterspalte, Gliederung und Kennzahl', () => {
+  let td: {
+    fZustand: { set: (v: string[]) => void };
+    fModul: { set: (v: string[]) => void };
+    gliederung: { set: (v: string) => void };
+    gruppen: () => {
+      schluessel: string;
+      label: string;
+      mono: boolean;
+      items: TestmessageEntry[];
+    }[];
+    achsen: () => { key: string; werte: { id: string; n: number }[] }[];
+    metaArt: (e: TestmessageEntry) => string;
+    metaText: (e: TestmessageEntry) => string;
+    kennzeichen: (e: TestmessageEntry) => string[];
+  };
+
+  const nachricht = (over: Partial<TestmessageEntry> = {}): TestmessageEntry =>
+    ({
+      id: 'x',
+      name: 'a.xml',
+      nachricht: 'nachricht.genuva.ersuchen',
+      fachmodul: 'genuva',
+      groesse: 10,
+      hochgeladen: 0,
+      aktualisiert: 0,
+      ...over,
+    }) as TestmessageEntry;
+
+  // „entwurf" und „weiterentwickelt" zugleich: ein Eintrag traegt mehrere
+  // Kennzeichen — genau der Fall, den eine Zustands-Achse mit UND verloere.
+  const beides = nachricht({
+    id: 'beides',
+    entwurf: true,
+    profilId: 'p1',
+    profilName: 'Ersuchen',
+    profilWeiterentwickelt: true,
+  });
+  const frei = nachricht({ id: 'frei', fachmodul: 'gds', abgenommen: true });
+  const roh = nachricht({ id: 'roh', nachricht: 'nachricht.gds.uebermittlung' });
+
+  const treffer = (): string[] => td.gruppen().flatMap((g) => g.items.map((e) => e.id));
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [Testdaten],
+      providers: [
+        { provide: ProfileStoreService, useValue: { entries: () => [] } },
+        {
+          provide: TestmessageStoreService,
+          useValue: { entries: () => [beides, frei, roh], refresh: async () => {} },
+        },
+        { provide: ToastService, useValue: { show: () => {}, showError: () => {} } },
+      ],
+    }).compileComponents();
+    td = TestBed.createComponent(Testdaten).componentInstance as unknown as typeof td;
+  });
+
+  it('leitet mehrere Kennzeichen aus einem Eintrag ab', () => {
+    expect(td.kennzeichen(beides)).toEqual(['entwurf', 'weiterentwickelt']);
+    expect(td.kennzeichen(frei)).toEqual(['frei', 'ohneBindung']);
+  });
+
+  it('verknuepft die Zustands-Achse mit ODER', () => {
+    td.fZustand.set(['entwurf']);
+    expect(treffer()).toEqual(['beides']);
+    td.fZustand.set(['weiterentwickelt']);
+    expect(treffer()).toEqual(['beides']);
+    td.fZustand.set(['entwurf', 'frei']);
+    expect(treffer().sort()).toEqual(['beides', 'frei']);
+  });
+
+  it('gliedert nach Nachricht statt nach Fachmodul', () => {
+    td.gliederung.set('nachricht');
+    const g = td.gruppen();
+    expect(g.map((x) => x.label)).toEqual([
+      'nachricht.gds.uebermittlung',
+      'nachricht.genuva.ersuchen',
+    ]);
+    expect(g.every((x) => x.mono)).toBeTrue();
+  });
+
+  it('zaehlt je Wert, was der Klick braechte — nicht, was uebrig bliebe', () => {
+    const module = (): { id: string; n: number }[] =>
+      td
+        .achsen()
+        .find((a) => a.key === 'modul')!
+        .werte.map((w) => ({ id: w.id, n: w.n }));
+    expect(module()).toEqual([
+      { id: 'genuva', n: 2 },
+      { id: 'gds', n: 1 },
+    ]);
+    // Die eigene Achse bleibt beim Zaehlen aussen vor: „gds" verspricht
+    // weiterhin einen Treffer, obwohl gerade „genuva" gesetzt ist.
+    td.fModul.set(['genuva']);
+    expect(module()).toEqual([
+      { id: 'genuva', n: 2 },
+      { id: 'gds', n: 1 },
+    ]);
+  });
+
+  it('faerbt die Kennzahl nach dem Stand der Pflichtangaben', () => {
+    expect(td.metaArt(nachricht({ fortschritt: { x: 3, y: 7 } }))).toBe('offen');
+    expect(td.metaText(nachricht({ fortschritt: { x: 3, y: 7 } }))).toBe('3 von 7 Pflichtangaben');
+    expect(td.metaArt(nachricht({ fortschritt: { x: 7, y: 7 } }))).toBe('voll');
+    // Weiterentwickelte Vorgabe schlaegt den Stand: die Zahl ist von gestern.
+    expect(
+      td.metaArt(nachricht({ fortschritt: { x: 7, y: 7 }, profilWeiterentwickelt: true })),
+    ).toBe('alt');
+    expect(td.metaArt(nachricht())).toBe('alt');
   });
 });
 

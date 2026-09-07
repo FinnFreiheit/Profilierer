@@ -251,13 +251,14 @@ Beauftragung des Gerichtsvollziehers mit Forderungsaufstellung und Titel.</texta
     data-ds-name="Leerer Zustand"
     data-ds-width="720"
   >
-    <div id="dashEmpty">
-      <div class="big">§ ⇄ &lt;/&gt;</div>
-      <h2>Noch keine Profilierungen</h2>
+    <div class="dashLeer">
+      <div class="dashLeerSymbol">§ ⇄ &lt;/&gt;</div>
+      <h3>Noch keine Profilierungen</h3>
       <p>
         Lege ein <b>neues Profil</b> an oder importiere eine bestehende
         <code>.profil.json</code>-Datei.
       </p>
+      <button class="primary">+ Neues Profil</button>
     </div>
   </section>
 
@@ -479,6 +480,87 @@ Beauftragung des Gerichtsvollziehers mit Forderungsaufstellung und Titel.</texta
             <span class="spacer"></span>
             <span class="metaPill meta-alt">31 Festlegungen · 4 Ausprägungen</span>
             <span class="dcDate">12.03.2026</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">Testnachricht-Kachel — Kennzeichen im Kopf, Herkunft und Stand im Fuß</h3>
+  <section
+    class="sgKarte dashV4"
+    data-ds-card="uebersicht/testnachricht-kachel"
+    data-ds-group="Übersicht"
+    data-ds-name="Testnachricht-Kachel"
+    data-ds-width="1000"
+  >
+    <div class="kachelRaster">
+      <div class="dashCard" title="Geführt fortsetzen">
+        <div class="dcKopf">
+          <span class="modulPill">zvstr</span>
+          <span class="pill zustandPill z-arbeit">Entwurf</span>
+          <button type="button" class="pill pillBtn zustandPill z-geaendert">
+            Profil weiterentwickelt
+          </button>
+          <span class="spacer"></span>
+          <button class="dcMenuBtn" title="Weitere Aktionen">
+            <span class="lbl-lang">⋯</span>
+          </button>
+        </div>
+        <div class="dcName">Vollstreckungsauftrag — zwei Beteiligte</div>
+        <div class="dcMsg">
+          <span class="dcMsgKopf">nachricht.zvstr.vollstreckungsauftrag</span
+          ><span class="dcMsgEnde">.0300001</span>
+        </div>
+        <div class="dcBeschreibung">
+          Negativtest: Forderungsaufstellung ohne Titel, für den Herstellerabgleich.
+        </div>
+        <div class="dcTags">
+          <button type="button" class="tagChip">Pilot</button>
+          <button type="button" class="tagChip tagChipAktiv">Negativtest</button>
+        </div>
+        <div class="dcFuss">
+          <div class="dcFussZeile">
+            <button type="button" class="dcAutor dcAutorBtn">
+              aus Profil „Vollstreckungsauftrag" (v3)
+            </button>
+            <span class="spacer"></span>
+            <span class="dcProjekt">Pilot Zwangsvollstreckung</span>
+          </div>
+          <div class="dcFussZeile">
+            <span class="spacer"></span>
+            <span class="metaPill meta-alt">12 von 19 Pflichtangaben</span>
+            <span class="dcDate">04.09.2026</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashCard" title="Im Baum öffnen (betrachten)">
+        <div class="dcKopf">
+          <span class="modulPill">gds</span>
+          <span class="pill zustandPill z-frei">freigegeben</span>
+          <span class="spacer"></span>
+          <button class="dcMenuBtn" title="Weitere Aktionen">
+            <span class="lbl-lang">⋯</span>
+          </button>
+        </div>
+        <div class="dcName">aktenzeichenmitteilung-referenz.xml</div>
+        <div class="dcMsg">
+          <span class="dcMsgKopf">nachricht.gds.aktenzeichenmitteilung</span
+          ><span class="dcMsgEnde">.0005007</span>
+        </div>
+        <div class="dcBeschreibung leer">keine Notiz</div>
+        <div class="dcTags"></div>
+        <div class="dcFuss">
+          <div class="dcFussZeile">
+            <span class="dcAutor leer">ohne Profilbindung</span>
+            <span class="spacer"></span>
+            <span class="dcProjekt leer">ohne Projekt</span>
+          </div>
+          <div class="dcFussZeile">
+            <span class="spacer"></span>
+            <span class="metaPill meta-alt">4.2 kB</span>
+            <span class="dcDate">28.08.2026</span>
           </div>
         </div>
       </div>

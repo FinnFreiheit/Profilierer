@@ -104,7 +104,9 @@
       (change)="gliederung.set($any($event.target).value)"
     >
       @for (g of gliederungen; track g.id) {
-        <option [value]="g.id">{{ g.label }}</option>
+        <!-- `selected` an der Option, nicht nur `value` am Feld: die Optionen
+             entstehen erst nach dem Binden, sonst stuende immer die erste. -->
+        <option [value]="g.id" [selected]="g.id === gliederung()">{{ g.label }}</option>
       }
     </select>
     <div class="ansichtToggle">
