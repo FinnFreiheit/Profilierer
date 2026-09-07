@@ -17,6 +17,7 @@ import { Testdaten } from './features/testdaten/testdaten';
 import { Howto } from './features/howto/howto';
 import { Kennzahlen } from './features/kennzahlen/kennzahlen';
 import { Projekte } from './features/projekte/projekte';
+import { Styleguide } from './features/styleguide/styleguide';
 import { PersistenceService } from './core/services/persistence.service';
 import { CodelistService } from './core/services/codelist.service';
 import { ExportService } from './core/services/export.service';
@@ -47,6 +48,7 @@ import { UeberlagerungService } from './core/services/ueberlagerung.service';
 import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
 import { BundledVersion } from './models/schema-bundle.model';
 import { vereineVersionen } from './core/util/schema-quellen.util';
+import { ansichtAusUrl } from './core/util/ansicht-url.util';
 import { NachrichtSpeichernDialog } from './features/dialogs/nachricht-speichern-dialog';
 
 /**
@@ -82,6 +84,7 @@ function istZweigWahl(el: HTMLElement): boolean {
     Howto,
     Projekte,
     Kennzahlen,
+    Styleguide,
     ValidationDialog,
     ProfilDiffDialog,
     XmlDiffDialog,
@@ -167,6 +170,8 @@ export class App implements OnInit {
    * selbst nach).
    */
   async ngOnInit(): Promise<void> {
+    // Vor allem anderen lesen: `startZiel()` raeumt die Adresszeile.
+    const ansicht = ansichtAusUrl(window.location.search);
     // Einmalige Migration der frueher im localStorage gehaltenen Profil-Bibliothek
     // ins DB-Backend (idempotent, nur bei leerem Backend).
     await this.migration.runOnce();
@@ -185,6 +190,10 @@ export class App implements OnInit {
     }
     if (geteilt?.art === 'profil') await this.persistence.openFromLibrary(geteilt.id);
     if (geteilt?.art === 'testnachricht') await this.oeffneGeteilteNachricht(geteilt.id);
+    // Entwicklerwerkzeug: der Styleguide ist die Quelle des Design-System-
+    // Spiegels (ADR 0022) und haengt an keinem Store — nach dem Schema, damit
+    // die Datenbasis fuer einen spaeteren Wechsel in die Uebersicht steht.
+    if (ansicht === 'styleguide') this.state.view.set('styleguide');
   }
 
   /**

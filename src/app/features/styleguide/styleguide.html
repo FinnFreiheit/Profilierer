@@ -1,0 +1,546 @@
+<!--
+  Styleguide: jede <section data-ds-card> ist eine Karte des Design-Systems.
+  Das Bundle-Skript exportiert ihr Markup unveraendert — daher nur Klassen,
+  die es in der App gibt, und Beispieldaten statt Store-Bindungen.
+-->
+<div id="dash" class="sgSeite">
+  <div class="dashHead">
+    <h1><span>XJustiz</span> Pfadfinder — Styleguide</h1>
+    <p class="dashSub">
+      Bausteine und Tokens der App, gerendert mit dem echten Stylesheet. Quelle des
+      Design-System-Spiegels in Claude Design (<code>npm run design:bundle</code>).
+    </p>
+  </div>
+
+  <h2 class="sgGruppe">Grundlagen</h2>
+
+  <h3 class="sgTitel">
+    Farben — die 33 Tokens aus <code>:root</code>, gegliedert wie in design.md
+  </h3>
+  <section
+    class="sgKarte"
+    data-ds-card="grundlagen/farben"
+    data-ds-group="Grundlagen"
+    data-ds-name="Farben"
+    data-ds-width="900"
+  >
+    @for (g of farbGruppen; track g.gruppe) {
+      <div class="sgUntertitel">{{ g.gruppe }}</div>
+      <div class="sgSwatches">
+        @for (f of g.tokens; track f.name) {
+          <div class="sgSwatch">
+            <span class="sgFarbe" [style.background]="'var(' + f.name + ')'"></span>
+            <span class="sgSwatchText">
+              <code>{{ f.name }}</code>
+              <span class="sgWert">{{ f.wert }}</span>
+              <span class="sgRolle">{{ f.rolle }}</span>
+            </span>
+          </div>
+        }
+      </div>
+    }
+  </section>
+
+  <h3 class="sgTitel">Typografie — die Schriftleiter aus design.md, Systemschrift und Mono</h3>
+  <section
+    class="sgKarte"
+    data-ds-card="grundlagen/typografie"
+    data-ds-group="Grundlagen"
+    data-ds-name="Typografie"
+    data-ds-width="900"
+  >
+    @for (s of typoStufen; track s.name) {
+      <div class="sgTypoZeile">
+        <span class="sgTypoMeta">
+          <code>{{ s.name }}</code>
+          <span class="sgWert"
+            >{{ s.groesse }}px · {{ s.gewicht }} · {{ s.zeilenhoehe
+            }}{{ s.spationierung !== '0' ? ' · ' + s.spationierung : '' }}</span
+          >
+          <span class="sgRolle">{{ s.verwendung }}</span>
+        </span>
+        <span
+          class="sgTypoProbe"
+          [style.font-size.px]="s.groesse"
+          [style.font-weight]="s.gewicht"
+          [style.line-height]="s.zeilenhoehe"
+          [style.letter-spacing]="s.spationierung"
+          [style.font-family]="schrift(s)"
+          >{{
+            s.mono
+              ? 'nachricht.zvstr.vollstreckungsauftrag.0300001'
+              : 'Profilierung Vollstreckungsauftrag'
+          }}</span
+        >
+      </div>
+    }
+  </section>
+
+  <h3 class="sgTitel">Radien — drei Familien: Bedienung 6–8, Kasten 9–10, Pille</h3>
+  <section
+    class="sgKarte"
+    data-ds-card="grundlagen/radien"
+    data-ds-group="Grundlagen"
+    data-ds-name="Radien"
+    data-ds-width="900"
+  >
+    <div class="sgReihe">
+      @for (r of radien; track r[0]) {
+        <div class="sgProbe">
+          <span class="sgRadiusProbe" [style.border-radius]="r[1]"></span>
+          <span class="sgSwatchText">
+            <code>{{ r[0] }}</code>
+            <span class="sgWert">{{ r[1] }}</span>
+            <span class="sgRolle">{{ r[2] }}</span>
+          </span>
+        </div>
+      }
+    </div>
+  </section>
+
+  <h3 class="sgTitel">Abstände — 2px-Raster, bevorzugte Stufen</h3>
+  <section
+    class="sgKarte"
+    data-ds-card="grundlagen/abstaende"
+    data-ds-group="Grundlagen"
+    data-ds-name="Abstände"
+    data-ds-width="900"
+  >
+    @for (a of abstaende; track a[0]) {
+      <div class="sgAbstandZeile">
+        <span class="sgSwatchText">
+          <code>{{ a[0] }}</code>
+          <span class="sgWert">{{ a[1] }}</span>
+        </span>
+        <span class="sgAbstandProbe" [style.width]="a[1]"></span>
+        <span class="sgRolle">{{ a[2] }}</span>
+      </div>
+    }
+  </section>
+
+  <h2 class="sgGruppe">Bausteine</h2>
+
+  <h3 class="sgTitel">Buttons — Standard, Primär, deaktiviert; Segment- und Ansichtsumschalter</h3>
+  <section
+    class="sgKarte"
+    data-ds-card="bausteine/buttons"
+    data-ds-group="Bausteine"
+    data-ds-name="Buttons"
+    data-ds-width="720"
+  >
+    <div class="sgReihe">
+      <button>Standard</button>
+      <button class="primary">+ Neues Profil</button>
+      <button disabled>Deaktiviert</button>
+      <button class="primary" disabled>Primär deaktiviert</button>
+    </div>
+    <div class="sgReihe">
+      <div class="modusSeg">
+        <button>Betrachten</button>
+        <button class="aktiv">Bearbeiten</button>
+        <button>Geführt</button>
+      </div>
+      <div class="viewToggle">
+        <button>Projekte</button>
+        <button class="active" disabled>Profile</button>
+        <button>Testdaten</button>
+        <button>Anleitung</button>
+      </div>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">Eingaben — eine Formensprache für Text, Suche, Auswahl und Mehrzeiler</h3>
+  <section
+    class="sgKarte"
+    data-ds-card="bausteine/eingaben"
+    data-ds-group="Bausteine"
+    data-ds-name="Eingaben"
+    data-ds-width="720"
+  >
+    <div class="sgReihe">
+      <input type="text" placeholder="Textfeld" value="Vollstreckungsauftrag GV" />
+      <input class="suchfeld" type="search" placeholder="Suchen (Name, Nachricht, Fachmodul)…" />
+      <select>
+        <option>alle Projekte</option>
+        <option>Pilot Zwangsvollstreckung (4)</option>
+      </select>
+      <input type="password" placeholder="Gemeinsamer AG-Schlüssel" />
+    </div>
+    <div class="metaGrid sgReihe">
+      <label for="sgName">Name</label>
+      <input id="sgName" type="text" value="Vollstreckungsauftrag GV" />
+      <label for="sgAutor">Autor</label>
+      <input id="sgAutor" type="text" value="F. Freiheit" />
+      <label for="sgBeschreibung">Beschreibung</label>
+      <textarea id="sgBeschreibung" rows="2">
+Beauftragung des Gerichtsvollziehers mit Forderungsaufstellung und Titel.</textarea>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">
+    Pills — Kennzeichen: Fachmodul, Freigabe, Warnung, Erweiterung, Entwurf, Beta
+  </h3>
+  <section
+    class="sgKarte"
+    data-ds-card="bausteine/pills"
+    data-ds-group="Bausteine"
+    data-ds-name="Pills"
+    data-ds-width="720"
+  >
+    <div class="sgReihe">
+      <span class="pill">Pill</span>
+      <span class="pill pillMuted">ZVSTR</span>
+      <span class="pill pillAbn">✔ freigegeben</span>
+      <button type="button" class="pill pillBtn pillAbnWarn">⚠ seit Freigabe geändert</button>
+      <button type="button" class="pill pillBtn">3 Hinweise (1 extern)</button>
+      <span class="pill pillExt">2 Erw.</span>
+      <span class="pill pillDraft">Entwurf</span>
+      <span class="pill betaPill">BETA</span>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">Chips — Schlagworte, Zweigwahl im geführten Modus, Bereiche der Matrix</h3>
+  <section
+    class="sgKarte"
+    data-ds-card="bausteine/chips"
+    data-ds-group="Bausteine"
+    data-ds-name="Chips"
+    data-ds-width="720"
+  >
+    <div class="sgReihe">
+      <button type="button" class="tagChip">Schlagwort</button>
+      <button type="button" class="tagChip tagChipAktiv">gewählt</button>
+      <button type="button" class="tagChip">Pilot <span class="tagChipN">4</span></button>
+      <button type="button" class="gChip">grunddaten / beteiligung</button>
+      <span class="matrixBereichChip">Grunddaten · 12</span>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">Menü — Werkzeuge auf Abruf (⋯-Menü der Kachel, Kopfleiste)</h3>
+  <section
+    class="sgKarte"
+    data-ds-card="bausteine/menue"
+    data-ds-group="Bausteine"
+    data-ds-name="Menü"
+    data-ds-width="420"
+  >
+    <div class="menuPanel sgMenuStatisch">
+      <div class="menuKopf">Werkzeuge</div>
+      <button class="menuItem">Metadaten bearbeiten…</button>
+      <button class="menuItem">Einordnen…</button>
+      <span class="menuHuelle" title="Gesperrt: Schema-Erweiterungen">
+        <button class="menuItem" disabled>
+          Testnachricht erstellen…
+          <span class="menuGrund">gesperrt: Schema-Erweiterungen</span>
+        </button>
+      </span>
+      <button class="menuItem">Kopie</button>
+      <label class="menuItem"><input type="checkbox" checked /> Geführt</label>
+      <div class="menuSep"></div>
+      <button class="menuItem del">Löschen</button>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">Leerer Zustand — Übersicht ohne Einträge</h3>
+  <section
+    class="sgKarte"
+    data-ds-card="bausteine/leerer-zustand"
+    data-ds-group="Bausteine"
+    data-ds-name="Leerer Zustand"
+    data-ds-width="720"
+  >
+    <div id="dashEmpty">
+      <div class="big">§ ⇄ &lt;/&gt;</div>
+      <h2>Noch keine Profilierungen</h2>
+      <p>
+        Lege ein <b>neues Profil</b> an oder importiere eine bestehende
+        <code>.profil.json</code>-Datei.
+      </p>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">Baum-Tags — Kennzeichen am Element im Baum (alle Varianten)</h3>
+  <section
+    class="sgKarte"
+    data-ds-card="bausteine/baum-tags"
+    data-ds-group="Bausteine"
+    data-ds-name="Baum-Tags"
+    data-ds-width="720"
+  >
+    <div class="sgReihe">
+      @for (t of tagVarianten; track t) {
+        <span [class]="'tag ' + t">{{ t }}</span>
+      }
+    </div>
+  </section>
+
+  <h2 class="sgGruppe">Übersicht</h2>
+
+  <h3 class="sgTitel">Kachel — fünf Zustände einer Profilierung (⋯ erscheint beim Überfahren)</h3>
+  <section
+    class="sgKarte dashV4"
+    data-ds-card="uebersicht/kachel"
+    data-ds-group="Übersicht"
+    data-ds-name="Kachel"
+    data-ds-width="1000"
+  >
+    <div class="kachelRaster">
+      <div class="dashCard" title="Profilierung öffnen und bearbeiten">
+        <div class="dcKopf">
+          <span class="modulPill">ZVSTR</span>
+          <span class="pill zustandPill z-frei">freigegeben</span>
+          <span class="spacer"></span>
+          <button class="dcMenuBtn" title="Weitere Aktionen">
+            <span class="lbl-lang">⋯</span>
+          </button>
+        </div>
+        <div class="dcName">Vollstreckungsauftrag an den Gerichtsvollzieher</div>
+        <div class="dcMsg">
+          <span class="dcMsgKopf">nachricht.zvstr.vollstreckungsauftrag</span
+          ><span class="dcMsgEnde">.0300001</span>
+        </div>
+        <div class="dcBeschreibung">
+          Beauftragung des Gerichtsvollziehers mit Forderungsaufstellung und Titel.
+        </div>
+        <div class="dcTags">
+          <button type="button" class="tagChip">Pilot</button>
+          <button type="button" class="tagChip">ZV</button>
+        </div>
+        <div class="dcFuss">
+          <div class="dcFussZeile">
+            <span class="dcAutor">F. Freiheit</span>
+            <span class="spacer"></span>
+            <span class="dcProjekt">Pilot Zwangsvollstreckung</span>
+          </div>
+          <div class="dcFussZeile">
+            <span class="spacer"></span>
+            <span class="metaPill meta-voll">vollständig</span>
+            <span class="dcDate">28.08.2026</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashCard" title="Profilierung öffnen und bearbeiten">
+        <div class="dcKopf">
+          <span class="modulPill">ZVSTR</span>
+          <button type="button" class="pill pillBtn zustandPill z-geaendert">
+            seit Freigabe geändert
+          </button>
+          <span class="spacer"></span>
+          <button class="dcMenuBtn" title="Weitere Aktionen">
+            <span class="lbl-lang">⋯</span>
+          </button>
+        </div>
+        <div class="dcName">Vollstreckungsauftrag Vermögensauskunft</div>
+        <div class="dcMsg">
+          <span class="dcMsgKopf">nachricht.zvstr.vollstreckungsauftrag</span
+          ><span class="dcMsgEnde">.0300001</span>
+        </div>
+        <div class="dcBeschreibung">Variante mit Vermögensauskunft nach § 802c ZPO.</div>
+        <div class="dcTags"><button type="button" class="tagChip tagChipAktiv">ZV</button></div>
+        <div class="dcFuss">
+          <div class="dcFussZeile">
+            <span class="dcAutor">M. Beispiel</span>
+            <span class="spacer"></span>
+            <span class="dcProjekt">Pilot Zwangsvollstreckung</span>
+          </div>
+          <div class="dcFussZeile">
+            <span class="spacer"></span>
+            <span class="metaPill meta-offen">6 offen</span>
+            <span class="dcDate">02.09.2026</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashCard" title="Profilierung öffnen und bearbeiten">
+        <div class="dcKopf">
+          <span class="modulPill">ZIVIL</span>
+          <span class="pill zustandPill z-arbeit">in Arbeit</span>
+          <button type="button" class="pill pillBtn">3 Hinweise (1 extern)</button>
+          <span class="pill pillExt">2 Erw.</span>
+          <span class="spacer"></span>
+          <button class="dcMenuBtn" title="Weitere Aktionen">
+            <span class="lbl-lang">⋯</span>
+          </button>
+        </div>
+        <div class="dcName">Terminsmitteilung Zivil</div>
+        <div class="dcMsg">
+          <span class="dcMsgKopf">nachricht.zivil.terminsmitteilung</span
+          ><span class="dcMsgEnde">.0100005</span>
+        </div>
+        <div class="dcBeschreibung">Mit nachzubeauftragenden Elementen für die Ladung per eBO.</div>
+        <div class="dcTags"></div>
+        <div class="dcFuss">
+          <div class="dcFussZeile">
+            <span class="dcAutor leer">ohne Autor</span>
+            <span class="spacer"></span>
+            <span class="dcProjekt leer">ohne Projekt</span>
+          </div>
+          <div class="dcFussZeile">
+            <span class="spacer"></span>
+            <span class="metaPill meta-offen">15 offen</span>
+            <span class="dcDate">04.09.2026</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashCard" title="Profilierung öffnen und bearbeiten">
+        <div class="dcKopf">
+          <span class="modulPill">—</span>
+          <span class="pill zustandPill z-leer">leer</span>
+          <span class="spacer"></span>
+          <button class="dcMenuBtn" title="Weitere Aktionen">
+            <span class="lbl-lang">⋯</span>
+          </button>
+        </div>
+        <div class="dcName">Neues Profil</div>
+        <div class="dcMsg dcMsgLeer">keine Nachricht gewählt</div>
+        <div class="dcBeschreibung leer">keine Beschreibung</div>
+        <div class="dcTags"></div>
+        <div class="dcFuss">
+          <div class="dcFussZeile">
+            <span class="dcAutor leer">ohne Autor</span>
+            <span class="spacer"></span>
+            <span class="dcProjekt leer">ohne Projekt</span>
+          </div>
+          <div class="dcFussZeile">
+            <span class="spacer"></span>
+            <span class="metaPill meta-alt">noch leer</span>
+            <span class="dcDate">05.09.2026</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashCard" title="Profilierung öffnen und bearbeiten">
+        <div class="dcKopf">
+          <span class="modulPill">GDS</span>
+          <span class="pill zustandPill z-arbeit">in Arbeit</span>
+          <span class="spacer"></span>
+          <button class="dcMenuBtn" title="Weitere Aktionen">
+            <span class="lbl-lang">⋯</span>
+          </button>
+        </div>
+        <div class="dcName">Aktenzeichenmitteilung (Altbestand)</div>
+        <div class="dcMsg">
+          <span class="dcMsgKopf">nachricht.gds.aktenzeichenmitteilung</span
+          ><span class="dcMsgEnde">.0005007</span>
+        </div>
+        <div class="dcBeschreibung">
+          Vor der Umstellung auf Entscheidungspunkte angelegt — Stand als Festlegungen.
+        </div>
+        <div class="dcTags"></div>
+        <div class="dcFuss">
+          <div class="dcFussZeile">
+            <span class="dcAutor">F. Freiheit</span>
+            <span class="spacer"></span>
+            <span class="dcProjekt leer">ohne Projekt</span>
+          </div>
+          <div class="dcFussZeile">
+            <span class="spacer"></span>
+            <span class="metaPill meta-alt">31 Festlegungen · 4 Ausprägungen</span>
+            <span class="dcDate">12.03.2026</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">Filterspalte — Achsen mit Zählern; der Zähler sagt, was der Klick brächte</h3>
+  <section
+    class="sgKarte"
+    data-ds-card="uebersicht/filterspalte"
+    data-ds-group="Übersicht"
+    data-ds-name="Filterspalte"
+    data-ds-width="360"
+  >
+    <div class="dashFilter sgFilterStatisch">
+      <div class="fKopf">
+        <span class="fAchseTitel">Eingrenzen</span>
+        <button class="fReset" title="Alle Eingrenzungen entfernen">alle</button>
+      </div>
+      <button class="fAlle" title="Eingrenzung aufheben">
+        <span class="fMarke"></span>
+        <span class="fLabel">Alle Profilierungen</span>
+        <span class="fZahl">12</span>
+      </button>
+      <div class="fAchsen">
+        <div class="fAchse">
+          <div class="fAchseKopf">
+            <span class="fAchseTitel">Fachmodule</span>
+            <button class="fAchseReset" title="Diese Achse zurücksetzen">×</button>
+          </div>
+          <button class="fWert aktiv">
+            <span class="fBox">✓</span><span class="fLabel mono">ZVSTR</span
+            ><span class="fZahl">5</span>
+          </button>
+          <button class="fWert">
+            <span class="fBox"></span><span class="fLabel mono">GDS</span
+            ><span class="fZahl">4</span>
+          </button>
+          <button class="fWert leer">
+            <span class="fBox"></span><span class="fLabel mono">eNoVA</span
+            ><span class="fZahl">0</span>
+          </button>
+        </div>
+        <div class="fAchse">
+          <div class="fAchseKopf"><span class="fAchseTitel">Zustand</span></div>
+          <button class="fWert">
+            <span class="fBox"></span><span class="fLabel">freigegeben</span
+            ><span class="fZahl">2</span>
+          </button>
+          <button class="fWert">
+            <span class="fBox"></span><span class="fLabel">seit Freigabe geändert</span
+            ><span class="fZahl">1</span>
+          </button>
+          <button class="fWert">
+            <span class="fBox"></span><span class="fLabel">in Arbeit</span
+            ><span class="fZahl">2</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">
+    Werkzeugzeile — Suche, Treffer, Gliederung, Ansicht; darunter die aktiven Eingrenzungen
+  </h3>
+  <section
+    class="sgKarte dashV4"
+    data-ds-card="uebersicht/werkzeugzeile"
+    data-ds-group="Übersicht"
+    data-ds-name="Werkzeugzeile"
+    data-ds-width="1000"
+  >
+    <div class="dashWerkzeuge">
+      <label class="dashSucheFeld">
+        <span aria-hidden="true">⌕</span>
+        <input type="search" placeholder="Suchen — Name, Nachricht, Autor…" value="Vollstreckung" />
+      </label>
+      <span class="dashTreffer">4 von 12</span>
+      <span class="spacer"></span>
+      <select class="dashGliederung" title="Gliederung der Sammlung">
+        <option>Nach Fachmodul</option>
+        <option>Ohne Gliederung</option>
+      </select>
+      <div class="ansichtToggle">
+        <button class="aktiv">Kacheln</button>
+        <button>Liste</button>
+      </div>
+    </div>
+    <div class="aktivChips">
+      <button class="aktivChip" title="Diese Eingrenzung entfernen">
+        <span class="aktivChipAchse">Modul</span>ZVSTR
+        <span class="aktivChipX" aria-hidden="true">✕</span>
+      </button>
+      <button class="aktivChip" title="Diese Eingrenzung entfernen">
+        <span class="aktivChipAchse">Suche</span>„Vollstreckung“
+        <span class="aktivChipX" aria-hidden="true">✕</span>
+      </button>
+    </div>
+    <div class="kachelGruppeKopf">
+      <span class="gruppeLabel mono">ZVSTR</span>
+      <span class="gruppeZahl">4</span>
+      <span class="gruppeLinie"></span>
+    </div>
+  </section>
+</div>

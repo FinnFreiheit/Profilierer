@@ -31,7 +31,7 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.dashHead h1')?.textContent).toContain('Pfadfinder');
+    expect(compiled.querySelector('.dashKopf h1')?.textContent).toContain('Profilierungen');
   });
 
   describe('Rueckweg der Kopfzeile', () => {

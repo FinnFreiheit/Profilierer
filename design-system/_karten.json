@@ -1,0 +1,114 @@
+[
+  {
+    "name": "Farben",
+    "path": "grundlagen/farben.html",
+    "group": "Grundlagen",
+    "viewport": {
+      "width": 900
+    }
+  },
+  {
+    "name": "Typografie",
+    "path": "grundlagen/typografie.html",
+    "group": "Grundlagen",
+    "viewport": {
+      "width": 900
+    }
+  },
+  {
+    "name": "Radien",
+    "path": "grundlagen/radien.html",
+    "group": "Grundlagen",
+    "viewport": {
+      "width": 900
+    }
+  },
+  {
+    "name": "Abstände",
+    "path": "grundlagen/abstaende.html",
+    "group": "Grundlagen",
+    "viewport": {
+      "width": 900
+    }
+  },
+  {
+    "name": "Buttons",
+    "path": "bausteine/buttons.html",
+    "group": "Bausteine",
+    "viewport": {
+      "width": 720
+    }
+  },
+  {
+    "name": "Eingaben",
+    "path": "bausteine/eingaben.html",
+    "group": "Bausteine",
+    "viewport": {
+      "width": 720
+    }
+  },
+  {
+    "name": "Pills",
+    "path": "bausteine/pills.html",
+    "group": "Bausteine",
+    "viewport": {
+      "width": 720
+    }
+  },
+  {
+    "name": "Chips",
+    "path": "bausteine/chips.html",
+    "group": "Bausteine",
+    "viewport": {
+      "width": 720
+    }
+  },
+  {
+    "name": "Menü",
+    "path": "bausteine/menue.html",
+    "group": "Bausteine",
+    "viewport": {
+      "width": 420
+    }
+  },
+  {
+    "name": "Leerer Zustand",
+    "path": "bausteine/leerer-zustand.html",
+    "group": "Bausteine",
+    "viewport": {
+      "width": 720
+    }
+  },
+  {
+    "name": "Baum-Tags",
+    "path": "bausteine/baum-tags.html",
+    "group": "Bausteine",
+    "viewport": {
+      "width": 720
+    }
+  },
+  {
+    "name": "Kachel",
+    "path": "uebersicht/kachel.html",
+    "group": "Übersicht",
+    "viewport": {
+      "width": 1000
+    }
+  },
+  {
+    "name": "Filterspalte",
+    "path": "uebersicht/filterspalte.html",
+    "group": "Übersicht",
+    "viewport": {
+      "width": 360
+    }
+  },
+  {
+    "name": "Werkzeugzeile",
+    "path": "uebersicht/werkzeugzeile.html",
+    "group": "Übersicht",
+    "viewport": {
+      "width": 1000
+    }
+  }
+]

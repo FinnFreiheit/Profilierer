@@ -292,7 +292,7 @@ describe('Dashboard — Metadaten an der Kachel', () => {
 describe('Dashboard — Projektfilter und Einordnen-Einstieg', () => {
   let dash: {
     openAblage: (e: LibraryEntry, ev: Event) => void;
-    nurProjekt: { set: (v: string) => void };
+    fProjekt: { set: (v: string[]) => void };
     sektionen: () => { items: LibraryEntry[] }[];
   };
 
@@ -321,7 +321,7 @@ describe('Dashboard — Projektfilter und Einordnen-Einstieg', () => {
   it('grenzt die Uebersicht auf ein Projekt ein', () => {
     const treffer = (): string[] => dash.sektionen().flatMap((s) => s.items.map((e) => e.id));
     expect(treffer()).toEqual(['p1', 'p2', 'p3']);
-    dash.nurProjekt.set('prj1');
+    dash.fProjekt.set(['prj1']);
     expect(treffer()).toEqual(['p1']);
   });
 

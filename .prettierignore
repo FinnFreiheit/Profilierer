@@ -4,6 +4,9 @@ node_modules
 server/node_modules
 legacy
 public/schemas
+# Generierter Design-System-Spiegel und Canvas-Exporte aus Claude Design
+design-system
+design
 package-lock.json
 deploy
 # Fremd-Skills (Upstream-Kopien aus mattpocock/skills) nicht umformatieren

@@ -1,0 +1,1332 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet>
+        <style>
+          html,
+          body {
+            margin: 0;
+            padding: 0;
+          }
+          * {
+            box-sizing: border-box;
+          }
+          body {
+            font:
+              14px/1.5 -apple-system,
+              BlinkMacSystemFont,
+              'Segoe UI',
+              Roboto,
+              sans-serif;
+            color: #14213d;
+            background: #f4f5f8;
+            -webkit-font-smoothing: antialiased;
+          }
+          a {
+            color: #14213d;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+          }
+          a:hover {
+            color: #223357;
+          }
+          a:focus-visible,
+          button:focus-visible,
+          input:focus-visible,
+          select:focus-visible {
+            outline: 2px solid #fca311;
+            outline-offset: 2px;
+          }
+          input[type='search'] {
+            appearance: none;
+          }
+          input:focus,
+          select:focus {
+            outline: 2px solid #fca311;
+            outline-offset: 1px;
+            border-color: #14213d;
+          }
+          ::selection {
+            background: #e8ecf5;
+          }
+        </style>
+      </helmet>
+      <div
+        style="
+          min-height: 100vh;
+          font:
+            14px/1.5 -apple-system,
+            BlinkMacSystemFont,
+            'Segoe UI',
+            Roboto,
+            sans-serif;
+          color: #14213d;
+          background: #f4f5f8;
+        "
+      >
+        <div style="background: #ffffff; border-bottom: 1px solid #e4e6eb">
+          <div
+            style="
+              max-width: 1560px;
+              margin: 0 auto;
+              padding: 11px 28px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 20px;
+            "
+          >
+            <nav
+              style="
+                display: flex;
+                align-items: center;
+                gap: 2px;
+                padding: 3px;
+                background: #f4f5f8;
+                border-radius: 10px;
+              "
+            >
+              <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+                <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="{{ t.style }}">
+                  {{ t.label }}
+                </button>
+              </sc-for>
+            </nav>
+            <div style="display: flex; align-items: center; gap: 10px">
+              <span
+                title="Vorabfassung — Rückmeldungen willkommen"
+                style="
+                  font-size: 10.5px;
+                  font-weight: 700;
+                  letter-spacing: 0.07em;
+                  background: #fdeecd;
+                  color: #9a6a00;
+                  border-radius: 999px;
+                  padding: 3px 9px;
+                "
+                >BETA</span
+              >
+              <button
+                title="Mit AG-Schlüssel anmelden — schaltet Freigaben und Kennzahlen frei"
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 7px;
+                  font: inherit;
+                  font-size: 13px;
+                  padding: 7px 12px;
+                  border: 1px solid transparent;
+                  border-radius: 8px;
+                  background: transparent;
+                  color: #545e70;
+                  cursor: pointer;
+                "
+                style-hover="border-color: #e4e6eb; color: #14213d; background: #f4f5f8;"
+              >
+                <span
+                  style="width: 7px; height: 7px; border-radius: 50%; background: #b6bcc7"
+                ></span
+                >AG-Anmeldung
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          style="
+            max-width: 1560px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 252px minmax(0, 1fr);
+            align-items: start;
+          "
+        >
+          <aside
+            style="
+              position: sticky;
+              top: 0;
+              align-self: start;
+              max-height: 100vh;
+              overflow: auto;
+              padding: 22px 16px 40px 28px;
+              border-right: 1px solid #e4e6eb;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                padding: 0 10px 12px;
+              "
+            >
+              <span
+                style="
+                  font-size: 11px;
+                  font-weight: 650;
+                  letter-spacing: 0.07em;
+                  text-transform: uppercase;
+                  color: #545e70;
+                "
+                >Eingrenzen</span
+              >
+              <sc-if value="{{ hatFilter }}" hint-placeholder-val="{{ false }}">
+                <button
+                  onClick="{{ resetAlles }}"
+                  title="Alle Eingrenzungen entfernen"
+                  style="
+                    font: inherit;
+                    font-size: 12px;
+                    padding: 2px 6px;
+                    border: 0;
+                    border-radius: 6px;
+                    background: none;
+                    color: #545e70;
+                    text-decoration: underline;
+                    cursor: pointer;
+                  "
+                  style-hover="color: #14213d;"
+                >
+                  alle
+                </button>
+              </sc-if>
+            </div>
+
+            <button onClick="{{ resetAlles }}" title="{{ alleTitle }}" style="{{ alleStyle }}">
+              <span style="{{ alleMarkStyle }}"></span>
+              <span style="flex: 1; min-width: 0">{{ alleLabel }}</span>
+              <span style="{{ alleCountStyle }}">{{ alleCount }}</span>
+            </button>
+
+            <div style="display: flex; flex-direction: column; gap: 22px; margin-top: 22px">
+              <sc-for list="{{ achsen }}" as="a" hint-placeholder-count="5">
+                <div style="display: flex; flex-direction: column; gap: 2px">
+                  <div style="display: flex; align-items: baseline; gap: 7px; padding: 0 10px 7px">
+                    <span
+                      style="
+                        font-size: 11px;
+                        font-weight: 650;
+                        letter-spacing: 0.07em;
+                        text-transform: uppercase;
+                        color: #545e70;
+                      "
+                      >{{ a.label }}</span
+                    >
+                    <sc-if value="{{ a.aktiv }}" hint-placeholder-val="{{ false }}">
+                      <button
+                        onClick="{{ a.onReset }}"
+                        title="Diese Achse zurücksetzen"
+                        style="
+                          font: inherit;
+                          font-size: 11px;
+                          padding: 0 4px;
+                          border: 0;
+                          background: none;
+                          color: #545e70;
+                          text-decoration: underline;
+                          cursor: pointer;
+                        "
+                        style-hover="color: #14213d;"
+                      >
+                        ×
+                      </button>
+                    </sc-if>
+                  </div>
+                  <sc-for list="{{ a.items }}" as="i" hint-placeholder-count="4">
+                    <button onClick="{{ i.onClick }}" title="{{ i.title }}" style="{{ i.style }}">
+                      <span style="{{ i.boxStyle }}">{{ i.mark }}</span>
+                      <span style="{{ i.labelStyle }}">{{ i.label }}</span>
+                      <span style="{{ i.countStyle }}">{{ i.count }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </aside>
+
+          <main style="min-width: 0; padding: 24px 28px 80px">
+            <div
+              style="
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 28px;
+                flex-wrap: wrap;
+                margin-bottom: 20px;
+              "
+            >
+              <div style="min-width: 0">
+                <h1
+                  style="
+                    margin: 0;
+                    font-size: 24px;
+                    font-weight: 650;
+                    letter-spacing: -0.022em;
+                    line-height: 1.2;
+                  "
+                >
+                  {{ titel }}
+                </h1>
+                <p
+                  style="
+                    margin: 5px 0 0;
+                    font-size: 14px;
+                    color: #545e70;
+                    max-width: 66ch;
+                    text-wrap: pretty;
+                  "
+                >
+                  {{ untertitel }}
+                </p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+                <button
+                  title="{{ zweitTitle }}"
+                  style="
+                    font: inherit;
+                    font-size: 13.5px;
+                    padding: 9px 14px;
+                    border: 1px solid #dfe2e8;
+                    border-radius: 9px;
+                    background: #ffffff;
+                    color: #14213d;
+                    cursor: pointer;
+                  "
+                  style-hover="border-color: #14213d; background: #f4f5f8;"
+                >
+                  {{ zweitLabel }}
+                </button>
+                <button
+                  style="
+                    font: inherit;
+                    font-size: 13.5px;
+                    font-weight: 550;
+                    padding: 9px 16px;
+                    border: 1px solid #14213d;
+                    border-radius: 9px;
+                    background: #14213d;
+                    color: #ffffff;
+                    cursor: pointer;
+                  "
+                  style-hover="background: #223357;"
+                >
+                  {{ hauptLabel }}
+                </button>
+                <div style="position: relative">
+                  <button
+                    onClick="{{ toggleMore }}"
+                    title="Weitere Aktionen"
+                    style="{{ moreBtnStyle }}"
+                  >
+                    ⋯
+                  </button>
+                  <sc-if value="{{ moreOpen }}" hint-placeholder-val="{{ false }}">
+                    <div
+                      style="
+                        position: absolute;
+                        top: calc(100% + 6px);
+                        right: 0;
+                        z-index: 60;
+                        min-width: 254px;
+                        background: #ffffff;
+                        border: 1px solid #e4e6eb;
+                        border-radius: 12px;
+                        box-shadow: 0 12px 32px rgba(20, 33, 61, 0.14);
+                        padding: 6px;
+                      "
+                    >
+                      <sc-for list="{{ moreItems }}" as="m" hint-placeholder-count="3">
+                        <button
+                          onClick="{{ m.onClick }}"
+                          style="
+                            display: block;
+                            width: 100%;
+                            text-align: left;
+                            border: 0;
+                            border-radius: 7px;
+                            background: none;
+                            padding: 9px 11px;
+                            font: inherit;
+                            font-size: 13.5px;
+                            color: #14213d;
+                            cursor: pointer;
+                          "
+                          style-hover="background: #f4f5f8;"
+                        >
+                          {{ m.label }}
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </div>
+
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+                margin-bottom: 12px;
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 9px;
+                  height: 36px;
+                  padding: 0 12px;
+                  background: #ffffff;
+                  border: 1px solid #dfe2e8;
+                  border-radius: 10px;
+                  flex: 1 1 280px;
+                  max-width: 360px;
+                "
+              >
+                <span aria-hidden="true" style="color: #545e70; font-size: 15px; line-height: 1"
+                  >⌕</span
+                >
+                <input
+                  type="search"
+                  value="{{ query }}"
+                  onChange="{{ onQuery }}"
+                  placeholder="{{ suchePlaceholder }}"
+                  style="
+                    flex: 1;
+                    min-width: 0;
+                    border: 0;
+                    outline: none;
+                    background: transparent;
+                    font: inherit;
+                    font-size: 13.5px;
+                    color: #14213d;
+                  "
+                />
+              </div>
+
+              <span
+                style="
+                  font-size: 13px;
+                  color: #545e70;
+                  white-space: nowrap;
+                  font-variant-numeric: tabular-nums;
+                "
+                >{{ trefferText }}</span
+              >
+
+              <span style="flex: 1"></span>
+
+              <select
+                value="{{ group }}"
+                onChange="{{ onGroup }}"
+                title="Gliederung der Sammlung"
+                style="
+                  height: 36px;
+                  padding: 0 10px;
+                  border: 1px solid #dfe2e8;
+                  border-radius: 10px;
+                  background: #ffffff;
+                  font: inherit;
+                  font-size: 13.5px;
+                  color: #14213d;
+                  cursor: pointer;
+                "
+              >
+                <sc-for list="{{ groupOptionen }}" as="g" hint-placeholder-count="4">
+                  <option value="{{ g.id }}">{{ g.label }}</option>
+                </sc-for>
+              </select>
+
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 2px;
+                  padding: 3px;
+                  background: #ffffff;
+                  border: 1px solid #dfe2e8;
+                  border-radius: 10px;
+                "
+              >
+                <sc-for list="{{ viewToggle }}" as="v" hint-placeholder-count="2">
+                  <button onClick="{{ v.onClick }}" title="{{ v.title }}" style="{{ v.style }}">
+                    {{ v.label }}
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+
+            <sc-if value="{{ hatFilter }}" hint-placeholder-val="{{ false }}">
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 7px;
+                  flex-wrap: wrap;
+                  margin-bottom: 14px;
+                "
+              >
+                <sc-for list="{{ aktiveChips }}" as="c" hint-placeholder-count="2">
+                  <button
+                    onClick="{{ c.onRemove }}"
+                    title="Diese Eingrenzung entfernen"
+                    style="
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 7px;
+                      height: 27px;
+                      padding: 0 8px 0 11px;
+                      border: 1px solid #ccd5e8;
+                      border-radius: 999px;
+                      background: #e8ecf5;
+                      font: inherit;
+                      font-size: 12.5px;
+                      color: #14213d;
+                      cursor: pointer;
+                    "
+                    style-hover="border-color: #14213d;"
+                  >
+                    <span style="color: #545e70">{{ c.achse }}</span
+                    >{{ c.label }}
+                    <span aria-hidden="true" style="font-size: 13px; line-height: 1; color: #545e70"
+                      >✕</span
+                    >
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ istTabelle }}" hint-placeholder-val="{{ true }}">
+              <div
+                style="
+                  background: #ffffff;
+                  border: 1px solid #e4e6eb;
+                  border-radius: 12px;
+                  overflow: hidden;
+                  box-shadow: 0 1px 2px rgba(20, 33, 61, 0.04);
+                "
+              >
+                <div style="{{ kopfStyle }}">
+                  <sc-for list="{{ spalten }}" as="c" hint-placeholder-count="6">
+                    <button onClick="{{ c.onClick }}" title="{{ c.title }}" style="{{ c.style }}">
+                      {{ c.label
+                      }}<span style="font-size: 10px; color: #14213d">{{ c.arrow }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+
+                <sc-for list="{{ gruppen }}" as="g" hint-placeholder-count="2">
+                  <div>
+                    <sc-if value="{{ g.zeigeKopf }}" hint-placeholder-val="{{ false }}">
+                      <div
+                        style="
+                          display: flex;
+                          align-items: center;
+                          gap: 9px;
+                          padding: 9px 16px;
+                          background: #f7f8fa;
+                          border-bottom: 1px solid #edeff3;
+                        "
+                      >
+                        <span style="{{ g.labelStyle }}">{{ g.label }}</span>
+                        <span
+                          style="
+                            font-size: 12px;
+                            color: #545e70;
+                            font-variant-numeric: tabular-nums;
+                          "
+                          >{{ g.count }}</span
+                        >
+                      </div>
+                    </sc-if>
+                    <sc-for list="{{ g.items }}" as="e" hint-placeholder-count="6">
+                      <div
+                        onClick="{{ e.onOpen }}"
+                        onMouseEnter="{{ e.onEnter }}"
+                        onMouseLeave="{{ e.onLeave }}"
+                        title="{{ e.oeffnenTitle }}"
+                        style="{{ e.rowStyle }}"
+                      >
+                        <div style="min-width: 0">
+                          <div style="{{ e.rowNameStyle }}">{{ e.name }}</div>
+                          <div title="{{ e.zeile2Titel }}" style="{{ e.rowSubStyle }}">
+                            {{ e.zeile2 }}
+                          </div>
+                        </div>
+                        <span title="{{ e.modulTitel }}" style="{{ e.modulStyle }}">{{
+                          e.modul
+                        }}</span>
+                        <span title="{{ e.projektTitel }}" style="{{ e.projektStyle }}">{{
+                          e.projekt
+                        }}</span>
+                        <span title="{{ e.tagsTitel }}" style="{{ e.tagsTextStyle }}">{{
+                          e.tagsText
+                        }}</span>
+                        <span title="{{ e.metaTitel }}" style="{{ e.metaStyle }}">{{
+                          e.metaKurz
+                        }}</span>
+                        <span
+                          style="
+                            font-size: 12px;
+                            color: #545e70;
+                            text-align: right;
+                            font-variant-numeric: tabular-nums;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                          "
+                          >{{ e.datum }}</span
+                        >
+                        <button
+                          onClick="{{ e.onMenu }}"
+                          title="Weitere Aktionen"
+                          style="{{ e.rowMenuStyle }}"
+                        >
+                          ⋯
+                        </button>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ istKachel }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 24px">
+                <sc-for list="{{ gruppen }}" as="g" hint-placeholder-count="2">
+                  <div>
+                    <sc-if value="{{ g.zeigeKopf }}" hint-placeholder-val="{{ false }}">
+                      <div
+                        style="display: flex; align-items: center; gap: 9px; margin-bottom: 11px"
+                      >
+                        <span style="{{ g.labelStyle }}">{{ g.label }}</span>
+                        <span
+                          style="
+                            font-size: 12px;
+                            color: #545e70;
+                            font-variant-numeric: tabular-nums;
+                          "
+                          >{{ g.count }}</span
+                        >
+                        <span style="flex: 1; height: 1px; background: #e4e6eb"></span>
+                      </div>
+                    </sc-if>
+                    <div
+                      style="
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(298px, 1fr));
+                        gap: 13px;
+                      "
+                    >
+                      <sc-for list="{{ g.items }}" as="e" hint-placeholder-count="4">
+                        <div
+                          onClick="{{ e.onOpen }}"
+                          onMouseEnter="{{ e.onEnter }}"
+                          onMouseLeave="{{ e.onLeave }}"
+                          title="{{ e.oeffnenTitle }}"
+                          style="{{ e.cardStyle }}"
+                        >
+                          <div
+                            style="display: flex; align-items: center; gap: 7px; min-height: 22px"
+                          >
+                            <span title="{{ e.modulTitel }}" style="{{ e.modulStyle }}">{{
+                              e.modul
+                            }}</span>
+                            <span style="{{ e.zustandStyle }}">{{ e.zustand }}</span>
+                            <span style="flex: 1"></span>
+                            <button
+                              onClick="{{ e.onMenu }}"
+                              title="Weitere Aktionen"
+                              style="{{ e.menuBtnStyle }}"
+                            >
+                              ⋯
+                            </button>
+                          </div>
+
+                          <div style="{{ e.nameStyle }}">{{ e.name }}</div>
+                          <div title="{{ e.zeile2Titel }}" style="{{ e.msgStyle }}">
+                            {{ e.zeile2 }}
+                          </div>
+
+                          <div title="{{ e.beschreibung }}" style="{{ e.beschreibungStyle }}">
+                            {{ e.beschreibung }}
+                          </div>
+
+                          <div
+                            style="
+                              display: flex;
+                              align-items: center;
+                              gap: 6px;
+                              flex-wrap: wrap;
+                              min-height: 22px;
+                            "
+                          >
+                            <sc-for list="{{ e.tags }}" as="t" hint-placeholder-count="2">
+                              <button
+                                onClick="{{ t.onClick }}"
+                                title="{{ t.title }}"
+                                style="{{ t.style }}"
+                              >
+                                {{ t.label }}
+                              </button>
+                            </sc-for>
+                          </div>
+
+                          <div style="flex: 1; min-height: 2px"></div>
+
+                          <div
+                            style="
+                              display: flex;
+                              flex-direction: column;
+                              gap: 5px;
+                              padding-top: 11px;
+                              border-top: 1px solid #edeff3;
+                            "
+                          >
+                            <div style="display: flex; align-items: baseline; gap: 8px">
+                              <span title="{{ e.autorTitel }}" style="{{ e.autorStyle }}">{{
+                                e.autor
+                              }}</span>
+                              <span style="flex: 1"></span>
+                              <span title="{{ e.projektTitel }}" style="{{ e.projektFussStyle }}">{{
+                                e.projekt
+                              }}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px">
+                              <span style="flex: 1"></span>
+                              <span title="{{ e.metaTitel }}" style="{{ e.metaStyle }}">{{
+                                e.meta
+                              }}</span>
+                              <span
+                                style="
+                                  font-size: 12px;
+                                  color: #545e70;
+                                  font-variant-numeric: tabular-nums;
+                                "
+                                >{{ e.datum }}</span
+                              >
+                            </div>
+                          </div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ leer }}" hint-placeholder-val="{{ false }}">
+              <div
+                style="
+                  text-align: center;
+                  background: #ffffff;
+                  border: 1px solid #e4e6eb;
+                  border-radius: 12px;
+                  padding: 52px 36px;
+                "
+              >
+                <div
+                  style="
+                    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+                    font-size: 22px;
+                    color: #ccd3dd;
+                    margin-bottom: 14px;
+                  "
+                >
+                  § ⇄ &lt;/&gt;
+                </div>
+                <h3 style="margin: 0 0 8px; font-size: 17px; font-weight: 650">Keine Treffer</h3>
+                <p style="margin: 0 0 20px; font-size: 14px; color: #545e70">{{ leerText }}</p>
+                <button
+                  onClick="{{ resetAlles }}"
+                  style="
+                    font: inherit;
+                    font-size: 13.5px;
+                    padding: 9px 15px;
+                    border: 1px solid #dfe2e8;
+                    border-radius: 9px;
+                    background: #ffffff;
+                    color: #14213d;
+                    cursor: pointer;
+                  "
+                  style-hover="border-color: #14213d; background: #f4f5f8;"
+                >
+                  Eingrenzung zurücksetzen
+                </button>
+              </div>
+            </sc-if>
+          </main>
+        </div>
+      </div>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{"startReiter":{"editor":"enum","options":["Profile","Testdaten","Projekte"],"default":"Profile","tsType":"string","section":"Aufbau"},"startAnsicht":{"editor":"enum","options":["Kacheln","Liste"],"default":"Kacheln","tsType":"string","section":"Aufbau"}}'
+    >
+      const MONO = "ui-monospace, 'SF Mono', Consolas, monospace";
+
+      const PROJEKTE = [
+        { id: "p1", name: "eNoVA Rollout 2026" },
+        { id: "p2", name: "ZwVollstr Modernisierung" },
+        { id: "p3", name: "Register-Anbindung" }
+      ];
+
+      const MODULE = ["GDS", "ZVSTR", "eNoVA", "REG"];
+      const VERSIONEN = ["3.6.1", "3.5.1", "3.4.1"];
+
+      const ZUSTAND_META = {
+        frei:      { label: "freigegeben",   bg: "#ddf3e4", fg: "#17693c" },
+        geaendert: { label: "geändert",      bg: "#fdeecd", fg: "#9a6a00" },
+        arbeit:    { label: "in Arbeit",     bg: "#e8ecf5", fg: "#14213d" },
+        leer:      { label: "noch leer",     bg: "#f0f1f4", fg: "#545e70" }
+      };
+      const ZUSTAND_ORDER = ["frei", "geaendert", "arbeit", "leer"];
+
+      const PROFILE = [
+        { id: "1", modul: "GDS", version: "3.6.1", name: "Übermittlung Schriftgutobjekte — Standardfall",
+          nachricht: "nachricht.gds.uebermittlungSchriftgutobjekte.0005005", autor: "AG Justiz-IT Niedersachsen",
+          beschreibung: "Basisprofil für den Versand von Anlagen; Grundlage aller nachgelagerten Fachszenarien.",
+          projektId: "p1", tags: ["Basisprofil", "abgestimmt"], zustand: "frei",
+          nEntschieden: 48, nPunkte: 48, nTestdaten: 4, gespeichert: "2026-08-28" },
+        { id: "2", modul: "GDS", version: "3.6.1", name: "Aktenzeichenmitteilung",
+          nachricht: "nachricht.gds.aktenzeichenmitteilung.0005007", autor: "Ref. IT 4",
+          beschreibung: "Rückmeldung des gerichtlichen Aktenzeichens an die einreichende Stelle.",
+          projektId: "p1", tags: ["Rückkanal"], zustand: "arbeit",
+          nEntschieden: 22, nPunkte: 31, nTestdaten: 1, gespeichert: "2026-09-01" },
+        { id: "3", modul: "GDS", version: "3.6.1", name: "Fehlerhafte Nachricht",
+          nachricht: "nachricht.gds.fehlerhafteNachricht.0005006", autor: "",
+          beschreibung: "", projektId: "", tags: [], zustand: "leer",
+          nEntschieden: 0, nPunkte: 18, nTestdaten: 0, gespeichert: "2026-09-03" },
+        { id: "4", modul: "ZVSTR", version: "3.6.1", name: "Vollstreckungsauftrag — Gerichtsvollzieher",
+          nachricht: "nachricht.zvstr.vollstreckungsauftrag.0300001", autor: "BLK-AG XJustiz",
+          beschreibung: "Freigegebenes Referenzprofil für die Beauftragung nach § 802a ZPO inkl. Forderungsaufstellung.",
+          projektId: "p2", tags: ["Referenz", "abgestimmt", "ZPO"], zustand: "geaendert",
+          nEntschieden: 61, nPunkte: 74, nTestdaten: 6, gespeichert: "2026-09-02" },
+        { id: "5", modul: "ZVSTR", version: "3.5.1", name: "Sachaufklärung / Vermögensauskunft",
+          nachricht: "nachricht.zvstr.sachaufklaerung.0300005", autor: "GV-Bezirk Hannover",
+          beschreibung: "Abfrage der Vermögensverhältnisse; enthält zwei nachzubeauftragende Felder.",
+          projektId: "p2", tags: ["Entwurf"], zustand: "arbeit",
+          nEntschieden: 29, nPunkte: 52, nTestdaten: 2, gespeichert: "2026-08-30" },
+        { id: "6", modul: "eNoVA", version: "3.6.1", name: "Klageeingang Zivilprozess",
+          nachricht: "nachricht.zivilverfahren.klageeingang.0100001", autor: "Projektgruppe eNoVA",
+          beschreibung: "Struktureller Datensatz zur Klageerhebung, abgestimmt mit den Softwareherstellern.",
+          projektId: "p1", tags: ["Basisprofil", "Hersteller"], zustand: "frei",
+          nEntschieden: 87, nPunkte: 87, nTestdaten: 9, gespeichert: "2026-08-19" },
+        { id: "7", modul: "eNoVA", version: "3.6.1", name: "Terminsmitteilung",
+          nachricht: "nachricht.zivilverfahren.terminsmitteilung.0100005", autor: "Projektgruppe eNoVA",
+          beschreibung: "Ladung und Terminsverlegung in einer Nachricht.",
+          projektId: "p1", tags: ["Entwurf"], zustand: "arbeit",
+          nEntschieden: 12, nPunkte: 40, nTestdaten: 0, gespeichert: "2026-09-04" },
+        { id: "8", modul: "REG", version: "3.4.1", name: "Handelsregister-Anmeldung",
+          nachricht: "nachricht.register.anmeldung.0400001", autor: "Notarkammer / Registergericht",
+          beschreibung: "Elektronische Anmeldung samt beglaubigter Dokumente.",
+          projektId: "p3", tags: ["Register"], zustand: "arbeit",
+          nEntschieden: 44, nPunkte: 58, nTestdaten: 3, gespeichert: "2026-08-25" }
+      ];
+
+      const TESTDATEN = [
+        { id: "t1", profilId: "1", modul: "GDS", version: "3.6.1", name: "Zwei Anlagen, PDF/A-2b",
+          projektId: "p1", tags: ["Positivfall"], gueltig: true, nElemente: 46, autor: "AG Justiz-IT Niedersachsen", gespeichert: "2026-08-28" },
+        { id: "t2", profilId: "1", modul: "GDS", version: "3.6.1", name: "Maximalfall — 40 Anlagen",
+          projektId: "p1", tags: ["Lasttest"], gueltig: true, nElemente: 512, autor: "AG Justiz-IT Niedersachsen", gespeichert: "2026-08-27" },
+        { id: "t3", profilId: "1", modul: "GDS", version: "3.6.1", name: "Fehlende Dokumentklasse",
+          projektId: "p1", tags: ["Negativfall"], gueltig: false, nElemente: 44, autor: "Ref. IT 4", gespeichert: "2026-08-26" },
+        { id: "t4", profilId: "2", modul: "GDS", version: "3.6.1", name: "Aktenzeichen mit Sonderzeichen",
+          projektId: "p1", tags: ["Grenzfall"], gueltig: false, nElemente: 28, autor: "Ref. IT 4", gespeichert: "2026-09-01" },
+        { id: "t5", profilId: "4", modul: "ZVSTR", version: "3.6.1", name: "Pfändung beweglicher Sachen — Standard",
+          projektId: "p2", tags: ["Positivfall", "Referenz"], gueltig: true, nElemente: 71, autor: "BLK-AG XJustiz", gespeichert: "2026-09-02" },
+        { id: "t6", profilId: "4", modul: "ZVSTR", version: "3.6.1", name: "Vier Zinsstaffeln",
+          projektId: "p2", tags: ["Grenzfall"], gueltig: true, nElemente: 88, autor: "GV-Bezirk Hannover", gespeichert: "2026-08-31" },
+        { id: "t7", profilId: "5", modul: "ZVSTR", version: "3.5.1", name: "Vermögensauskunft ohne Titel",
+          projektId: "p2", tags: ["Negativfall"], gueltig: false, nElemente: 33, autor: "GV-Bezirk Hannover", gespeichert: "2026-08-30" },
+        { id: "t8", profilId: "6", modul: "eNoVA", version: "3.6.1", name: "Klage mit drei Beteiligten",
+          projektId: "p1", tags: ["Positivfall", "Hersteller"], gueltig: true, nElemente: 94, autor: "Projektgruppe eNoVA", gespeichert: "2026-08-20" },
+        { id: "t9", profilId: "6", modul: "eNoVA", version: "3.6.1", name: "Juristische Person als Klägerin",
+          projektId: "p1", tags: ["Positivfall"], gueltig: true, nElemente: 90, autor: "Projektgruppe eNoVA", gespeichert: "2026-08-19" },
+        { id: "t10", profilId: "8", modul: "REG", version: "3.4.1", name: "GmbH-Neuanmeldung, beglaubigt",
+          projektId: "p3", tags: ["Register"], gueltig: true, nElemente: 61, autor: "Notarkammer / Registergericht", gespeichert: "2026-08-25" },
+        { id: "t11", profilId: "8", modul: "REG", version: "3.4.1", name: "Anmeldung ohne Vollmacht",
+          projektId: "p3", tags: ["Negativfall"], gueltig: false, nElemente: 55, autor: "Notarkammer / Registergericht", gespeichert: "2026-08-24" }
+      ];
+
+      const PROJEKT_STATUS = {
+        aktiv:        { label: "aktiv",         bg: "#e8ecf5", fg: "#14213d" },
+        abgeschlossen:{ label: "abgeschlossen", bg: "#ddf3e4", fg: "#17693c" },
+        geplant:      { label: "geplant",       bg: "#f0f1f4", fg: "#545e70" }
+      };
+      const PROJEKT_STATUS_ORDER = ["aktiv", "geplant", "abgeschlossen"];
+
+      const PROJEKT_DATEN = [
+        { id: "p1", name: "eNoVA Rollout 2026", status: "aktiv", version: "3.6.1",
+          autor: "Projektgruppe eNoVA", tags: ["Basisprofil", "Hersteller"],
+          beschreibung: "Einführung der elektronischen Nachrichtenübermittlung im Zivilverfahren; abgestimmt mit den Softwareherstellern.",
+          zeitraum: "01/2026 – 12/2026", gespeichert: "2026-09-04" },
+        { id: "p2", name: "ZwVollstr Modernisierung", status: "aktiv", version: "3.6.1",
+          autor: "BLK-AG XJustiz", tags: ["Referenz", "ZPO"],
+          beschreibung: "Neufassung der Vollstreckungsnachrichten nach § 802a ZPO inkl. Sachaufklärung.",
+          zeitraum: "03/2026 – 06/2027", gespeichert: "2026-09-02" },
+        { id: "p3", name: "Register-Anbindung", status: "geplant", version: "3.4.1",
+          autor: "Notarkammer / Registergericht", tags: ["Register"],
+          beschreibung: "Anbindung der Registergerichte an die notarielle Anmeldung.",
+          zeitraum: "ab 01/2027", gespeichert: "2026-08-25" }
+      ];
+
+      const PILL = "font-size: 11.5px; font-weight: 550; border-radius: 999px; padding: 3px 9px; white-space: nowrap; border: 0; font-family: inherit; line-height: 1.35;";
+      const MODUL_PILL = "font-family: " + MONO + "; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; color: #14213d; background: #f0f1f4; border-radius: 5px; padding: 2px 7px; white-space: nowrap; flex: none;";
+      /* Alle Textspalten minmax(0,…): die Liste muss auch bei ~600px Inhaltsbreite
+         vollständig sichtbar bleiben (kein Abschneiden, kein Querscrollen). */
+      const GRID = "minmax(0, 2.6fr) 62px minmax(0, 1.1fr) minmax(0, 1fr) 64px 62px 32px";
+      const NUM = "display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 550; border-radius: 6px; padding: 2px 7px; white-space: nowrap; font-variant-numeric: tabular-nums; flex: none;";
+
+      class Component extends DCLogic {
+        state = {
+          tab: null, query: "",
+          fModul: [], fProjekt: [], fTag: [], fVersion: [], fZustand: [],
+          group: null, view: null, sortKey: "datum", sortDir: "ab",
+          moreOpen: false, hover: null
+        };
+
+        tab() {
+          if (this.state.tab) return this.state.tab;
+          const p = this.props.startReiter;
+          return p === "Testdaten" ? "testdaten" : (p === "Projekte" ? "projekte" : "profile");
+        }
+        istTd() { return this.tab() === "testdaten"; }
+        istPj() { return this.tab() === "projekte"; }
+        basis() { return this.istTd() ? TESTDATEN : (this.istPj() ? PROJEKT_DATEN : PROFILE); }
+
+        /* Ein Projekt hängt an den Fachmodulen seiner Profilierungen — nicht an einem eigenen Feld. */
+        moduleVon(e) {
+          if (!this.istPj()) return [e.modul];
+          const out = [];
+          PROFILE.forEach(p => { if (p.projektId === e.id && out.indexOf(p.modul) < 0) out.push(p.modul); });
+          return out;
+        }
+        nProfile(e) { return PROFILE.filter(p => p.projektId === e.id).length; }
+        nTestdatenVon(e) { return TESTDATEN.filter(t => t.projektId === e.id).length; }
+
+        profilVon(t) { return PROFILE.find(p => p.id === t.profilId); }
+        projektName(id) { const p = PROJEKTE.find(x => x.id === id); return p ? p.name : ""; }
+
+        zustandVon(e) {
+          if (this.istTd()) return e.gueltig ? "frei" : "geaendert";
+          if (this.istPj()) return e.status;
+          return e.zustand;
+        }
+
+        zustandLabel(z) {
+          if (this.istTd()) return z === "frei" ? "gültig" : "ungültig";
+          if (this.istPj()) return PROJEKT_STATUS[z].label;
+          return ZUSTAND_META[z].label;
+        }
+
+        zustandFarben(z) {
+          if (this.istPj()) return PROJEKT_STATUS[z];
+          return ZUSTAND_META[z];
+        }
+
+        zustandWerte() {
+          if (this.istTd()) return ["frei", "geaendert"];
+          if (this.istPj()) return PROJEKT_STATUS_ORDER;
+          return ZUSTAND_ORDER;
+        }
+
+        datum(e) {
+          const d = new Date(e.gespeichert);
+          return isNaN(d.getTime()) ? (e.gespeichert || "") : d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit" });
+        }
+
+        suchFelder(e) {
+          const f = [e.name, e.autor, e.version, e.beschreibung].concat(e.tags || []).concat(this.moduleVon(e));
+          if (this.istTd()) { const p = this.profilVon(e); if (p) f.push(p.name, p.nachricht); }
+          else if (this.istPj()) f.push(e.zeitraum);
+          else f.push(e.nachricht);
+          if (!this.istPj()) f.push(this.projektName(e.projektId));
+          return f;
+        }
+
+        /* Achsen kombinieren mit UND; Werte innerhalb einer Achse mit ODER. */
+        passt(e, ohne) {
+          const st = this.state;
+          const q = st.query.trim().toLowerCase();
+          if (q && !this.suchFelder(e).some(v => (v || "").toLowerCase().includes(q))) return false;
+          if (ohne !== "modul" && st.fModul.length && !this.moduleVon(e).some(m => st.fModul.indexOf(m) >= 0)) return false;
+          if (ohne !== "projekt" && st.fProjekt.length && !this.istPj() && st.fProjekt.indexOf(e.projektId || "") < 0) return false;
+          if (ohne !== "version" && st.fVersion.length && st.fVersion.indexOf(e.version) < 0) return false;
+          if (ohne !== "zustand" && st.fZustand.length && st.fZustand.indexOf(this.zustandVon(e)) < 0) return false;
+          if (ohne !== "tag" && st.fTag.length && !st.fTag.every(t => (e.tags || []).some(x => x.toLowerCase() === t.toLowerCase()))) return false;
+          return true;
+        }
+
+        liste() {
+          const out = this.basis().filter(e => this.passt(e));
+          const dir = this.state.sortDir === "auf" ? 1 : -1;
+          const k = this.state.sortKey;
+          const td = this.istTd();
+          return out.slice().sort((a, b) => {
+            let r;
+            const pj = this.istPj();
+            if (k === "name") r = (a.name || "\uffff").localeCompare(b.name || "\uffff", "de");
+            else if (k === "modul") r = MODULE.indexOf(this.moduleVon(a)[0]) - MODULE.indexOf(this.moduleVon(b)[0]);
+            else if (k === "projekt") r = pj
+              ? (a.zeitraum || "").localeCompare(b.zeitraum || "", "de")
+              : this.projektName(a.projektId).localeCompare(this.projektName(b.projektId), "de");
+            else if (k === "meta") r = pj ? this.nProfile(a) - this.nProfile(b)
+              : (td ? (a.nElemente || 0) - (b.nElemente || 0)
+              : ((a.nPunkte ? a.nEntschieden / a.nPunkte : -1) - (b.nPunkte ? b.nEntschieden / b.nPunkte : -1)));
+            else r = String(a.gespeichert).localeCompare(String(b.gespeichert));
+            return r * dir;
+          });
+        }
+
+        toggle(key, val) {
+          this.setState(s => {
+            const cur = s[key];
+            return { [key]: cur.indexOf(val) >= 0 ? cur.filter(x => x !== val) : cur.concat([val]) };
+          });
+        }
+
+        achse(key, stateKey, label, werte, ohne, mono) {
+          const st = this.state;
+          const sel = st[stateKey];
+          const items = werte.map(w => {
+            const on = sel.indexOf(w.id) >= 0;
+            const count = this.basis().filter(e => {
+              if (!this.passt(e, ohne)) return false;
+              if (ohne === "tag") return (e.tags || []).some(x => x.toLowerCase() === String(w.id).toLowerCase());
+              if (ohne === "modul") return this.moduleVon(e).indexOf(w.id) >= 0;
+              if (ohne === "projekt") return (e.projektId || "") === w.id;
+              if (ohne === "version") return e.version === w.id;
+              return this.zustandVon(e) === w.id;
+            }).length;
+            return {
+              label: w.label, count, title: w.title || (w.label + " — " + count + " Einträge"),
+              onClick: () => this.toggle(stateKey, w.id),
+              style: "display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; font: inherit; font-size: 13px; font-weight: " +
+                (on ? "600" : "450") + "; padding: 6px 10px; border: 0; border-radius: 8px; cursor: pointer; background: " +
+                (on ? "#e8ecf5" : "transparent") + "; color: " + (count === 0 && !on ? "#545e70" : "#14213d") + ";",
+              boxStyle: "flex: none; display: grid; place-items: center; width: 14px; height: 14px; border-radius: 4px; font-size: 9px; line-height: 1; color: #ffffff; border: 1px solid " +
+                (on ? "#14213d" : "#c6c8cc") + "; background: " + (on ? "#14213d" : "#ffffff") + ";",
+              mark: on ? "✓" : "",
+              labelStyle: "flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" +
+                (mono ? " font-family: " + MONO + "; font-size: 12.5px;" : ""),
+              countStyle: "flex: none; font-size: 12px; color: #545e70; font-variant-numeric: tabular-nums;"
+            };
+          });
+          return {
+            label, items, aktiv: sel.length > 0,
+            onReset: () => this.setState({ [stateKey]: [] })
+          };
+        }
+
+        renderVals() {
+          const st = this.state, td = this.istTd(), pj = this.istPj();
+          const view = st.view || (this.props.startAnsicht === "Liste" ? "tabelle" : "kacheln");
+          const group = st.group || "modul";
+          const list = this.liste();
+          const hov = id => st.hover === id;
+
+          const tagNamen = [];
+          this.basis().forEach(e => (e.tags || []).forEach(t => { if (tagNamen.indexOf(t) < 0) tagNamen.push(t); }));
+
+          const achsen = [
+            this.achse("modul", "fModul", "Fachmodule", MODULE.map(m => ({ id: m, label: m })), "modul", true)
+          ];
+          if (!pj) achsen.push(this.achse("projekt", "fProjekt", "Projekte",
+            PROJEKTE.map(p => ({ id: p.id, label: p.name })).concat([{ id: "", label: "ohne Projekt" }]), "projekt"));
+          achsen.push(
+            this.achse("tag", "fTag", "Schlagworte", tagNamen.map(t => ({ id: t, label: t })), "tag"),
+            this.achse("zustand", "fZustand", td ? "Prüfergebnis" : (pj ? "Status" : "Zustand"),
+              this.zustandWerte().map(z => ({ id: z, label: this.zustandLabel(z) })), "zustand"),
+            this.achse("version", "fVersion", "XJustiz-Version", VERSIONEN.map(v => ({ id: v, label: v })), "version", true)
+          );
+
+          const aktiveChips = [];
+          st.fModul.forEach(v => aktiveChips.push({ achse: "Modul", label: v, onRemove: () => this.toggle("fModul", v) }));
+          st.fProjekt.forEach(v => aktiveChips.push({ achse: "Projekt", label: this.projektName(v) || "ohne Projekt", onRemove: () => this.toggle("fProjekt", v) }));
+          st.fTag.forEach(v => aktiveChips.push({ achse: "Tag", label: v, onRemove: () => this.toggle("fTag", v) }));
+          st.fZustand.forEach(v => aktiveChips.push({
+            achse: td ? "Prüfung" : (pj ? "Status" : "Zustand"),
+            label: this.zustandLabel(v),
+            onRemove: () => this.toggle("fZustand", v)
+          }));
+          st.fVersion.forEach(v => aktiveChips.push({ achse: "Version", label: v, onRemove: () => this.toggle("fVersion", v) }));
+          if (st.query.trim()) aktiveChips.push({ achse: "Suche", label: "„" + st.query.trim() + "“", onRemove: () => this.setState({ query: "" }) });
+
+          const hatFilter = aktiveChips.length > 0;
+
+          const mkTag = (tg, e) => {
+            const on = st.fTag.indexOf(tg) >= 0;
+            return {
+              label: tg, title: "Auf „" + tg + "“ eingrenzen",
+              onClick: ev => { ev.stopPropagation(); this.toggle("fTag", tg); },
+              style: "font-family: inherit; font-size: 11.5px; line-height: 1.4; padding: 2px 9px; border-radius: 999px; cursor: pointer; white-space: nowrap; flex: none; border: 1px solid " +
+                (on ? "#14213d" : "#e8eaef") + "; background: " + (on ? "#14213d" : "#f4f5f8") +
+                "; color: " + (on ? "#ffffff" : "#545e70") + ";"
+            };
+          };
+
+          const mk = e => {
+            const h = hov(e.id);
+            const z = this.zustandVon(e);
+            const zm = this.zustandFarben(z);
+            const pn = pj ? (e.zeitraum || "") : this.projektName(e.projektId);
+            const p = td ? this.profilVon(e) : null;
+            const mods = this.moduleVon(e);
+
+            let zeile2, zeile2Titel, meta, metaKurz, metaTitel, metaStyle;
+            if (pj) {
+              const np = this.nProfile(e), nt = this.nTestdatenVon(e);
+              zeile2 = np + (np === 1 ? " Profilierung" : " Profilierungen") + " · " + nt + " Testdaten";
+              zeile2Titel = zeile2 + (mods.length ? " · Fachmodule: " + mods.join(", ") : " · noch kein Fachmodul");
+              meta = np + (np === 1 ? " Profil" : " Profile");
+              metaKurz = np + " Prof.";
+              metaTitel = np + " zugeordnete Profilierung(en) · " + nt + " Testnachricht(en)";
+              metaStyle = NUM + "background: #e8ecf5; color: #14213d;";
+            } else if (td) {
+              zeile2 = p ? p.name : "keiner Profilierung zugeordnet";
+              /* Leerzustände tragen Information — Farbe bleibt lesbar, Kursivsetzung markiert sie. */
+              zeile2Titel = p ? "Profilierung: " + p.name + " · " + p.nachricht : zeile2;
+              meta = e.nElemente + " Elemente";
+              metaKurz = e.nElemente + " El.";
+              metaTitel = e.nElemente + " belegte Elemente in dieser Testnachricht";
+              metaStyle = NUM + "background: #f0f1f4; color: #14213d;";
+            } else {
+              zeile2 = e.nachricht;
+              zeile2Titel = e.nachricht;
+              const offen = e.nPunkte ? e.nPunkte - e.nEntschieden : 0;
+              if (e.nTestdaten) {
+                meta = e.nTestdaten + " Testdaten";
+                metaKurz = e.nTestdaten + " TD";
+                metaTitel = e.nTestdaten + " zugeordnete Testnachricht(en)" + (offen ? " · " + offen + " Punkte offen" : "");
+              } else if (offen) {
+                meta = offen + " offen";
+                metaKurz = offen + " off.";
+                metaTitel = offen + " von " + e.nPunkte + " Entscheidungspunkten offen · keine Testdaten";
+              } else {
+                meta = "vollständig";
+                metaKurz = "vollst.";
+                metaTitel = "Alle " + e.nPunkte + " Entscheidungspunkte entschieden · keine Testdaten";
+              }
+              metaStyle = NUM + (e.nTestdaten
+                ? "background: #e8ecf5; color: #14213d;"
+                : (offen ? "background: #f0f1f4; color: #14213d;" : "background: #ddf3e4; color: #17693c;"));
+            }
+
+            return {
+              name: e.name,
+              modul: mods.length ? (mods.length > 1 ? mods[0] + " +" + (mods.length - 1) : mods[0]) : "—",
+              modulTitel: mods.length ? "Fachmodule: " + mods.join(", ") : "noch keinem Fachmodul zugeordnet",
+              modulStyle: MODUL_PILL,
+              zustand: this.zustandLabel(z),
+              zustandStyle: PILL + "background: " + zm.bg + "; color: " + zm.fg + "; flex: none;",
+              projekt: pn || (pj ? "ohne Zeitraum" : "ohne Projekt"),
+              projektTitel: pn || (pj ? "kein Zeitraum angegeben" : "keinem Projekt zugeordnet"),
+              projektStyle: "font-size: 12.5px; color: #545e70; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" + (pn ? "" : " font-style: italic;"),
+              projektFussStyle: "font-size: 12px; color: #545e70; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" + (pn ? "" : " font-style: italic;"),
+              zeile2, zeile2Titel, meta, metaKurz, metaTitel, metaStyle,
+              autor: e.autor || "ohne Autor",
+              autorStyle: "font-size: 12px; font-weight: 600; color: " + (e.autor ? "#14213d" : "#545e70") +
+                "; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" + (e.autor ? "" : " font-style: italic; font-weight: 450;"),
+              beschreibung: e.beschreibung || "keine Beschreibung",
+              beschreibungStyle: "font-size: 13px; line-height: 1.5; color: #545e70; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 3em;" +
+                (e.beschreibung ? "" : " font-style: italic;"),
+              tags: (e.tags || []).map(t => mkTag(t, e)),
+              tagsText: (e.tags || []).length ? (e.tags.length === 1 ? e.tags[0] : e.tags.length + " Tags") : "—",
+              tagsTitel: (e.tags || []).length ? e.tags.join(" · ") : "keine Schlagworte",
+              tagsTextStyle: "min-width: 0; font-size: 12.5px; color: #545e70; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;",
+              datum: this.datum(e),
+              oeffnenTitle: pj ? "Projekt öffnen — Profilierungen und Testdaten des Vorhabens"
+                : (td ? "Testnachricht ansehen und herunterladen" : "Profilierung öffnen und bearbeiten"),
+              cardStyle: {
+                display: "flex", flexDirection: "column", gap: "8px", padding: "16px 17px",
+                background: "#ffffff", border: "1px solid " + (h ? "#c3ccdd" : "#e4e6eb"),
+                borderRadius: "13px", cursor: "pointer", height: "100%", minHeight: "252px",
+                boxShadow: h ? "0 6px 20px rgba(20,33,61,0.10)" : "0 1px 2px rgba(20,33,61,0.04)",
+                transition: "box-shadow .14s, border-color .14s"
+              },
+              nameStyle: "font-size: 15.5px; font-weight: 620; letter-spacing: -0.013em; line-height: 1.32; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.64em;",
+              msgStyle: "font-family: " + MONO + "; font-size: 11.5px; color: #545e70; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;",
+              menuBtnStyle: "flex: none; width: 28px; height: 26px; border: 1px solid " + (h ? "#dfe2e8" : "transparent") +
+                "; border-radius: 7px; background: " + (h ? "#f4f5f8" : "transparent") +
+                "; font-family: inherit; font-size: 15px; line-height: 1; color: #545e70; cursor: pointer; opacity: " + (h ? "1" : "0") + "; transition: opacity .12s;",
+              rowStyle: {
+                display: "grid",
+                gridTemplateColumns: GRID,
+                gap: "10px", alignItems: "center", padding: "11px 14px",
+                borderBottom: "1px solid #edeff3", cursor: "pointer",
+                background: h ? "#f7f8fa" : "#ffffff",
+                boxShadow: h ? "inset 3px 0 0 #14213d" : "none"
+              },
+              rowNameStyle: "font-size: 14px; font-weight: 600; letter-spacing: -0.008em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;",
+              rowSubStyle: "font-family: " + MONO + "; font-size: 11px; color: #545e70; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;",
+              autorTitel: (e.autor || "ohne Autor") + (e.beschreibung ? " · " + e.beschreibung : ""),
+              rowMenuStyle: "width: 32px; height: 26px; border: 1px solid " + (h ? "#dfe2e8" : "transparent") +
+                "; border-radius: 7px; background: " + (h ? "#ffffff" : "transparent") +
+                "; font-family: inherit; font-size: 15px; line-height: 1; color: #545e70; cursor: pointer;",
+              onOpen: () => {}, onMenu: ev => ev.stopPropagation(),
+              onEnter: () => this.setState({ hover: e.id }),
+              onLeave: () => this.setState(s => (s.hover === e.id ? { hover: null } : null))
+            };
+          };
+
+          const glabel = (text, mono) => mono
+            ? "font-family: " + MONO + "; font-size: 11.5px; font-weight: 600; letter-spacing: 0.03em; color: #14213d; background: #e8ecf5; border-radius: 6px; padding: 3px 9px;"
+            : "font-size: 12.5px; font-weight: 650; color: #14213d;";
+
+          let gruppen;
+          if (group === "keine") {
+            gruppen = list.length ? [{ zeigeKopf: false, label: "", count: list.length, labelStyle: glabel("", false), items: list.map(mk) }] : [];
+          } else if (group === "modul") {
+            gruppen = MODULE.map(m => ({ k: m, items: list.filter(e => this.moduleVon(e).indexOf(m) >= 0) })).filter(g => g.items.length)
+              .map(g => ({ zeigeKopf: true, label: g.k, count: g.items.length, labelStyle: glabel(g.k, true), items: g.items.map(mk) }));
+          } else if (group === "projekt") {
+            gruppen = PROJEKTE.map(p => p.id).concat([""])
+              .map(k => ({ k, items: list.filter(e => (e.projektId || "") === k) })).filter(g => g.items.length)
+              .map(g => ({ zeigeKopf: true, label: this.projektName(g.k) || "ohne Projekt", count: g.items.length, labelStyle: glabel("", false), items: g.items.map(mk) }));
+          } else if (group === "version") {
+            gruppen = VERSIONEN.map(v => ({ k: v, items: list.filter(e => e.version === v) })).filter(g => g.items.length)
+              .map(g => ({ zeigeKopf: true, label: "XJustiz " + g.k, count: g.items.length, labelStyle: glabel("", true), items: g.items.map(mk) }));
+          } else if (group === "profil" && td) {
+            gruppen = PROFILE.map(p => ({ k: p, items: list.filter(e => e.profilId === p.id) })).filter(g => g.items.length)
+              .map(g => ({ zeigeKopf: true, label: g.k.name, count: g.items.length, labelStyle: glabel("", false), items: g.items.map(mk) }));
+          } else {
+            gruppen = this.zustandWerte().map(z => ({ k: z, items: list.filter(e => this.zustandVon(e) === z) }))
+              .filter(g => g.items.length)
+              .map(g => ({
+                zeigeKopf: true, label: this.zustandLabel(g.k),
+                count: g.items.length, labelStyle: glabel("", false), items: g.items.map(mk)
+              }));
+          }
+
+          const spalten = [
+            { key: "name", label: pj ? "Projekt" : (td ? "Testnachricht" : "Profilierung"), align: "left" },
+            { key: "modul", label: "Modul", align: "left" },
+            { key: "projekt", label: pj ? "Zeitraum" : "Projekt", align: "left" },
+            { key: null, label: "Tags", align: "left" },
+            { key: "meta", label: pj ? "Inhalt" : (td ? "Umfang" : "Stand"), align: "left" },
+            { key: "datum", label: "Datum", align: "right" },
+            { key: null, label: "", align: "left" }
+          ].map(c => {
+            const on = c.key && st.sortKey === c.key;
+            return {
+              label: c.label, title: c.key ? "Nach „" + c.label + "“ sortieren" : "",
+              arrow: on ? (st.sortDir === "auf" ? " ↑" : " ↓") : "",
+              onClick: () => {
+                if (!c.key) return;
+                this.setState(s => ({
+                  sortKey: c.key,
+                  sortDir: s.sortKey === c.key ? (s.sortDir === "auf" ? "ab" : "auf") : (c.key === "datum" || c.key === "meta" ? "ab" : "auf")
+                }));
+              },
+              style: "display: flex; align-items: center; gap: 3px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: inherit; font-size: 10.5px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; padding: 11px 0; border: 0; background: none; color: " +
+                (on ? "#14213d" : "#545e70") + "; cursor: " + (c.key ? "pointer" : "default") +
+                "; justify-content: " + (c.align === "right" ? "flex-end" : "flex-start") + ";"
+            };
+          });
+
+          const groupOptionen = [
+            { id: "keine", label: "Ohne Gliederung" },
+            { id: "modul", label: "Nach Fachmodul" }
+          ].concat(pj ? [] : [{ id: "projekt", label: "Nach Projekt" }]).concat([
+            { id: "zustand", label: td ? "Nach Prüfergebnis" : (pj ? "Nach Status" : "Nach Zustand") },
+            { id: "version", label: "Nach XJustiz-Version" }
+          ]).concat(td ? [{ id: "profil", label: "Nach Profilierung" }] : []);
+
+          const gesamt = this.basis().length;
+
+          return {
+            tabs: [
+              { key: "projekte", label: "Projekte", title: "Vorhaben mit ihren Kommunikationsszenarien" },
+              { key: "profile", label: "Profile", title: "Sammlung der Profilierungen" },
+              { key: "testdaten", label: "Testdaten", title: "Sammlung der erzeugten Testnachrichten" },
+              { key: "howto", label: "Anleitung", title: "Bebilderte Anleitung: profilieren und Testnachrichten erstellen" },
+              { key: "kennzahlen", label: "Kennzahlen", title: "Nutzung und Bestand dieser Instanz (AG)" }
+            ].map(t => {
+              const on = t.key === this.tab();
+              const schaltbar = t.key === "profile" || t.key === "testdaten" || t.key === "projekte";
+              return {
+                label: t.label, title: t.title,
+                onClick: () => { if (schaltbar && !on) this.setState({ tab: t.key, fTag: [], fZustand: [], fProjekt: [], group: null, sortKey: "datum", sortDir: "ab" }); },
+                style: "font: inherit; font-size: 13.5px; font-weight: " + (on ? "600" : "450") +
+                  "; padding: 7px 14px; border: 0; border-radius: 8px; cursor: " + (on ? "default" : "pointer") +
+                  "; background: " + (on ? "#ffffff" : "transparent") + "; color: " + (on ? "#14213d" : "#545e70") +
+                  ";" + (on ? " box-shadow: 0 1px 2px rgba(20,33,61,0.08);" : "")
+              };
+            }),
+            achsen, aktiveChips, hatFilter,
+            alleLabel: pj ? "Alle Projekte" : (td ? "Alle Testnachrichten" : "Alle Profilierungen"),
+            alleTitle: "Eingrenzung aufheben",
+            alleCount: gesamt,
+            alleStyle: "display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; font: inherit; font-size: 13.5px; font-weight: " +
+              (hatFilter ? "450" : "600") + "; padding: 7px 10px; border: 0; border-radius: 8px; cursor: pointer; background: " +
+              (hatFilter ? "transparent" : "#e8ecf5") + "; color: #14213d;",
+            alleMarkStyle: "flex: none; width: 3px; height: 15px; border-radius: 999px; background: " + (hatFilter ? "transparent" : "#14213d") + ";",
+            alleCountStyle: "flex: none; font-size: 12px; color: #545e70; font-variant-numeric: tabular-nums;",
+            titel: pj ? "Projekte" : (td ? "Testdaten" : "Profilierungen"),
+            untertitel: pj
+              ? "Vorhaben, die Profilierungen und Testdaten bündeln. Die Fachmodule eines Projekts ergeben sich aus seinen Profilierungen."
+              : (td
+              ? "Erzeugte Testnachrichten. Jede gehört zu einer Profilierung und damit zu einem Fachmodul; Schlagworte und Projektzuordnung sind frei."
+              : "Kommunikationsszenarien für XJustiz-Nachrichten. Jede Profilierung gehört zu einem Fachmodul; Projekt und Schlagworte sind frei."),
+            hauptLabel: pj ? "Neues Projekt" : (td ? "Testnachricht erzeugen" : "Neues Profil"),
+            zweitLabel: pj ? "Bericht erzeugen" : (td ? "Testnachricht prüfen" : "Schema ansehen"),
+            zweitTitle: pj
+              ? "Stand aller Profilierungen und Testdaten eines Vorhabens als Bericht"
+              : (td
+              ? "Eine vorhandene XML-Nachricht gegen ein Profil prüfen"
+              : "Ein XJustiz-Schema nur ansehen und durchsuchen — ohne eine Profilierung anzulegen"),
+            moreItems: (pj
+              ? ["Projekt aus Datei importieren…", "Beteiligte verwalten…", "Auswahl exportieren"]
+              : (td
+              ? ["Testnachrichten importieren…", "Auswahl als ZIP herunterladen", "Prüfbericht exportieren"]
+              : ["Profil aus Datei importieren…", "Im Schema suchen…", "Auswahl exportieren"])
+            ).map(l => ({ label: l, onClick: () => this.setState({ moreOpen: false }) })),
+            moreOpen: st.moreOpen,
+            toggleMore: () => this.setState(s => ({ moreOpen: !s.moreOpen })),
+            moreBtnStyle: "font: inherit; font-size: 15px; line-height: 1; padding: 0 13px; height: 38px; border: 1px solid " +
+              (st.moreOpen ? "#c3ccdd" : "#dfe2e8") + "; border-radius: 9px; background: " +
+              (st.moreOpen ? "#f4f5f8" : "#ffffff") + "; color: #14213d; cursor: pointer;",
+            query: st.query, onQuery: e => this.setState({ query: e.target.value }),
+            suchePlaceholder: pj ? "Suchen — Projekt, Stelle, Zeitraum…"
+              : (td ? "Suchen — Testfall, Profilierung, Autor…" : "Suchen — Name, Nachricht, Autor…"),
+            trefferText: list.length === gesamt ? gesamt + " Einträge" : list.length + " von " + gesamt,
+            group, onGroup: e => this.setState({ group: e.target.value }), groupOptionen,
+            viewToggle: [
+              { key: "kacheln", label: "Kacheln", title: "Kacheln mit mehr Kontext je Eintrag" },
+              { key: "tabelle", label: "Liste", title: "Kompakte Liste — viele Einträge auf einen Blick" }
+            ].map(v => {
+              const on = view === v.key;
+              return {
+                label: v.label, title: v.title,
+                onClick: () => this.setState({ view: v.key }),
+                style: "font: inherit; font-size: 13px; font-weight: " + (on ? "600" : "450") +
+                  "; padding: 6px 12px; border: 0; border-radius: 7px; cursor: " + (on ? "default" : "pointer") +
+                  "; background: " + (on ? "#e8ecf5" : "transparent") + "; color: " + (on ? "#14213d" : "#545e70") + ";"
+              };
+            }),
+            istTabelle: view === "tabelle" && gruppen.length > 0,
+            istKachel: view === "kacheln" && gruppen.length > 0,
+            kopfStyle: "display: grid; grid-template-columns: " + GRID + "; gap: 10px; align-items: center; padding: 0 14px; background: #fafbfc; border-bottom: 1px solid #e4e6eb;",
+            spalten, gruppen,
+            leer: gruppen.length === 0,
+            leerText: st.query.trim()
+              ? "Kein Eintrag passt zur Suche „" + st.query.trim() + "“."
+              : "Kein Eintrag passt zu dieser Eingrenzung.",
+            resetAlles: () => this.setState({ query: "", fModul: [], fProjekt: [], fTag: [], fVersion: [], fZustand: [] })
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

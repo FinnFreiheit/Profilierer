@@ -15,6 +15,8 @@ export default tseslint.config(
       'node_modules/**',
       'legacy/**',
       'public/schemas/**',
+      'design-system/**',
+      'design/**',
       'server/node_modules/**',
       'deploy/**',
     ],

@@ -264,9 +264,11 @@ export class StateService {
   /**
    * Projekte vs. Dashboard (Bibliothek) vs. Baum-Editor vs. Testdaten-Speicher
    * vs. Anleitung vs. Kennzahlen (AG-exklusiv). Startseite ist das Dashboard.
+   * `styleguide` ist ein Entwicklerwerkzeug ohne Reiter, nur per
+   * `?ansicht=styleguide` erreichbar (ADR 0022).
    */
   readonly view = signal<
-    'dashboard' | 'editor' | 'testdaten' | 'howto' | 'projekte' | 'kennzahlen'
+    'dashboard' | 'editor' | 'testdaten' | 'howto' | 'projekte' | 'kennzahlen' | 'styleguide'
   >('dashboard');
   /**
    * Geoeffnetes Projekt (#135) — null zeigt die Projektuebersicht. Der Zustand

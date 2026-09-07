@@ -7,6 +7,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { PersistenceService } from '../../core/services/persistence.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -17,17 +18,17 @@ import { VergleichService } from '../../core/services/vergleich.service';
 import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
 import { TeilenService } from '../../core/services/teilen.service';
+import { UiSettingsService } from '../../core/services/ui-settings.service';
 import { BetaBadge } from '../../shared/beta-badge/beta-badge';
 import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { LibraryEntry } from '../../models/profile.model';
-import { fachmodulOf, nachFachmodul } from '../../core/util/fachmodul.util';
+import { fachmodulOf } from '../../core/util/fachmodul.util';
 import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiterung-sperre';
 import { nachrichtTeile } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { NeuesProfilWizard } from '../dialogs/neues-profil-wizard';
 import { SchemaSuche } from './schema-suche';
-import { TagFilter } from '../../shared/tag-filter/tag-filter';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
 import { ProjektStoreService } from '../../core/services/projekt-store.service';
 import { EinordnenService } from '../../core/services/einordnen.service';
@@ -40,20 +41,90 @@ import {
 } from '../../core/util/tags.util';
 
 /**
- * Ein Abschnitt der Bibliothek: seit #88 je Fachmodul einer. Die Abnahme
- * gruppiert nicht mehr — sie ist ein Zustand der einzelnen Profilierung
- * (Kennzeichen auf der Kachel, Filter in der Kopfzeile), kein Ordnungskriterium.
+ * Zustand einer Profilierung, wie ihn die Kachel als Pille traegt und die
+ * Filterspalte als Achse anbietet (v4-Entwurf, design/profil-uebersicht-v4).
+ * Er ist aus dem Eintrag abgeleitet, kein gespeichertes Feld.
  */
+type Zustand = 'frei' | 'geaendert' | 'arbeit' | 'leer';
+
+const ZUSTAND_LABEL: Record<Zustand, string> = {
+  frei: 'freigegeben',
+  geaendert: 'seit Freigabe geändert',
+  arbeit: 'in Arbeit',
+  leer: 'leer',
+};
+const ZUSTAND_ORDER: readonly Zustand[] = ['frei', 'geaendert', 'arbeit', 'leer'];
+
+/** Die Achsen der Filterspalte. `hinweise` hat nur einen Wert (#43). */
+type AchsenKey = 'modul' | 'projekt' | 'tag' | 'zustand' | 'hinweise' | 'version';
+
+interface FilterWert {
+  id: string;
+  label: string;
+  /** Treffer, wenn nur dieser Wert (zusaetzlich) gesetzt waere. */
+  n: number;
+  aktiv: boolean;
+}
+
+interface FilterAchse {
+  key: AchsenKey;
+  label: string;
+  /** Werte in Mono setzen (Fachmodul-Kuerzel, Versionsnummern). */
+  mono: boolean;
+  werte: FilterWert[];
+  aktiv: boolean;
+}
+
+/** Ein gesetzter Filter als Chip ueber der Sammlung. */
+interface AktivChip {
+  achse: string;
+  label: string;
+  key: AchsenKey | 'suche';
+  id: string;
+}
+
+/** Gliederung der Sammlung; `keine` = eine Gruppe ohne Kopf. */
+type Gliederung = 'keine' | 'modul' | 'projekt' | 'zustand' | 'version';
+
+const GLIEDERUNGEN: readonly { id: Gliederung; label: string }[] = [
+  { id: 'keine', label: 'Ohne Gliederung' },
+  { id: 'modul', label: 'Nach Fachmodul' },
+  { id: 'projekt', label: 'Nach Projekt' },
+  { id: 'zustand', label: 'Nach Zustand' },
+  { id: 'version', label: 'Nach XJustiz-Version' },
+];
+
+type SortKey = 'name' | 'modul' | 'projekt' | 'meta' | 'datum';
+
+/** Ein Abschnitt der Sammlung — je nach Gliederung Fachmodul, Projekt, Zustand oder Version. */
 interface Sektion {
-  /** Fachmodul-Kuerzel; leer = Profilierungen ohne erkennbare Nachricht. */
-  modul: string;
+  schluessel: string;
+  label: string;
+  /** Kopf in Mono (Fachmodul, Version) oder in Textschrift (Projekt, Zustand). */
+  mono: boolean;
+  /** Ohne Gliederung gibt es genau eine Sektion ohne Kopf. */
+  zeigeKopf: boolean;
   items: LibraryEntry[];
 }
 
+/** Stand einer Profilierung als Kennzahl-Pille der Kachel bzw. Listenspalte. */
+interface Meta {
+  text: string;
+  kurz: string;
+  titel: string;
+  art: 'offen' | 'voll' | 'alt';
+}
+
 /**
- * Dashboard / Startseite: die Bibliothek gespeicherter Profilierungen als
- * Karten-Grid. Von hier werden Profile geoeffnet, neu angelegt, dupliziert,
+ * Uebersicht der Profilierungen (Startseite) nach dem v4-Entwurf: links die
+ * Filterspalte mit Achsen (Fachmodul, Projekt, Schlagwort, Zustand, Hinweise,
+ * Version), rechts Kopf, Werkzeugzeile und die Sammlung als Kacheln oder
+ * Liste. Von hier werden Profile geoeffnet, neu angelegt, dupliziert,
  * umbenannt, geloescht sowie als Datei exportiert/importiert.
+ *
+ * Achsen kombinieren mit UND, Werte innerhalb einer Achse mit ODER — nur die
+ * Schlagworte fordern alle gewaehlten zugleich (wie bisher). Die Zaehler an
+ * den Werten sagen, wie viele Treffer der Klick brächte.
  *
  * Bleibt duenn: die Bibliotheks-CRUD liegt im ProfileStoreService, die
  * Oeffnen-/Neu-/Import-/Export-Orchestrierung im PersistenceService.
@@ -62,12 +133,12 @@ interface Sektion {
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    NgTemplateOutlet,
     BetaBadge,
     RolleBadge,
     Menu,
     KeinAutofillDirective,
     NeuesProfilWizard,
-    TagFilter,
     TagEingabe,
     SchemaSuche,
   ],
@@ -86,68 +157,101 @@ export class Dashboard {
   private readonly hinweise = inject(HinweisStoreService);
   private readonly testnachrichtStart = inject(TestnachrichtStartService);
   private readonly teilenService = inject(TeilenService);
+  private readonly ui = inject(UiSettingsService);
   private readonly renameDlg = viewChild.required<ElementRef<HTMLDialogElement>>('renameDlg');
   private readonly neuWizard = viewChild.required<NeuesProfilWizard>('neuWizard');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
 
+  // ── Filter ──────────────────────────────────────────────────────────
+
   /**
-   * Freitextsuche ueber die Bibliothek (#92) — wie im Testdaten-Speicher.
-   * Durchsucht wird, was auf der Kachel steht bzw. sie ordnet: Name,
-   * Nachrichtenname und Fachmodul.
+   * Freitextsuche ueber die Bibliothek (#92). Durchsucht wird, was auf der
+   * Kachel steht bzw. sie ordnet: Name, Nachricht, Fachmodul, Autor,
+   * Beschreibung, Schlagworte, Projekt.
    */
   protected readonly search = signal('');
-
-  /** Filter "nur abgenommene" (valide Vorlagen der BLK-AG schnell finden). */
-  protected readonly nurAbgenommene = signal(false);
-
-  /**
-   * Filter "nur mit offenen Hinweisen" (Issue #43): die AG grenzt ihre
-   * Sitzungsvorbereitung auf das ein, wo Rueckmeldungen liegen. Kombinierbar
-   * mit "nur abgenommene" — beide Filter greifen nacheinander.
-   */
-  protected readonly nurMitHinweisen = signal(false);
-
-  /**
-   * Gewaehlte Schlagworte der Filterleiste. Mehrere wirken zusammen (UND) —
-   * jeder Klick grenzt weiter ein.
-   */
+  protected readonly fModul = signal<string[]>([]);
+  /** Projekt-Ids; der leere String steht fuer „ohne Projekt" (#134). */
+  protected readonly fProjekt = signal<string[]>([]);
+  /** Gewaehlte Schlagworte. Mehrere wirken zusammen (UND) — jeder Klick grenzt weiter ein. */
   protected readonly gewaehlteTags = signal<string[]>([]);
+  protected readonly fZustand = signal<Zustand[]>([]);
+  /** „nur mit offenen Hinweisen" (#43): die AG grenzt ihre Sitzungsvorbereitung ein. */
+  protected readonly nurMitHinweisen = signal(false);
+  protected readonly fVersion = signal<string[]>([]);
 
-  /**
-   * Filter "nur ein Projekt" (#134). Steht neben den uebrigen Filtern, statt
-   * die Gruppierung zu ersetzen: die Abschnitte bleiben je Fachmodul, ein
-   * gewaehltes Projekt grenzt sie nur ein.
-   */
-  protected readonly nurProjekt = signal('');
+  /** Gliederung und Ansicht ueberleben den Reload (Workshop-Betrieb). */
+  protected readonly gliederung = this.ui.text('dashGliederung', 'modul');
+  protected readonly ansicht = this.ui.text('dashAnsicht', 'kacheln');
+  protected readonly gliederungen = GLIEDERUNGEN;
+  protected readonly sortKey = signal<SortKey>('datum');
+  protected readonly sortDir = signal<'auf' | 'ab'>('ab');
 
-  /** Vergebene Schlagworte der Bibliothek mit Haeufigkeit (Filterleiste). */
+  /** Vergebene Schlagworte der Bibliothek mit Haeufigkeit. */
   protected readonly verfuegbareTags = computed(() =>
     tagOptionen(this.store.entries(), (e) => e.tags),
   );
 
-  /**
-   * Ein Abschnitt je Fachmodul (#88). Die Filter greifen davor, sodass nur
-   * Module mit Treffern erscheinen — eine leere Gruppenueberschrift waere beim
-   * Filtern nur Rauschen.
-   */
-  protected readonly sektionen = computed<Sektion[]>(() => {
-    const q = this.search().trim().toLowerCase();
-    let alle = this.store.entries();
-    if (q) alle = alle.filter((e) => this.trifft(e, q));
-    if (this.nurMitHinweisen()) alle = alle.filter((e) => !!e.nHinweiseOffen);
-    if (this.nurAbgenommene()) alle = alle.filter((e) => !!e.abgenommen);
-    const tags = this.gewaehlteTags();
-    if (tags.length) alle = alle.filter((e) => hatAlleTags(e.tags, tags));
-    const projekt = this.nurProjekt();
-    if (projekt) alle = alle.filter((e) => e.projektId === projekt);
-    return nachFachmodul(alle, (e) => e.nachricht).map((g) => ({ modul: g.modul, items: g.items }));
+  /** Vorkommende Fachmodule in der Reihenfolge ihres ersten Auftretens. */
+  private readonly module = computed(() => {
+    const out: string[] = [];
+    for (const e of this.store.entries()) {
+      const m = fachmodulOf(e.nachricht);
+      if (!out.includes(m)) out.push(m);
+    }
+    return out;
+  });
+
+  /** Vorkommende XJustiz-Versionen, neueste zuerst. */
+  private readonly versionen = computed(() => {
+    const set = new Set<string>();
+    for (const e of this.store.entries()) if (e.xjustizVersion) set.add(e.xjustizVersion);
+    return [...set].sort((a, b) => b.localeCompare(a, 'de', { numeric: true }));
   });
 
   /**
-   * Sucht in Name, Nachrichtenname, Fachmodul und dem, was neuerdings auf der
-   * Kachel steht (Autor, Beschreibung, Schlagworte). Das Fachmodul steckt zwar
-   * schon im Nachrichtennamen, wird aber eigens geprueft: es ist die
-   * Gruppenueberschrift, und wer "enova" tippt, meint die Gruppe.
+   * Prueft einen Eintrag gegen alle Filter — bis auf die Achse `ohne`. So
+   * zaehlt die Filterspalte je Wert, was ein Klick darauf braechte, statt was
+   * er in der aktuellen Auswahl uebrig liesse.
+   */
+  private passt(e: LibraryEntry, ohne?: AchsenKey): boolean {
+    const q = this.search().trim().toLowerCase();
+    if (q && !this.trifft(e, q)) return false;
+    if (
+      ohne !== 'modul' &&
+      this.fModul().length &&
+      !this.fModul().includes(fachmodulOf(e.nachricht))
+    )
+      return false;
+    if (
+      ohne !== 'projekt' &&
+      this.fProjekt().length &&
+      !this.fProjekt().includes(e.projektId ?? '')
+    )
+      return false;
+    if (ohne !== 'tag' && this.gewaehlteTags().length && !hatAlleTags(e.tags, this.gewaehlteTags()))
+      return false;
+    if (
+      ohne !== 'zustand' &&
+      this.fZustand().length &&
+      !this.fZustand().includes(this.zustandVon(e))
+    )
+      return false;
+    if (ohne !== 'hinweise' && this.nurMitHinweisen() && !e.nHinweiseOffen) return false;
+    if (
+      ohne !== 'version' &&
+      this.fVersion().length &&
+      !this.fVersion().includes(e.xjustizVersion ?? '')
+    )
+      return false;
+    return true;
+  }
+
+  /**
+   * Sucht in Name, Nachrichtenname, Fachmodul und dem, was auf der Kachel
+   * steht (Autor, Beschreibung, Schlagworte, Projekt). Das Fachmodul steckt
+   * zwar schon im Nachrichtennamen, wird aber eigens geprueft: wer "enova"
+   * tippt, meint die Gruppe.
    */
   private trifft(e: LibraryEntry, q: string): boolean {
     return [
@@ -156,13 +260,234 @@ export class Dashboard {
       fachmodulOf(e.nachricht),
       e.autor,
       e.beschreibung,
+      this.projektName(e.projektId),
       ...(e.tags ?? []),
     ].some((v) => (v || '').toLowerCase().includes(q));
   }
 
-  /** Tooltip der Kachelzeile: Autor und vollstaendige Beschreibung. */
-  protected beschreibungTitel(e: LibraryEntry): string {
-    return [e.autor, e.beschreibung].filter(Boolean).join(' · ');
+  /** Alle Treffer, sortiert — die Grundlage jeder Sektion. */
+  protected readonly treffer = computed(() => {
+    const dir = this.sortDir() === 'auf' ? 1 : -1;
+    const k = this.sortKey();
+    const module = this.module();
+    return this.store
+      .entries()
+      .filter((e) => this.passt(e))
+      .sort((a, b) => {
+        let r: number;
+        if (k === 'name') r = (a.name || '￿').localeCompare(b.name || '￿', 'de');
+        else if (k === 'modul')
+          r = module.indexOf(fachmodulOf(a.nachricht)) - module.indexOf(fachmodulOf(b.nachricht));
+        else if (k === 'projekt')
+          r = this.projektName(a.projektId).localeCompare(this.projektName(b.projektId), 'de');
+        else if (k === 'meta') r = (this.anteil(a) ?? -1) - (this.anteil(b) ?? -1);
+        else r = this.zeit(a) - this.zeit(b);
+        return r * dir;
+      });
+  });
+
+  /**
+   * Die Sammlung in Abschnitten nach der gewaehlten Gliederung. Die Filter
+   * greifen davor, sodass nur Gruppen mit Treffern erscheinen — eine leere
+   * Gruppenueberschrift waere beim Filtern nur Rauschen.
+   */
+  protected readonly sektionen = computed<Sektion[]>(() => {
+    const liste = this.treffer();
+    const g = this.gliederung() as Gliederung;
+    if (g === 'keine') {
+      return liste.length
+        ? [{ schluessel: '', label: '', mono: false, zeigeKopf: false, items: liste }]
+        : [];
+    }
+    const schluesselVon = (e: LibraryEntry): string => {
+      if (g === 'modul') return fachmodulOf(e.nachricht);
+      if (g === 'projekt') return e.projektId ?? '';
+      if (g === 'zustand') return this.zustandVon(e);
+      return e.xjustizVersion ?? '';
+    };
+    const reihenfolge: readonly string[] =
+      g === 'modul'
+        ? this.module()
+        : g === 'projekt'
+          ? [...this.projekte.entries().map((p) => p.id), '']
+          : g === 'zustand'
+            ? ZUSTAND_ORDER
+            : [...this.versionen(), ''];
+    const labelVon = (k: string): string => {
+      if (g === 'modul') return k || 'ohne Nachricht';
+      if (g === 'projekt') return this.projektName(k) || 'ohne Projekt';
+      if (g === 'zustand') return ZUSTAND_LABEL[k as Zustand];
+      return k ? `XJustiz ${k}` : 'ohne Version';
+    };
+    return reihenfolge
+      .map((k) => ({ k, items: liste.filter((e) => schluesselVon(e) === k) }))
+      .filter((x) => x.items.length)
+      .map((x) => ({
+        schluessel: x.k,
+        label: labelVon(x.k),
+        mono: g === 'modul' || g === 'version',
+        zeigeKopf: true,
+        items: x.items,
+      }));
+  });
+
+  /** Die Achsen der Filterspalte mit Zaehlern. */
+  protected readonly achsen = computed<FilterAchse[]>(() => {
+    const alle = this.store.entries();
+    const zaehle = (key: AchsenKey, trifft: (e: LibraryEntry) => boolean): number =>
+      alle.filter((e) => this.passt(e, key) && trifft(e)).length;
+    const achse = (
+      key: AchsenKey,
+      label: string,
+      mono: boolean,
+      werte: readonly { id: string; label: string }[],
+      gewaehlt: readonly string[],
+      trifft: (e: LibraryEntry, id: string) => boolean,
+    ): FilterAchse => ({
+      key,
+      label,
+      mono,
+      aktiv: gewaehlt.length > 0,
+      werte: werte.map((w) => ({
+        id: w.id,
+        label: w.label,
+        n: zaehle(key, (e) => trifft(e, w.id)),
+        aktiv: gewaehlt.includes(w.id),
+      })),
+    });
+    const tagSchluessel = (t: string): string => t.toLocaleLowerCase('de');
+    return [
+      achse(
+        'modul',
+        'Fachmodule',
+        true,
+        this.module().map((m) => ({ id: m, label: m || 'ohne Nachricht' })),
+        this.fModul(),
+        (e, id) => fachmodulOf(e.nachricht) === id,
+      ),
+      achse(
+        'projekt',
+        'Projekte',
+        false,
+        [
+          ...this.projekte.entries().map((p) => ({ id: p.id, label: p.name })),
+          { id: '', label: 'ohne Projekt' },
+        ],
+        this.fProjekt(),
+        (e, id) => (e.projektId ?? '') === id,
+      ),
+      achse(
+        'tag',
+        'Schlagworte',
+        false,
+        this.verfuegbareTags().map((t) => ({ id: t.tag, label: t.tag })),
+        this.gewaehlteTags(),
+        (e, id) => (e.tags ?? []).some((t) => tagSchluessel(t) === tagSchluessel(id)),
+      ),
+      achse(
+        'zustand',
+        'Zustand',
+        false,
+        ZUSTAND_ORDER.map((z) => ({ id: z, label: ZUSTAND_LABEL[z] })),
+        this.fZustand(),
+        (e, id) => this.zustandVon(e) === id,
+      ),
+      achse(
+        'hinweise',
+        'Rückmeldungen',
+        false,
+        [{ id: 'offen', label: 'mit offenen Hinweisen' }],
+        this.nurMitHinweisen() ? ['offen'] : [],
+        (e) => !!e.nHinweiseOffen,
+      ),
+      achse(
+        'version',
+        'XJustiz-Version',
+        true,
+        this.versionen().map((v) => ({ id: v, label: v })),
+        this.fVersion(),
+        (e, id) => e.xjustizVersion === id,
+      ),
+    ].filter((a) => a.werte.length > 0);
+  });
+
+  /** Gesetzte Filter als Chips ueber der Sammlung, in Achsenreihenfolge. */
+  protected readonly aktiveChips = computed<AktivChip[]>(() => {
+    const out: AktivChip[] = [];
+    for (const m of this.fModul())
+      out.push({ achse: 'Modul', label: m || 'ohne Nachricht', key: 'modul', id: m });
+    for (const p of this.fProjekt())
+      out.push({
+        achse: 'Projekt',
+        label: this.projektName(p) || 'ohne Projekt',
+        key: 'projekt',
+        id: p,
+      });
+    for (const t of this.gewaehlteTags()) out.push({ achse: 'Tag', label: t, key: 'tag', id: t });
+    for (const z of this.fZustand())
+      out.push({ achse: 'Zustand', label: ZUSTAND_LABEL[z], key: 'zustand', id: z });
+    if (this.nurMitHinweisen())
+      out.push({ achse: 'Hinweise', label: 'offen', key: 'hinweise', id: 'offen' });
+    for (const v of this.fVersion())
+      out.push({ achse: 'Version', label: v, key: 'version', id: v });
+    const q = this.search().trim();
+    if (q) out.push({ achse: 'Suche', label: `„${q}“`, key: 'suche', id: q });
+    return out;
+  });
+
+  protected readonly hatFilter = computed(() => this.aktiveChips().length > 0);
+
+  /** „12 Einträge" bzw. „4 von 12" — der Zaehler neben der Suche. */
+  protected readonly trefferText = computed(() => {
+    const n = this.treffer().length;
+    const gesamt = this.store.entries().length;
+    return n === gesamt ? `${gesamt} Einträge` : `${n} von ${gesamt}`;
+  });
+
+  /** Einen Wert einer Achse an- bzw. abwaehlen. */
+  protected schalte(key: AchsenKey, id: string): void {
+    if (key === 'hinweise') {
+      this.nurMitHinweisen.update((v) => !v);
+      return;
+    }
+    if (key === 'tag') {
+      this.gewaehlteTags.set(schalteTag(this.gewaehlteTags(), id));
+      return;
+    }
+    const sig = key === 'modul' ? this.fModul : key === 'projekt' ? this.fProjekt : this.fVersion;
+    if (key === 'zustand') {
+      this.fZustand.update((cur) =>
+        cur.includes(id as Zustand) ? cur.filter((x) => x !== id) : [...cur, id as Zustand],
+      );
+      return;
+    }
+    sig.update((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  }
+
+  /** Eine Achse leeren (× am Achsenkopf). */
+  protected leereAchse(key: AchsenKey): void {
+    if (key === 'modul') this.fModul.set([]);
+    else if (key === 'projekt') this.fProjekt.set([]);
+    else if (key === 'tag') this.gewaehlteTags.set([]);
+    else if (key === 'zustand') this.fZustand.set([]);
+    else if (key === 'hinweise') this.nurMitHinweisen.set(false);
+    else this.fVersion.set([]);
+  }
+
+  /** Chip entfernen — derselbe Weg wie der Klick in der Spalte. */
+  protected entferneChip(c: AktivChip): void {
+    if (c.key === 'suche') this.search.set('');
+    else this.schalte(c.key, c.id);
+  }
+
+  protected resetAlles(): void {
+    this.search.set('');
+    this.fModul.set([]);
+    this.fProjekt.set([]);
+    this.gewaehlteTags.set([]);
+    this.fZustand.set([]);
+    this.nurMitHinweisen.set(false);
+    this.fVersion.set([]);
   }
 
   /** Ist das Schlagwort gerade als Filter gesetzt (Kachel-Chip hervorheben)? */
@@ -173,7 +498,7 @@ export class Dashboard {
 
   /**
    * Klick auf ein Schlagwort der Kachel: dasselbe wie ein Klick in der
-   * Filterleiste — an- bzw. abwaehlen. `stopPropagation`, sonst oeffnete der
+   * Filterspalte — an- bzw. abwaehlen. `stopPropagation`, sonst oeffnete der
    * Klick die Profilierung darunter.
    */
   protected filtereNachTag(tag: string, ev: Event): void {
@@ -181,9 +506,50 @@ export class Dashboard {
     this.gewaehlteTags.set(schalteTag(this.gewaehlteTags(), tag));
   }
 
-  /** Ueberschrift eines Abschnitts; ohne erkennbares Modul eine Sammelgruppe. */
-  protected modulTitel(modul: string): string {
-    return modul || 'ohne Nachricht';
+  /** Spaltenkopf der Liste: Klick sortiert, zweiter Klick dreht um. */
+  protected sortiere(key: SortKey): void {
+    if (this.sortKey() === key) this.sortDir.update((d) => (d === 'auf' ? 'ab' : 'auf'));
+    else {
+      this.sortKey.set(key);
+      this.sortDir.set(key === 'datum' || key === 'meta' ? 'ab' : 'auf');
+    }
+  }
+
+  protected sortPfeil(key: SortKey): string {
+    return this.sortKey() === key ? (this.sortDir() === 'auf' ? ' ↑' : ' ↓') : '';
+  }
+
+  // ── Anzeige je Eintrag ─────────────────────────────────────────────
+
+  protected zustandVon(e: LibraryEntry): Zustand {
+    if (e.abgenommen) return e.geaendertSeitAbnahme ? 'geaendert' : 'frei';
+    if (!e.nStatus && !e.nAusp && !e.nEntschieden) return 'leer';
+    return 'arbeit';
+  }
+
+  protected zustandLabel(e: LibraryEntry): string {
+    return ZUSTAND_LABEL[this.zustandVon(e)];
+  }
+
+  /** Tooltip der Zustandspille — bei Freigabe mit Datum und Kommentar. */
+  protected zustandTitel(e: LibraryEntry): string {
+    if (!e.abgenommen) return this.zustandLabel(e);
+    if (e.geaendertSeitAbnahme)
+      return `Anzeigen, was sich gegenüber der freigegebenen Fassung (v${e.abnahmeVersionNr}) geändert hat`;
+    return `Von der BLK-AG freigegeben am ${this.abnDatum(e)}${e.abnahmeKommentar ? ' · ' + e.abnahmeKommentar : ''}`;
+  }
+
+  protected modulVon(e: LibraryEntry): string {
+    return fachmodulOf(e.nachricht) || '—';
+  }
+
+  protected modulTitel(e: LibraryEntry): string {
+    const m = fachmodulOf(e.nachricht);
+    return m ? `Fachmodul ${m}` : 'noch keine Nachricht gewählt';
+  }
+
+  protected projektName(id: string | undefined): string {
+    return id ? (this.projekte.name(id) ?? '') : '';
   }
 
   /** Nachrichtenname fuer die Mitte-Kuerzung (gemeinsam mit dem Testdatenspeicher). */
@@ -196,15 +562,32 @@ export class Dashboard {
   }
 
   /**
-   * Was frueher als eigene Pillen auf der Kachel stand und ihre Hoehe
-   * schwanken liess: XJustiz-Version, eingefrorene Staende, Entwurfs-Kennzeichen.
+   * Stand als Kennzahl: offene Entscheidungspunkte, „vollständig", oder im
+   * Altbestand (kein Nenner) die Festlegungen.
    */
-  protected fussTitel(e: LibraryEntry): string {
-    const teile: string[] = [];
-    if (e.xjustizVersion) teile.push(`XJustiz ${e.xjustizVersion}`);
-    if (e.nVersionen) teile.push(`${e.nVersionen} Version${e.nVersionen === 1 ? '' : 'en'}`);
-    if (e.geaendert && e.letzteVersionNr) teile.push(`geändert seit v${e.letzteVersionNr}`);
-    return teile.join(' · ');
+  protected meta(e: LibraryEntry): Meta {
+    const a = this.anteil(e);
+    if (a === null) {
+      // Altbestand ohne Nenner: der Listenspalte reicht die Zahl der Festlegungen.
+      const titel = this.fortschritt(e);
+      const text = e.nStatus || e.nAusp ? `${e.nStatus} Festlegungen` : titel;
+      const kurz = e.nStatus || e.nAusp ? `${e.nStatus} Festl.` : titel;
+      return { text, kurz, titel, art: 'alt' };
+    }
+    const offen = (e.nPunkte ?? 0) - (e.nEntschieden ?? 0);
+    if (offen > 0)
+      return {
+        text: `${offen} offen`,
+        kurz: `${offen} off.`,
+        titel: `${offen} von ${e.nPunkte} Entscheidungspunkten offen`,
+        art: 'offen',
+      };
+    return {
+      text: 'vollständig',
+      kurz: 'vollst.',
+      titel: `Alle ${e.nPunkte} Entscheidungspunkte entschieden`,
+      art: 'voll',
+    };
   }
 
   /**
@@ -218,6 +601,24 @@ export class Dashboard {
   }
 
   /**
+   * Was auf der Kachel keinen Platz hat: XJustiz-Version, eingefrorene
+   * Staende, Entwurfs-Kennzeichen — im Tooltip des Datums.
+   */
+  protected fussTitel(e: LibraryEntry): string {
+    const teile: string[] = [];
+    if (e.xjustizVersion) teile.push(`XJustiz ${e.xjustizVersion}`);
+    if (e.nVersionen) teile.push(`${e.nVersionen} Version${e.nVersionen === 1 ? '' : 'en'}`);
+    if (e.geaendert && e.letzteVersionNr) teile.push(`geändert seit v${e.letzteVersionNr}`);
+    return teile.join(' · ');
+  }
+
+  /** Schlagworte als Text der Listenspalte. */
+  protected tagsText(e: LibraryEntry): string {
+    const t = e.tags ?? [];
+    return t.length ? (t.length === 1 ? (t[0] ?? '') : `${t.length} Tags`) : '—';
+  }
+
+  /**
    * Klick auf das Badge: Profilierung oeffnen und die Hinweis-Uebersicht
    * gleich mit — der Weg von "wo liegt etwas?" zu "was steht da?" (Issue #43).
    */
@@ -225,6 +626,11 @@ export class Dashboard {
     e.stopPropagation();
     this.hinweise.uebersichtAnfrage.set(true);
     this.open(id);
+  }
+
+  /** Klick auf die Zustandspille: bei „seit Freigabe geändert" den Diff zeigen. */
+  protected zustandKlick(e: LibraryEntry, ev: Event): void {
+    if (e.abgenommen && e.geaendertSeitAbnahme) this.zeigeAbnahmeDiff(e.id, ev);
   }
 
   /**
@@ -250,7 +656,8 @@ export class Dashboard {
       : 'Testnachricht zu dieser Profilierung erstellen — geführter Durchlauf mit Wahl der zu bindenden Fassung';
   }
 
-  /** Zum Testdaten-Speicher wechseln. */
+  // ── Navigation ─────────────────────────────────────────────────────
+
   /** Zur Projektansicht (#135) — Vorhaben mit ihren Kommunikationsszenarien. */
   protected goProjekte(): void {
     this.state.view.set('projekte');
@@ -287,6 +694,14 @@ export class Dashboard {
   protected readonly renAutor = signal('');
   protected readonly renBeschr = signal('');
   protected readonly renTags = signal('');
+
+  /** Kachel und Listenzeile sind per Tastatur erreichbar: Enter oder Leertaste oeffnet. */
+  protected oeffneBeiTaste(ev: KeyboardEvent, id: string): void {
+    if (ev.target !== ev.currentTarget) return;
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    ev.preventDefault();
+    this.open(id);
+  }
 
   protected open(id: string): void {
     // Warnhinweis der AG-Rolle: ein geschuetzter Stand wird nie versehentlich
@@ -345,9 +760,9 @@ export class Dashboard {
   );
 
   /**
-   * Vergleich gegen die abgenommene Fassung — vom Karten-Badge und aus dem
-   * Abnahme-Dialog. stopPropagation, weil ein Klick auf die Karte sonst das
-   * Profil oeffnen wuerde.
+   * Vergleich gegen die abgenommene Fassung — von der Zustandspille und aus
+   * dem Abnahme-Dialog. stopPropagation, weil ein Klick auf die Karte sonst
+   * das Profil oeffnen wuerde.
    */
   protected zeigeAbnahmeDiff(id: string, e: Event): void {
     e.stopPropagation();
@@ -452,10 +867,9 @@ export class Dashboard {
     input.value = '';
   }
 
-  /** Fortschritt-Text je Karte (wie toolbar.fortschrittText). */
   /**
-   * Fusszeile der Kachel. Liegt der Stand der Entscheidungspunkte vor (#93),
-   * zeigt sie ihn — dieselbe Aussage wie der Editor oben rechts. Im Altbestand
+   * Fortschrittstext. Liegt der Stand der Entscheidungspunkte vor (#93),
+   * zeigt er ihn — dieselbe Aussage wie der Editor oben rechts. Im Altbestand
    * (noch kein Autosave seit der Umstellung) bleibt es bei den Festlegungen.
    */
   protected fortschritt(e: LibraryEntry): string {
@@ -467,7 +881,7 @@ export class Dashboard {
 
   /**
    * Anteil entschiedener Punkte (0-1), oder `null`, wenn er nicht bekannt ist —
-   * dann zeigt die Kachel keinen Balken statt einen erfundenen.
+   * dann gibt es keine Kennzahl statt einer erfundenen.
    */
   protected anteil(e: LibraryEntry): number | null {
     const { nEntschieden: x, nPunkte: y } = e;
@@ -475,13 +889,18 @@ export class Dashboard {
     return Math.min(1, Math.max(0, x / y));
   }
 
-  /** Ausgeschriebener Prozentwert fuer den Tooltip des Balkens. */
+  /** Ausgeschriebener Prozentwert (Tooltip der Kennzahl-Pille). */
   protected anteilText(e: LibraryEntry): string {
     const a = this.anteil(e);
     return a === null ? '' : `${Math.round(a * 100)} % entschieden`;
   }
 
-  /** Anzeigedatum: fachliches Speicherdatum, sonst letzte Sicherung. */
+  /** Zeitstempel fuer die Sortierung: fachliches Speicherdatum, sonst letzte Sicherung. */
+  private zeit(e: LibraryEntry): number {
+    const t = e.gespeichert ? new Date(e.gespeichert).getTime() : e.aktualisiert;
+    return Number.isNaN(t) ? e.aktualisiert : t;
+  }
+
   /**
    * Datum der Kachel, einheitlich deutsch formatiert. `meta.gespeichert` liegt
    * als ISO-Datum vor, `aktualisiert` als Zeitstempel — nebeneinander standen

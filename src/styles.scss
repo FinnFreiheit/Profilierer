@@ -16,25 +16,59 @@
   --alabaster: #e5e5e5;
   --weiss: #ffffff;
 
-  --bg: var(--alabaster);
+  /* Seitengrund (v4): Preussischblau zu 4 % auf Weiss — kuehler und heller
+     als Alabaster, das als Grundfarbe fuer Flaechen erhalten bleibt. */
+  --bg: #f4f5f8;
   --panel: var(--weiss);
   --text: var(--preussischblau);
   --text-stark: var(--schwarz);
   --accent: var(--preussischblau);
   /* Preussischblau aufgehellt — nur fuer :hover auf gefuellten Flaechen. */
   --accent-hover: #223357;
-  --accent-soft: #dfe4ef;
+  --accent-soft: #e8ecf5;
   --accent-soft-tief: #ccd5e8;
   --signal: var(--orange);
   --signal-soft: #fef1db;
   /* Neutralstufen: Alabaster gegen Weiss bzw. Preussischblau verrechnet. */
-  --flaeche: #f1f2f5;
-  --flaeche-tief: #d6d8dd;
-  --border: #c6c8cc;
-  --border-stark: #a9adb6;
-  --muted: #5a6477;
+  --flaeche-hell: #f7f8fa;
+  --flaeche: #f0f1f4;
+  --flaeche-tief: #e8eaef;
+  --border: #e4e6eb;
+  --border-stark: #c3ccdd;
+  /* Trennlinien innerhalb einer Flaeche (Listenzeilen, Kachelfuss) — leichter
+     als der Rahmen darum. */
+  --trenner: #edeff3;
+  --muted: #545e70;
   --muted-schwach: #8d93a1;
+  --on-accent: var(--weiss);
+  /* Fachliche Signalfarben (design.md): sie bedeuten Zustaende, keine Marke —
+     immer als Paar aus Flaeche und Textfarbe, immer in einer Pille oder einem
+     Tag. Die rund zwanzig Tag-Varianten des Baums behalten ihre eigenen
+     Flaechen; `auswahl` steht stellvertretend fuer sie. */
+  --frei-bg: #ddf3e4;
+  --frei-fg: #17693c;
+  --warn-bg: #fdeecd;
+  --warn-fg: #9a6a00;
+  --erweiterung-bg: #efedfb;
+  --erweiterung-fg: #5a50c0;
+  --fehler-bg: #f9e9e9;
+  --fehler-fg: #b23a3a;
+  --belegt-bg: #f0f9f2;
+  --auswahl-bg: #f1eaf8;
+  --auswahl-fg: #7a4fa3;
   --mono: ui-monospace, 'SF Mono', Consolas, monospace;
+  /* Radien (design.md): drei Familien — Bedienung, Kasten, Pille. */
+  --rund-balken: 3px;
+  --rund-tag: 4px;
+  --rund-bedienung: 8px;
+  --rund-umschalter: 10px;
+  --rund-kasten: 12px;
+  --rund-pill: 999px;
+  /* Schatten nur auf Schwebendem und beim Ueberfahren eines Kastens. */
+  --schatten-kasten: 0 1px 2px rgba(20, 33, 61, 0.04);
+  --schatten-hover: 0 6px 20px rgba(20, 33, 61, 0.1);
+  --schatten-panel: 0 12px 32px rgba(20, 33, 61, 0.14);
+  --schatten-modal: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 * {
   box-sizing: border-box;
@@ -152,7 +186,7 @@ app-root {
   display: inline-block;
   width: 46px;
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--rund-balken);
   background: var(--signal-soft);
   overflow: hidden;
 }
@@ -170,7 +204,7 @@ app-root {
   font-size: 12px;
   background: var(--accent-soft);
   color: var(--accent);
-  border-radius: 20px;
+  border-radius: var(--rund-pill);
   padding: 2px 10px;
 }
 .spacer {
@@ -181,7 +215,7 @@ button {
   font-size: 13px;
   padding: 6px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   background: var(--panel);
   color: var(--text);
   cursor: pointer;
@@ -212,7 +246,7 @@ select {
   font: inherit;
   font-size: 13px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   padding: 6px 8px;
   background: var(--panel);
   color: var(--text);
@@ -273,10 +307,10 @@ a:focus-visible {
   border-radius: 0;
 }
 .modusSeg button:first-child {
-  border-radius: 6px 0 0 6px;
+  border-radius: var(--rund-bedienung) 0 0 var(--rund-bedienung);
 }
 .modusSeg button:last-child {
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--rund-bedienung) var(--rund-bedienung) 0;
   margin-left: -1px;
 }
 .modusSeg button.aktiv {
@@ -306,7 +340,7 @@ a:focus-visible {
   z-index: 40;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   width: 640px;
   max-width: 94vw;
@@ -364,7 +398,7 @@ a:focus-visible {
   z-index: 41;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   width: 460px;
   max-width: 92vw;
@@ -426,7 +460,7 @@ a:focus-visible {
   letter-spacing: 0.04em;
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--rund-pill);
   padding: 0 6px;
   margin-left: 4px;
   white-space: nowrap;
@@ -438,7 +472,7 @@ a:focus-visible {
   z-index: 40;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   min-width: 230px;
   max-width: min(320px, calc(100vw - 16px));
@@ -480,7 +514,7 @@ label.menuItem {
 .menuGrund {
   display: block;
   font-size: 11px;
-  color: #5a50c0;
+  color: var(--erweiterung-fg);
   margin-top: 1px;
 }
 label.menuItem:has(input:disabled) {
@@ -539,7 +573,7 @@ label.menuItem:has(input:disabled) {
 /* Validierungsbericht (app-validation-dialog) */
 .validFehler {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   max-height: 320px;
   overflow: auto;
   font-family: var(--mono);
@@ -694,7 +728,7 @@ app-crumbs {
 }
 .crumb {
   padding: 2px 9px;
-  border-radius: 12px;
+  border-radius: var(--rund-kasten);
   cursor: pointer;
   color: var(--accent);
   background: var(--accent-soft);
@@ -803,7 +837,7 @@ app-crumbs {
 .box {
   background: var(--panel);
   border: 1.5px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--rund-kasten);
   padding: 7px 10px;
   cursor: pointer;
   position: relative;
@@ -856,7 +890,7 @@ app-crumbs {
    bewusst NACH .leafBox/.parentBox — gleiche Spezifität, die spätere Regel
    gewinnt. .sel bleibt darüber (eigener 2.5px-Rahmen in der Akzentfarbe). */
 .box.belegt {
-  background: #f0f9f2;
+  background: var(--belegt-bg);
 }
 .box.belegt:not(.sel) {
   border-color: #6fb98a;
@@ -887,7 +921,7 @@ app-crumbs {
   color: #2f7d51;
   background: #e6f4ea;
   border: 1px solid #c3ddcb;
-  border-radius: 999px;
+  border-radius: var(--rund-pill);
   padding: 2px 6px;
 }
 .mv + .wsub,
@@ -957,7 +991,7 @@ app-crumbs {
   font-size: 12px;
   padding: 3px 7px;
   border: 1px solid #cfe0d3;
-  border-radius: 5px;
+  border-radius: var(--rund-tag);
   background: #f6fbf7;
   color: #14532d;
 }
@@ -1018,7 +1052,7 @@ app-crumbs {
   border: none;
   background: var(--flaeche);
   color: var(--muted);
-  border-radius: 5px;
+  border-radius: var(--rund-tag);
   width: 20px;
   height: 20px;
   line-height: 20px;
@@ -1059,8 +1093,8 @@ app-crumbs {
   cursor: not-allowed;
 }
 .delBtn:hover {
-  background: #f9e9e9;
-  color: #b23a3a;
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
 .box:hover .hideBtn,
 .box:hover .dupBtn {
@@ -1078,7 +1112,7 @@ app-crumbs {
   border: 1px solid var(--border);
   background: var(--flaeche);
   color: var(--muted);
-  border-radius: 5px;
+  border-radius: var(--rund-tag);
   width: 20px;
   height: 20px;
   line-height: 18px;
@@ -1131,7 +1165,7 @@ app-crumbs {
   font-size: 10px;
   line-height: 1.5;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--rund-tag);
   padding: 0 4px;
   color: var(--muted);
   max-width: 100%;
@@ -1164,13 +1198,13 @@ app-crumbs {
 }
 .tag {
   font-size: 10px;
-  border-radius: 4px;
+  border-radius: var(--rund-tag);
   padding: 0 5px;
   font-weight: 600;
 }
 .tag.t-choice {
-  background: #f1eaf8;
-  color: #7a4fa3;
+  background: var(--auswahl-bg);
+  color: var(--auswahl-fg);
 }
 .tag.t-wert {
   background: #e5f4ea;
@@ -1181,8 +1215,8 @@ app-crumbs {
   color: #993556;
 }
 .tag.t-dent {
-  background: #f9e9e9;
-  color: #b23a3a;
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
 .tag.t-daend {
   background: #fdf3d7;
@@ -1207,24 +1241,24 @@ app-crumbs {
 }
 .box.mini.dfR .bname::after {
   content: ' Δ';
-  color: #b23a3a;
+  color: var(--fehler-fg);
   font-weight: 700;
 }
 .tag.t-verr {
-  background: #f9e9e9;
-  color: #b23a3a;
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
 .tag.t-vsub {
-  background: #f9e9e9;
-  color: #b23a3a;
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
 .box.valErr {
-  border-color: #b23a3a;
-  box-shadow: inset 0 0 0 1px #b23a3a;
+  border-color: var(--fehler-fg);
+  box-shadow: inset 0 0 0 1px var(--fehler-fg);
 }
 .box.mini.valErr .bname::after {
   content: ' !';
-  color: #b23a3a;
+  color: var(--fehler-fg);
   font-weight: 700;
 }
 .tag.t-code {
@@ -1252,8 +1286,8 @@ app-crumbs {
   color: #0d7268;
 }
 .tag.t-open {
-  background: #fdeecd;
-  color: #9a6a00;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
   border: 1px dashed #d9a927;
 }
 /* Durchlauf einer Nachricht: was die Nachricht verlangt (grün) und was frei
@@ -1319,32 +1353,32 @@ app-crumbs {
   background: #f7f6fd;
 }
 .tag.t-ext {
-  background: #efedfb;
-  color: #5a50c0;
+  background: var(--erweiterung-bg);
+  color: var(--erweiterung-fg);
   border: 1px dashed #7f77dd;
 }
 .box.addBox.addExt:hover {
-  color: #5a50c0;
+  color: var(--erweiterung-fg);
   border-color: #7f77dd;
 }
 /* Datentyp der Nachbeauftragung (#97) — dezenter als die Kennzeichnung selbst. */
 .tag.t-typ {
   background: #f5f4fc;
-  color: #5a50c0;
+  color: var(--erweiterung-fg);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 /* Der gespeicherte Schema-Typ fehlt im aktiven Schema: Defekt, nicht Normalfall. */
 .tag.t-typerr {
-  background: #f9e9e9;
-  color: #b23a3a;
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
   border: 1px solid #d98b8b;
 }
 .typFehlt {
-  color: #b23a3a;
+  color: var(--fehler-fg);
 }
 .pillExt {
-  background: #efedfb;
-  color: #5a50c0;
+  background: var(--erweiterung-bg);
+  color: var(--erweiterung-fg);
 }
 .statusStrip {
   position: absolute;
@@ -1352,7 +1386,7 @@ app-crumbs {
   top: 0;
   bottom: 0;
   width: 5px;
-  border-radius: 9px 0 0 9px;
+  border-radius: var(--rund-kasten) 0 0 var(--rund-kasten);
 }
 
 /* ── Nachrichten-Überlagerung (#147) ────────────────────────────────────
@@ -1389,7 +1423,7 @@ app-crumbs {
   line-height: 1;
   letter-spacing: 0.02em;
   color: var(--text);
-  border-radius: 4px;
+  border-radius: var(--rund-tag);
   padding: 3px 4px;
 }
 .wertText {
@@ -1447,7 +1481,7 @@ app-crumbs {
   line-height: 1;
   color: var(--muted);
   background: var(--flaeche-tief);
-  border-radius: 999px;
+  border-radius: var(--rund-pill);
   padding: 2px 6px;
 }
 .wbilanz + .wbilanz {
@@ -1656,21 +1690,21 @@ app-detail-panel {
 .docbox {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   padding: 8px 10px;
   font-size: 13px;
 }
 /* Gefuehrte Entscheidung (Detailpanel) */
 .guidedSec {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   padding: 10px;
   background: var(--bg);
 }
 .guidedSec .gOffen {
-  background: #fdeecd;
-  color: #9a6a00;
-  border-radius: 4px;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  border-radius: var(--rund-tag);
   padding: 0 6px;
   font-size: 10px;
   margin-left: 6px;
@@ -1685,7 +1719,7 @@ app-detail-panel {
 /* Einordnung der Station: grün = die Nachricht verlangt sie, orange = frei.
    Dieselben Farben wie die Dispositionen der Profilierung (profile-defaults). */
 .guidedSec .gStation {
-  border-radius: 4px;
+  border-radius: var(--rund-tag);
   padding: 0 6px;
   font-size: 10px;
   margin-left: 6px;
@@ -1777,7 +1811,7 @@ app-detail-panel {
 .gChip {
   font-size: 11.5px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--rund-kasten);
   padding: 2px 9px;
   background: var(--panel);
   max-width: 100%;
@@ -1860,8 +1894,8 @@ app-detail-panel {
   background: var(--accent-soft);
 }
 .pillDraft {
-  background: #fdeecd;
-  color: #9a6a00;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 .statusBtns {
   display: flex;
@@ -1891,7 +1925,7 @@ textarea {
 }
 .clWrap {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   max-height: 240px;
   overflow: auto;
 }
@@ -1958,7 +1992,7 @@ textarea {
   font-size: 12.5px;
   color: var(--muted);
   background: #faf1e2;
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   padding: 8px 10px;
 }
 .auspRow {
@@ -2002,7 +2036,7 @@ textarea {
   text-overflow: ellipsis;
 }
 #zustandText .warn {
-  color: #b23a3a;
+  color: var(--fehler-fg);
   font-weight: 700;
 }
 #zustandText .zustandTeil::before {
@@ -2037,7 +2071,7 @@ textarea {
   display: inline-block;
   width: 10px;
   height: 10px;
-  border-radius: 3px;
+  border-radius: var(--rund-balken);
   margin-right: 5px;
   vertical-align: -1px;
 }
@@ -2125,7 +2159,7 @@ app-schema-suche {
 .dashCard {
   background: var(--panel);
   border: 1.5px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--rund-kasten);
   padding: 12px 14px;
   cursor: pointer;
   display: flex;
@@ -2240,7 +2274,7 @@ app-schema-suche {
   display: inline-block;
   width: 42px;
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--rund-balken);
   /* Gleiche Farbgebung wie der Balken in der Kopfzone (.fsBalken). */
   background: var(--signal-soft);
   overflow: hidden;
@@ -2265,8 +2299,8 @@ app-schema-suche {
   flex: none;
 }
 .menuItem.del:hover {
-  background: #f9e9e9;
-  color: #b23a3a;
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
 #dashEmpty {
   max-width: 640px;
@@ -2287,7 +2321,7 @@ app-schema-suche {
   gap: 0;
   margin-bottom: 14px;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   overflow: hidden;
 }
 .viewToggle button {
@@ -2346,7 +2380,7 @@ app-schema-suche {
   white-space: pre-wrap;
   word-break: break-word;
   background: var(--accent-soft);
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   padding: 5px 8px;
 }
 /* ── Schlagworte (Tags) ──────────────────────────────────────────────
@@ -2376,7 +2410,7 @@ app-tag-eingabe input {
   font-size: 12px;
   line-height: 1.4;
   padding: 2px 10px;
-  border-radius: 20px;
+  border-radius: var(--rund-pill);
   border: 1px solid var(--border);
   background: var(--flaeche);
   color: var(--text);
@@ -2445,12 +2479,12 @@ app-tag-eingabe input {
 
 /* Abnahme durch die BLK-AG: Siegel-Badge, Warnvariante, Rollen-Badge/Filter. */
 .pillAbn {
-  background: #ddf3e4;
-  color: #17693c;
+  background: var(--frei-bg);
+  color: var(--frei-fg);
 }
 .pillAbnWarn {
-  background: #fdeecd;
-  color: #9a6a00;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 /* BETA-Kennzeichnung des Werkzeugs: steht in jeder Kopfzeile neben der Rolle. */
 .betaPill {
@@ -2458,8 +2492,8 @@ app-tag-eingabe input {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  background: #fdeecd;
-  color: #9a6a00;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 /* In der Uebersichts-Kopfzeile (space-between) zieht das Badge den freien Raum
    an sich, damit es zusammen mit dem Rollen-Badge rechts steht. */
@@ -2505,7 +2539,7 @@ app-tag-eingabe input {
 
 dialog {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   max-width: 560px;
   width: 90vw;
@@ -2517,7 +2551,7 @@ dialog::backdrop {
 .menuQuelle {
   margin-left: 6px;
   padding: 1px 5px;
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 11px;
@@ -2532,7 +2566,7 @@ dialog::backdrop {
   gap: 6px;
   padding: 22px 14px;
   border: 2px dashed var(--border-stark);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   background: var(--flaeche);
   text-align: center;
 }
@@ -2576,7 +2610,7 @@ dialog::backdrop {
   counter-increment: wiz;
   padding: 3px 10px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--rund-pill);
 }
 .wizSchritte li::before {
   content: counter(wiz) '. ';
@@ -2603,7 +2637,7 @@ dialog::backdrop {
   max-height: 46vh;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   padding: 6px 0;
 }
 /* Die Wahl ist ein Knopf, sieht aber aus wie ein Listeneintrag (.msgItem). */
@@ -2668,14 +2702,14 @@ dialog::backdrop {
 }
 .typWarn {
   font-size: 12px;
-  color: #9a6a00;
+  color: var(--warn-fg);
 }
 .typPanel {
   position: fixed;
   z-index: 60;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   /* Breite muss zu DatentypPicker.BREITE passen; Hoehe setzt die Komponente
      je nach Platz ueber dem/unter dem Knopf. */
@@ -2727,12 +2761,12 @@ dialog::backdrop {
   color: var(--muted);
 }
 .erwProblem {
-  color: #b23a3a;
+  color: var(--fehler-fg);
   font-size: 12.5px;
   margin-top: 8px;
 }
 .erwWarn {
-  color: #9a6a00;
+  color: var(--warn-fg);
   font-size: 12.5px;
   margin-top: 8px;
 }
@@ -2757,7 +2791,7 @@ dialog::backdrop {
   background: var(--preussischblau);
   color: var(--weiss);
   padding: 8px 18px;
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   font-size: 13px;
   opacity: 0;
   transition: opacity 0.3s;
@@ -2781,7 +2815,7 @@ app-tree-context-menu {
   padding: 4px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   box-shadow: 0 8px 24px rgba(28, 39, 51, 0.18);
   display: flex;
   flex-direction: column;
@@ -2793,7 +2827,7 @@ app-tree-context-menu {
   font: inherit;
   color: var(--text);
   padding: 6px 10px;
-  border-radius: 5px;
+  border-radius: var(--rund-tag);
   cursor: pointer;
 }
 .ctxMenu button:hover {
@@ -2807,7 +2841,7 @@ app-tree-context-menu {
   max-height: 52vh;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
 }
 .vglZeile {
   display: flex;
@@ -2844,7 +2878,7 @@ app-tree-context-menu {
   color: var(--muted);
 }
 .vglVorher {
-  color: #b23a3a;
+  color: var(--fehler-fg);
   text-decoration: line-through;
 }
 .vglNachher {
@@ -3011,9 +3045,9 @@ app-tree-context-menu {
   .prow .pext {
     font-size: 10px;
     font-weight: 700;
-    color: #5a50c0;
+    color: var(--erweiterung-fg);
     border: 1px dashed #7f77dd;
-    border-radius: 3px;
+    border-radius: var(--rund-balken);
     padding: 0 4px;
   }
   .prow .pst {
@@ -3036,7 +3070,7 @@ app-tree-context-menu {
     color: var(--text);
     background: var(--flaeche);
     padding: 1px 6px;
-    border-radius: 3px;
+    border-radius: var(--rund-balken);
   }
 }
 
@@ -3061,7 +3095,7 @@ app-tree-context-menu {
   gap: 18px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   padding: 16px 18px;
   margin-bottom: 28px;
 }
@@ -3132,7 +3166,7 @@ app-tree-context-menu {
 .htMerke {
   border-left: 3px solid var(--accent);
   background: var(--accent-soft);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--rund-bedienung) var(--rund-bedienung) 0;
   padding: 8px 12px;
   font-size: 13px;
 }
@@ -3144,7 +3178,7 @@ app-tree-context-menu {
   width: 100%;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   background: var(--panel);
   cursor: zoom-in;
   overflow: hidden;
@@ -3176,7 +3210,7 @@ app-tree-context-menu {
 .htLupe img {
   max-width: 100%;
   max-height: 100%;
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
 }
 
@@ -3201,7 +3235,7 @@ app-tree-context-menu {
   font-size: 11.5px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--rund-tag);
   padding: 1px 5px;
 }
 
@@ -3231,7 +3265,7 @@ app-tree-context-menu {
   margin: 0 auto 12px;
   background: var(--panel);
   border: 1.5px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--rund-kasten);
   overflow: hidden;
 }
 /* Kopfzeile in der Seitenfarbe: sie hebt das Szenario von seinen
@@ -3421,7 +3455,7 @@ app-tree-context-menu {
   overflow: auto;
   max-height: 60vh;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
 }
 .matrixTabelle {
   border-collapse: collapse;
@@ -3516,7 +3550,7 @@ app-tree-context-menu {
   max-height: 32vh;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
 }
 .eoEintrag {
   display: flex;
@@ -3586,7 +3620,7 @@ app-tree-context-menu {
   gap: 5px;
   padding: 2px 9px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--rund-pill);
   background: var(--accent-soft);
   color: var(--text);
   font-size: 12px;
@@ -3645,7 +3679,7 @@ app-tree-context-menu {
 .kzKachel {
   background: var(--panel);
   border: 1.5px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--rund-kasten);
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -3685,7 +3719,7 @@ app-tree-context-menu {
   margin: 0 auto 18px;
   background: var(--panel);
   border: 1.5px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--rund-kasten);
   padding: 12px 16px 8px;
 }
 .kzDiagrammKopf {
@@ -3733,7 +3767,7 @@ app-tree-context-menu {
 /* Fehleranteil: Signalrot bewusst ausserhalb der Markenpalette, wie die
    uebrigen fachlichen Warnfarben. */
 .kzBalkenFehler {
-  fill: #b23a3a;
+  fill: var(--fehler-fg);
 }
 .kzBalkenText {
   font-family: var(--mono);
@@ -3760,5 +3794,933 @@ app-tree-context-menu {
   border-top: 1px solid var(--border);
   font-size: 12px;
   line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------
+   Styleguide (?ansicht=styleguide, ADR 0022): Bausteine und Tokens der App
+   mit dem echten Stylesheet — Quelle des Design-System-Spiegels. Jede
+   Karte ist ein <section data-ds-card>; scripts/design-system-bundle.mjs
+   exportiert ihr Markup unveraendert. Die .sg*-Klassen sind nur der Rahmen
+   der Seite, kein Baustein.
+   ------------------------------------------------------------------ */
+app-styleguide {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.sgGruppe {
+  max-width: 1120px;
+  margin: 30px auto 6px;
+  font-size: 16px;
+  color: var(--text-stark);
+}
+.sgTitel {
+  max-width: 1120px;
+  margin: 16px auto 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.sgTitel code {
+  font-family: var(--mono);
+}
+.sgKarte {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 18px;
+  border: 1px dashed var(--border-stark);
+  border-radius: var(--rund-kasten);
+}
+.sgReihe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.sgReihe + .sgReihe {
+  margin-top: 14px;
+}
+.sgUntertitel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 14px 0 8px;
+}
+.sgUntertitel:first-child {
+  margin-top: 0;
+}
+.sgTypoZeile {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--flaeche-tief);
+}
+.sgTypoZeile:last-child {
+  border-bottom: 0;
+}
+.sgTypoMeta {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.sgTypoMeta code {
+  font-family: var(--mono);
+}
+.sgTypoProbe {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sgProbe {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  min-width: 190px;
+}
+.sgRadiusProbe {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  background: var(--panel);
+  border: 1.5px solid var(--border);
+}
+.sgAbstandZeile {
+  display: grid;
+  grid-template-columns: 90px 120px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 12px;
+}
+.sgAbstandProbe {
+  display: inline-block;
+  height: 14px;
+  background: var(--accent-soft-tief);
+  border-radius: 2px;
+}
+.sgSwatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px 16px;
+}
+.sgSwatch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  min-width: 0;
+}
+.sgFarbe {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--rund-bedienung);
+  border: 1px solid var(--border);
+}
+.sgSwatchText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+.sgSwatchText code,
+.sgWert {
+  font-family: var(--mono);
+}
+.sgWert,
+.sgRolle {
+  color: var(--muted);
+}
+.sgTypo h2,
+.sgTypo h3 {
+  margin: 10px 0 4px;
+}
+.sgMono {
+  font-family: var(--mono);
+}
+/* Das Menue liegt in der App fixiert unter seinem Knopf; im Styleguide steht
+   es im Fluss, damit es als Baustein sichtbar ist. */
+.sgMenuStatisch {
+  position: static;
+}
+.sgFilterStatisch {
+  position: static;
+  max-height: none;
+  border-right: 0;
+  padding: 0;
+}
+/* Exportierte Karte (design-system/): nur der Baustein auf dem Grund der App. */
+body.dsVorschau {
+  margin: 0;
+  padding: 12px;
+  background: var(--bg);
+}
+body.dsVorschau .sgKarte {
+  border: 0;
+  padding: 0;
+  max-width: none;
+}
+
+/* ------------------------------------------------------------------
+   Uebersicht v4 (design/profil-uebersicht-v4.dc.html, ADR 0022)
+
+   Leiste mit Reitern, Filterspalte links, Sammlung als Kacheln oder
+   Liste. Die Regeln hier ueberschreiben bewusst die aelteren Kachel- und
+   Reiter-Regeln oben (gleiche Spezifitaet, spaetere Regel gewinnt), damit
+   Testdaten und Projekte dieselbe Formensprache bekommen, ohne dass ihre
+   Templates angefasst werden muessen.
+   ------------------------------------------------------------------ */
+/* Reiterleiste: ruhige Segmentgruppe statt Rahmenkasten. */
+.viewToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  margin: 0;
+  background: var(--bg);
+  border: 0;
+  border-radius: var(--rund-umschalter);
+  overflow: visible;
+}
+.viewToggle button {
+  border: 0;
+  border-radius: var(--rund-bedienung);
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 400;
+  background: transparent;
+  color: var(--muted);
+}
+.viewToggle button.active {
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--schatten-kasten);
+  opacity: 1;
+  cursor: default;
+}
+.viewToggle button:not(.active):hover {
+  background: var(--panel);
+  color: var(--text);
+}
+.dashTop .viewToggle {
+  margin-bottom: 14px;
+}
+.dashHead h1 {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+/* Menues: weicher Schatten, Eintraege mit eigener Rundung. */
+.menuPanel {
+  box-shadow: var(--schatten-panel);
+  padding: 6px;
+}
+.menuItem {
+  border-radius: var(--rund-bedienung);
+  padding: 9px 11px;
+}
+.menuItem:hover {
+  background: var(--bg);
+}
+dialog {
+  box-shadow: var(--schatten-modal);
+}
+button:hover {
+  background: var(--bg);
+}
+/* Kachel: ein Rahmen, eine leichte Kante, beim Ueberfahren angehoben. */
+.dashCard {
+  border-width: 1px;
+  padding: 16px 17px;
+  gap: 8px;
+  box-shadow: var(--schatten-kasten);
+  transition:
+    box-shadow 0.14s,
+    border-color 0.14s;
+}
+.dashCard:hover {
+  border-color: var(--border-stark);
+  box-shadow: var(--schatten-hover);
+}
+.dcName {
+  font-size: 15px;
+  line-height: 1.32;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.64em;
+}
+.dcMenuBtn {
+  flex: none;
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--rund-bedienung);
+  font-size: 15px;
+  line-height: 1;
+}
+.dashCard:hover .dcMenuBtn,
+.listeZeile:hover .dcMenuBtn {
+  border-color: var(--border);
+  background: var(--bg);
+}
+
+#dash.dashV4 {
+  padding: 0;
+}
+.dashLeiste {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.dashLeisteInnen {
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 11px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.dashLeisteRechts {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dashKoerper {
+  max-width: 1560px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr);
+  align-items: start;
+}
+
+/* Filterspalte: Achsen mit Zaehlern; der Zaehler sagt, was der Klick braechte. */
+.dashFilter {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow: auto;
+  padding: 22px 16px 40px 28px;
+  border-right: 1px solid var(--border);
+}
+.fKopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 12px;
+}
+.fAchseTitel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.fReset,
+.fAchseReset {
+  font: inherit;
+  font-size: 12px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--rund-tag);
+  background: none;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.fReset:hover,
+.fAchseReset:hover {
+  color: var(--text);
+  background: none;
+}
+.fAchseReset {
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1;
+}
+.fAlle,
+.fWert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--rund-bedienung);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.fAlle {
+  gap: 9px;
+  padding: 7px 10px;
+}
+.fAlle:hover,
+.fWert:hover {
+  background: var(--flaeche);
+}
+.fAlle.aktiv,
+.fWert.aktiv,
+.fAlle.aktiv:hover,
+.fWert.aktiv:hover {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.fWert.leer {
+  color: var(--muted);
+}
+.fMarke {
+  flex: none;
+  width: 3px;
+  height: 15px;
+  border-radius: var(--rund-pill);
+  background: transparent;
+}
+.fAlle.aktiv .fMarke {
+  background: var(--accent);
+}
+.fBox {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--rund-tag);
+  font-size: 9px;
+  line-height: 1;
+  color: var(--on-accent);
+  border: 1px solid var(--border-stark);
+  background: var(--panel);
+}
+.fWert.aktiv .fBox {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.fLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fLabel.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.fZahl {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.fAchsen {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-top: 22px;
+}
+.fAchse {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fAchseKopf {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 0 10px 7px;
+}
+
+/* Kopf und Werkzeugzeile der Sammlung. */
+.dashMain {
+  min-width: 0;
+  padding: 24px 28px 80px;
+}
+.dashKopf {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.dashKopfText {
+  min-width: 0;
+}
+.dashKopf h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.dashKopf .dashSub {
+  margin: 5px 0 0;
+  font-size: 14px;
+  max-width: 66ch;
+  text-wrap: pretty;
+}
+.dashKopfAktionen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dashKopfAktionen button {
+  padding: 9px 14px;
+}
+.dashKopfAktionen button:hover:not(.primary) {
+  border-color: var(--accent);
+}
+.dashMehrBtn {
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 13px;
+  height: 38px;
+}
+.dashWerkzeuge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.dashSucheFeld {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--rund-umschalter);
+  flex: 1 1 280px;
+  max-width: 360px;
+}
+.dashSucheFeld:focus-within {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.dashSucheFeld > span {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+}
+.dashSucheFeld input[type='search'],
+.dashSucheFeld input[type='search']:focus {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+}
+.dashTreffer {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dashV4 .dashSuche {
+  flex: 0 1 280px;
+  min-width: 0;
+}
+.dashV4 .dashSuche .suchfeld {
+  height: 36px;
+  border-radius: var(--rund-umschalter);
+}
+.dashGliederung {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--rund-umschalter);
+  cursor: pointer;
+}
+.ansichtToggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--rund-umschalter);
+}
+.ansichtToggle button {
+  border: 0;
+  border-radius: var(--rund-bedienung);
+  padding: 6px 12px;
+  font-size: 13px;
+  background: transparent;
+  color: var(--muted);
+}
+.ansichtToggle button.aktiv {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+  cursor: default;
+}
+.aktivChips {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.aktivChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 27px;
+  padding: 0 8px 0 11px;
+  border: 1px solid var(--accent-soft-tief);
+  border-radius: var(--rund-pill);
+  background: var(--accent-soft);
+  font-size: 12px;
+  color: var(--text);
+}
+.aktivChip:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.aktivChipAchse,
+.aktivChipX {
+  color: var(--muted);
+}
+.aktivChipX {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* Gruppen, Kacheln und ihre Innenteile. */
+.gruppeLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.gruppeLabel.mono {
+  font-family: var(--mono);
+  letter-spacing: 0.03em;
+  background: var(--accent-soft);
+  border-radius: var(--rund-bedienung);
+  padding: 3px 9px;
+}
+.gruppeZahl {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.gruppeLinie {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.kachelGruppen {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.kachelGruppeKopf {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 11px;
+}
+.kachelRaster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(298px, 1fr));
+  gap: 13px;
+}
+.dashV4 .dashCard {
+  min-height: 252px;
+}
+/* Der Name ist hier Kind der Spalte, nicht der Kopfzeile: `flex: 1` der
+   aelteren Regel wuerde ihm den ganzen freien Raum geben. */
+.dashV4 .dcName {
+  flex: none;
+}
+.dcKopf {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 22px;
+}
+.modulPill {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text);
+  background: var(--flaeche);
+  border-radius: var(--rund-tag);
+  padding: 2px 7px;
+  white-space: nowrap;
+  flex: none;
+}
+.zustandPill {
+  flex: none;
+  font-weight: 600;
+}
+.z-frei {
+  background: var(--frei-bg);
+  color: var(--frei-fg);
+}
+.z-geaendert {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+.z-arbeit {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.z-leer {
+  background: var(--flaeche);
+  color: var(--muted);
+}
+/* Leerzustaende tragen Information: kursiv, nicht versteckt. */
+.dcBeschreibung {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 3em;
+}
+.dcBeschreibung.leer,
+.dcProjekt.leer,
+.listeText.leer,
+.dcAutor.leer {
+  font-style: italic;
+}
+.dashV4 .dcTags {
+  min-height: 22px;
+  gap: 6px;
+}
+.dashV4 .dcTags .tagChip {
+  font-size: 12px;
+  padding: 2px 9px;
+  background: var(--bg);
+  border-color: var(--flaeche-tief);
+  color: var(--muted);
+}
+.dashV4 .dcTags .tagChipAktiv {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.dcFuss {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 11px;
+  border-top: 1px solid var(--trenner);
+}
+.dcFussZeile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.dcAutor {
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dcAutor.leer {
+  font-weight: 400;
+  color: var(--muted);
+}
+.dcProjekt {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.metaPill {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--rund-bedienung);
+  padding: 2px 7px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  /* Darf schrumpfen und kuerzt — der volle Text steht im Tooltip. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--flaeche);
+  color: var(--text);
+}
+.meta-voll {
+  background: var(--frei-bg);
+  color: var(--frei-fg);
+}
+.meta-alt {
+  color: var(--muted);
+}
+
+/* Liste: alle Textspalten minmax(0, …), damit sie auch bei ~600px Breite
+   vollstaendig bleibt — kein Abschneiden, kein Querscrollen. */
+.liste {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+  overflow: hidden;
+  box-shadow: var(--schatten-kasten);
+}
+.listeKopf,
+.listeZeile {
+  display: grid;
+  grid-template-columns: minmax(0, 2.6fr) 62px minmax(0, 1.1fr) minmax(0, 1fr) 64px 62px 32px;
+  gap: 10px;
+  align-items: center;
+}
+.listeKopf {
+  padding: 0 14px;
+  background: var(--flaeche-hell);
+  border-bottom: 1px solid var(--border);
+}
+.listeKopf button,
+.listeKopf span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 11px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+}
+.listeKopf button:hover {
+  background: none;
+  color: var(--text);
+}
+.listeKopf .aktiv {
+  color: var(--text);
+}
+.listeKopf .rechts {
+  justify-content: flex-end;
+}
+.listeGruppe {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 16px;
+  background: var(--flaeche-hell);
+  border-bottom: 1px solid var(--trenner);
+}
+.listeZeile {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--trenner);
+  cursor: pointer;
+  background: var(--panel);
+}
+.listeZeile:hover {
+  background: var(--flaeche-hell);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.listeZeile:last-child {
+  border-bottom: 0;
+}
+.listeName {
+  min-width: 0;
+}
+.listeName1 {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.listeName2 {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.listeText {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.listeDatum {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.listeZeile .modulPill {
+  justify-self: start;
+}
+.listeZeile .dcMenuBtn {
+  width: 32px;
+  opacity: 1;
+}
+
+/* Leerer Zustand der Sammlung: eine Flaeche mit dem naechsten Schritt. */
+.dashLeer {
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+  padding: 52px 36px;
+}
+.dashLeerSymbol {
+  font-family: var(--mono);
+  font-size: 22px;
+  color: var(--border-stark);
+  margin-bottom: 14px;
+}
+.dashLeer h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.dashLeer p {
+  margin: 0 0 20px;
+  font-size: 14px;
   color: var(--muted);
 }
