@@ -7,4 +7,35 @@
   <app-message-picker></app-message-picker>
   <span class="spacer"></span>
   <app-search></app-search>
+
+  <!-- Baum oder XML: dieselbe Nachricht, zwei Formen. Das Segment steht in
+       der Ort-Zeile, weil es die Frage "was sehe ich hier" beantwortet —
+       nicht "wie arbeite ich" (das ist die Zeile darunter). -->
+  <div
+    class="viewToggle darstellungSeg"
+    role="group"
+    aria-label="Darstellung"
+    [title]="sperrGrund()"
+  >
+    <button
+      type="button"
+      [class.active]="darstellung() === 'baum'"
+      [attr.aria-pressed]="darstellung() === 'baum'"
+      [disabled]="gesperrt()"
+      title="Die Nachricht als Baum bearbeiten"
+      (click)="setzeDarstellung('baum')"
+    >
+      Baum
+    </button>
+    <button
+      type="button"
+      [class.active]="darstellung() === 'xml'"
+      [attr.aria-pressed]="darstellung() === 'xml'"
+      [disabled]="gesperrt()"
+      title="Die Nachricht als XJustiz-XML ansehen"
+      (click)="setzeDarstellung('xml')"
+    >
+      XML
+    </button>
+  </div>
 </div>

@@ -3,6 +3,7 @@ import { Objektleiste } from './features/objektleiste/objektleiste';
 import { Ortzeile } from './features/ortzeile/ortzeile';
 import { Werkzeugleiste } from './features/werkzeugleiste/werkzeugleiste';
 import { TreeCanvas } from './features/tree/tree-canvas';
+import { XmlAnsicht } from './features/xml-ansicht/xml-ansicht';
 import { DetailPanel } from './features/detail/detail-panel';
 import { StatusDialog } from './features/dialogs/status-dialog';
 import { MetaDialog } from './features/dialogs/meta-dialog';
@@ -75,6 +76,7 @@ function istZweigWahl(el: HTMLElement): boolean {
     Ortzeile,
     Werkzeugleiste,
     TreeCanvas,
+    XmlAnsicht,
     DetailPanel,
     StatusDialog,
     MetaDialog,
@@ -133,6 +135,8 @@ export class App implements OnInit {
   protected readonly view = this.state.view;
   /** Reine Schema-Ansicht (US "Schema ansehen") — eigener Empty-State-Text. */
   protected readonly schemaView = this.state.schemaView;
+  /** Baum oder XML in der Arbeitsflaeche (Segment der Ort-Zeile). */
+  protected readonly darstellung = this.state.darstellung;
 
   /**
    * Zurueck zur Uebersicht (Topbar-Button). Wohin, entscheidet das offene

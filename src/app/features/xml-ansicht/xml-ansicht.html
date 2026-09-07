@@ -1,0 +1,71 @@
+<!--
+  XML-Darstellung (Editor v4): eine Karte, drei Zonen — Kopf (was ist das,
+  was kann ich damit tun), Zeilen (die Nachricht selbst), Fuss (die Bilanz
+  und was nicht drinsteht). Jede Zeile mit Bezug zum Baum ist ein Knopf, der
+  das Element auswaehlt; die uebrigen sind Knoepfe ohne Wirkung (disabled),
+  damit die Liste eine Form behaelt.
+-->
+@if (ergebnis()) {
+  <div class="xmlKarte">
+    <div class="xmlKopf">
+      <div class="xmlKopfText">
+        <div class="xmlTitel">{{ titel() }}</div>
+        <div class="xmlUnter">{{ untertext() }}</div>
+      </div>
+      <button
+        type="button"
+        class="xmlKnopf"
+        title="XML in die Zwischenablage kopieren"
+        (click)="kopieren()"
+      >
+        {{ kopiert() ? 'Kopiert ✓' : 'Kopieren' }}
+      </button>
+      <button
+        type="button"
+        class="primary xmlKnopf"
+        title="Als XML-Datei herunterladen"
+        (click)="herunterladen()"
+      >
+        Herunterladen
+      </button>
+    </div>
+
+    <div class="xmlZeilen">
+      @for (z of zeilen(); track z.nr) {
+        <button
+          type="button"
+          class="xmlZeile"
+          [class.aktiv]="!!z.pfad && z.pfad === aktiverPfad()"
+          [disabled]="!z.pfad"
+          [title]="zeilenTitel(z)"
+          (click)="zeileKlick(z)"
+        >
+          <span class="xmlNr">{{ z.nr }}</span>
+          <span class="xmlCode">
+            @for (t of z.tokens; track $index) {
+              <span [class]="markenKlasse(t)">{{ t.text }}</span>
+            }
+          </span>
+        </button>
+      }
+    </div>
+
+    <div class="xmlFuss">
+      <span class="xmlBilanz"
+        >{{ elementZahl() }} Elemente · {{ offeneZahl() }} {{ offenLabel() }} · XJustiz
+        {{ state.version() }}</span
+      >
+      <span class="spacer"></span>
+      <span class="xmlFussHinweis">{{ fussHinweis() }}</span>
+    </div>
+  </div>
+} @else {
+  <div class="xmlLeer dashLeer">
+    <div class="dashLeerSymbol">&lt;/&gt;</div>
+    <h3>Für diese Ansicht gibt es keine Nachricht</h3>
+    <p>
+      Ein Datentyp beschreibt einen Baustein, keine vollständige Nachricht — ein XJustiz-XML
+      entsteht erst aus einem Nachrichtentyp. Oben links einen Nachrichtentyp wählen.
+    </p>
+  </div>
+}

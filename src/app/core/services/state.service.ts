@@ -306,6 +306,14 @@ export class StateService {
     beantwortet: false,
     notiz: false,
   });
+  /**
+   * Darstellung der Nachricht in der Arbeitsflaeche (Segment der Ort-Zeile):
+   * als Kasten-Kaskade oder als XJustiz-XML. Eine reine Ansichtsfrage —
+   * **nicht persistiert** und beim Wechsel des Nachrichtentyps bewusst **nicht**
+   * zurueckgesetzt: wer die XML-Sicht aufhat, vergleicht meist mehrere
+   * Nachrichten darin und will nicht nach jedem Wechsel neu umschalten.
+   */
+  readonly darstellung = signal<'baum' | 'xml'>('baum');
   /** Blaetter linksbuendig auf die tiefste Spalte ausrichten (bündige Wertespalte). */
   readonly alignLeaves = signal(false);
   /** Betrachtungsmodus: gesperrte Ansicht ohne Profilier-Bedienelemente (Nachricht inspizieren). */

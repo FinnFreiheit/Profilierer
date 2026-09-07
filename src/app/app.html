@@ -40,7 +40,13 @@
   <div id="main" appFileDrop (filesDropped)="onDropped($event)">
     <div id="colWrap">
       @if (hasRoot()) {
-        <app-tree-canvas></app-tree-canvas>
+        <!-- Dieselbe Nachricht, zwei Formen (Segment der Ort-Zeile): die
+             Kasten-Kaskade zum Arbeiten, das XJustiz-XML zum Zeigen. -->
+        @if (darstellung() === 'xml') {
+          <app-xml-ansicht></app-xml-ansicht>
+        } @else {
+          <app-tree-canvas></app-tree-canvas>
+        }
       } @else {
         <!-- Leerer Zustand: dieselbe Formensprache wie die leere Sammlung
              der Uebersicht (.dashLeer) — eine Flaeche mit dem naechsten
