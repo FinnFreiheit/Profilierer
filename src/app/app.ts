@@ -8,6 +8,7 @@ import { MetaDialog } from './features/dialogs/meta-dialog';
 import { HinweiseDialog } from './features/dialogs/hinweise-dialog';
 import { VersionsDialog } from './features/dialogs/versions-dialog';
 import { DiffDialog } from './features/dialogs/diff-dialog';
+import { GrundlageDialog } from './features/dialogs/grundlage-dialog';
 import { Legend } from './features/legend/legend';
 import { PrintDoc } from './features/print/print-doc';
 import { Toast } from './shared/toast/toast';
@@ -75,6 +76,7 @@ function istZweigWahl(el: HTMLElement): boolean {
     HinweiseDialog,
     VersionsDialog,
     DiffDialog,
+    GrundlageDialog,
     Legend,
     PrintDoc,
     Toast,

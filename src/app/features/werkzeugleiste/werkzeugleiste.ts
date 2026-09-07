@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
 import { GuidedService } from '../../core/services/guided.service';
@@ -10,7 +10,6 @@ import { Crumbs } from '../crumbs/crumbs';
 import { Menu } from '../../shared/menu/menu';
 import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
 import { UeberlagerungMenu } from '../ueberlagerung/ueberlagerung-menu';
-import { BundledVersion } from '../../models/schema-bundle.model';
 
 /** Die drei Arbeitsweisen des Segments. */
 export type Arbeitsmodus = 'betrachten' | 'bearbeiten' | 'gefuehrt';
@@ -18,11 +17,15 @@ export type Arbeitsmodus = 'betrachten' | 'bearbeiten' | 'gefuehrt';
 /**
  * Zeile 2 der Kopfzone: die Arbeit am Baum (Issue #80). Nachrichtenwahl und
  * Pfad gehoeren fachlich zusammen ("welche Nachricht, wo darin"), daneben
- * Arbeitsmodus, Suche, Anzeigeschalter, Datenbasis und Fortschritt.
+ * Arbeitsmodus, Suche, Anzeigeschalter und Fortschritt.
+ *
+ * Die Datenbasis (Schemaversionen, Codelisten, Versionsvergleich) ist seit
+ * Editor v4 der Dialog `app-grundlage-dialog`, erreichbar ueber „Grundlage…"
+ * im ⋯-Menue der Kopfzeile.
  *
  * Die Leiste bricht nie um: sie ist bei jeder Fensterbreite genau eine Zeile
  * hoch. Was nicht mehr passt, verliert per Breakpoint seine Beschriftung
- * (~1280px) oder weicht in das Ueberlauf-Menue (~1050px, `.overflow-only`).
+ * (~1280px).
  */
 @Component({
   selector: 'app-werkzeugleiste',
@@ -39,81 +42,11 @@ export class Werkzeugleiste {
   /** Laeuft eine Nachrichten-Ueberlagerung (#147)? Dann steht ihr Filter hier. */
   protected readonly ueberlagerung = inject(UeberlagerungService);
 
-  readonly xsdFiles = output<FileList>();
-  readonly codelistFiles = output<FileList>();
-  readonly xrepClick = output<void>();
-  readonly diffClick = output<void>();
-  /** Wechsel auf eine hinterlegte Schemaversion (dir aus dem Manifest). */
-  readonly bundledPick = output<string>();
-  /** Versionsliste von xjustiz.de abrufen/aktualisieren. */
-  readonly remoteSchemaClick = output<void>();
-  /** Fehlerprotokoll (LoggerService-Ringpuffer) als Datei speichern. */
-  readonly logExportClick = output<void>();
-
   protected readonly hasRoot = this.state.hasRoot;
-  protected readonly hasIdx = computed(() => !!this.state.idx());
   protected readonly hasIdxB = computed(() => !!this.state.idxB());
   protected readonly isMessage = this.state.isMessageEdit;
   protected readonly isCreate = this.state.isMessageCreate;
   protected readonly isSchemaView = this.state.schemaView;
-
-  protected readonly bundledVersions = computed(() => this.state.bundledVersions());
-  protected readonly activeBundle = computed(() => this.state.activeBundle());
-
-  /** Stammt die aktive Version aus dem Abruf von xjustiz.de? */
-  private readonly ausXjustizDe = computed(() => {
-    const dir = this.state.activeBundle();
-    return !!dir && !!this.state.bundledVersions().find((v) => v.dir === dir)?.zipUrl;
-  });
-
-  /**
-   * Sichtbare Beschriftung des Datenbasis-Menues. Der frueher danebenstehende
-   * verInfo-Text (~350px) ist zum Tooltip geworden (Issue #80) — die Version
-   * stand dort ohnehin doppelt.
-   */
-  protected readonly datenbasisLabel = computed(() =>
-    this.state.idx() ? `XJustiz ${this.state.version() || '?'}` : 'Schemata',
-  );
-
-  /**
-   * Tooltip eines Eintrags im Umschalter: woher die Version stammt. Bei
-   * gespeicherten (von xjustiz.de geholten) ist das die entscheidende Auskunft —
-   * sie liegen im Backend und werden nur auf Zuruf aktualisiert.
-   */
-  protected quellHinweis(v: BundledVersion): string {
-    if (!v.zipUrl) return `Im Projekt hinterlegtes Schema (public/schemas/${v.dir})`;
-    const woher = v.hinweis ? ` — ${v.hinweis}` : '';
-    // Bekannt ist die Version, sobald ihre Bezugsquelle im Speicher steht; die
-    // Dateien kommen erst mit dem ersten Waehlen dazu. Beides ist ein
-    // Unterschied, den man vor dem Klick wissen will (der Abruf dauert).
-    if (!v.files.length)
-      return (
-        `Auf xjustiz.de veröffentlicht${woher}. Das Schema wird beim ersten Wählen ` +
-        'geholt und bleibt danach gespeichert.'
-      );
-    const wann = v.geholt ? ` am ${new Date(v.geholt).toLocaleDateString('de-DE')}` : '';
-    return (
-      `Von xjustiz.de geholt${wann}${woher} — ${v.files.length} Schemadateien im Speicher. ` +
-      'Aktualisiert wird nur über „Von xjustiz.de aktualisieren".'
-    );
-  }
-
-  /** verInfo (Z.980-984): jetzt Tooltip des Datenbasis-Menues statt eigener Pille. */
-  protected readonly verInfo = computed(() => {
-    const idx = this.state.idx();
-    if (!idx) return 'keine Schemata geladen';
-    const ncl = Object.keys(this.state.codelists()).length;
-    return (
-      `XJustiz ${this.state.version() || '?'}${this.ausXjustizDe() ? ' (xjustiz.de)' : ''} · ` +
-      `${this.state.docs().length} Schemata · ` +
-      `${idx.messages.length} Nachrichten${ncl ? ' · ' + ncl + ' Codelisten' : ''}`
-    );
-  });
-
-  protected readonly diffLabel = computed(() => {
-    const b = this.state.idxB();
-    return b ? `Diff ${this.state.version() || '?'} ↔ ${b.version || '?'}` : 'Version vergleichen…';
-  });
 
   /**
    * Der Arbeitsmodus ist abgeleitet, nicht gespeichert: `readOnly` und `guided`
@@ -169,22 +102,6 @@ export class Werkzeugleiste {
     const { x, y } = this.guided.fortschritt();
     return y > 0 ? Math.min(1, x / y) : null;
   });
-
-  protected pick(input: HTMLInputElement): void {
-    input.click();
-  }
-
-  protected onXsd(e: Event): void {
-    const input = e.target as HTMLInputElement;
-    if (input.files && input.files.length) this.xsdFiles.emit(input.files);
-    input.value = '';
-  }
-
-  protected onCodelist(e: Event): void {
-    const input = e.target as HTMLInputElement;
-    if (input.files && input.files.length) this.codelistFiles.emit(input.files);
-    input.value = '';
-  }
 
   protected checked(e: Event): boolean {
     return (e.target as HTMLInputElement).checked;

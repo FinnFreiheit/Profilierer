@@ -30,17 +30,10 @@
     (printClick)="printDoc.print()"
     (teilenClick)="teileAktivesProfil()"
     (teilenNachrichtClick)="teileAktiveNachricht()"
+    (grundlageClick)="grundlageDlg.open()"
   ></app-objektleiste>
 
-  <app-werkzeugleiste
-    (xsdFiles)="onXsdFiles($event)"
-    (codelistFiles)="onCodelistFiles($event)"
-    (xrepClick)="onXrep()"
-    (diffClick)="onDiff(diffDlg, xsdBInput)"
-    (bundledPick)="loadBundled($event)"
-    (remoteSchemaClick)="loadRemoteVersions()"
-    (logExportClick)="exportLog()"
-  ></app-werkzeugleiste>
+  <app-werkzeugleiste></app-werkzeugleiste>
 
   <div id="main" appFileDrop (filesDropped)="onDropped($event)">
     <div id="colWrap">
@@ -100,6 +93,16 @@
   <app-hinweise-dialog #hinweiseDlg></app-hinweise-dialog>
   <app-versions-dialog #versionenDlg></app-versions-dialog>
   <app-diff-dialog #diffDlg (loadOther)="xsdBInput.click()"></app-diff-dialog>
+  <app-grundlage-dialog
+    #grundlageDlg
+    (xsdFiles)="onXsdFiles($event)"
+    (codelistFiles)="onCodelistFiles($event)"
+    (xrepClick)="onXrep()"
+    (diffClick)="onDiff(diffDlg, xsdBInput)"
+    (bundledPick)="loadBundled($event)"
+    (remoteSchemaClick)="loadRemoteVersions()"
+    (logExportClick)="exportLog()"
+  ></app-grundlage-dialog>
 } @else if (view() === 'testdaten') {
   <app-testdaten></app-testdaten>
 } @else if (view() === 'howto') {

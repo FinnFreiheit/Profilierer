@@ -13,12 +13,14 @@ import { ERW_SPERRE_GRUND } from '../../core/util/erweiterung-sperre';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 
 /**
- * Zeile 1 der Kopfzone: das Dokument (Issue #80). Feste Zonen, wechselnder
- * Inhalt — die Primaeraktion sitzt in jedem Modus an derselben Stelle, damit
- * der Moduswechsel die Knoepfe nicht wandern laesst.
+ * Kopfzeile des Editors (Editor v4, frueher Zeile 1 der Kopfzone / #80): das
+ * Dokument. Feste Zonen, wechselnder Inhalt — die Primaeraktion sitzt in jedem
+ * Modus an derselben Stelle, damit der Moduswechsel die Knoepfe nicht wandern
+ * laesst.
  *
- * `Laden` und `Speichern` desselben Objekts liegen hier zusammen; die
- * Schema-/Codelisten-Quellen sind in die Werkzeugleiste gezogen (Datenbasis).
+ * Saemtliche Werkzeuge des Objekts stehen im ⋯-Menue (keine Doppelung mehr in
+ * der Leiste, keine Breakpoint-Umschichtung); die Schema-/Codelisten-Quellen
+ * liegen hinter dem Eintrag „Grundlage…" im gleichnamigen Dialog.
  */
 /**
  * Warum die Primaeraktion in der Nachrichten-Ueberlagerung gesperrt ist. Der
@@ -71,6 +73,8 @@ export class Objektleiste {
   readonly saveCreateClick = output<void>();
   /** Serie fortsetzen; true = als Kopie der eben gespeicherten Nachricht. */
   readonly weitereTestnachrichtClick = output<boolean>();
+  /** Oeffnet den Grundlage-Dialog (Schemaversion, Codelisten, Vergleich). */
+  readonly grundlageClick = output<void>();
 
   protected readonly hasRoot = this.state.hasRoot;
   /**
@@ -174,8 +178,35 @@ export class Objektleiste {
         this.hatEintrag()),
   );
 
-  /** Beschriftung des Ueberlauf-/Weiteres-Menues. */
-  protected readonly weiteresLabel = computed(() => (this.isProfil() ? 'Profil' : 'Mehr'));
+  /**
+   * Nebenhinweis am Eintrag "Frühere Fassungen…": die zuletzt eingefrorene
+   * Fassung. Ohne Bibliothekseintrag (noch nicht gespeichert) bleibt er leer.
+   */
+  protected readonly letzteFassung = computed(() => {
+    const id = this.state.activeProfileId();
+    if (!id) return '';
+    const nr = this.store.entries().find((x) => x.id === id)?.letzteVersionNr;
+    return nr ? `v${nr}` : '';
+  });
+
+  /**
+   * Steht vor der Gruppe "Herunterladen" ueberhaupt ein Eintrag? Nur dann
+   * trennt der Strich darueber etwas — in der Schema-Ansicht beginnt das
+   * Menue mit der Gruppe selbst.
+   */
+  protected readonly hatVorspann = computed(() => {
+    if (this.isProfil())
+      return !this.state.readOnly() || !!this.abnahme() || !!this.hinweise.eintraege().length;
+    if (this.isMessage())
+      return this.hatEintrag() || !this.state.readOnly() || this.bindungLoesbar();
+    if (this.isCreate()) return this.serieMoeglich() || !this.state.readOnly();
+    return false;
+  });
+
+  /** Nebenhinweis am Eintrag "Grundlage…": worauf die Ansicht gerade beruht. */
+  protected readonly grundlageHinweis = computed(() =>
+    this.state.idx() ? `XJustiz ${this.state.version() || '?'}` : 'keine Schemata',
+  );
 
   protected pick(input: HTMLInputElement): void {
     input.click();

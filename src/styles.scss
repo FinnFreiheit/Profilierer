@@ -109,8 +109,11 @@ app-root {
    Die Zonenhoehe ist bei jeder Fensterbreite gleich — statt umzubrechen
    geben die Elemente nach fester Reihenfolge nach (Breakpoints am Ende
    dieses Abschnitts): erst schrumpfen Eingabefelder, dann verlieren
-   Knoepfe ihre Beschriftung (.lbl-lang), zuletzt weichen die selten
-   genutzten ins Ueberlauf-Menue (.inline-only -> .overflow-only).
+   Knoepfe ihre Beschriftung (.lbl-lang).
+
+   Die Kopfzeile (Zeile 1, Objektleiste) traegt seit Editor v4 zusaetzlich
+   `.kopfzeile` und ihre eigenen Regeln am Ende dieser Datei; alle
+   Objekt-Werkzeuge stehen dort im ⋯-Menue, ein Ueberlauf entfaellt.
    ------------------------------------------------------------------ */
 .kopfleiste {
   background: var(--panel);
@@ -148,27 +151,6 @@ app-root {
   white-space: nowrap;
   max-width: 320px;
 }
-.zoneWerkzeuge {
-  flex: 0 1 auto;
-  overflow: hidden;
-}
-.zoneWerkzeuge button {
-  white-space: nowrap;
-}
-/* Der Zustand wechselt seinen Text — reservierte Breite haelt die
-   Primaeraktion an ihrem Platz (Befund 3 zu #80). */
-.zoneZustand {
-  flex: none;
-  justify-content: flex-end;
-  min-width: 0;
-}
-.zonePrimaer {
-  flex: none;
-}
-.zonePrimaer button {
-  min-width: 92px;
-  justify-content: center;
-}
 /* Zeile 2: Ort (Nachricht + Pfad) darf als einzige stark schrumpfen. */
 .zoneOrt {
   flex: 1 1 auto;
@@ -203,10 +185,6 @@ app-root {
   height: 100%;
   background: var(--signal);
   transition: width 0.2s ease-out;
-}
-/* Ueberlauf-Eintraege sind erst unterhalb des schmalen Breakpoints da. */
-.overflow-only {
-  display: none;
 }
 .pill {
   font-size: 12px;
@@ -289,10 +267,6 @@ a:focus-visible {
   white-space: nowrap;
   flex: 0 1 auto;
   min-width: 84px;
-}
-#profilName {
-  width: 210px;
-  min-width: 0;
 }
 .toolgroup {
   display: flex;
@@ -2924,7 +2898,11 @@ app-tree-context-menu {
    Reihenfolge nach — die Zeilenzahl bleibt dabei immer zwei.
 
    ~1280px  lange Beschriftungen weichen Kurzform/Symbol, Felder schrumpfen
-   ~1050px  selten Genutztes weicht in das Ueberlauf-Menue
+   ~1050px  Nachrichtenwahl und Fortschrittstext geben weiter nach
+
+   Betroffen ist nur noch die Werkzeugleiste (Zeile 2): die Kopfzeile
+   traegt seit Editor v4 alle Werkzeuge im ⋯-Menue und bleibt bei jeder
+   Breite gleich.
 
    Bewusst `display: none` statt `visibility`: die ausgeblendete Fassung
    darf von Screenreadern nicht als zweite, identische Aktion vorgelesen
@@ -2940,55 +2918,24 @@ app-tree-context-menu {
     padding-left: 12px;
     padding-right: 12px;
   }
-  #profilName {
-    width: 130px;
-  }
   #msgBtn {
     max-width: 240px;
   }
   #fortschritt {
     max-width: 150px;
   }
-  .zoneIdent .objName {
-    max-width: 190px;
-  }
-  /* Menues, Zurueck-Knopf und das Feldlabel tragen nur noch ihre Kurzform;
-     der Platzhalter im Feld sagt ohnehin, was dort hineingehoert. */
-  .mAnsicht .lbl-lang,
-  .mDatenbasis .lbl-lang,
-  .mWeiteres .lbl-lang,
-  .homeBtn .lbl-lang,
-  .zoneIdent .lbl-lang {
+  /* Das Ansichtsmenue traegt nur noch sein Zeichen. */
+  .mAnsicht .lbl-lang {
     display: none;
   }
-  .mAnsicht .lbl-kurz,
-  .mDatenbasis .lbl-kurz,
-  .mWeiteres .lbl-kurz {
+  .mAnsicht .lbl-kurz {
     display: inline;
-  }
-  /* Die Abnahme bleibt als Zeichen stehen — der Tooltip traegt den Text. */
-  .zoneZustand .pillBtn .lbl-lang {
-    display: none;
   }
 }
 
 @media (max-width: 1050px) {
   .kopfleiste {
     gap: 6px;
-  }
-  /* Objekt-Werkzeuge weichen ins Menue; die Eintraege dort sind dieselben
-     Aktionen (.overflow-only im Template). */
-  .inline-only {
-    display: none;
-  }
-  .overflow-only {
-    display: block;
-  }
-  .zoneWerkzeuge {
-    display: none;
-  }
-  #profilName {
-    width: 110px;
   }
   /* Der Pfad hat Vorrang: die Nachrichtenwahl behaelt nur noch so viel
      Breite, dass ihr Anfang lesbar bleibt (voller Name im Tooltip). */
@@ -2999,9 +2946,6 @@ app-tree-context-menu {
   /* Der Fortschritt bleibt als Balken; die Zahl steht im Tooltip der Zone. */
   #fortschritt {
     display: none;
-  }
-  .zoneIdent .objName {
-    max-width: 130px;
   }
 }
 
@@ -4731,4 +4675,124 @@ button:hover {
   margin: 0 0 20px;
   font-size: 14px;
   color: var(--muted);
+}
+
+/* ------------------------------------------------------------------
+   Editor v4 — Kopfzeile (design/profilierer-editor-v4.dc.html, ADR 0022)
+
+   Eine Zeile mit vier Aufgaben: zurueck, Identitaet, Zustand+Aktion,
+   ⋯-Menue. Der Szenario-Name ist selbst das Eingabefeld (kein Label,
+   kein Rahmen im Ruhezustand) — er liest sich als Titel und laesst sich
+   trotzdem anklicken. Werkzeuge stehen ausschliesslich im ⋯-Menue; die
+   frueheren Breakpoints der Kopfzeile (1050/1280px) entfallen dadurch.
+   ------------------------------------------------------------------ */
+.kopfzeile {
+  padding: 9px 18px;
+  gap: 12px;
+}
+.kopfzeile .homeBtn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+.kopfzeile .homeBtn:hover {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+.kopfzeile .zoneIdent {
+  flex: 1 1 auto;
+  gap: 9px;
+}
+/* Der Titel als Feld: im Ruhezustand rahmenlos, beim Ueberfahren und im
+   Fokus als Eingabe erkennbar. `input.` statt `.` allein, weil die
+   Grundregel der Eingaben (input[type='text']) sonst gewinnt. */
+input.kopfName {
+  flex: 0 1 300px;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: -0.012em;
+  color: var(--text);
+  padding: 5px 9px;
+  margin-left: -9px;
+  border-color: transparent;
+  background: transparent;
+}
+input.kopfName:hover,
+input.kopfName:focus {
+  border-color: var(--border);
+  background: var(--bg);
+}
+/* Nachrichten-, Ueberlagerungs- und Schema-Ansicht tragen denselben Titel
+   als Text — gleiche Groesse, damit die Zeile beim Moduswechsel ruhig bleibt. */
+.kopfzeile .objName {
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: -0.012em;
+  max-width: 420px;
+}
+.kopfzeile button.primary {
+  flex: none;
+  font-weight: 550;
+  padding: 7px 15px;
+}
+.kopfzeile .pillBtn {
+  flex: none;
+  white-space: nowrap;
+}
+/* Das ⋯ ist selbst schon Menue-Zeichen — kein Pfeil, keine Beschriftung. */
+.mWeiteres {
+  padding: 6px 11px;
+  font-size: 15px;
+  line-height: 18px;
+}
+
+/* Nebenhinweis eines Menueeintrags: rechtsbuendig, grau, nie Traeger der
+   Aussage — er beantwortet nur die Rueckfrage zum Eintrag davor.
+
+   `nowrap` plus `flex-wrap` statt Schrumpfen: passt das Paar nicht in die
+   Panel-Breite, rutscht der Hinweis als Ganzes in die zweite Zeile (weiter
+   rechtsbuendig), statt beide Texte mitten im Wort umzubrechen. */
+.menuNeben {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+.menuItem:has(.menuNeben) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 14px;
+  white-space: nowrap;
+}
+
+/* Grundlage-Dialog: Versionsliste als Menuezeilen, Quellen als Knopfreihe. */
+.grundlageListe {
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+  padding: 4px;
+  margin-bottom: 12px;
+}
+.grundlageZeile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.grundlageZeile.aktiv {
+  font-weight: 600;
+}
+.grundlageHaken {
+  flex: none;
+  width: 14px;
+  color: var(--accent);
+}
+.grundlageAktionen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
