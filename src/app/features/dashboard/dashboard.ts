@@ -37,21 +37,12 @@ import {
   tagOptionen,
   tagsAlsText,
 } from '../../core/util/tags.util';
-
-/**
- * Zustand einer Profilierung, wie ihn die Kachel als Pille traegt und die
- * Filterspalte als Achse anbietet (v4-Entwurf, design/profil-uebersicht-v4).
- * Er ist aus dem Eintrag abgeleitet, kein gespeichertes Feld.
- */
-type Zustand = 'frei' | 'geaendert' | 'arbeit' | 'leer';
-
-const ZUSTAND_LABEL: Record<Zustand, string> = {
-  frei: 'freigegeben',
-  geaendert: 'seit Freigabe geändert',
-  arbeit: 'in Arbeit',
-  leer: 'leer',
-};
-const ZUSTAND_ORDER: readonly Zustand[] = ['frei', 'geaendert', 'arbeit', 'leer'];
+import {
+  ZUSTAND_LABEL,
+  ZUSTAND_ORDER,
+  Zustand,
+  zustandVon,
+} from '../../core/util/profil-zustand.util';
 
 /** Die Achsen der Filterspalte. `hinweise` hat nur einen Wert (#43). */
 type AchsenKey = 'modul' | 'projekt' | 'tag' | 'zustand' | 'hinweise' | 'version';
@@ -517,10 +508,9 @@ export class Dashboard {
 
   // ── Anzeige je Eintrag ─────────────────────────────────────────────
 
+  /** Abgeleitet, nicht gespeichert — die Regel steht in `profil-zustand.util`. */
   protected zustandVon(e: LibraryEntry): Zustand {
-    if (e.abgenommen) return e.geaendertSeitAbnahme ? 'geaendert' : 'frei';
-    if (!e.nStatus && !e.nAusp && !e.nEntschieden) return 'leer';
-    return 'arbeit';
+    return zustandVon(e);
   }
 
   protected zustandLabel(e: LibraryEntry): string {

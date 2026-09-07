@@ -2360,13 +2360,6 @@ app-schema-suche {
   top: calc(100% + 4px);
   left: 0;
 }
-#dashGrid {
-  max-width: 1120px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
-}
 .dashCard {
   background: var(--panel);
   border: 1.5px solid var(--border);
@@ -2392,11 +2385,6 @@ app-schema-suche {
    Bereiche haben reservierte Hoehen — vorher schwankte die Kachelhoehe
    mit der Zahl der Pillen und das Raster franste aus.
    ------------------------------------------------------------------ */
-.dcHead {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-}
 .dcName {
   flex: 1;
   min-width: 0;
@@ -2456,17 +2444,6 @@ app-schema-suche {
   font-style: italic;
   opacity: 0.7;
 }
-.dcProg {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* Fortschrittsbalken der Kachel (#93). Er erscheint nur, wenn der Stand der
    Entscheidungspunkte bekannt ist — ohne Nenner waere jeder Balken geraten. */
 .kachelBalken {
@@ -2483,15 +2460,6 @@ app-schema-suche {
   display: block;
   height: 100%;
   background: var(--signal);
-}
-.dcFoot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: auto;
-  padding-top: 9px;
-  border-top: 1px solid var(--border);
 }
 .dcDate {
   font-size: 11.5px;
@@ -2626,19 +2594,6 @@ app-tag-eingabe input {
   color: var(--muted);
 }
 
-/* Beschreibung/Notiz auf der Kachel: vollstaendig, mit Umbruch. Frueher stand
-   hier eine gekuerzte Zeile mit dem vollen Text im Tooltip (#91) — der Text ist
-   aber das, was eine Profilierung von der naechsten unterscheidet, und ein
-   Tooltip zeigt sich weder beim Ueberfliegen noch auf dem Tablet. Lange Texte
-   machen ihre Kachelzeile jetzt hoeher; `overflow-wrap` haelt Bandwurmwoerter
-   (Pfade, IDs) im Kasten. */
-.dcNotiz {
-  font-size: 12px;
-  color: var(--muted);
-  min-height: 17px;
-  white-space: pre-line;
-  overflow-wrap: anywhere;
-}
 .pillMuted {
   background: var(--bg);
   color: var(--muted);
@@ -3340,10 +3295,13 @@ app-tree-context-menu {
 }
 
 /* ── Projektseite (#135) ────────────────────────────────────────────────
-   Eine Zeile je Kommunikationsszenario (= Profilierung), darunter ihre
-   Testnachrichten. Bewusst Zeilen statt Kacheln: die Frage ist "was gehoert
+   Ein Block je Kommunikationsszenario (= Profilierung), darunter seine
+   Testnachrichten. Bewusst Bloecke statt Kacheln: die Frage ist "was gehoert
    zusammen und was fehlt", und die beantwortet eine Liste besser als eine
-   Kachelwand — genau die gibt es in den beiden anderen Ansichten schon. */
+   Kachelwand — genau die gibt es in den beiden anderen Ansichten schon.
+
+   Der Block ist ein `.liste` mit eigenem Kopf; die Spur gibt seit Bibliothek
+   v4 `.dashMain`, nicht mehr eine eigene max-width. */
 .crumbZurueck {
   background: none;
   border: 0;
@@ -3356,61 +3314,55 @@ app-tree-context-menu {
   color: var(--fg);
   text-decoration: underline;
 }
-/* Wie `.dashHead`, `#dashGrid` und `.tdGroupHead`: der Inhalt der App steht in
-   einer 1120px-Spalte. Ohne diese Bindung liefen die Zeilen auf breiten
-   Schirmen ueber die volle Fensterbreite, und der Knopf am rechten Rand haette
-   mit dem Namen am linken sichtbar nichts mehr zu tun. */
 .szenario {
-  max-width: 1120px;
-  margin: 0 auto 12px;
   background: var(--panel);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--rund-kasten);
+  box-shadow: var(--schatten-kasten);
+  margin-bottom: 14px;
   overflow: hidden;
+  /* Die Sprungliste rollt `.dashMain`; ohne diesen Abstand klebte der
+     angesprungene Kopf an der Oberkante des Rollbereichs. */
+  scroll-margin-top: 12px;
 }
-/* Kopfzeile in der Seitenfarbe: sie hebt das Szenario von seinen
-   Testnachrichten ab, ohne einen zweiten Rahmen zu brauchen. */
-/* Zwei Ebenen statt einer Reihe gleichrangiger Angaben: oben der Name (der
-   Anker, nach dem man sucht) mit seinen Kennzeichen, darunter die Metadaten.
-   Vorher konkurrierten Name, Nachrichtentyp, Badge und Fortschritt auf
-   derselben Zeile um dieselbe Aufmerksamkeit.
+/* Eine Zeile statt eines Rasters: Fachmodul, Name, Zustand, Nachricht, Stand
+   und die Aktionen stehen nebeneinander wie im Kopf einer Listengruppe. Die
+   helle Flaeche hebt den Kopf von seinen Testnachrichten ab, ohne dass es
+   dafuer einen zweiten Rahmen braucht.
 
-   Der Kopf traegt **keine** eigene Flaeche: `--bg` ist die Farbe der Seite, und
-   ein Feld darin wirkt in einer weissen Kachel wie ein Loch statt wie eine
-   Ueberschrift — Grau auf Grau. Die Gliederung machen Typografie und die
-   Trennlinie; Flaechen bleiben dem vorbehalten, was wirklich hervorsticht. */
+   Kein Umbruch (wie im Kachelkopf, `.dcKopf`): die Aktionen bleiben rechts,
+   und was nicht passt, kuerzt — der Nachrichtentyp zuerst, dann der Name.
+   Kuerzel, Pillen und Knoepfe bleiben ganz. */
 .szenarioKopf {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px 10px;
+  display: flex;
   align-items: center;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 11px 14px;
+  overflow: hidden;
+  background: var(--flaeche-hell);
   border-bottom: 1px solid var(--border);
 }
-.szenarioTitel {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+.szenarioKopf > .pill,
+.szenarioKopf > .metaPill,
+.szenarioKopf > button:not(.szenarioName),
+.szenarioKopf > app-menu {
+  flex: none;
+}
+/* Der Zaehltext ist kurz; nur der Hinweis der Sammelzeile ist lang genug, um
+   zu kuerzen. Er gibt nach dem Nachrichtentyp nach, aber vor dem Namen. */
+.szenarioKopf > .szenarioProg {
+  flex: 0 200 auto;
   min-width: 0;
-}
-.szenarioMeta {
-  grid-column: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-/* Die Aktionen stehen rechts und ueberspannen beide Zeilen — so bleiben sie auf
-   Augenhoehe des Namens, statt an der Metazeile zu kleben. */
-.szenarioAktionen {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  display: flex;
-  gap: 6px;
-  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .szenarioName {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: none;
   border: 0;
   padding: 0;
@@ -3429,34 +3381,62 @@ app-tree-context-menu {
 .szenarioNameStumm:hover {
   text-decoration: none;
 }
+/* Kuerzt als Erstes, und zwar vollstaendig: der Nachrichtentyp ist die
+   laengste und die am besten erratbare Angabe der Zeile — der Name ist der
+   Anker, nach dem gesucht wird, und gibt zuletzt nach. */
 .szenarioMsg {
+  flex: 0 200 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--mono);
   font-size: 11.5px;
   color: var(--muted);
-  overflow-wrap: anywhere;
 }
 .projektZahlen {
   margin: 2px 0 0;
   font-size: 12px;
   color: var(--muted);
 }
-/* Die Sammelzeile traegt einen Zuordnen-Knopf je Nachricht — der Klick auf die
-   Zeile oeffnet weiterhin die Nachricht, der Knopf daneben tut etwas anderes.
-   Deshalb zwei getrennte Schaltflaechen statt eines verschachtelten Knopfes
-   (der waere ungueltiges HTML). */
-.tmZeileMitAktion {
-  justify-content: space-between;
-  cursor: default;
+.szenarioProg,
+.tmFassung {
+  font-size: 12px;
+  color: var(--muted);
 }
-.tmZeileMitAktion:hover {
-  background: none;
+.szenarioAktion {
+  font-size: 12px;
+  padding: 3px 8px;
 }
-.tmOeffnen {
+/* Im Szenario-Kopf steht das ⋯-Menue dauerhaft: er ist weder Kachel noch
+   Listenzeile, deren Hover den Knopf sonst einblendet, und er traegt hier die
+   einzigen Wege zu Vergleichen, Ueberlagern und Entfernen. */
+.szenarioKopf .dcMenuBtn {
+  opacity: 1;
+}
+.szenarioKopf:hover .dcMenuBtn {
+  border-color: var(--border);
+  background: var(--bg);
+}
+/* Wie `.listeZeile`, nur eingerueckt: die Einrueckung sagt "gehoert zu dem
+   Kopf darueber", ohne dass es dafuer eine Linie oder Ueberschrift braucht. */
+.tmZeile {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
-  min-width: 0;
+  flex-wrap: wrap;
+  padding: 11px 14px 11px 26px;
+  border-top: 1px solid var(--trenner);
+  font-size: 13px;
+  color: var(--fg);
+}
+.tmZeile:hover {
+  background: var(--flaeche-hell);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+/* Der Name ist die Schaltflaeche, nicht die Zeile: daneben steht in der
+   Sammelzeile ein zweiter Knopf, und ein Knopf im Knopf waere ungueltig. */
+.tmName {
   background: none;
   border: 0;
   padding: 0;
@@ -3464,58 +3444,18 @@ app-tree-context-menu {
   color: inherit;
   text-align: left;
   cursor: pointer;
-}
-.tmOeffnen:hover .tmName {
-  text-decoration: underline;
-}
-.szenarioProg,
-.tmFassung {
-  font-size: 12px;
-  color: var(--muted);
-}
-.szenarioSpacer {
-  flex: 1;
-}
-.szenarioAktion {
-  font-size: 12px;
-  padding: 3px 8px;
-}
-.szenarioListe {
-  display: flex;
-  flex-direction: column;
-}
-/* Eingerueckt gegenueber dem Szenario-Kopf: die Einrueckung sagt "gehoert
-   dazu", ohne dass es dafuer eine Linie oder Ueberschrift braucht. */
-.tmZeile {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  width: 100%;
-  padding: 6px 12px 6px 26px;
-  background: none;
-  border: 0;
-  border-top: 1px solid var(--border);
-  text-align: left;
-  font-size: 13px;
-  color: var(--fg);
-  cursor: pointer;
-}
-/* `--flaeche` (#f1f2f5) statt `--bg` (#e5e5e5): die Neutralstufe der Palette
-   ist heller als die Seite und hebt sich deshalb auch INNERHALB einer weissen
-   Kachel ab. Gilt fuer alle Hover-/Auswahlflaechen hier. */
-.tmZeile:hover {
-  background: var(--flaeche);
-}
-.tmName {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
-/* Eine Luecke ist eine Aussage: zu diesem Szenario gibt es noch keine
-   Testdaten. Sie darf nicht unsichtbar sein. */
+.tmName:hover {
+  background: none;
+  text-decoration: underline;
+}
 /* Die Luecke bleibt sichtbar, nimmt aber weniger Raum als ein Eintrag: sie ist
    eine Aussage, kein Inhalt. */
 .szenarioLeer {
-  padding: 5px 12px 5px 26px;
+  padding: 9px 14px 9px 26px;
+  border-top: 1px solid var(--trenner);
   font-size: 12px;
   color: var(--muted);
 }
@@ -4344,6 +4284,12 @@ app-bibliothek {
 }
 .fWert.leer {
   color: var(--muted);
+}
+/* Sprungliste der Projektseite: dieselbe Zeile ohne Kaestchen — hier wird
+   nichts an- und abgewaehlt, sondern gerollt. Ohne `.fBox` faellt der linke
+   Anschlag weg, dafuer darf die Zeile etwas hoeher stehen. */
+.fWert.ohneBox {
+  padding-block: 7px;
 }
 .fMarke {
   flex: none;

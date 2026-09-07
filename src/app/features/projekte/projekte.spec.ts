@@ -22,6 +22,14 @@ describe('Projekte — Szenarien einer Projektseite', () => {
     zurUebersicht: () => void;
     gefiltert: () => Projekt[];
     search: { set: (v: string) => void };
+    gewaehlteTags: { set: (v: string[]) => void };
+    fInhalt: { set: (v: string[]) => void };
+    achsen: () => { key: string; werte: { id: string; n: number; aktiv: boolean }[] }[];
+    aktiveChips: () => { key: string; id: string; label: string }[];
+    hatFilter: () => boolean;
+    trefferText: () => string;
+    resetAlles: () => void;
+    sprungliste: () => { id: string; name: string; anteil: number | null; nTest: number }[];
   };
 
   const profil = (over: Partial<LibraryEntry> = {}): LibraryEntry =>
@@ -56,6 +64,8 @@ describe('Projekte — Szenarien einer Projektseite', () => {
       name: 'Ersuchen an die Gemeinde',
       nachricht: 'nachricht.genuva.ersuchen',
       projektId: 'prj1',
+      nPunkte: 8,
+      nEntschieden: 6,
     }),
     profil({ id: 'fremd', name: 'Anderes Vorhaben', projektId: 'prj2' }),
   ];
@@ -79,6 +89,15 @@ describe('Projekte — Szenarien einer Projektseite', () => {
       nTestnachrichten: 4,
     },
     { id: 'prj2', name: 'Anderes', angelegt: 0, aktualisiert: 0, nProfile: 1, nTestnachrichten: 1 },
+    {
+      id: 'prj3',
+      name: 'Leeres Vorhaben',
+      tags: ['Pilot'],
+      angelegt: 0,
+      aktualisiert: 0,
+      nProfile: 0,
+      nTestnachrichten: 0,
+    },
   ];
 
   beforeEach(async () => {
@@ -135,9 +154,9 @@ describe('Projekte — Szenarien einer Projektseite', () => {
   });
 
   it('durchsucht die Uebersicht nach Name, Beschreibung und Schlagwort', () => {
-    expect(prj.gefiltert().map((p) => p.id)).toEqual(['prj1', 'prj2']);
+    expect(prj.gefiltert().map((p) => p.id)).toEqual(['prj1', 'prj2', 'prj3']);
     prj.search.set('pilot');
-    expect(prj.gefiltert().map((p) => p.id)).toEqual(['prj1']);
+    expect(prj.gefiltert().map((p) => p.id)).toEqual(['prj1', 'prj3']);
     prj.search.set('genuva');
     expect(prj.gefiltert().map((p) => p.id)).toEqual(['prj1']);
   });
@@ -146,5 +165,50 @@ describe('Projekte — Szenarien einer Projektseite', () => {
     prj.oeffne('prj1');
     prj.zurUebersicht();
     expect(prj.szenarien()).toEqual([]);
+  });
+
+  it('grenzt auf leere Projekte ein — nProfile === 0', () => {
+    prj.fInhalt.set(['ohneSzenarien']);
+    expect(prj.gefiltert().map((p) => p.id)).toEqual(['prj3']);
+    prj.fInhalt.set(['mitTestnachrichten']);
+    expect(prj.gefiltert().map((p) => p.id)).toEqual(['prj1', 'prj2']);
+  });
+
+  it('verknuepft die Achsen mit UND', () => {
+    // "Pilot" traegt prj1 und prj3; von beiden bleibt nur das leere uebrig.
+    prj.gewaehlteTags.set(['Pilot']);
+    prj.fInhalt.set(['ohneSzenarien']);
+    expect(prj.gefiltert().map((p) => p.id)).toEqual(['prj3']);
+    expect(prj.hatFilter()).toBe(true);
+    expect(prj.aktiveChips().map((c) => c.key)).toEqual(['tag', 'inhalt']);
+    expect(prj.trefferText()).toBe('1 von 3');
+    prj.resetAlles();
+    expect(prj.gefiltert().length).toBe(3);
+    expect(prj.trefferText()).toBe('3 Projekte');
+  });
+
+  it('zaehlt an den Achsen, was der Klick braechte — nicht was uebrig bliebe', () => {
+    prj.fInhalt.set(['ohneSzenarien']);
+    const inhalt = prj.achsen().find((a) => a.key === 'inhalt');
+    // Die eigene Achse wird beim Zaehlen ausgeblendet: "mit Szenarien" zeigt
+    // die zwei, die ein Klick braechte, nicht null.
+    expect(inhalt?.werte.find((w) => w.id === 'mitSzenarien')?.n).toBe(2);
+    expect(inhalt?.werte.find((w) => w.id === 'ohneSzenarien')).toEqual(
+      jasmine.objectContaining({ n: 1, aktiv: true }),
+    );
+    // Die Schlagwort-Achse zaehlt dagegen unter der gesetzten Eingrenzung.
+    const tag = prj.achsen().find((a) => a.key === 'tag');
+    expect(tag?.werte.find((w) => w.id === 'Pilot')?.n).toBe(1);
+  });
+
+  it('liefert die Sprungliste mit Anteilen und Nachrichtenzahl', () => {
+    prj.oeffne('prj1');
+    expect(prj.sprungliste().map((s) => s.id)).toEqual(['gericht', 'gemeinde', 'sach']);
+    const gemeinde = prj.sprungliste().find((s) => s.id === 'gemeinde');
+    expect(gemeinde?.name).toBe('Ersuchen an die Gemeinde');
+    expect(gemeinde?.anteil).toBe(75);
+    expect(gemeinde?.nTest).toBe(2);
+    // Ohne Punkte gibt es keinen Anteil — die Spalte zeigt dann "—".
+    expect(prj.sprungliste().find((s) => s.id === 'sach')?.anteil).toBeNull();
   });
 });

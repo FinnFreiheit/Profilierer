@@ -1,145 +1,163 @@
 <!--
-  Projekte im gemeinsamen Rahmen der Bibliothek (`app-bibliothek`); Kopf und
-  Inhalt bleiben vorerst wie gehabt, nur die Reiterzeile ist in den Rahmen
-  gewandert.
+  Projekte im gemeinsamen Rahmen der Bibliothek (`app-bibliothek`, B3). Zwei
+  Seiten in einem Template:
+
+  * die Uebersicht mit Filterspalte (Schlagworte, Inhalt), Werkzeugzeile,
+    Chips und den Projekt-Kacheln,
+  * die Projektseite, auf der die linke Spalte keine Achsen traegt, sondern die
+    Sprungliste der Szenarien — auf der Seite gehoert alles zusammen, was da
+    steht; die Frage ist nicht "welche zeigen?", sondern "wo steht das eine?".
 -->
-<app-bibliothek aktiv="projekte" [mitFilter]="false">
-  <div class="dashHead">
-    @if (offenes(); as p) {
-      <!-- Projektseite: ein Vorhaben mit seinen Kommunikationsszenarien. -->
-      <button class="crumbZurueck" (click)="zurUebersicht()">← alle Projekte</button>
-      <h1>
-        <span>{{ p.name }}</span>
-      </h1>
-      @if (p.beschreibung) {
-        <p class="dashSub">{{ p.beschreibung }}</p>
-      }
-      <!-- Die Zahlen stehen immer da, nicht nur ersatzweise: sie sind der
-           Ueberblick, den die Seite geben soll. -->
-      <p class="projektZahlen">
-        {{ p.nProfile }} Kommunikationsszenari{{ p.nProfile === 1 ? 'o' : 'en' }} ·
-        {{ p.nTestnachrichten }} Testnachricht{{ p.nTestnachrichten === 1 ? '' : 'en' }}
-      </p>
+@if (offenes(); as p) {
+  <app-bibliothek aktiv="projekte" filterLabel="Szenarien">
+    <!-- Sprungliste statt Achsen: dieselbe Bauform (fWert), aber ohne
+         Kaestchen — hier wird nichts an- und abgewaehlt, sondern gerollt. -->
+    <div filter>
+      <div class="fKopf">
+        <span class="fAchseTitel fKopfTitel">Szenarien</span>
+        <span class="fZahl">{{ sprungliste().length }}</span>
+      </div>
+      <div class="fAchsen">
+        <div class="fAchse">
+          @for (s of sprungliste(); track s.id) {
+            <button class="fWert ohneBox" [title]="s.titel" (click)="springe(s.id)">
+              <span class="fLabel">{{ s.name }}</span>
+              <span class="fZahl">{{ s.anteil === null ? '—' : s.anteil + ' %' }}</span>
+            </button>
+          }
+          @if (ohneSzenario().length) {
+            <button
+              class="fWert ohneBox"
+              title="Testnachrichten, die an keiner zugeordneten Profilierung hängen"
+              (click)="springe('ohne')"
+            >
+              <span class="fLabel">ohne Szenario</span>
+              <span class="fZahl">{{ ohneSzenario().length }}</span>
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="dashKopf">
+      <div class="dashKopfText">
+        <button class="crumbZurueck" (click)="zurUebersicht()">← alle Projekte</button>
+        <h1>{{ p.name }}</h1>
+        @if (p.beschreibung) {
+          <p class="dashSub">{{ p.beschreibung }}</p>
+        }
+        <!-- Die Zahlen stehen immer da, nicht nur ersatzweise: sie sind der
+             Ueberblick, den die Seite geben soll. -->
+        <p class="projektZahlen">
+          {{ p.nProfile }} Kommunikationsszenari{{ p.nProfile === 1 ? 'o' : 'en' }} ·
+          {{ p.nTestnachrichten }} Testnachricht{{ p.nTestnachrichten === 1 ? '' : 'en' }}
+        </p>
+        @if (p.tags?.length) {
+          <div class="dcTags">
+            @for (t of p.tags; track t) {
+              <span class="tagChip">{{ t }}</span>
+            }
+          </div>
+        }
+      </div>
       <!-- Ohne diesen Knopf war die Seite eine Sackgasse: sie zeigte, was
            zugeordnet ist, liess aber nichts herein. -->
-      <div class="dashActions">
+      <div class="dashKopfAktionen">
         <button class="primary" (click)="openHinzu()">+ Szenario</button>
         <button (click)="openBearbeitenOffenes($event)">Projekt bearbeiten…</button>
       </div>
-      @if (p.tags?.length) {
-        <div class="dcTags">
-          @for (t of p.tags; track t) {
-            <span class="tagChip">{{ t }}</span>
-          }
-        </div>
-      }
-    } @else {
-      <h1><span>Projekte</span></h1>
-      <p class="dashSub">
-        Vorhaben, die mehrere Kommunikationsszenarien derselben Nachricht bündeln
-      </p>
-      <div class="dashActions">
-        <button class="primary" (click)="openNeu()">+ Neues Projekt</button>
-        <input
-          class="suchfeld"
-          type="search"
-          placeholder="Suchen (Name, Beschreibung, Schlagwort)…"
-          [value]="search()"
-          (input)="search.set($any($event.target).value)"
-        />
-      </div>
-    }
-  </div>
+    </div>
 
-  @if (offenes()) {
-    <!-- Eine Zeile je Profilierung = ein Kommunikationsszenario, darunter ihre
-         Testnachrichten. Sortiert nach Nachrichtentyp: bei GenUVA stehen so
-         die beiden Ersuchen beieinander, danach die Sachentscheidungen. -->
+    <!-- Ein Block je Profilierung = ein Kommunikationsszenario, darunter seine
+         Testnachrichten. Sortiert nach Nachrichtentyp: bei GenUVA stehen so die
+         beiden Ersuchen beieinander, danach die Sachentscheidungen. -->
     @for (s of szenarien(); track s.profil.id) {
-      <div class="szenario">
+      <div class="liste szenario" [id]="'szenario-' + s.profil.id">
         <div class="szenarioKopf">
-          <div class="szenarioTitel">
-            <button class="szenarioName" (click)="oeffneProfil(s.profil)">
-              {{ s.profil.name || '(ohne Namen)' }}
-            </button>
-            @if (s.profil.abgenommen) {
-              <span class="pill pillAbn">freigegeben</span>
-            }
-          </div>
-          <div class="szenarioMeta">
-            <!-- Wie auf der Profil-Kachel (.dcMsg) schlichter Monospace-Text statt
-                 einer Pill: ein graues Feld auf weissem Grund macht die Zeile
-                 fleckig, ohne etwas auszusagen. -->
-            <span class="szenarioMsg">{{ nachrichtKurz(s.profil) }}</span>
-            @if (anteil(s.profil); as a) {
-              <span class="szenarioProg">{{ a }} % entschieden</span>
-            }
-            <!-- Nur bei vorhandenen Nachrichten: die Null sagt der Leerzustand
-                 darunter schon, und zwar deutlicher. -->
-            @if (s.nachrichten.length) {
-              <span class="szenarioProg">{{ zaehlText(s.nachrichten.length) }}</span>
-            }
-          </div>
-          <div class="szenarioAktionen">
-            <button
-              class="szenarioAktion"
-              title="Aus diesem Projekt nehmen — die Profilierung selbst bleibt erhalten"
-              (click)="entferneSzenario(s.profil, $event)"
-            >
-              Entfernen
-            </button>
+          <span class="modulPill" [title]="modulTitel(s.profil)">{{ modulVon(s.profil) }}</span>
+          <button
+            class="szenarioName"
+            [title]="s.profil.name || '(ohne Namen)'"
+            (click)="oeffneProfil(s.profil)"
+          >
+            {{ s.profil.name || '(ohne Namen)' }}
+          </button>
+          <span [class]="'pill zustandPill ' + zustandKlasse(s.profil)">{{
+            zustandLabel(s.profil)
+          }}</span>
+          <!-- Wie auf der Profil-Kachel (.dcMsg) schlichter Monospace-Text statt
+               einer Pille: ein graues Feld sagt hier nichts aus. -->
+          <span class="szenarioMsg" [title]="nachrichtKurz(s.profil)">{{
+            nachrichtKurz(s.profil)
+          }}</span>
+          @if (anteil(s.profil); as a) {
+            <span class="metaPill" [class.meta-voll]="a === 100">{{ a }} % entschieden</span>
+          }
+          <!-- Nur bei vorhandenen Nachrichten: die Null sagt der Leerzustand
+               darunter schon, und zwar deutlicher. -->
+          @if (s.nachrichten.length) {
+            <span class="szenarioProg">{{ zaehlText(s.nachrichten.length) }}</span>
+          }
+          <span class="spacer"></span>
+          <button
+            title="Weitere Testnachricht zu diesem Szenario erstellen (geführter Durchlauf mit Bindung)"
+            (click)="neueTestnachricht(s.profil, $event)"
+          >
+            + Testnachricht
+          </button>
+          <app-menu label="⋯" [pfeil]="false" btnClass="dcMenuBtn" titel="Weitere Aktionen" #sw>
             @if (s.nachrichten.length > 1) {
               <button
-                class="szenarioAktion"
+                class="menuItem"
                 title="Alle Testnachrichten dieses Szenarios nebeneinander: worin unterscheiden sie sich?"
-                (click)="vergleiche(s.profil, $event)"
+                (click)="sw.close(); vergleiche(s.profil, $event)"
               >
                 Vergleichen
               </button>
               <button
-                class="szenarioAktion"
+                class="menuItem"
                 [disabled]="ueberlagerung.laedt()"
                 title="Alle Testnachrichten gemeinsam im Baum: unter jedem Blatt steht der Wert jeder Nachricht"
-                (click)="ueberlagere(s.profil, $event)"
+                (click)="sw.close(); ueberlagere(s.profil, $event)"
               >
                 Überlagern
               </button>
+              <div class="menuSep"></div>
             }
             <button
-              class="szenarioAktion"
-              title="Weitere Testnachricht zu diesem Szenario erstellen (geführter Durchlauf mit Bindung)"
-              (click)="neueTestnachricht(s.profil, $event)"
+              class="menuItem del"
+              title="Aus diesem Projekt nehmen — die Profilierung selbst bleibt erhalten"
+              (click)="sw.close(); entferneSzenario(s.profil, $event)"
             >
-              + Testnachricht
+              Entfernen
             </button>
-          </div>
+          </app-menu>
         </div>
 
-        @if (s.nachrichten.length) {
-          <div class="szenarioListe">
-            @for (t of s.nachrichten; track t.id) {
-              <button
-                class="tmZeile"
-                [title]="t.gefuehrt ? 'Geführt fortsetzen' : 'Im Baum öffnen (betrachten)'"
-                (click)="oeffneNachricht(t)"
-              >
-                <span class="tmName">{{ t.name }}</span>
-                @if (t.entwurf) {
-                  <span class="pill pillAbnWarn">Entwurf</span>
-                }
-                @if (t.abgenommen) {
-                  <span class="pill pillAbn">freigegeben</span>
-                }
-                @if (t.profilWeiterentwickelt) {
-                  <span class="pill pillAbnWarn">Profil weiterentwickelt</span>
-                }
-                @if (t.fassung) {
-                  <span class="tmFassung">{{ t.fassung }}</span>
-                }
-              </button>
+        @for (t of s.nachrichten; track t.id) {
+          <div class="tmZeile">
+            <button
+              class="tmName"
+              [title]="t.gefuehrt ? 'Geführt fortsetzen' : 'Im Baum öffnen (betrachten)'"
+              (click)="oeffneNachricht(t)"
+            >
+              {{ t.name }}
+            </button>
+            @if (t.entwurf) {
+              <span class="pill zustandPill z-arbeit">Entwurf</span>
+            }
+            @if (t.abgenommen) {
+              <span class="pill zustandPill z-frei">freigegeben</span>
+            }
+            @if (t.profilWeiterentwickelt) {
+              <span class="pill zustandPill z-geaendert">Profil weiterentwickelt</span>
+            }
+            <span class="spacer"></span>
+            @if (t.fassung) {
+              <span class="tmFassung">{{ t.fassung }}</span>
             }
           </div>
-        } @else {
+        } @empty {
           <!-- Eine Lücke ist eine Aussage: zu diesem Szenario gibt es noch
                keine Testdaten. Sie darf nicht unsichtbar sein. -->
           <div class="szenarioLeer">noch keine Testnachricht zu diesem Szenario</div>
@@ -148,113 +166,247 @@
     }
 
     @if (ohneSzenario().length) {
-      <div class="szenario">
+      <div class="liste szenario" id="szenario-ohne">
         <div class="szenarioKopf">
-          <div class="szenarioTitel">
-            <span class="szenarioName szenarioNameStumm">ohne Szenario</span>
-          </div>
-          <div class="szenarioMeta">
-            <span class="szenarioProg">
-              hochgeladen oder Profilierung gelöscht — noch keinem Szenario zugeordnet
-            </span>
-          </div>
+          <span class="szenarioName szenarioNameStumm">Testnachrichten ohne Szenario</span>
+          <span class="szenarioProg">
+            hochgeladen oder Profilierung gelöscht — noch keinem Szenario zugeordnet
+          </span>
         </div>
-        <div class="szenarioListe">
-          @for (t of ohneSzenario(); track t.id) {
-            <div class="tmZeile tmZeileMitAktion">
-              <button class="tmOeffnen" (click)="oeffneNachricht(t)">
-                <span class="tmName">{{ t.name }}</span>
-                @if (t.profilName) {
-                  <span class="tmFassung">aus {{ t.profilName }}</span>
-                }
-              </button>
-              <!-- Hier faellt die Luecke auf, also gehoert der Weg hierher. -->
-              <button
-                class="szenarioAktion"
-                title="Diese Nachricht einem Kommunikationsszenario zuordnen"
-                (click)="zuordne(t, $event)"
-              >
-                Szenario zuordnen…
-              </button>
-            </div>
-          }
-        </div>
+        @for (t of ohneSzenario(); track t.id) {
+          <div class="tmZeile">
+            <button
+              class="tmName"
+              [title]="t.gefuehrt ? 'Geführt fortsetzen' : 'Im Baum öffnen (betrachten)'"
+              (click)="oeffneNachricht(t)"
+            >
+              {{ t.name }}
+            </button>
+            @if (t.profilName) {
+              <span class="tmFassung">aus {{ t.profilName }}</span>
+            }
+            <span class="spacer"></span>
+            <!-- Hier faellt die Luecke auf, also gehoert der Weg hierher. -->
+            <button
+              class="szenarioAktion"
+              title="Diese Nachricht einem Kommunikationsszenario zuordnen"
+              (click)="zuordne(t, $event)"
+            >
+              Szenario zuordnen…
+            </button>
+          </div>
+        }
       </div>
     }
 
     @if (!szenarien().length && !ohneSzenario().length) {
-      <p class="leerHinweis">
-        Diesem Projekt ist noch nichts zugeordnet. <b>„+ Szenario"</b> wählt die Profilierungen aus,
-        die dazugehören — die Testnachrichten folgen ihrer Profilierung von selbst.
-      </p>
+      <div class="dashLeer">
+        <div class="dashLeerSymbol">§ ⇄ &lt;/&gt;</div>
+        <h3>Noch kein Szenario im Projekt</h3>
+        <p>
+          <b>„+ Szenario"</b> wählt die Profilierungen aus, die dazugehören — die Testnachrichten
+          folgen ihrer Profilierung von selbst.
+        </p>
+        <button class="primary" (click)="openHinzu()">+ Szenario</button>
+      </div>
     }
-  } @else if (store.entries().length) {
-    <div id="dashGrid">
-      @for (p of gefiltert(); track p.id) {
-        <!-- role/tabindex/keydown statt eines nackten (click) am div: die Kachel
-             ist bedienbar, also muss sie fokussierbar und mit der Tastatur
-             auslösbar sein. Der Bestand macht das an seinen Kacheln noch
-             nicht — hier wird die Altlast nicht fortgeschrieben. -->
-        <div
-          class="dashCard"
-          role="button"
-          tabindex="0"
-          title="Projekt öffnen"
-          (click)="oeffne(p.id)"
-          (keydown.enter)="oeffnePerTaste(p.id, $event)"
-          (keydown.space)="oeffnePerTaste(p.id, $event)"
-        >
-          <div class="dcHead">
-            <div class="dcName" [title]="p.name">{{ p.name }}</div>
-            <app-menu
-              label="⋯"
-              [pfeil]="false"
-              btnClass="dcMenuBtn"
-              titel="Weitere Aktionen"
-              #werkzeuge
-            >
-              <button class="menuItem" (click)="werkzeuge.close(); openBearbeiten(p, $event)">
-                Bearbeiten…
-              </button>
-              <button
-                class="menuItem"
-                title="Entfernt nur die Zuordnungen — Profilierungen und Testnachrichten bleiben"
-                (click)="werkzeuge.close(); loesche(p, $event)"
-              >
-                Löschen
-              </button>
-            </app-menu>
-          </div>
-
-          @if (p.beschreibung) {
-            <div class="dcNotiz" [title]="p.beschreibung">{{ p.beschreibung }}</div>
-          }
-
-          @if (p.tags?.length) {
-            <div class="dcTags">
-              @for (t of p.tags; track t) {
-                <span class="tagChip">{{ t }}</span>
+  </app-bibliothek>
+} @else {
+  <app-bibliothek aktiv="projekte">
+    <!-- Filterspalte: Achsen kombinieren mit UND, Werte einer Achse mit ODER.
+         Die Zaehler sagen, wie viele Treffer der Klick braechte. -->
+    <div filter>
+      <div class="fKopf">
+        <span class="fAchseTitel">Eingrenzen</span>
+        @if (hatFilter()) {
+          <button class="fReset" title="Alle Eingrenzungen entfernen" (click)="resetAlles()">
+            alle
+          </button>
+        }
+      </div>
+      <button
+        class="fAlle"
+        [class.aktiv]="!hatFilter()"
+        title="Eingrenzung aufheben"
+        (click)="resetAlles()"
+      >
+        <span class="fMarke"></span>
+        <span class="fLabel">Alle Projekte</span>
+        <span class="fZahl">{{ store.entries().length }}</span>
+      </button>
+      <div class="fAchsen">
+        @for (a of achsen(); track a.key) {
+          <div class="fAchse">
+            <div class="fAchseKopf">
+              <span class="fAchseTitel">{{ a.label }}</span>
+              @if (a.aktiv) {
+                <button
+                  class="fAchseReset"
+                  title="Diese Achse zurücksetzen"
+                  (click)="leereAchse(a.key)"
+                >
+                  ×
+                </button>
               }
             </div>
-          }
-
-          <div class="dcFoot">
-            <span class="dcProg">
-              {{ p.nProfile }} Szenari{{ p.nProfile === 1 ? 'o' : 'en' }} ·
-              {{ p.nTestnachrichten }} Testnachricht{{ p.nTestnachrichten === 1 ? '' : 'en' }}
-            </span>
+            @for (w of a.werte; track w.id) {
+              <button
+                class="fWert"
+                [class.aktiv]="w.aktiv"
+                [class.leer]="!w.n && !w.aktiv"
+                [title]="w.label + ' — ' + w.n + ' Projekte'"
+                (click)="schalte(a.key, w.id)"
+              >
+                <span class="fBox">{{ w.aktiv ? '✓' : '' }}</span>
+                <span class="fLabel">{{ w.label }}</span>
+                <span class="fZahl">{{ w.n }}</span>
+              </button>
+            }
           </div>
-        </div>
-      }
+        }
+      </div>
     </div>
-  } @else {
-    <p class="leerHinweis">
-      Noch kein Projekt. Ein Projekt bündelt die Kommunikationsszenarien eines Vorhabens — etwa das
-      GenUVA-Ersuchen an die Gemeinde, das an das Gericht und die jeweilige Sachentscheidung — samt
-      ihrer Testnachrichten.
-    </p>
-  }
-</app-bibliothek>
+
+    <div class="dashKopf">
+      <div class="dashKopfText">
+        <h1>Projekte</h1>
+        <p class="dashSub">
+          Vorhaben, die mehrere Kommunikationsszenarien derselben Nachricht bündeln
+        </p>
+      </div>
+      <div class="dashKopfAktionen">
+        <button class="primary" (click)="openNeu()">+ Neues Projekt</button>
+      </div>
+    </div>
+
+    <div class="dashWerkzeuge">
+      <label class="dashSucheFeld">
+        <span aria-hidden="true">⌕</span>
+        <input
+          type="search"
+          placeholder="Suchen — Name, Beschreibung, Schlagwort…"
+          [value]="search()"
+          (input)="search.set($any($event.target).value)"
+        />
+      </label>
+      <span class="dashTreffer">{{ trefferText() }}</span>
+    </div>
+
+    @if (hatFilter()) {
+      <div class="aktivChips">
+        @for (c of aktiveChips(); track c.key + ':' + c.id) {
+          <button class="aktivChip" title="Diese Eingrenzung entfernen" (click)="entferneChip(c)">
+            <span class="aktivChipAchse">{{ c.achse }}</span
+            >{{ c.label }}
+            <span class="aktivChipX" aria-hidden="true">✕</span>
+          </button>
+        }
+      </div>
+    }
+
+    @if (!store.entries().length) {
+      <div class="dashLeer">
+        <div class="dashLeerSymbol">§ ⇄ &lt;/&gt;</div>
+        <h3>Noch keine Projekte</h3>
+        <p>
+          Ein Projekt bündelt die Kommunikationsszenarien eines Vorhabens — etwa das GenUVA-Ersuchen
+          an die Gemeinde, das an das Gericht und die jeweilige Sachentscheidung — samt ihrer
+          Testnachrichten.
+        </p>
+        <button class="primary" (click)="openNeu()">+ Neues Projekt</button>
+      </div>
+    } @else if (!gefiltert().length) {
+      <div class="dashLeer">
+        <div class="dashLeerSymbol">§ ⇄ &lt;/&gt;</div>
+        <h3>Keine Treffer</h3>
+        @if (search().trim()) {
+          <p>Kein Projekt passt zur Suche „{{ search().trim() }}“.</p>
+        } @else {
+          <p>Kein Projekt passt zu dieser Eingrenzung.</p>
+        }
+        <button (click)="resetAlles()">Eingrenzung zurücksetzen</button>
+      </div>
+    } @else {
+      <div class="kachelRaster">
+        @for (p of gefiltert(); track p.id) {
+          <!-- role/tabindex/keydown statt eines nackten (click) am div: die
+               Kachel ist bedienbar, also muss sie fokussierbar und mit der
+               Tastatur auslösbar sein. -->
+          <div
+            class="dashCard"
+            role="button"
+            tabindex="0"
+            title="Projekt öffnen"
+            (click)="oeffne(p.id)"
+            (keydown.enter)="oeffnePerTaste(p.id, $event)"
+            (keydown.space)="oeffnePerTaste(p.id, $event)"
+          >
+            <div class="dcKopf">
+              <span class="metaPill"
+                >{{ p.nProfile }} Szenari{{ p.nProfile === 1 ? 'o' : 'en' }}</span
+              >
+              <span class="spacer"></span>
+              <app-menu
+                label="⋯"
+                [pfeil]="false"
+                btnClass="dcMenuBtn"
+                titel="Weitere Aktionen"
+                #werkzeuge
+              >
+                <button class="menuItem" (click)="werkzeuge.close(); openBearbeiten(p, $event)">
+                  Bearbeiten…
+                </button>
+                <button
+                  class="menuItem del"
+                  title="Entfernt nur die Zuordnungen — Profilierungen und Testnachrichten bleiben"
+                  (click)="werkzeuge.close(); loesche(p, $event)"
+                >
+                  Löschen
+                </button>
+              </app-menu>
+            </div>
+
+            <div class="dcName" [title]="p.name">{{ p.name }}</div>
+
+            <!-- Leerzustaende tragen Information: kursiv, nicht versteckt. -->
+            <div
+              class="dcBeschreibung"
+              [class.leer]="!p.beschreibung"
+              [title]="p.beschreibung ?? ''"
+            >
+              {{ p.beschreibung || 'keine Beschreibung' }}
+            </div>
+
+            <div class="dcTags">
+              @for (t of p.tags ?? []; track t) {
+                <button
+                  type="button"
+                  class="tagChip"
+                  [class.tagChipAktiv]="tagAktiv(t)"
+                  [title]="'Übersicht auf „' + t + '“ eingrenzen'"
+                  (click)="filtereNachTag(t, $event)"
+                >
+                  {{ t }}
+                </button>
+              }
+            </div>
+
+            <div class="dcFuss">
+              <div class="dcFussZeile">
+                <span class="dcProjekt">
+                  {{ p.nProfile }} Szenari{{ p.nProfile === 1 ? 'o' : 'en' }} ·
+                  {{ p.nTestnachrichten }} Testnachricht{{ p.nTestnachrichten === 1 ? '' : 'en' }}
+                </span>
+                <span class="spacer"></span>
+                <span class="dcDate">{{ datum(p) }}</span>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </app-bibliothek>
+}
 
 <dialog #bearbeitenDlg id="projektDlg">
   <h3 style="margin-top: 0">{{ bearbId() ? 'Projekt bearbeiten' : 'Neues Projekt' }}</h3>
