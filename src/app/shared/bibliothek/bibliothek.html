@@ -1,0 +1,34 @@
+<!--
+  Rahmen der Bibliotheks-Ansichten: oben die feste Kopfleiste (Reiter,
+  Schema-Suche, Badges), darunter der Koerper aus fester Filterspalte und
+  rollendem Inhalt. Beide Einschuebe kommen aus der jeweiligen Ansicht.
+-->
+<div class="dashLeiste">
+  <div class="dashLeisteInnen">
+    <nav class="viewToggle" aria-label="Bereiche">
+      @for (r of reiter(); track r.id) {
+        @if (r.id === aktiv()) {
+          <button class="active" disabled>{{ r.label }}</button>
+        } @else {
+          <button [title]="r.titel" (click)="waehle(r.id)">{{ r.label }}</button>
+        }
+      }
+    </nav>
+    <app-schema-suche></app-schema-suche>
+    <div class="dashLeisteRechts">
+      <app-beta-badge></app-beta-badge>
+      <app-rolle-badge></app-rolle-badge>
+    </div>
+  </div>
+</div>
+
+<div class="dashKoerper" [class.ohneFilter]="!mitFilter()">
+  @if (mitFilter()) {
+    <aside class="dashFilter" [attr.aria-label]="filterLabel()">
+      <ng-content select="[filter]"></ng-content>
+    </aside>
+  }
+  <main class="dashMain">
+    <ng-content></ng-content>
+  </main>
+</div>

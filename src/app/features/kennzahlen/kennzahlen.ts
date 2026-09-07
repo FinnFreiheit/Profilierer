@@ -9,8 +9,7 @@ import {
 import { KennzahlenStoreService } from '../../core/services/kennzahlen-store.service';
 import { RolleService } from '../../core/services/rolle.service';
 import { StateService } from '../../core/services/state.service';
-import { BetaBadge } from '../../shared/beta-badge/beta-badge';
-import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
+import { Bibliothek } from '../../shared/bibliothek/bibliothek';
 import { BalkenDiagramm } from './balken-diagramm';
 import { VerlaufDiagramm } from './verlauf-diagramm';
 
@@ -36,7 +35,7 @@ const PROFIL = { breite: 720, hoehe: 120, unten: 18 };
 @Component({
   selector: 'app-kennzahlen',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BetaBadge, RolleBadge, VerlaufDiagramm, BalkenDiagramm],
+  imports: [Bibliothek, VerlaufDiagramm, BalkenDiagramm],
   templateUrl: './kennzahlen.html',
 })
 export class Kennzahlen {
@@ -131,19 +130,6 @@ export class Kennzahlen {
   protected standText(): string {
     const e = this.daten()?.erzeugt;
     return e ? new Date(e).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
-  }
-
-  protected goProjekte(): void {
-    this.state.view.set('projekte');
-  }
-  protected goDashboard(): void {
-    this.state.view.set('dashboard');
-  }
-  protected goTestdaten(): void {
-    this.state.view.set('testdaten');
-  }
-  protected goHowto(): void {
-    this.state.view.set('howto');
   }
 }
 

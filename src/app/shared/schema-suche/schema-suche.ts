@@ -4,7 +4,7 @@ import { SearchService } from '../../core/services/search.service';
 import { NavService } from '../../core/services/nav.service';
 import { PersistenceService } from '../../core/services/persistence.service';
 import { firstLine } from '../../core/util/pretty.util';
-import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
+import { KeinAutofillDirective } from '../kein-autofill.directive';
 
 /** Ein Treffer der Dashboard-Suche, flach ueber beide Sektionen — fuer ↑/↓. */
 interface SchemaTreffer {
@@ -15,10 +15,12 @@ interface SchemaTreffer {
 }
 
 /**
- * **Schema-Suche auf dem Dashboard**: Nachricht oder Datentyp nachschlagen,
- * ohne vorher in die Baumansicht zu wechseln. Rankt und filtert nicht selbst —
- * das macht `SearchService.runZentral`, dasselbe wie in der Werkzeugleiste; die
- * Sektion „Im Baum" faellt hier weg, weil auf dem Dashboard kein Baum steht.
+ * **Schema-Suche in der Kopfleiste der Bibliothek**: Nachricht oder Datentyp
+ * nachschlagen, ohne vorher in die Baumansicht zu wechseln. Sie steht im
+ * gemeinsamen Rahmen (`app-bibliothek`) und gilt damit in allen Bibliotheks-
+ * Ansichten. Rankt und filtert nicht selbst — das macht
+ * `SearchService.runZentral`, dasselbe wie in der Werkzeugleiste; die Sektion
+ * „Im Baum" faellt hier weg, weil in der Uebersicht kein Baum steht.
  *
  * Bewusst eine eigene, schlanke Komponente statt eines Schalters an der
  * Werkzeugleisten-Suche: Panel-Positionierung (dort am Eingabefeld ausgerichtet),

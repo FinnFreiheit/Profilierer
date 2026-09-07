@@ -1,27 +1,10 @@
-<div id="dash">
+<!--
+  Testdaten-Speicher im gemeinsamen Rahmen der Bibliothek (`app-bibliothek`);
+  Kopf und Sammlung bleiben vorerst wie gehabt, nur die Reiterzeile ist in den
+  Rahmen gewandert.
+-->
+<app-bibliothek aktiv="testdaten" [mitFilter]="false">
   <div class="dashHead">
-    <div class="dashTop">
-      <div class="viewToggle">
-        <button title="Vorhaben mit ihren Kommunikationsszenarien" (click)="goProjekte()">
-          Projekte
-        </button>
-        <button (click)="goDashboard()">Profile</button>
-        <button class="active" disabled>Testdaten</button>
-        <button
-          title="Bebilderte Anleitung: profilieren und Testnachrichten erstellen"
-          (click)="goHowto()"
-        >
-          Anleitung
-        </button>
-        @if (rolle.agAktiv()) {
-          <button title="Nutzung und Bestand dieser Instanz (AG)" (click)="goKennzahlen()">
-            Kennzahlen
-          </button>
-        }
-      </div>
-      <app-beta-badge></app-beta-badge>
-      <app-rolle-badge></app-rolle-badge>
-    </div>
     <h1><span>Testdaten</span>-Speicher</h1>
     <p class="dashSub">Zentraler Ablageort für XJustiz-Testnachrichten — nach Fachmodul geordnet</p>
     <div class="dashActions">
@@ -306,7 +289,7 @@
       </p>
     </div>
   }
-</div>
+</app-bibliothek>
 
 <dialog #uploadDlg id="uploadDlg">
   <h3 style="margin-top: 0">Testnachrichten hochladen</h3>

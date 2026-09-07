@@ -19,8 +19,6 @@ import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
 import { TeilenService } from '../../core/services/teilen.service';
 import { UiSettingsService } from '../../core/services/ui-settings.service';
-import { BetaBadge } from '../../shared/beta-badge/beta-badge';
-import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { LibraryEntry } from '../../models/profile.model';
 import { fachmodulOf } from '../../core/util/fachmodul.util';
@@ -28,7 +26,7 @@ import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiter
 import { nachrichtTeile } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { NeuesProfilWizard } from '../dialogs/neues-profil-wizard';
-import { SchemaSuche } from './schema-suche';
+import { Bibliothek } from '../../shared/bibliothek/bibliothek';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
 import { ProjektStoreService } from '../../core/services/projekt-store.service';
 import { EinordnenService } from '../../core/services/einordnen.service';
@@ -134,13 +132,11 @@ interface Meta {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     NgTemplateOutlet,
-    BetaBadge,
-    RolleBadge,
+    Bibliothek,
     Menu,
     KeinAutofillDirective,
     NeuesProfilWizard,
     TagEingabe,
-    SchemaSuche,
   ],
   templateUrl: './dashboard.html',
 })
@@ -654,27 +650,6 @@ export class Dashboard {
     return this.erwSperre(e)
       ? ERW_SPERRE_GRUND
       : 'Testnachricht zu dieser Profilierung erstellen — geführter Durchlauf mit Wahl der zu bindenden Fassung';
-  }
-
-  // ── Navigation ─────────────────────────────────────────────────────
-
-  /** Zur Projektansicht (#135) — Vorhaben mit ihren Kommunikationsszenarien. */
-  protected goProjekte(): void {
-    this.state.view.set('projekte');
-  }
-
-  protected goTestdaten(): void {
-    this.state.view.set('testdaten');
-  }
-
-  /** Zur bebilderten Anleitung wechseln. */
-  protected goHowto(): void {
-    this.state.view.set('howto');
-  }
-
-  /** Zu den Kennzahlen wechseln (nur mit AG-Rolle sichtbar). */
-  protected goKennzahlen(): void {
-    this.state.view.set('kennzahlen');
   }
 
   /** US "Schema ansehen": reine Schema-Ansicht ohne Profilierung oeffnen. */

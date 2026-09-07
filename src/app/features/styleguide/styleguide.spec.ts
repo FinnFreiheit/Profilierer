@@ -17,15 +17,15 @@ describe('Styleguide — Karten', () => {
     return fixture.nativeElement as HTMLElement;
   };
 
-  it('rendert einundzwanzig Karten, jede mit eindeutiger Kennung, Gruppe und Name', () => {
+  it('rendert zweiundzwanzig Karten, jede mit eindeutiger Kennung, Gruppe und Name', () => {
     const karten = Array.from(render().querySelectorAll('[data-ds-card]'));
-    expect(karten.length).toBe(21);
+    expect(karten.length).toBe(22);
     for (const k of karten) {
       expect(k.getAttribute('data-ds-group')).toBeTruthy();
       expect(k.getAttribute('data-ds-name')).toBeTruthy();
     }
     const kennungen = karten.map((k) => k.getAttribute('data-ds-card'));
-    expect(new Set(kennungen).size).toBe(21);
+    expect(new Set(kennungen).size).toBe(22);
   });
 
   it('zeigt jeden Farb-Token mit dem Wert aus dem Stylesheet', () => {

@@ -2325,14 +2325,8 @@ textarea {
 .homeBtn {
   font-size: 12.5px;
 }
-app-dashboard {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
-}
-#dash {
+/* Rahmenseite des Styleguides — sie hatte die Polsterung von `#dash`. */
+.sgSeite {
   flex: 1;
   padding: 26px 28px;
 }
@@ -2361,16 +2355,6 @@ app-dashboard {
    Trefferliste haengt absolut darunter. */
 app-schema-suche {
   display: contents;
-}
-.dashSuche {
-  position: relative;
-  flex: 1;
-  min-width: 280px;
-  max-width: 420px;
-}
-.dashSuche .suchfeld {
-  width: 100%;
-  max-width: none;
 }
 .dashSuche .srPanel {
   top: calc(100% + 4px);
@@ -2586,11 +2570,11 @@ app-schema-suche {
 /* Gruppenueberschrift auf dieselbe Spur wie das Raster darunter (#88) —
    sie stand bisher links ausserhalb des zentrierten Rasters. Gilt fuer beide
    Uebersichten: Profile und Testdaten teilen sich `#dash` (#91). */
-#dash .tdGroupHead {
+.dashMain .tdGroupHead {
   max-width: 1120px;
   margin: 0 auto 8px;
 }
-#dash .tdGroupHead:not(:first-of-type) {
+.dashMain .tdGroupHead:not(:first-of-type) {
   margin-top: 22px;
 }
 .tdGroupHead .pill {
@@ -2722,22 +2706,10 @@ app-tag-eingabe input {
   background: var(--warn-bg);
   color: var(--warn-fg);
 }
-/* In der Uebersichts-Kopfzeile (space-between) zieht das Badge den freien Raum
-   an sich, damit es zusammen mit dem Rollen-Badge rechts steht. */
-.dashTop app-beta-badge {
-  margin-left: auto;
-  margin-right: 8px;
-}
 .rolleBadge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-/* Kopfzeile über dem Dashboard: Umschalter links, Rollen-Element in der Ecke rechts */
-.dashTop {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
 }
 /* Dezenter Anmelde-Einstieg — tritt erst beim Überfahren hervor */
 .rolleAnmelden {
@@ -4137,6 +4109,8 @@ app-styleguide {
 .sgFilterStatisch {
   position: static;
   max-height: none;
+  height: auto;
+  overflow: visible;
   border-right: 0;
   padding: 0;
 }
@@ -4211,6 +4185,7 @@ body.dsVorschau .sgKarte {
   font-weight: 400;
   background: transparent;
   color: var(--muted);
+  white-space: nowrap;
 }
 .viewToggle button.active {
   background: var(--panel);
@@ -4223,9 +4198,6 @@ body.dsVorschau .sgKarte {
 .viewToggle button:not(.active):hover {
   background: var(--panel);
   color: var(--text);
-}
-.dashTop .viewToggle {
-  margin-bottom: 14px;
 }
 .dashHead h1 {
   font-size: 24px;
@@ -4289,10 +4261,32 @@ button:hover {
   background: var(--bg);
 }
 
-#dash.dashV4 {
-  padding: 0;
+/* Die fuenf Bibliotheks-Ansichten sind nur Huellen um den Rahmen: sie geben
+   die Fensterhoehe von `app-root` an ihn weiter, statt selbst zu rollen. */
+app-dashboard,
+app-testdaten,
+app-projekte,
+app-howto,
+app-kennzahlen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
+/* Der Rahmen nimmt die Fensterhoehe ein: Kopfleiste in der ersten Zeile,
+   Koerper in der zweiten. `minmax(0, 1fr)` erlaubt dem Koerper zu schrumpfen —
+   ohne das waere er so hoch wie sein Inhalt und die Seite rollte als Ganzes. */
+app-bibliothek {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+/* Ueber dem Inhalt und der Filterspalte, damit das Trefferpanel der
+   Schema-Suche (`.srPanel`, z-index 41) nicht dahinter verschwindet. */
 .dashLeiste {
+  position: relative;
+  z-index: 3;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
 }
@@ -4312,18 +4306,24 @@ button:hover {
 }
 .dashKoerper {
   max-width: 1560px;
+  width: 100%;
   margin: 0 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: 252px minmax(0, 1fr);
-  align-items: start;
+  /* `stretch` statt `start`: beide Spalten sind so hoch wie der Koerper und
+     bringen ihren eigenen Rollbalken mit. */
+  align-items: stretch;
+}
+/* Anleitung und Kennzahlen kommen ohne Achsen aus. */
+.dashKoerper.ohneFilter {
+  grid-template-columns: minmax(0, 1fr);
 }
 
-/* Filterspalte: Achsen mit Zaehlern; der Zaehler sagt, was der Klick braechte. */
+/* Filterspalte: Achsen mit Zaehlern; der Zaehler sagt, was der Klick braechte.
+   Sie steht (der Rahmen rollt nicht) und rollt bei vielen Werten selbst. */
 .dashFilter {
-  position: sticky;
-  top: 0;
-  align-self: start;
-  max-height: 100vh;
+  min-height: 0;
   overflow: auto;
   padding: 22px 16px 40px 28px;
   border-right: 1px solid var(--border);
@@ -4460,9 +4460,11 @@ button:hover {
   padding: 0 10px 7px;
 }
 
-/* Kopf und Werkzeugzeile der Sammlung. */
+/* Kopf und Werkzeugzeile der Sammlung. Der einzige Bereich, der rollt. */
 .dashMain {
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
   padding: 24px 28px 80px;
 }
 .dashKopf {
@@ -4562,13 +4564,25 @@ button:hover {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.dashV4 .dashSuche {
-  flex: 0 1 280px;
-  min-width: 0;
+/* Schema-Suche mittig in der Kopfleiste: sie gilt in allen Bibliotheks-
+   Ansichten, nicht nur ueber der Profil-Sammlung. */
+.dashLeiste .dashSuche {
+  position: relative;
+  flex: 0 1 420px;
+  min-width: 160px;
+  margin: 0 auto;
 }
-.dashV4 .dashSuche .suchfeld {
+.dashLeiste .dashSuche .suchfeld {
+  width: 100%;
+  max-width: none;
   height: 36px;
   border-radius: var(--rund-umschalter);
+}
+/* Enger Schirm: die Reiter bleiben lesbar, die Suche gibt zuerst nach. */
+@media (max-width: 1100px) {
+  .dashLeiste .dashSuche {
+    flex-basis: 260px;
+  }
 }
 .dashGliederung {
   height: 36px;

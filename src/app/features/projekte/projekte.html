@@ -1,26 +1,10 @@
-<div id="dash">
+<!--
+  Projekte im gemeinsamen Rahmen der Bibliothek (`app-bibliothek`); Kopf und
+  Inhalt bleiben vorerst wie gehabt, nur die Reiterzeile ist in den Rahmen
+  gewandert.
+-->
+<app-bibliothek aktiv="projekte" [mitFilter]="false">
   <div class="dashHead">
-    <div class="dashTop">
-      <div class="viewToggle">
-        <button class="active" disabled>Projekte</button>
-        <button (click)="goDashboard()">Profile</button>
-        <button (click)="goTestdaten()">Testdaten</button>
-        <button
-          title="Bebilderte Anleitung: profilieren und Testnachrichten erstellen"
-          (click)="goHowto()"
-        >
-          Anleitung
-        </button>
-        @if (rolle.agAktiv()) {
-          <button title="Nutzung und Bestand dieser Instanz (AG)" (click)="goKennzahlen()">
-            Kennzahlen
-          </button>
-        }
-      </div>
-      <app-beta-badge></app-beta-badge>
-      <app-rolle-badge></app-rolle-badge>
-    </div>
-
     @if (offenes(); as p) {
       <!-- Projektseite: ein Vorhaben mit seinen Kommunikationsszenarien. -->
       <button class="crumbZurueck" (click)="zurUebersicht()">← alle Projekte</button>
@@ -270,7 +254,7 @@
       ihrer Testnachrichten.
     </p>
   }
-</div>
+</app-bibliothek>
 
 <dialog #bearbeitenDlg id="projektDlg">
   <h3 style="margin-top: 0">{{ bearbId() ? 'Projekt bearbeiten' : 'Neues Projekt' }}</h3>

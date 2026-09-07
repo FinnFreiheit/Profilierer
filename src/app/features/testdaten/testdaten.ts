@@ -25,8 +25,7 @@ import { RolleService } from '../../core/services/rolle.service';
 import { VergleichService } from '../../core/services/vergleich.service';
 import { EinordnenService } from '../../core/services/einordnen.service';
 import { TeilenService } from '../../core/services/teilen.service';
-import { BetaBadge } from '../../shared/beta-badge/beta-badge';
-import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
+import { Bibliothek } from '../../shared/bibliothek/bibliothek';
 import { Menu } from '../../shared/menu/menu';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { LibraryEntry, ProfilVersion } from '../../models/profile.model';
@@ -71,15 +70,7 @@ interface Gruppe {
 @Component({
   selector: 'app-testdaten',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    BetaBadge,
-    RolleBadge,
-    Menu,
-    KeinAutofillDirective,
-    FileDropDirective,
-    TagFilter,
-    TagEingabe,
-  ],
+  imports: [Bibliothek, Menu, KeinAutofillDirective, FileDropDirective, TagFilter, TagEingabe],
   templateUrl: './testdaten.html',
 })
 export class Testdaten {
@@ -246,26 +237,6 @@ export class Testdaten {
   protected filtereNachTag(tag: string, ev: Event): void {
     ev.stopPropagation();
     this.gewaehlteTags.set(schalteTag(this.gewaehlteTags(), tag));
-  }
-
-  /** Zur Projektansicht (#135) — Vorhaben mit ihren Kommunikationsszenarien. */
-  protected goProjekte(): void {
-    this.state.view.set('projekte');
-  }
-
-  /** Zurueck zur Profil-Bibliothek. */
-  protected goDashboard(): void {
-    this.state.view.set('dashboard');
-  }
-
-  /** Zur bebilderten Anleitung wechseln. */
-  protected goHowto(): void {
-    this.state.view.set('howto');
-  }
-
-  /** Zu den Kennzahlen wechseln (nur mit AG-Rolle sichtbar). */
-  protected goKennzahlen(): void {
-    this.state.view.set('kennzahlen');
   }
 
   // ── Neu erstellen (gefuehrt aus Schema oder Profilierung) ───────────

@@ -1,23 +1,9 @@
-<div id="dash">
+<!--
+  Kennzahlen im gemeinsamen Rahmen der Bibliothek (`app-bibliothek`), einspaltig:
+  keine Filterspalte, der Inhalt rollt in `.dashMain`.
+-->
+<app-bibliothek aktiv="kennzahlen" [mitFilter]="false">
   <div class="dashHead">
-    <div class="dashTop">
-      <div class="viewToggle">
-        <button title="Vorhaben mit ihren Kommunikationsszenarien" (click)="goProjekte()">
-          Projekte
-        </button>
-        <button (click)="goDashboard()">Profile</button>
-        <button (click)="goTestdaten()">Testdaten</button>
-        <button
-          title="Bebilderte Anleitung: profilieren und Testnachrichten erstellen"
-          (click)="goHowto()"
-        >
-          Anleitung
-        </button>
-        <button class="active" disabled>Kennzahlen</button>
-      </div>
-      <app-beta-badge></app-beta-badge>
-      <app-rolle-badge></app-rolle-badge>
-    </div>
     <h1><span>XJustiz</span> Pfadfinder</h1>
     <p class="dashSub">Kennzahlen — Nutzung und Bestand dieser Instanz</p>
     <div class="dashActions">
@@ -207,4 +193,4 @@
       Tagessummen verdichtet; Tagesgrenzen sind die des Servers.
     </p>
   }
-</div>
+</app-bibliothek>

@@ -3,7 +3,7 @@
   Das Bundle-Skript exportiert ihr Markup unveraendert — daher nur Klassen,
   die es in der App gibt, und Beispieldaten statt Store-Bindungen.
 -->
-<div id="dash" class="sgSeite">
+<div class="sgSeite">
   <div class="dashHead">
     <h1><span>XJustiz</span> Pfadfinder — Styleguide</h1>
     <p class="dashSub">
@@ -277,6 +277,44 @@ Beauftragung des Gerichtsvollziehers mit Forderungsaufstellung und Titel.</texta
   </section>
 
   <h2 class="sgGruppe">Übersicht</h2>
+
+  <h3 class="sgTitel">
+    Kopfleiste — Reiter, Schema-Suche und Badges; steht in allen Bibliotheks-Ansichten fest
+  </h3>
+  <section
+    class="sgKarte dashV4"
+    data-ds-card="uebersicht/kopfleiste"
+    data-ds-group="Übersicht"
+    data-ds-name="Kopfleiste"
+    data-ds-width="1200"
+  >
+    <div class="dashLeiste">
+      <div class="dashLeisteInnen">
+        <nav class="viewToggle" aria-label="Bereiche">
+          <button title="Vorhaben mit ihren Kommunikationsszenarien">Projekte</button>
+          <button class="active" disabled>Profile</button>
+          <button title="Sammlung der erzeugten Testnachrichten">Testdaten</button>
+          <button title="Bebilderte Anleitung: profilieren und Testnachrichten erstellen">
+            Anleitung
+          </button>
+          <button title="Nutzung und Bestand dieser Instanz (AG)">Kennzahlen</button>
+        </nav>
+        <div class="dashSuche">
+          <input
+            class="suchfeld"
+            type="search"
+            placeholder="Im XJustiz-Standard suchen: Nachricht oder Datentyp…"
+          />
+        </div>
+        <div class="dashLeisteRechts">
+          <span class="pill betaPill">BETA</span>
+          <span class="rolleBadge">
+            <button class="rolleAnmelden">AG-Anmeldung…</button>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <h3 class="sgTitel">Kachel — fünf Zustände einer Profilierung (⋯ erscheint beim Überfahren)</h3>
   <section
