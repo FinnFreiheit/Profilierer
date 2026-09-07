@@ -42,30 +42,20 @@
       @if (hasRoot()) {
         <app-tree-canvas></app-tree-canvas>
       } @else {
-        <div id="empty">
-          <div class="big">§ ⇄ &lt;/&gt;</div>
+        <!-- Leerer Zustand: dieselbe Formensprache wie die leere Sammlung
+             der Uebersicht (.dashLeer) — eine Flaeche mit dem naechsten
+             Schritt, nicht eine Anleitung. -->
+        <div id="empty" class="dashLeer">
+          <div class="dashLeerSymbol">§ ⇄ &lt;/&gt;</div>
           @if (schemaView()) {
-            <h2>Schema ansehen</h2>
+            <h3>Schema ansehen</h3>
             <p>
               Der Aufbau der Nachricht wird als Kasten-Kaskade von links nach rechts dargestellt —
               nur zum Betrachten und Durchsuchen. Es wird keine Profilierung angelegt und nichts
               gespeichert.
             </p>
-            <ol>
-              <li>
-                <b>Nachricht wählen</b> — z. B. <code>nachricht.enova.entscheidung.2900003</code>
-              </li>
-              <li><b>Überblick verschaffen</b> — Kästen auf-/zuklappen, Details rechts ansehen</li>
-              <li>
-                <b>Suchen</b> — das Suchfeld findet Elemente im Baum, Nachrichten und Datentypen
-              </li>
-              <li>
-                <b>Datentyp nachschlagen</b> — z. B.
-                <code>Type.GDS.Herstellerinformation</code> über die Suche als eigenen Baum öffnen
-              </li>
-            </ol>
           } @else {
-            <h2>XJustiz-Nachrichten visualisieren und profilieren</h2>
+            <h3>XJustiz-Nachrichten visualisieren und profilieren</h3>
             <p>
               Die Nachricht wird als Kasten-Kaskade von links nach rechts dargestellt — jeder
               Schritt bleibt sichtbar. Für ein Kommunikationsszenario wird der Standard eingegrenzt:
@@ -73,21 +63,18 @@
               wiederholbarer Elemente (z. B. mehrere Beteiligte mit unterschiedlichen Rollen),
               Anmerkungen und Beispielwerte.
             </p>
-            <ol>
-              <li>
-                <b>Nachricht wählen</b> — z. B. <code>nachricht.enova.entscheidung.2900003</code>
-              </li>
-              <li><b>Profilieren</b> — Kästen anklicken, rechts entscheiden</li>
-              <li><b>Exportieren</b> — Profil, Excel, Schematron, Beispiel-XML, Druck</li>
-            </ol>
           }
+          <p class="leerHinweis">
+            Nachrichtentyp oben links wählen — z. B.
+            <code>nachricht.enova.entscheidung.2900003</code>
+          </p>
         </div>
       }
     </div>
     <app-detail-panel></app-detail-panel>
   </div>
 
-  <app-legend></app-legend>
+  <app-fusszeile></app-fusszeile>
   <app-print-doc #printDoc></app-print-doc>
 
   <app-status-dialog #statusDlg></app-status-dialog>

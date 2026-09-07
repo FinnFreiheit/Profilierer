@@ -94,7 +94,15 @@
 
   <!-- Zone: Weiteres. Saemtliche Werkzeuge des Objekts stehen hier — die
        Kopfzeile bleibt dadurch bei jeder Fensterbreite gleich. -->
-  <app-menu label="⋯" [pfeil]="false" btnClass="mWeiteres" titel="Weitere Aktionen" #weiteres>
+  <app-menu
+    label="⋯"
+    [pfeil]="false"
+    btnClass="mWeiteres"
+    titel="Weitere Aktionen"
+    [breite]="300"
+    ausrichtung="rechts"
+    #weiteres
+  >
     @if (isProfil()) {
       @if (!state.readOnly()) {
         <button class="menuItem" (click)="weiteres.close(); metaClick.emit()">
@@ -125,7 +133,7 @@
           (click)="weiteres.close(); prefillMandatory()"
         >
           Pflichtfelder vorbelegen<span class="menuNeben"
-            >alle Pflichtfelder auf die Pflicht-Antwort</span
+            >Pflicht-Antwort für alle Pflichtfelder</span
           >
         </button>
       }

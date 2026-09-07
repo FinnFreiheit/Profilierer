@@ -18,7 +18,12 @@
         }
       </app-menu>
     } @else if (g.it; as it) {
-      <span class="crumb" [class.cur]="last" [title]="titleOf(it)" (click)="last ? null : pick(it)">
+      <span
+        class="crumb"
+        [class.cur]="last"
+        [title]="titleOf(it, last)"
+        (click)="last ? null : pick(it)"
+      >
         {{ label(it) }}
       </span>
     }

@@ -100,15 +100,13 @@
     </app-menu>
   }
 
-  <!-- Der Pfad steht bis E3 hier; danach traegt ihn die Fusszeile. -->
-  <app-crumbs></app-crumbs>
   <span class="spacer"></span>
 
   @if (ueberlagerung.aktiv()) {
     <app-ueberlagerung-menu></app-ueberlagerung-menu>
   }
 
-  <app-menu label="Ansicht" kurz="≡" btnClass="mAnsicht" #ansicht>
+  <app-menu label="Ansicht" kurz="≡" btnClass="mAnsicht" ausrichtung="rechts" #ansicht>
     <div class="menuKopf">Darstellung</div>
     <label class="menuItem" title="Die technischen Elementnamen des Schemas mitzeigen">
       <input

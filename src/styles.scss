@@ -371,7 +371,9 @@ a:focus-visible {
   border-radius: var(--rund-kasten);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   min-width: 230px;
-  max-width: min(320px, calc(100vw - 16px));
+  /* Die Breite steht am Panel selbst (app-menu `breite`, Vorgabe 320px) —
+     hier bleibt nur die Notbremse gegen das Fenster. */
+  max-width: calc(100vw - 16px);
   max-height: 70vh;
   overflow: auto;
   padding: 4px 0;
@@ -1904,26 +1906,19 @@ textarea {
   padding: 4px 8px;
 }
 
-/* Fusszeile (#80): genau eine Zeile — Zustand links, Aufklapper in der Mitte,
-   Tastaturhilfe rechts. Die Erklaerungen liegen darueber in einem eigenen
-   Band, das nur auf Wunsch erscheint. */
+/* Fusszeile: Grundmasse und Systemtelemetrie. Die Optik der drei Zonen
+   steht im Editor-v4-Abschnitt am Ende dieser Datei. */
 #legend {
   border-top: 1px solid var(--border);
   background: var(--panel);
-  padding: 5px 16px;
   display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: var(--muted);
   align-items: center;
   min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
 }
-/* Zustand und Tastaturhilfe teilen sich den Raum zu gleichen Teilen, damit der
-   Aufklapper dazwischen an seinem Platz bleibt. Mit `margin-left:auto` auf
-   beiden Seiten wanderte er sonst mit der Laenge des Zustandstexts — genau das
-   Wandern, das die Kopfzone in #80 losgeworden ist. */
 #zustandText {
-  flex: 1 1 0;
+  flex: none;
   min-width: 0;
   display: flex;
   gap: 8px;
@@ -1938,31 +1933,6 @@ textarea {
 #zustandText .zustandTeil::before {
   content: '· ';
 }
-#legendToggle {
-  flex: none;
-  font-size: 12px;
-  padding: 2px 10px;
-  color: var(--muted);
-}
-#tastenHilfe {
-  flex: 1 1 0;
-  min-width: 0;
-  text-align: right;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-#legendErklaerung {
-  border-top: 1px solid var(--border);
-  background: var(--panel);
-  padding: 6px 16px;
-  display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: var(--muted);
-  flex-wrap: wrap;
-  align-items: center;
-}
 .legDot {
   display: inline-block;
   width: 10px;
@@ -1972,22 +1942,11 @@ textarea {
   vertical-align: -1px;
 }
 
+/* Leerer Zustand des Editors: Breite und Abstand — die Optik kommt von
+   `.dashLeer` (leere Sammlung der Uebersicht). */
 #empty {
   max-width: 640px;
-  margin: 60px auto;
-  text-align: center;
-  color: var(--muted);
-}
-#empty .big {
-  font-size: 40px;
-}
-#empty h2 {
-  color: var(--text-stark);
-}
-#empty ol {
-  text-align: left;
-  display: inline-block;
-  line-height: 2;
+  margin: 48px auto;
 }
 
 /* Dashboard (Bibliothek der Profilierungen) */
@@ -2851,7 +2810,6 @@ app-tree-context-menu {
 @media print {
   .kopfleiste,
   #legend,
-  #legendErklaerung,
   #main,
   #msgPanel,
   #toast {
@@ -4941,5 +4899,147 @@ button.primary.klein {
   }
   .standKurz {
     display: inline;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Editor v4 — Fusszeile (design/profilierer-editor-v4.dc.html, ADR 0022)
+
+   Die Zeile beantwortet drei Fragen: wo genau stehe ich (der volle Pfad),
+   ist mein Stand gesichert, und was bedeutet das alles. Der Pfad bekommt
+   den ganzen Rest der Zeile und scrollt waagerecht, statt Stationen zu
+   verschlucken — im Workshop wird an ihm entlanggezeigt. Die Erklaerungen
+   liegen im Hilfe-Menue: sie kosten den Baum keine Hoehe mehr und stehen
+   trotzdem einen Klick entfernt.
+   ------------------------------------------------------------------ */
+.fusszeile {
+  gap: 12px;
+  padding: 6px 18px;
+}
+
+/* Der Pfad: einziges nachgebendes Element der Zeile, mit eigener Rollbahn. */
+#fussPfad {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  padding: 2px 0;
+}
+#fussPfad app-crumbs {
+  display: block;
+}
+/* Ungefaltet laeuft die Kette ueber die Zeilenbreite hinaus — geklemmt wird
+   sie hier nicht, das erledigt die Rollbahn darum. */
+#fussPfad #crumbs {
+  width: max-content;
+  overflow: visible;
+  gap: 0;
+}
+#fussPfad .crumb {
+  padding: 3px 8px;
+  border-radius: var(--rund-bedienung);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 450;
+}
+#fussPfad .crumb:hover {
+  background: var(--accent-hauch);
+}
+/* Das aktuelle Glied traegt keine Vollfarbe mehr: es steht am Ende einer
+   langen Kette und soll sie nicht ueberstrahlen. */
+#fussPfad .crumb.cur {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 650;
+  cursor: default;
+}
+#fussPfad .crumbSep {
+  margin: 0 3px;
+  font-size: 12px;
+  color: var(--border-stark);
+}
+
+.fussTrenner {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+.hilfeBtn {
+  flex: none;
+  padding: 5px 12px;
+  font-size: 12.5px;
+}
+
+/* Hilfe-Menue: drei Abschnitte, durch je einen Strich getrennt. Es ist
+   das einzige Menue mit Fliesstext — deshalb eigene Innenmasse. */
+.hilfeAbschnitt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+}
+.hilfeAbschnitt + .hilfeAbschnitt {
+  border-top: 1px solid var(--border);
+}
+.hilfeAbschnitt .menuKopf {
+  padding: 0;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+}
+.hilfeZeile {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  white-space: normal;
+}
+.hilfeZeile > span {
+  min-width: 0;
+}
+.hilfeZeile b {
+  font-weight: 600;
+  color: var(--text);
+}
+.hilfePunkt {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: var(--rund-balken);
+}
+/* Die Kennzeichen des Baums stehen als Tag-Beispiele nebeneinander — sie
+   erklaeren sich an ihrer eigenen Form, nicht an einer Zeile Text. */
+.hilfeKennzeichen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+kbd {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-tag);
+  background: var(--bg);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+@media (max-width: 1040px) {
+  /* Der Pfad ist Orientierung, die Sicherungsmeldung nur Beruhigung. */
+  #zustandText,
+  .fussTrenner {
+    display: none;
   }
 }

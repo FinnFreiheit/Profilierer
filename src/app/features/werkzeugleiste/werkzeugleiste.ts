@@ -6,7 +6,6 @@ import { GuidedService } from '../../core/services/guided.service';
 import { AstStand, StandAnsicht } from '../../core/ansicht/stand-ansicht';
 import { ToastService } from '../../core/services/toast.service';
 import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
-import { Crumbs } from '../crumbs/crumbs';
 import { Menu } from '../../shared/menu/menu';
 import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
 import { UeberlagerungMenu } from '../ueberlagerung/ueberlagerung-menu';
@@ -21,7 +20,7 @@ export type Arbeitsmodus = 'betrachten' | 'bearbeiten' | 'gefuehrt';
  *
  * Ort und Suche stehen seit Editor v4 eine Zeile hoeher (`app-ortzeile`), die
  * Datenbasis im Dialog `app-grundlage-dialog` („Grundlage…" im ⋯-Menue der
- * Kopfzeile). Der Pfad (`app-crumbs`) wandert mit E3 in die Fusszeile.
+ * Kopfzeile). Der Pfad (`app-crumbs`) steht seit E3 in der Fusszeile.
  *
  * Die Leiste bricht nie um: sie ist bei jeder Fensterbreite genau eine Zeile
  * hoch. Was nicht mehr passt, weicht per Breakpoint — die Ast-Chips ab 1240px
@@ -30,7 +29,7 @@ export type Arbeitsmodus = 'betrachten' | 'bearbeiten' | 'gefuehrt';
 @Component({
   selector: 'app-werkzeugleiste',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Crumbs, Menu, UeberlagerungMenu],
+  imports: [Menu, UeberlagerungMenu],
   templateUrl: './werkzeugleiste.html',
 })
 export class Werkzeugleiste {

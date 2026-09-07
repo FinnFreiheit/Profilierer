@@ -10,7 +10,7 @@ import { HinweiseDialog } from './features/dialogs/hinweise-dialog';
 import { VersionsDialog } from './features/dialogs/versions-dialog';
 import { DiffDialog } from './features/dialogs/diff-dialog';
 import { GrundlageDialog } from './features/dialogs/grundlage-dialog';
-import { Legend } from './features/legend/legend';
+import { Fusszeile } from './features/fusszeile/fusszeile';
 import { PrintDoc } from './features/print/print-doc';
 import { Toast } from './shared/toast/toast';
 import { FileDropDirective } from './shared/file-drop.directive';
@@ -79,7 +79,7 @@ function istZweigWahl(el: HTMLElement): boolean {
     VersionsDialog,
     DiffDialog,
     GrundlageDialog,
-    Legend,
+    Fusszeile,
     PrintDoc,
     Toast,
     FileDropDirective,

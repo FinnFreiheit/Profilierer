@@ -1,0 +1,153 @@
+<!--
+  Fusszeile (Editor v4): Pfad · Zustand · Hilfe. Genau eine Zeile hoch; was
+  erklaert werden muss, steht im Hilfe-Menue und kostet den Baum keine Hoehe.
+-->
+<div id="legend" class="fusszeile">
+  <!-- Der volle Pfad, ungekuerzt: hier ist die Zeile breit genug, und was
+       nicht passt, wird gescrollt (Crumbs schiebt das aktuelle Glied ins Bild). -->
+  <div id="fussPfad">
+    <app-crumbs [faltbar]="false"></app-crumbs>
+  </div>
+
+  <span class="fussTrenner"></span>
+
+  <span id="zustandText">
+    <span [class.warn]="zustand().startsWith('⚠')">{{ zustand() }}</span>
+    @if (versionsStand()) {
+      <span
+        class="zustandTeil"
+        title="Der Arbeitsstand ist in keiner Version eingefroren — im Versionen-Dialog sichern"
+        >{{ versionsStand() }}</span
+      >
+    }
+  </span>
+
+  <app-menu
+    label="Hilfe"
+    richtung="oben"
+    ausrichtung="rechts"
+    [breite]="390"
+    btnClass="hilfeBtn"
+    titel="Bedeutung der Antworten und Tastenkürzel"
+  >
+    <!-- In der Ueberlagerung gibt es keine Profilierung: die Statusfarben
+         staenden dort fuer nichts, die Farben der Nachrichten fuer alles. -->
+    @if (!ueberlagerung.aktiv()) {
+      <div class="hilfeAbschnitt">
+        <div class="menuKopf">Die Antworten bedeuten</div>
+        <!-- „wie im Standard" ist der Zustand ohne eigenen Status und steht
+           deshalb vor den Stufen der Profilierung. -->
+        <div class="hilfeZeile">
+          <span class="hilfePunkt" style="background: var(--accent)"></span>
+          <span
+            ><b>So wie im Standard</b> — {{ standardErklaerung }}
+            <kbd>{{ standardTaste }}</kbd></span
+          >
+        </div>
+        @for (a of antworten(); track a.name) {
+          <div class="hilfeZeile">
+            <span class="hilfePunkt" [style.background]="a.punkt"></span>
+            <span
+              ><b>{{ a.name }}</b> — {{ a.text }}
+              @if (a.taste) {
+                <kbd>{{ a.taste }}</kbd>
+              }
+            </span>
+          </div>
+        }
+      </div>
+    }
+
+    <div class="hilfeAbschnitt">
+      <div class="menuKopf">Schneller mit der Tastatur</div>
+      <div class="hilfeZeile">
+        <span><kbd>✕</kbd> ausblenden · <kbd>⧉</kbd> duplizieren</span>
+      </div>
+      <div class="hilfeZeile">
+        <span><kbd>+</kbd> <kbd>−</kbd> Ast auf und zu</span>
+      </div>
+      @if (guided()) {
+        <div class="hilfeZeile">
+          <span
+            ><kbd>←</kbd> <kbd>→</kbd> offene Punkte · <kbd>↑</kbd> <kbd>↓</kbd> Geschwister</span
+          >
+        </div>
+        <div class="hilfeZeile">
+          <span><kbd>Z</kbd> <kbd>O</kbd> <kbd>N</kbd> entscheiden</span>
+        </div>
+      } @else if (durchlauf()) {
+        <div class="hilfeZeile">
+          <span
+            ><kbd>↓</kbd> weiter (Pflichtangaben halten fest) · <kbd>↑</kbd> zurück ·
+            <kbd>←</kbd> Teilbaum betreten · <kbd>→</kbd> heraus</span
+          >
+        </div>
+      } @else {
+        <div class="hilfeZeile">
+          <span
+            ><kbd>←</kbd> Eltern · <kbd>→</kbd> Kind · <kbd>↑</kbd> <kbd>↓</kbd> Geschwister</span
+          >
+        </div>
+        <div class="hilfeZeile">
+          <span>
+            Antwort setzen:
+            @for (t of antwortTasten; track t) {
+              <kbd>{{ t }}</kbd>
+            }
+            — <kbd>Enter</kbd> nächstes offenes Feld
+          </span>
+        </div>
+      }
+    </div>
+
+    <div class="hilfeAbschnitt">
+      <div class="menuKopf">Kennzeichen im Baum</div>
+      <div class="hilfeKennzeichen">
+        <span><span class="tag t-wert">Wert: Text</span> erhält einen Wert</span>
+        <span><span class="tag t-ext">Schema-Erweiterung</span> nachzubeauftragendes Element</span>
+        <span><span class="tag t-hint">Hinweis</span> offener Hinweis am Element</span>
+        <span
+          ><span
+            class="legDot"
+            style="background: var(--flaeche); border: 1px solid var(--border)"
+          ></span
+          >Elternelement</span
+        >
+        <span>
+          <span
+            class="legDot"
+            style="
+              background: transparent;
+              border-bottom: 2px dashed #d4537e;
+              border-radius: 0;
+              height: 2px;
+              width: 16px;
+              margin-bottom: 3px;
+            "
+          ></span>
+          Verweis
+        </span>
+        @if (ueberlagerung.aktiv()) {
+          @for (n of ueberlagerung.nachrichten(); track n.id) {
+            <span [style.opacity]="n.aktiv ? null : 0.45"
+              ><span class="legDot" [style.background]="n.farbe"></span><b>{{ n.kuerzel }}</b>
+              {{ n.name }}</span
+            >
+          }
+          <span
+            ><span
+              class="legDot"
+              style="background: transparent; border: 1px dashed var(--border-stark)"
+            ></span
+            >keine Angabe in dieser Nachricht</span
+          >
+          <span><span class="tag t-frei">≠</span> weicht vom häufigsten Wert ab</span>
+        }
+        @if (durchlauf()) {
+          <span><span class="tag t-mand">Pflicht</span> die Nachricht verlangt diese Angabe</span>
+          <span><span class="tag t-frei">optional</span> freie Angabe — der Wert entscheidet</span>
+        }
+      </div>
+    </div>
+  </app-menu>
+</div>
