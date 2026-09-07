@@ -295,6 +295,17 @@ export class StateService {
   readonly onlyValues = signal(false);
   readonly showRefs = signal(true);
   readonly focusMode = signal(true);
+  /**
+   * Farbige Umrandung im Baum (Ansicht-Menue der Arbeits-Zeile): welche der
+   * drei Klassen — ohne eigene Antwort, mit eigener Antwort, mit Notiz —
+   * hervorgehoben wird. Eine Ansichtsfrage, keine Aussage der Profilierung:
+   * nicht persistiert.
+   */
+  readonly hervorhebung = signal<{ offen: boolean; beantwortet: boolean; notiz: boolean }>({
+    offen: false,
+    beantwortet: false,
+    notiz: false,
+  });
   /** Blaetter linksbuendig auf die tiefste Spalte ausrichten (bündige Wertespalte). */
   readonly alignLeaves = signal(false);
   /** Betrachtungsmodus: gesperrte Ansicht ohne Profilier-Bedienelemente (Nachricht inspizieren). */

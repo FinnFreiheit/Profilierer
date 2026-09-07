@@ -1,11 +1,13 @@
 <button
   id="msgBtn"
+  class="msgTyp"
   [disabled]="!hasIdx()"
-  [title]="label()"
+  [title]="titel()"
   (click)="toggle(btn); $event.stopPropagation()"
   #btn
 >
-  {{ label() }}
+  <span class="msgTypName">{{ label() }}</span>
+  <span class="msgTypPfeil" aria-hidden="true">▾</span>
 </button>
 
 @if (open()) {

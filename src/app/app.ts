@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
 import { Objektleiste } from './features/objektleiste/objektleiste';
+import { Ortzeile } from './features/ortzeile/ortzeile';
 import { Werkzeugleiste } from './features/werkzeugleiste/werkzeugleiste';
 import { TreeCanvas } from './features/tree/tree-canvas';
 import { DetailPanel } from './features/detail/detail-panel';
@@ -68,6 +69,7 @@ function istZweigWahl(el: HTMLElement): boolean {
   host: { '(document:keydown)': 'onKeydown($event)' },
   imports: [
     Objektleiste,
+    Ortzeile,
     Werkzeugleiste,
     TreeCanvas,
     DetailPanel,

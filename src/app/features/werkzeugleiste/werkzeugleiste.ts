@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
+import { TreeService } from '../../core/services/tree.service';
 import { GuidedService } from '../../core/services/guided.service';
+import { AstStand, StandAnsicht } from '../../core/ansicht/stand-ansicht';
 import { ToastService } from '../../core/services/toast.service';
 import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
-import { MessagePicker } from '../message-picker/message-picker';
-import { Search } from '../search/search';
 import { Crumbs } from '../crumbs/crumbs';
 import { Menu } from '../../shared/menu/menu';
 import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
@@ -15,28 +15,30 @@ import { UeberlagerungMenu } from '../ueberlagerung/ueberlagerung-menu';
 export type Arbeitsmodus = 'betrachten' | 'bearbeiten' | 'gefuehrt';
 
 /**
- * Zeile 2 der Kopfzone: die Arbeit am Baum (Issue #80). Nachrichtenwahl und
- * Pfad gehoeren fachlich zusammen ("welche Nachricht, wo darin"), daneben
- * Arbeitsmodus, Suche, Anzeigeschalter und Fortschritt.
+ * **Arbeits-Zeile** (Editor v4, Zeile 3 der Kopfzone; aus der Werkzeugleiste
+ * zu #80 hervorgegangen): wie arbeite ich — Modus-Segment —, wie weit bin ich
+ * — Stand und Ast-Chips —, was zeigt die Ansicht, und wo geht es weiter.
  *
- * Die Datenbasis (Schemaversionen, Codelisten, Versionsvergleich) ist seit
- * Editor v4 der Dialog `app-grundlage-dialog`, erreichbar ueber „Grundlage…"
- * im ⋯-Menue der Kopfzeile.
+ * Ort und Suche stehen seit Editor v4 eine Zeile hoeher (`app-ortzeile`), die
+ * Datenbasis im Dialog `app-grundlage-dialog` („Grundlage…" im ⋯-Menue der
+ * Kopfzeile). Der Pfad (`app-crumbs`) wandert mit E3 in die Fusszeile.
  *
  * Die Leiste bricht nie um: sie ist bei jeder Fensterbreite genau eine Zeile
- * hoch. Was nicht mehr passt, verliert per Breakpoint seine Beschriftung
- * (~1280px).
+ * hoch. Was nicht mehr passt, weicht per Breakpoint — die Ast-Chips ab 1240px
+ * in ein Menue, die Stand-Beschriftung ab 1040px auf „x / y".
  */
 @Component({
   selector: 'app-werkzeugleiste',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MessagePicker, Search, Crumbs, Menu, UeberlagerungMenu],
+  imports: [Crumbs, Menu, UeberlagerungMenu],
   templateUrl: './werkzeugleiste.html',
 })
 export class Werkzeugleiste {
   protected readonly state = inject(StateService);
   private readonly nav = inject(NavService);
-  private readonly guided = inject(GuidedService);
+  private readonly tree = inject(TreeService);
+  protected readonly guided = inject(GuidedService);
+  private readonly standAnsicht = inject(StandAnsicht);
   private readonly toast = inject(ToastService);
   private readonly edit = inject(TestmessageEditService);
   /** Laeuft eine Nachrichten-Ueberlagerung (#147)? Dann steht ihr Filter hier. */
@@ -45,7 +47,6 @@ export class Werkzeugleiste {
   protected readonly hasRoot = this.state.hasRoot;
   protected readonly hasIdxB = computed(() => !!this.state.idxB());
   protected readonly isMessage = this.state.isMessageEdit;
-  protected readonly isCreate = this.state.isMessageCreate;
   protected readonly isSchemaView = this.state.schemaView;
 
   /**
@@ -78,30 +79,74 @@ export class Werkzeugleiste {
     return '';
   });
 
+  // ── Stand ─────────────────────────────────────────────────
+
   /**
-   * Fortschritt als eigene Zone rechts: der Text wechselt seine Breite und
-   * wuerde sonst seine Nachbarn verschieben (Befund 3 zu #80).
+   * Der Stand steht in jeder Arbeitsweise, nicht nur im gefuehrten Lauf: die
+   * Frage „wie weit bin ich" haengt nicht daran, wie man arbeitet. In der
+   * Schema-Ansicht gibt es nichts zu beantworten — dort entfaellt er.
    */
-  protected readonly fortschrittText = computed(() => {
-    if (this.state.guided() && this.hasRoot()) {
-      const { x, y, zuKlaeren } = this.guided.fortschritt();
-      // Im Durchlauf einer Nachricht zaehlen nur die geschuldeten Angaben (ADR 0016).
-      if (this.guided.instanzModus()) return `${x} von ${y} Pflichtangaben`;
-      const offen = y - x - zuKlaeren;
-      return zuKlaeren
-        ? `${x} von ${y} entschieden · ${offen} offen · ${zuKlaeren} zu klären`
-        : `${x} von ${y} entschieden`;
-    }
-    const { nStatus, nAusp } = this.state.fortschritt();
-    return nStatus ? `${nStatus} Festlegungen${nAusp ? ' · ' + nAusp + ' Ausprägungen' : ''}` : '';
+  protected readonly zeigeStand = computed(() => this.hasRoot() && !this.isSchemaView());
+
+  protected readonly stand = this.standAnsicht.gesamt;
+
+  /** Im Durchlauf einer Nachricht zaehlen nur die geschuldeten Angaben (ADR 0016). */
+  protected readonly standWort = computed(() =>
+    this.guided.instanzModus() ? 'Pflichtangaben' : 'eigens beantwortet',
+  );
+
+  protected readonly standTitel = computed(() => {
+    const { zuKlaeren } = this.stand();
+    const basis = 'Bei den übrigen Feldern gilt die Regel des Standards';
+    return zuKlaeren ? `${basis} · ${zuKlaeren} zu klären` : basis;
   });
 
-  /** Anteil erledigter Stationen (0-1) fuer den Balken; nur im gefuehrten Lauf. */
-  protected readonly fortschrittAnteil = computed(() => {
-    if (!this.state.guided() || !this.hasRoot()) return null;
-    const { x, y } = this.guided.fortschritt();
-    return y > 0 ? Math.min(1, x / y) : null;
+  /** Anteil beantworteter Punkte in Prozent — die Breite des Mini-Balkens. */
+  protected readonly standAnteil = computed(() => {
+    const { x, y } = this.stand();
+    return y > 0 ? Math.min(100, (x / y) * 100) : 0;
   });
+
+  /** Die Aeste der Nachricht als Chips bzw. als Menue (StandAnsicht). */
+  protected readonly aeste = this.standAnsicht.aeste;
+
+  /** Zaehler der drei Hervorhebungen im Ansicht-Menue. */
+  protected readonly zaehler = this.standAnsicht.hervorhebungZaehler;
+
+  protected anteil(a: AstStand): number {
+    return a.gesamt > 0 ? (a.entschieden / a.gesamt) * 100 : 0;
+  }
+
+  protected astTitel(a: AstStand): string {
+    if (!this.zeigeStand()) return a.name;
+    return (
+      `${a.entschieden} von ${a.gesamt} Feldern mit eigener Antwort — ` +
+      'bei den übrigen gilt der Standard'
+    );
+  }
+
+  protected springe(path: string): void {
+    this.nav.jumpTo(path);
+  }
+
+  /** Farbige Umrandung im Baum um- und abschalten (Auswertung in E4). */
+  protected setzeHervorhebung(key: 'offen' | 'beantwortet' | 'notiz', on: boolean): void {
+    this.state.hervorhebung.update((h) => ({ ...h, [key]: on }));
+  }
+
+  /**
+   * Zurueck an den Anfang: alles zuklappen und die Wurzel auswaehlen — sonst
+   * bliebe die Auswahl an einem Kasten stehen, den niemand mehr sieht.
+   */
+  protected zumAnfang(): void {
+    this.nav.collapseTree();
+    this.state.selItem.set(this.tree.rootItem());
+  }
+
+  /** „Nächstes offenes Feld": nichts mehr offen → Rueckmeldung statt Stille. */
+  protected naechstesOffenes(): void {
+    if (!this.guided.gotoNextOpen()) this.toast.show('Alle Felder beantwortet');
+  }
 
   protected checked(e: Event): boolean {
     return (e.target as HTMLInputElement).checked;
@@ -109,10 +154,6 @@ export class Werkzeugleiste {
 
   protected expand(): void {
     this.nav.expandAllTree();
-  }
-
-  protected collapse(): void {
-    this.nav.collapseTree();
   }
 
   /**

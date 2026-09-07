@@ -33,9 +33,15 @@ export class MessagePicker {
   protected readonly pos = signal<{ left: number; top: number }>({ left: 0, top: 0 });
 
   protected readonly hasIdx = computed(() => !!this.state.idx());
-  protected readonly label = computed(() => {
+  protected readonly label = computed(() => this.state.msgName() || 'Nachricht wählen');
+  /**
+   * Der Knopf traegt den Nachrichtennamen in Monoschrift und kuerzt ihn bei
+   * schmalem Fenster — der volle Name bleibt deshalb im Tooltip, zusammen mit
+   * dem, was ein Klick tut.
+   */
+  protected readonly titel = computed(() => {
     const m = this.state.msgName();
-    return m ? m + ' ▾' : 'Nachricht wählen ▾';
+    return m ? `${m} — anderen Nachrichtentyp wählen` : 'Nachrichtentyp wählen';
   });
 
   /**

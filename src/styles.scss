@@ -131,14 +131,6 @@ app-root {
   gap: 6px;
   min-width: 0;
 }
-/* Sichtbare Grenze zwischen Arbeitsbereich und Zustand/Aktion. */
-.zoneTrenner {
-  flex: 1 1 auto;
-  min-width: 8px;
-  border-right: 1px solid var(--border);
-  align-self: stretch;
-  margin: -7px 0;
-}
 /* Objekt-Identitaet darf schrumpfen, aber nicht verschwinden. */
 .zoneIdent {
   flex: 0 1 auto;
@@ -150,27 +142,6 @@ app-root {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 320px;
-}
-/* Zeile 2: Ort (Nachricht + Pfad) darf als einzige stark schrumpfen. */
-.zoneOrt {
-  flex: 1 1 auto;
-  overflow: hidden;
-}
-/* Innerhalb der Zone gibt die Nachrichtenwahl zuerst nach — ihr Name steht
-   als Wurzel ohnehin im Pfad, der Pfad dagegen ist nirgends sonst zu sehen. */
-.zoneOrt app-message-picker {
-  display: block;
-  flex: 0 3 auto;
-  min-width: 0;
-}
-.zoneModus {
-  flex: none;
-  gap: 8px;
-}
-.zoneFortschritt {
-  flex: none;
-  justify-content: flex-end;
-  gap: 6px;
 }
 .fsBalken {
   display: inline-block;
@@ -258,63 +229,6 @@ button:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--signal);
   outline-offset: 2px;
-}
-
-#msgBtn {
-  max-width: 420px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 0 1 auto;
-  min-width: 84px;
-}
-.toolgroup {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.toolgroup label {
-  font-size: 12px;
-  color: var(--muted);
-}
-/* Segment-Umschalter Betrachten|Bearbeiten|Geführt — ein Bedienelement fuer
-   alle Modi (#80); frueher je nach Modus Segment oder Menue-Haekchen. */
-.modusSeg {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  flex: none;
-}
-.modusSeg button {
-  border-radius: 0;
-}
-.modusSeg button:first-child {
-  border-radius: var(--rund-bedienung) 0 0 var(--rund-bedienung);
-}
-.modusSeg button:last-child {
-  border-radius: 0 var(--rund-bedienung) var(--rund-bedienung) 0;
-  margin-left: -1px;
-}
-.modusSeg button.aktiv {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--weiss);
-  /* Der aktive Zustand ist der Zustand, nicht das Ziel — nicht anklickbar wirken. */
-  cursor: default;
-}
-.modusSeg button.aktiv:hover {
-  background: var(--accent);
-}
-#fortschritt {
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  /* Reservierte Breite: der Text wechselt beim Entscheiden staendig seine
-     Laenge und wuerde sonst seine Nachbarn verschieben. */
-  min-width: 0;
-  max-width: 230px;
 }
 
 #msgPanel {
@@ -2891,18 +2805,19 @@ app-tree-context-menu {
   display: none;
 }
 /* ------------------------------------------------------------------
-   Breakpoints der Kopfzone (#80)
+   Breakpoints der Kopfzone (Editor v4)
 
    Zielkorridor sind 900-1680px: halbes Fenster neben einer anderen App
    bis Laptop-Vollbild. Statt umzubrechen gibt die Kopfzone in fester
-   Reihenfolge nach — die Zeilenzahl bleibt dabei immer zwei.
+   Reihenfolge nach — die Zeilenzahl bleibt dabei immer drei.
 
    ~1280px  lange Beschriftungen weichen Kurzform/Symbol, Felder schrumpfen
-   ~1050px  Nachrichtenwahl und Fortschrittstext geben weiter nach
+   ~1240px  die Ast-Chips weichen dem Menue "Abschnitte" (Editor-v4-Block)
+   ~1040px  die Stand-Beschriftung kuerzt auf "x / y" (Editor-v4-Block)
 
-   Betroffen ist nur noch die Werkzeugleiste (Zeile 2): die Kopfzeile
-   traegt seit Editor v4 alle Werkzeuge im ⋯-Menue und bleibt bei jeder
-   Breite gleich.
+   Die Kopfzeile (Zeile 1) traegt seit Editor v4 alle Werkzeuge im ⋯-Menue
+   und bleibt bei jeder Breite gleich; die Ort-Zeile schrumpft intrinsisch
+   (das Suchfeld gibt zuerst nach, der Nachrichtenname kuerzt mit Ellipsis).
 
    Bewusst `display: none` statt `visibility`: die ausgeblendete Fassung
    darf von Screenreadern nicht als zweite, identische Aktion vorgelesen
@@ -2918,12 +2833,6 @@ app-tree-context-menu {
     padding-left: 12px;
     padding-right: 12px;
   }
-  #msgBtn {
-    max-width: 240px;
-  }
-  #fortschritt {
-    max-width: 150px;
-  }
   /* Das Ansichtsmenue traegt nur noch sein Zeichen. */
   .mAnsicht .lbl-lang {
     display: none;
@@ -2936,16 +2845,6 @@ app-tree-context-menu {
 @media (max-width: 1050px) {
   .kopfleiste {
     gap: 6px;
-  }
-  /* Der Pfad hat Vorrang: die Nachrichtenwahl behaelt nur noch so viel
-     Breite, dass ihr Anfang lesbar bleibt (voller Name im Tooltip). */
-  #msgBtn {
-    max-width: 120px;
-    min-width: 64px;
-  }
-  /* Der Fortschritt bleibt als Balken; die Zahl steht im Tooltip der Zone. */
-  #fortschritt {
-    display: none;
   }
 }
 
@@ -4255,6 +4154,11 @@ button:hover {
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
+/* Eine Formensprache fuer beide Suchen: die der Bibliothek und die der
+   Ort-Zeile im Editor (`.suchFeld`). Groesse und Rundung unterscheiden sich
+   (dort eine Zeile im Band, hier ein Werkzeug ueber der Liste) — alles
+   Uebrige, bis zum Fokusring, ist dieselbe Regel. */
+.suchFeld,
 .dashSucheFeld {
   display: flex;
   align-items: center;
@@ -4267,16 +4171,21 @@ button:hover {
   flex: 1 1 280px;
   max-width: 360px;
 }
+.suchFeld:focus-within,
 .dashSucheFeld:focus-within {
   outline: 2px solid var(--signal);
   outline-offset: 1px;
   border-color: var(--accent);
 }
+.suchFeld > span,
 .dashSucheFeld > span {
+  flex: none;
   color: var(--muted);
   font-size: 15px;
   line-height: 1;
 }
+.suchFeld input[type='text'],
+.suchFeld input[type='text']:focus,
 .dashSucheFeld input[type='search'],
 .dashSucheFeld input[type='search']:focus {
   flex: 1;
@@ -4795,4 +4704,242 @@ input.kopfName:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* ------------------------------------------------------------------
+   Editor v4 — Ort- und Arbeits-Zeile (Zeilen 2 und 3 der Kopfzone)
+
+   Die Kopfzone beantwortet drei Fragen, je Zeile eine: was bearbeite ich
+   (Kopfzeile), wo bin ich (Ort-Zeile), wie arbeite ich und wie weit bin
+   ich (Arbeits-Zeile). Beide Zeilen sind flache Flex-Reihen ohne Zonen:
+   was nachgeben darf, sagt seine eigene `flex`-Angabe.
+   ------------------------------------------------------------------ */
+.ortzeile {
+  padding: 8px 18px;
+  gap: 10px;
+}
+/* Die Wirte der beiden Komponenten geben ihre Flex-Angabe nach aussen
+   weiter — sonst waeren sie selbst der Flex-Kasten und das, was darin
+   nachgeben soll, ohne Wirkung. */
+.ortzeile app-message-picker {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.ortzeile app-search {
+  display: flex;
+  flex: 0 1 210px;
+  min-width: 110px;
+}
+/* Der Nachrichtentyp in Monoschrift: er ist ein technischer Bezeichner,
+   kein Titel — und als Wurzel des Pfades der Ort, nicht die Aktion. */
+#msgBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 1 auto;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 7px 11px;
+  max-width: 420px;
+}
+.msgTypName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msgTypPfeil {
+  flex: none;
+  color: var(--muted);
+}
+/* Feldsuche der Ort-Zeile: gibt als Erstes nach (flex 0 1), das Panel
+   haengt darunter (position: absolute in search.html). */
+.suchFeld {
+  position: relative;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: var(--rund-bedienung);
+  flex: 0 1 210px;
+  min-width: 110px;
+  max-width: none;
+}
+
+.arbeitszeile {
+  padding: 7px 18px;
+  gap: 10px;
+}
+/* Leiser Strich zwischen den Gruppen einer Zeile — anders als der frueher
+   durchgehende Zonentrenner nur so hoch wie die Schrift. */
+.zeilenTrenner {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+}
+/* Das Modus-Segment traegt die Optik der .viewToggle-Familie (Dashboard,
+   Testdaten) — dieselbe Frage, dieselbe Form. */
+.arbeitszeile .modusSeg {
+  flex: none;
+}
+
+/* Stand: die eine Zahl, die bei jeder Breite stehen bleibt. */
+.stand {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.stand .standText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.standZahl {
+  font-weight: 650;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.standKurz {
+  display: none;
+}
+.stand .fsBalken {
+  flex: none;
+  width: 64px;
+  height: 6px;
+  border-radius: var(--rund-pill);
+  background: var(--border);
+}
+.stand .fsBalkenFuell {
+  border-radius: var(--rund-pill);
+  background: var(--accent);
+}
+
+/* Abschnitte: im Band eine Kette Pillen, bei Enge dasselbe als Menue. */
+.astChips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.astChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-pill);
+  background: var(--panel);
+  font-size: 12.5px;
+  font-weight: 450;
+  color: var(--text);
+  white-space: nowrap;
+}
+.astChip:hover {
+  border-color: var(--border-stark);
+}
+.astChip.aktiv {
+  border-color: var(--accent-soft-tief);
+  background: var(--accent-hauch);
+  font-weight: 600;
+}
+/* Die Zahl ist Beiwerk, bis der Ast fertig ist — dann traegt sie die
+   Aussage und wird gruen. */
+.astZahl {
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 450;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.astZahl.voll {
+  color: var(--frei-fg);
+  font-weight: 600;
+}
+.astMenu {
+  display: none;
+  flex: none;
+}
+.astMenuBtn {
+  padding: 5px 11px;
+  font-size: 12.5px;
+}
+.astMenuZeile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.astMenuZeile.aktiv {
+  background: var(--accent-hauch);
+  font-weight: 600;
+}
+.astMenuKopf {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.astMenuName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.astMenuBalken {
+  display: block;
+  height: 5px;
+  border-radius: var(--rund-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+.astMenuBalkenFuell {
+  display: block;
+  height: 100%;
+  border-radius: var(--rund-pill);
+  background: var(--accent);
+}
+
+/* Zaehler der Hervorhebungen im Ansicht-Menue: gleiche Ziffernbreite,
+   damit die Spalte beim Entscheiden nicht wackelt. */
+.arbeitszeile .menuNeben {
+  font-variant-numeric: tabular-nums;
+}
+.arbeitszeile label.menuItem:has(.menuNeben) {
+  gap: 2px 8px;
+}
+
+/* Der eine Weg nach vorn — schmaler als die Primaeraktion der Kopfzeile. */
+button.primary.klein {
+  flex: none;
+  font-size: 12.5px;
+  font-weight: 550;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+@media (max-width: 1240px) {
+  /* Die Chip-Kette waechst mit der Zahl der Aeste; das Menue nicht. */
+  .astChips {
+    display: none;
+  }
+  .astMenu {
+    display: block;
+  }
+}
+
+@media (max-width: 1040px) {
+  .standLang {
+    display: none;
+  }
+  .standKurz {
+    display: inline;
+  }
 }
