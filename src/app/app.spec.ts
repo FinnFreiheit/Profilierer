@@ -110,6 +110,7 @@ describe('App', () => {
       const fixture = TestBed.createComponent(App);
       const app = fixture.componentInstance;
       const state = TestBed.inject(StateService);
+      state.view.set('editor');
       state.selItem.set({ kind: 'el', node: { path: 'x' } } as unknown as TreeItem);
 
       const ev = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
@@ -123,6 +124,7 @@ describe('App', () => {
       const fixture = TestBed.createComponent(App);
       const app = fixture.componentInstance;
       const state = TestBed.inject(StateService);
+      state.view.set('editor');
       state.selItem.set(null);
 
       const ev = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
@@ -149,6 +151,8 @@ describe('App', () => {
       state = TestBed.inject(StateService);
       guided = TestBed.inject(GuidedService);
       nav = TestBed.inject(NavService);
+      // Die Tastatur gehoert dem Baum-Editor; die Suite spielt dort.
+      state.view.set('editor');
       state.guided.set(true);
       state.selItem.set(fakeItem);
       spyOn(guided, 'gotoPrev');
@@ -179,6 +183,15 @@ describe('App', () => {
       expect(guided.setzeDisposition).toHaveBeenCalledWith('ausgeschlossen');
     });
 
+    it('meldet auch gefuehrt, wenn zu der Wirkung keine Antwort konfiguriert ist', () => {
+      (guided.setzeDisposition as jasmine.Spy).and.returnValue(false);
+      const toast = spyOn(TestBed.inject(ToastService), 'show');
+
+      app.onKeydown(key('k'));
+
+      expect(toast).toHaveBeenCalledWith(jasmine.stringContaining('Antworten anpassen'));
+    });
+
     it('greift nicht bei Modifier-Tasten oder Fokus in Eingabefeldern', () => {
       app.onKeydown(key('z', { metaKey: true }));
       app.onKeydown(key('n', { ctrlKey: true }));
@@ -186,6 +199,24 @@ describe('App', () => {
       Object.defineProperty(inInput, 'target', { value: document.createElement('input') });
       app.onKeydown(inInput);
       expect(guided.setzeDisposition).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Die Auswahl bleibt beim Verlassen des Editors stehen (der Rueckweg
+     * raeumt nur die Ansicht). Ohne die View-Pruefung setzte eine Antwort-Taste
+     * in der Bibliothek eine Antwort an einem Element, das dort niemand sieht.
+     */
+    it('z auf der Uebersicht aendert nichts', () => {
+      const disposition = TestBed.inject(DispositionService);
+      spyOn(disposition, 'setzeStatus');
+      state.view.set('dashboard');
+
+      const ev = key('z');
+      app.onKeydown(ev);
+
+      expect(guided.setzeDisposition).not.toHaveBeenCalled();
+      expect(disposition.setzeStatus).not.toHaveBeenCalled();
+      expect(ev.defaultPrevented).toBeFalse();
     });
 
     it('faellt ohne gefuehrten Modus auf die Baum-Navigation zurueck', () => {
@@ -245,6 +276,20 @@ describe('App', () => {
 
         expect(guided.gotoNextOpen).toHaveBeenCalled();
         expect(ev.defaultPrevented).toBeTrue();
+      });
+
+      /**
+       * Kennt die Profilierung zu einer Wirkung keine Stufe, greift die Taste
+       * ins Leere. Vorher schwieg sie — der Grund war nirgends zu sehen.
+       */
+      it('sagt es, wenn zu der Taste keine Antwort konfiguriert ist', () => {
+        state.statuses.set([{ id: 's1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' }]);
+        const toast = spyOn(TestBed.inject(ToastService), 'show');
+
+        app.onKeydown(key('n')); // ausgeschlossen — dazu gibt es keine Stufe
+
+        expect(disposition.setzeStatus).not.toHaveBeenCalled();
+        expect(toast).toHaveBeenCalledWith(jasmine.stringContaining('Antworten anpassen'));
       });
 
       it('laesst einem fokussierten Knopf sein Enter', () => {

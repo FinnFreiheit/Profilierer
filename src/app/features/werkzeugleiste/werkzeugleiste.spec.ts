@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { Werkzeugleiste } from './werkzeugleiste';
 import { StateService } from '../../core/services/state.service';
+import { GuidedService } from '../../core/services/guided.service';
+import { ToastService } from '../../core/services/toast.service';
 
 /**
  * Das Modus-Segment (#80) fasst `readOnly` und `guided` zu einer einzigen,
@@ -97,5 +99,52 @@ describe('Werkzeugleiste — Modus-Segment', () => {
     state.readOnly.set(true);
     leiste.setzeModus('bearbeiten');
     expect(state.readOnly()).toBe(true);
+  });
+});
+
+/**
+ * „Nächstes offenes Feld" ist derselbe Sprung wie die Enter-Taste und muss
+ * derselben Sperre folgen: im Durchlauf einer Nachricht haelt eine offene
+ * Pflichtangabe fest. Vorher sprang der Knopf daran vorbei — die Taste nicht.
+ */
+describe('Werkzeugleiste — Sprung zum naechsten offenen Feld', () => {
+  let guided: GuidedService;
+  let toast: jasmine.Spy;
+  let leiste: { naechstesOffenes: () => void };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [Werkzeugleiste] }).compileComponents();
+    guided = TestBed.inject(GuidedService);
+    toast = spyOn(TestBed.inject(ToastService), 'show');
+    leiste = TestBed.createComponent(Werkzeugleiste).componentInstance as unknown as typeof leiste;
+  });
+
+  it('haelt an einer offenen Pflichtangabe fest und nennt den Grund', () => {
+    spyOn(guided, 'ueberspringSperre').and.returnValue('Pflichtangabe — …');
+    const sprung = spyOn(guided, 'gotoNextOpen');
+
+    leiste.naechstesOffenes();
+
+    expect(sprung).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith('Pflichtangabe — …');
+  });
+
+  it('springt, wenn nichts festhaelt', () => {
+    spyOn(guided, 'ueberspringSperre').and.returnValue(null);
+    const sprung = spyOn(guided, 'gotoNextOpen').and.returnValue(true);
+
+    leiste.naechstesOffenes();
+
+    expect(sprung).toHaveBeenCalled();
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  it('meldet, wenn nichts mehr offen ist', () => {
+    spyOn(guided, 'ueberspringSperre').and.returnValue(null);
+    spyOn(guided, 'gotoNextOpen').and.returnValue(false);
+
+    leiste.naechstesOffenes();
+
+    expect(toast).toHaveBeenCalledWith('Alle Felder beantwortet.');
   });
 });

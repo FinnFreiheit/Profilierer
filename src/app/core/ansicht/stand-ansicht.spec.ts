@@ -105,6 +105,44 @@ describe('StandAnsicht', () => {
     expect(ast('pflichtfeld').vollstaendig).toBe(false);
   });
 
+  /**
+   * Ein geparkter Punkt („zu klären", #41) ist vertagt, nicht beantwortet: er
+   * darf den Ast weder als erledigt ausweisen noch in `entschieden` landen —
+   * sonst zeigte der Chip gruen, wo die fachliche Frage noch offen ist.
+   */
+  it('zaehlt einen geparkten Punkt weder als entschieden noch als vollstaendig', () => {
+    state.elemente.set({ [`${M}/frei`]: { status: 's4' } });
+
+    expect(ast('frei').geparkt).toBe(1);
+    expect(ast('frei').offen).toBe(0);
+    expect(ast('frei').entschieden).toBe(0);
+    expect(ast('frei').vollstaendig).toBe(false);
+  });
+
+  /**
+   * Im Durchlauf einer Nachricht zaehlen nur die geschuldeten Angaben — die
+   * gleiche Basis wie `fortschritt()`. Sonst nennten Chips und Stand daneben
+   * verschiedene Nenner.
+   */
+  it('zaehlt im Instanz-Modus nur die Pflichtangaben', () => {
+    const profil = ansicht.aeste();
+    state.messageCreate.set({ msgName: M, entryId: null, name: null });
+
+    // `frei` ist ein optionales Blatt ohne Wert: im Profil eine Entscheidung,
+    // im Durchlauf keine geschuldete Angabe.
+    expect(profil.find((a) => a.path === `${M}/frei`)!.gesamt).toBe(1);
+    expect(ast('frei').gesamt).toBe(0);
+  });
+
+  /** Schema-Ansicht: nichts zu entscheiden — die Chips stehen ohne Zahlen. */
+  it('zaehlt in der Schema-Ansicht gar nicht', () => {
+    state.schemaView.set(true);
+
+    expect(ansicht.aeste().map((a) => a.path)).toContain(`${M}/frei`);
+    expect(ansicht.aeste().every((a) => a.gesamt === 0 && a.offen === 0)).toBe(true);
+    expect(ansicht.aeste().every((a) => !a.vollstaendig)).toBe(true);
+  });
+
   it('markiert den Ast, auf oder unter dem die Auswahl liegt', () => {
     expect(ansicht.aeste().every((a) => !a.aktiv)).toBe(true);
 

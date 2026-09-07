@@ -60,11 +60,19 @@ export class Search {
   }
 
   private updatePanelPos(input: HTMLInputElement): void {
-    const rect = input.getBoundingClientRect();
+    // Gerechnet wird gegen das **Positionierungs**-Element: `#searchPanel`
+    // haengt an `.suchFeld` (position: relative), nicht am Eingabefeld. Mass
+    // vom Feld genommen, waere der Versatz um Polsterung und Lupenzeichen
+    // daneben — am rechten Fensterrand ragte das Panel weiter heraus, am
+    // linken klemmte es zu frueh.
+    const wirt = input.closest<HTMLElement>('.suchFeld') ?? input;
+    // `left` misst vom **Polster**kasten des Wirts, `getBoundingClientRect` vom
+    // Rahmenkasten — die Rahmenbreite dazwischen gehoert in den Nullpunkt.
+    const links = wirt.getBoundingClientRect().left + wirt.clientLeft;
     // Muss zur Panel-Breite in styles.scss passen (#searchPanel: width 460px, max-width 92vw)
     const panelWidth = Math.min(460, window.innerWidth * 0.92);
-    const overhang = rect.left + panelWidth - (window.innerWidth - 8);
-    this.panelLeft.set(Math.max(8 - rect.left, Math.min(0, -overhang)));
+    const overhang = links + panelWidth - (window.innerWidth - 8);
+    this.panelLeft.set(Math.max(8 - links, Math.min(0, -overhang)));
   }
 
   protected onKeydown(e: KeyboardEvent): void {

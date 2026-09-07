@@ -175,8 +175,35 @@ describe('DetailAnsicht — Antworten mit Klartext und Taste', () => {
       { id: 'b', name: 'zwingend, sobald bekannt', farbe: '#12684F', wirkung: 'pflicht' },
     ]);
 
-    const knoepfe = ansicht.punkt()!.statusButtons;
+    // Ohne die Platzhalter der nicht konfigurierten Wirkungen betrachtet.
+    const knoepfe = ansicht.punkt()!.statusButtons.filter((b) => !b.fehlt);
     expect(knoepfe.map((b) => b.taste)).toEqual([STANDARD_TASTE, WIRKUNG_TASTE.pflicht, null]);
+  });
+
+  /**
+   * Kennt die Profilierung zu einer Wirkung keine Stufe, bleibt die Zeile als
+   * Platzhalter stehen. Sonst fehlte die Antwort wortlos — und mit ihr der
+   * Hinweis, dass sie sich anlegen lässt; die Taste dazu griffe ins Leere.
+   */
+  it('haelt für jede Wirkung ohne Statusstufe eine Platzhalter-Zeile bereit', () => {
+    state.statuses.set([{ id: 'a', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' }]);
+
+    const knoepfe = ansicht.punkt()!.statusButtons;
+    const fehlend = knoepfe.filter((b) => b.fehlt);
+
+    expect(knoepfe.filter((b) => !b.fehlt).length).toBe(2); // „wie Standard" + zwingend
+    expect(fehlend.map((b) => b.wirkung)).toEqual(['optional', 'ausgeschlossen', 'markierung']);
+    expect(fehlend.every((b) => b.id === null && !b.active)).toBeTrue();
+    // Die Taste steht trotzdem daran — sie erklärt, was hier fehlt.
+    expect(fehlend.map((b) => b.taste)).toEqual([
+      WIRKUNG_TASTE.optional,
+      WIRKUNG_TASTE.ausgeschlossen,
+      WIRKUNG_TASTE.markierung,
+    ]);
+  });
+
+  it('ohne Lücke gibt es keine Platzhalter-Zeile', () => {
+    expect(ansicht.punkt()!.statusButtons.some((b) => b.fehlt)).toBeFalse();
   });
 
   it('meldet die getroffene Antwort im Klartext — ohne eigene Vorgabe null', () => {

@@ -44,7 +44,7 @@
             <kbd>{{ standardTaste }}</kbd></span
           >
         </div>
-        @for (a of antworten(); track a.name) {
+        @for (a of antworten(); track a.id) {
           <div class="hilfeZeile">
             <span class="hilfePunkt" [style.background]="a.punkt"></span>
             <span
@@ -106,19 +106,15 @@
         <span><span class="tag t-wert">Wert: Text</span> erhält einen Wert</span>
         <span><span class="tag t-ext">Schema-Erweiterung</span> nachzubeauftragendes Element</span>
         <span><span class="tag t-hint">Hinweis</span> offener Hinweis am Element</span>
-        <span
-          ><span
-            class="legDot"
-            style="background: var(--flaeche); border: 1px solid var(--border)"
-          ></span
-          >Elternelement</span
-        >
+        <!-- Elternelemente haben seit Editor v4 keinen eigenen Hintergrund
+             mehr; der Unterschied liegt im Gewicht des Namens. -->
+        <span><b>Elternelement</b> — Name in Fettschrift, kein Wert-Chip</span>
         <span>
           <span
             class="legDot"
             style="
               background: transparent;
-              border-bottom: 2px dashed #d4537e;
+              border-bottom: 2px dashed var(--verweis-fg);
               border-radius: 0;
               height: 2px;
               width: 16px;

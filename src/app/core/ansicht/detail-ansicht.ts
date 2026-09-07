@@ -9,6 +9,7 @@ import { itemPath } from '../../models/node.model';
 import {
   STANDARD_ERKLAERUNG,
   STANDARD_TASTE,
+  WIRKUNGEN,
   WIRKUNG_ERKLAERUNG,
   WIRKUNG_TASTE,
 } from '../profile-defaults';
@@ -16,6 +17,28 @@ import { fmtKard, kardText, pretty } from '../util/pretty.util';
 import { erwTypFehltText } from '../util/erweiterung.util';
 import { REF_LABELS, refKindEff, refKindOf, refTraeger } from '../refs';
 import { sperrGrundText } from './sperrgrund';
+
+/**
+ * Eine Zeile der Antwort-Liste im Detailbereich. `id` ist die Statusstufe
+ * (`''` = „wie Standard"); `null` heisst: zu dieser Wirkung gibt es in der
+ * Profilierung gar keine Stufe — die Zeile steht als Platzhalter und ist
+ * nicht waehlbar (`fehlt`).
+ */
+export interface Antwortzeile {
+  id: string | null;
+  name: string;
+  farbe: string;
+  farbeHell: string;
+  active: boolean;
+  wirkung: Wirkung | null;
+  erklaerung: string;
+  taste: string | null;
+  fehlt: boolean;
+}
+
+/** Titel der Platzhalter-Zeile — sagt, wo die fehlende Antwort anzulegen ist. */
+export const ANTWORT_FEHLT =
+  'Keine Statusstufe mit passender Wirkung konfiguriert — unter ⋯ › Antworten anpassen… anlegen';
 
 /**
  * Die Anzeige-Ableitung des Detailbereichs — das Gegenstueck zur
@@ -54,18 +77,20 @@ export class DetailAnsicht {
     // wird eine Antwort erst ueber ihre Wirkung, darum haengen Erklaerung und
     // Taste an ihr. Die Taste traegt nur die **erste** Stufe je Wirkung
     // (`state.statusFuerTaste`, dieselbe Regel wie `pflichtStatus()`).
-    const statusButtons = [
+    const statuses = this.state.statuses();
+    const statusButtons: Antwortzeile[] = [
       {
         id: '',
         name: 'wie Standard',
         farbe: 'var(--accent)',
         farbeHell: 'var(--accent-soft)',
         active: !st,
-        wirkung: null as Wirkung | null,
+        wirkung: null,
         erklaerung: STANDARD_ERKLAERUNG,
-        taste: STANDARD_TASTE as string | null,
+        taste: STANDARD_TASTE,
+        fehlt: false,
       },
-      ...this.state.statuses().map((s) => ({
+      ...statuses.map((s) => ({
         id: s.id,
         name: s.name,
         farbe: s.farbe,
@@ -77,6 +102,22 @@ export class DetailAnsicht {
           this.state.statusFuerTaste(WIRKUNG_TASTE[s.wirkung])?.id === s.id
             ? WIRKUNG_TASTE[s.wirkung]
             : null,
+        fehlt: false,
+      })),
+      // Zu jeder Wirkung, fuer die die Profilierung keine Stufe kennt, bleibt
+      // die Zeile als Platzhalter stehen (`id: null`). Sonst fehlte die
+      // Antwort wortlos — und mit ihr der Hinweis, dass sie sich anlegen
+      // laesst; die zugehoerige Taste greift dann ebenfalls ins Leere.
+      ...WIRKUNGEN.filter(([w]) => !statuses.some((s) => s.wirkung === w)).map(([w, label]) => ({
+        id: null,
+        name: label,
+        farbe: 'var(--border)',
+        farbeHell: 'transparent',
+        active: false,
+        wirkung: w as Wirkung | null,
+        erklaerung: WIRKUNG_ERKLAERUNG[w],
+        taste: WIRKUNG_TASTE[w] as string | null,
+        fehlt: true,
       })),
     ];
 
@@ -247,7 +288,6 @@ export class DetailAnsicht {
             p.beispiel,
           )
         : null,
-      curStatusName: st?.name ?? 'wie Standard',
       /**
        * Die getroffene Antwort im Klartext — fuer den Nur-Lesen-Fall
        * („Festgelegt als"). `null` heisst: keine eigene Vorgabe, es gilt der

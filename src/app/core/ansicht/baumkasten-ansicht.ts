@@ -326,7 +326,9 @@ export class BaumkastenAnsicht {
       // sichtbar. Sonst die Farbe der gesetzten Statusstufe und, wo keine
       // gesetzt ist, die Aussage des Schemas: Pflicht (gedaempftes Gruen) oder
       // frei (Rahmenfarbe). Ein synthetischer Knoten ("Auswahl", "Alternative")
-      // ist kein Element und schuldet nichts.
+      // ist kein Element und schuldet nichts — ebensowenig eine Auspraegung
+      // (`min`/`inChoice` gehoeren dort dem tragenden Element, nicht dem
+      // Vorkommen) und die Wurzel (sie ist die Nachricht selbst).
       statusStrip:
         stationArt === 'pflicht'
           ? '#1D9E75'
@@ -334,7 +336,7 @@ export class BaumkastenAnsicht {
             ? '#BA7517'
             : st
               ? st.farbe
-              : !n.synthetic && n.min !== '0' && !n.inChoice
+              : it.kind === 'el' && !isRoot && !n.synthetic && n.min !== '0' && !n.inChoice
                 ? 'var(--schema-pflicht)'
                 : 'var(--border)',
       statusName: msgMode ? (isExcl ? 'entfernt' : '') : (st?.name ?? ''),

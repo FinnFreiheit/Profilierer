@@ -21,11 +21,16 @@ export interface AstStand {
   entschieden: number;
   /** Davon noch offen. */
   offen: number;
+  /** Davon geparkt („zu klären", #41) — weder offen noch beantwortet. */
+  geparkt: number;
   /** Alle Punkte des Astes beantwortet (und es gibt welche). */
   vollstaendig: boolean;
   /** Die Auswahl liegt auf oder unter dem Ast. */
   aktiv: boolean;
 }
+
+/** Leere Menge fuer die Faelle, in denen gar nicht gezaehlt wird. */
+const LEER: ReadonlySet<string> = new Set<string>();
 
 /**
  * Ableitung fuer die Arbeits-Zeile (Editor v4): Stand der Profilierung je Ast
@@ -48,26 +53,41 @@ export class StandAnsicht {
   readonly aeste = computed<AstStand[]>(() => {
     const root = this.tree.rootItem();
     if (!root) return [];
-    const punkte = this.guided.punkte();
-    const offeneSet = this.guided.offeneSet();
     const sel = this.state.selItem();
     const selPfad = sel ? itemPath(sel) : null;
+    // Schema-Ansicht: es wird nichts entschieden und nichts gespeichert. Die
+    // Chips stehen dort ohne Zahlen — und `punkte()` bleibt ungelesen, damit
+    // das blosse Anzeigen des Aufbaus nicht den ganzen Struktur-Walk auslöst.
+    const ohneZahlen = this.state.schemaView();
+    const punkte = ohneZahlen ? [] : this.guided.punkte();
+    const offeneSet = ohneZahlen ? LEER : this.guided.offeneSet();
+    const geparkteSet = ohneZahlen ? LEER : this.guided.geparkteSet();
+    // Im Durchlauf einer Nachricht zaehlen nur die geschuldeten Angaben — die
+    // gleiche Basis wie `fortschritt()`, sonst nennten Chips und Stand daneben
+    // verschiedene Nenner (ADR 0016).
+    const instanz = this.guided.instanzModus();
     return this.tree.childItems(root).map((it) => {
       const path = itemPath(it);
       let gesamt = 0;
       let offen = 0;
+      let geparkt = 0;
       for (const p of punkte) {
         if (!unterPfad(p.path, path)) continue;
+        if (instanz && !this.guided.zaehltZurPflicht(p)) continue;
         gesamt++;
         if (offeneSet.has(p.path)) offen++;
+        else if (geparkteSet.has(p.path)) geparkt++;
       }
       return {
         path,
         name: it.kind === 'ausp' ? it.ausp.name : pretty(it.node.name),
         gesamt,
-        entschieden: gesamt - offen,
+        // Geparkte Punkte sind vertagt, nicht beantwortet: sie duerfen weder
+        // als Arbeit zaehlen noch den Ast als erledigt ausweisen (#41).
+        entschieden: gesamt - offen - geparkt,
         offen,
-        vollstaendig: gesamt > 0 && offen === 0,
+        geparkt,
+        vollstaendig: gesamt > 0 && offen === 0 && geparkt === 0,
         aktiv: !!selPfad && unterPfad(selPfad, path),
       };
     });

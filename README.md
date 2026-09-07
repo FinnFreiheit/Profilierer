@@ -10,7 +10,7 @@ Der Umschalter oben links führt neben „Profile" und „Testdaten" auf **„An
 
 ## Grundidee
 
-Die Nachricht wird als **Kasten-Baum von links nach rechts** dargestellt, mit Verbindungslinien zwischen Eltern und Kindern. Jeder Ast lässt sich unabhängig auf- und zuklappen (+/− am Kasten) — mehrere Äste können gleichzeitig offen sein, „Alles ausklappen"/„Zuklappen" wirken auf den ganzen Baum. Wert-Elemente (weiß, grüner „Wert:"-Chip mit Wertart) sind von Elternelementen (grau hinterlegt) auf einen Blick unterscheidbar. Kardinalitäten stehen als Klartext an den Kästen; technische Namen und Typen sind über den Schalter „Technik" zuschaltbar.
+Die Nachricht wird als **Kasten-Baum von links nach rechts** dargestellt, mit Verbindungslinien zwischen Eltern und Kindern. Jeder Ast lässt sich unabhängig auf- und zuklappen (+/− am Kasten) — mehrere Äste können gleichzeitig offen sein, „Alles ausklappen"/„Zuklappen" wirken auf den ganzen Baum. Wert-Elemente (grüner „Wert:"-Chip mit Wertart) sind von Elternelementen (Name in Fettschrift) auf einen Blick unterscheidbar. Kardinalitäten stehen als Klartext an den Kästen; technische Namen und Typen sind über den Schalter „Technik" zuschaltbar.
 
 ## Bedienung
 

@@ -22,7 +22,7 @@ import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { LoggerService } from '../../core/services/logger.service';
 import { UiSettingsService } from '../../core/services/ui-settings.service';
 import { SearchService } from '../../core/services/search.service';
-import { DetailAnsicht } from '../../core/ansicht/detail-ansicht';
+import { ANTWORT_FEHLT, DetailAnsicht } from '../../core/ansicht/detail-ansicht';
 import { itemPath } from '../../models/node.model';
 import { pretty } from '../../core/util/pretty.util';
 import { hinweisFehlerText, hinweisHerkunft } from '../../core/util/hinweis.util';
@@ -537,6 +537,9 @@ export class DetailPanel {
   }
 
   // ── Aktionen ────────────────────────────────────────────────────────
+
+  /** Titel der Platzhalter-Zeile (Antwort zu dieser Wirkung nicht angelegt). */
+  protected readonly antwortFehlt = ANTWORT_FEHLT;
 
   protected setStatus(id: string, insHinweisfeld = false): void {
     // Zentrale Statusaenderung: kaskadiert bei aufnehmender Wirkung die

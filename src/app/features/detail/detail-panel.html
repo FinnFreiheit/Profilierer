@@ -1,4 +1,5 @@
 @let v = vm();
+@let gefuehrt = gv();
 <!--
   Detailbereich (#81): eine feste Spalte, die auch ohne Auswahl Platz belegt —
   sonst braeche die Kasten-Kaskade beim ersten Klick um ~400px neu um.
@@ -300,7 +301,7 @@
             </div>
           }
 
-          @if (gv(); as g) {
+          @if (gefuehrt; as g) {
             <div class="gefuehrtKopf">
               <span class="dLabel">Geführte Entscheidung</span>
               @if (g.offen) {
@@ -312,21 +313,29 @@
             </div>
           }
 
-          @if (!msgMode() && !roEff() && !gv()?.synthChoice) {
+          @if (!msgMode() && !roEff() && !gefuehrt?.synthChoice) {
             <div class="dsec">
               <span class="dLabel">Ihre Antwort</span>
               <div class="antwortListe">
-                @for (b of v.statusButtons; track b.id) {
+                @for (b of v.statusButtons; track b.id ?? b.wirkung) {
                   <button
                     class="antwortZeile"
                     [class.aktiv]="b.active"
+                    [disabled]="b.fehlt"
                     [style.border-color]="b.active ? b.farbe : null"
                     [style.box-shadow]="b.active ? 'inset 0 0 0 1px ' + b.farbe : null"
                     [style.background]="b.active ? b.farbeHell : null"
                     [title]="
-                      b.name + ' — ' + b.erklaerung + (b.taste ? ' (Taste ' + b.taste + ')' : '')
+                      b.fehlt
+                        ? antwortFehlt
+                        : b.name +
+                          ' — ' +
+                          b.erklaerung +
+                          (b.taste ? ' (Taste ' + b.taste + ')' : '')
                     "
-                    (click)="setStatus(b.id, b.wirkung === 'markierung' && !b.active)"
+                    (click)="
+                      b.id !== null && setStatus(b.id, b.wirkung === 'markierung' && !b.active)
+                    "
                   >
                     <span class="antwortPunkt" [style.border-color]="b.active ? b.farbe : null">
                     </span>
@@ -386,7 +395,7 @@
                   </button>
                 }
               </div>
-              @if (gv(); as g) {
+              @if (gefuehrt; as g) {
                 @if (g.synthChoice && g.minChoice !== '0' && !g.bestaetigt) {
                   <button class="gBestaetigen" (click)="bestaetigeAuswahl()">
                     Alternativen bestätigen
@@ -396,7 +405,7 @@
             </div>
           }
 
-          @if (gv(); as g) {
+          @if (gefuehrt; as g) {
             <div class="dsec guidedSec">
               @if (g.vorschlaege.length) {
                 <span class="dLabel">Festlegung übernehmen</span>
@@ -429,7 +438,7 @@
             </div>
           }
 
-          @if (!roEff() && !gv() && msgMode() && !isCreate() && !v.erw) {
+          @if (!roEff() && !gefuehrt && msgMode() && !isCreate() && !v.erw) {
             <!-- Bei der Testnachricht-Erstellung gibt es keine Status-Profilierung. -->
             <div class="dsec">
               <span class="dLabel">Angabe in der Nachricht</span>

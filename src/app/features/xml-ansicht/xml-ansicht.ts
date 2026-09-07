@@ -13,6 +13,7 @@ import { GuidedService } from '../../core/services/guided.service';
 import { NavService } from '../../core/services/nav.service';
 import { DownloadService } from '../../core/services/download.service';
 import { ToastService } from '../../core/services/toast.service';
+import { TeilenService } from '../../core/services/teilen.service';
 import { itemPath } from '../../models/node.model';
 import {
   XmlToken,
@@ -69,6 +70,7 @@ export class XmlAnsicht {
   private readonly nav = inject(NavService);
   private readonly dl = inject(DownloadService);
   private readonly toast = inject(ToastService);
+  private readonly teilen = inject(TeilenService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   /** null = keine Nachricht (Typ-Ansicht) — dafuer gibt es kein XML. */
@@ -167,21 +169,19 @@ export class XmlAnsicht {
     return MARKEN_KLASSE[t.art];
   }
 
-  protected kopieren(): void {
+  /**
+   * Kopieren laeuft ueber den `TeilenService` — dort liegt der Rueckfall auf
+   * `execCommand`, den es ausserhalb des Secure Context (http-Instanz) braucht.
+   */
+  protected async kopieren(): Promise<void> {
     const res = this.ergebnis();
     if (!res) return;
-    const zwischenablage = navigator.clipboard;
-    if (!zwischenablage?.writeText) {
-      this.toast.show('Kopieren wird von diesem Browser nicht unterstützt.');
+    if (!(await this.teilen.kopiere(res.xml))) {
+      this.toast.show('Kopieren fehlgeschlagen — bitte den Text markieren und kopieren.');
       return;
     }
-    zwischenablage.writeText(res.xml).then(
-      () => {
-        this.kopiert.set(true);
-        setTimeout(() => this.kopiert.set(false), 1600);
-      },
-      () => this.toast.show('Kopieren fehlgeschlagen — bitte den Text markieren und kopieren.'),
-    );
+    this.kopiert.set(true);
+    setTimeout(() => this.kopiert.set(false), 1600);
   }
 
   /**

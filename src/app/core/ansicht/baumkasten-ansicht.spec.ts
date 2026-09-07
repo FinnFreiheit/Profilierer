@@ -234,6 +234,32 @@ describe('BaumkastenAnsicht', () => {
       expect(ansicht.kasten(item('frei')).statusStrip).toBe('var(--border)');
     });
 
+    /**
+     * Ein Vorkommen ist keine Angabe des Schemas: `min`/`inChoice` gehoeren
+     * dem tragenden Element, nicht der Auspraegung. Uebernaehme der Streifen
+     * sie, traege jedes Vorkommen eines Pflicht-Elements das Pflicht-Gruen,
+     * obwohl das Schema ueber Vorkommen gar nichts sagt.
+     */
+    it('eine Auspraegung erbt die Schema-Pflicht ihres Elements nicht', () => {
+      const traeger = tree.kinder(root).find((k) => k.path === `${M}/datum`)!;
+      expect(ansicht.kasten({ kind: 'el', node: traeger }).statusStrip).toBe(
+        'var(--schema-pflicht)',
+      );
+
+      const vorkommen: TreeItem = {
+        kind: 'ausp',
+        parentNode: traeger,
+        ausp: { id: 'a1', name: 'Erstes' },
+        path: `${M}/datum@a1`,
+      };
+      expect(ansicht.kasten(vorkommen).statusStrip).toBe('var(--border)');
+    });
+
+    /** Die Wurzel ist die Nachricht selbst — sie schuldet sich nicht. */
+    it('die Wurzel traegt keinen Pflicht-Streifen', () => {
+      expect(ansicht.kasten({ kind: 'el', node: root }).statusStrip).toBe('var(--border)');
+    });
+
     it('ein synthetischer Knoten schuldet nichts', () => {
       // „(Auswahl)" ist kein Element, sondern die Klammer um mehrere — ihre
       // Mindestanzahl 1 ist keine Pflicht zu einer Angabe.

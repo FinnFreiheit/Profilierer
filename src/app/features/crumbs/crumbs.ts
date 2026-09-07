@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  Injector,
   afterEveryRender,
   afterNextRender,
   computed,
@@ -77,6 +78,7 @@ export class Crumbs {
   private readonly state = inject(StateService);
   private readonly nav = inject(NavService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   private readonly leiste = viewChild<ElementRef<HTMLElement>>('leiste');
 
   /**
@@ -134,9 +136,23 @@ export class Crumbs {
 
     // Nach jedem Rendern pruefen: passt die Kette noch? Ein Schritt je
     // Durchgang, der naechste Durchgang folgt durch das eigene Signal.
-    // Ungefaltet gibt es nichts zu messen — dort wird stattdessen an das
-    // Ende der Kette gescrollt, sobald sie sich geaendert hat.
-    afterEveryRender(() => (this.faltbar() ? this.falteSchritt() : this.zumAktuellen()));
+    afterEveryRender(() => {
+      if (this.faltbar()) this.falteSchritt();
+    });
+
+    // Ungefaltet gibt es nichts zu messen: dort wird ans Ende der Kette
+    // gescrollt, und zwar genau dann, wenn sie sich geaendert hat. Als Effekt
+    // auf `glieder()` statt in jedem Renderdurchgang — sonst liefe die Frage
+    // "hat sich die Kette geaendert?" auch bei jedem fremden Render mit.
+    effect(() => {
+      const kette = this.glieder()
+        .map((g) => g.key)
+        .join('|');
+      if (this.faltbar() || kette === this.letzteKette) return;
+      this.letzteKette = kette;
+      // Erst nach dem Rendern der neuen Kette hat der Wirt seine neue Breite.
+      afterNextRender(() => this.zumAktuellen(), { injector: this.injector });
+    });
 
     inject(DestroyRef).onDestroy(() => this.ro?.disconnect());
   }
@@ -175,11 +191,6 @@ export class Crumbs {
    * sonst zerrte jeder Renderdurchgang am Scrollstand des Nutzers.
    */
   private zumAktuellen(): void {
-    const kette = this.glieder()
-      .map((g) => g.key)
-      .join('|');
-    if (kette === this.letzteKette) return;
-    this.letzteKette = kette;
     const el = this.leiste()?.nativeElement;
     const wirt = el?.closest('#fussPfad') ?? this.host.nativeElement.parentElement;
     if (wirt) wirt.scrollLeft = wirt.scrollWidth;

@@ -3,7 +3,6 @@ import { StateService } from '../../core/services/state.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
-import { Wirkung } from '../../models/profile.model';
 import {
   STANDARD_ERKLAERUNG,
   STANDARD_TASTE,
@@ -16,6 +15,8 @@ import { Menu } from '../../shared/menu/menu';
 
 /** Eine Zeile der Antwort-Erklaerung im Hilfe-Menue. */
 export interface HilfeAntwort {
+  /** Id der Statusstufe — Namen sind frei und duerfen sich wiederholen. */
+  id: string;
   name: string;
   punkt: string;
   text: string;
@@ -71,21 +72,22 @@ export class Fusszeile {
    * dann die Statusstufen der Profilierung. Verstaendlich wird eine Antwort
    * ueber ihre Wirkung — der Name ist frei gewaehlt.
    */
-  protected readonly antworten = computed<HilfeAntwort[]>(() => {
-    const gesehen = new Set<Wirkung>();
-    return this.statuses().map((s) => {
-      // Die Taste haengt an der Wirkung, nicht am Status: bei mehreren
-      // Stufen derselben Wirkung greift sie an der ersten (wie pflichtStatus).
-      const erste = !gesehen.has(s.wirkung);
-      gesehen.add(s.wirkung);
-      return {
-        name: s.name,
-        punkt: s.farbe,
-        text: WIRKUNG_ERKLAERUNG[s.wirkung],
-        taste: erste ? WIRKUNG_TASTE[s.wirkung] : '',
-      };
-    });
-  });
+  protected readonly antworten = computed<HilfeAntwort[]>(() =>
+    this.statuses().map((s) => ({
+      id: s.id,
+      name: s.name,
+      punkt: s.farbe,
+      text: WIRKUNG_ERKLAERUNG[s.wirkung],
+      // Die Taste haengt an der Wirkung, nicht am Status: bei mehreren Stufen
+      // derselben Wirkung greift sie an der ersten. Welche das ist, sagt
+      // `statusFuerTaste` — dieselbe Stelle, an der die Taste im Editor
+      // nachschlaegt; eine eigene Buchfuehrung koennte davon abweichen.
+      taste:
+        this.state.statusFuerTaste(WIRKUNG_TASTE[s.wirkung])?.id === s.id
+          ? WIRKUNG_TASTE[s.wirkung]
+          : '',
+    })),
+  );
 
   protected readonly standardErklaerung = STANDARD_ERKLAERUNG;
   protected readonly standardTaste = STANDARD_TASTE;

@@ -498,8 +498,12 @@ export class GuidedService {
    * ein Wert darin steht — was angegeben ist, muss auch stimmen; ein leeres
    * bleibt aussen vor. Eine optionale Auswahl zaehlt erst, wenn sie betreten
    * wurde, ein Container nie (er ist Weg, nicht Angabe).
+   *
+   * Oeffentlich, weil der Stand je Ast (`StandAnsicht.aeste`) dieselbe Basis
+   * zaehlen muss wie `fortschritt()` — sonst summierten sich die Chips zu
+   * einer anderen Zahl als der Stand links daneben.
    */
-  private zaehltZurPflicht(p: DecisionPoint): boolean {
+  zaehltZurPflicht(p: DecisionPoint): boolean {
     switch (p.art) {
       case 'wert':
         return p.pflicht !== false || !!this.state.elemente()[p.path]?.beispiel?.trim();
@@ -1023,6 +1027,22 @@ export class GuidedService {
     if (!p) return false;
     this.nav.jumpTo(p);
     return true;
+  }
+
+  /**
+   * „Nächstes offenes Feld" fuer alle Aufrufer (Enter in `App.onKeydown`, der
+   * Knopf der Arbeits-Zeile): erst die Sperre des Instanz-Durchlaufs, dann der
+   * Sprung. Rueckgabe ist die Meldung, die anzuzeigen ist — `null`, wenn der
+   * Sprung stattgefunden hat. Zwei Aufrufer, eine Regel: sonst umgeht der
+   * Knopf, was die Taste festhaelt.
+   */
+  naechstesOffenesMitSperre(): string | null {
+    const grund = this.ueberspringSperre();
+    if (grund) return grund;
+    if (this.gotoNextOpen()) return null;
+    return this.instanzModus()
+      ? 'Keine offene Angabe mehr in dieser Nachricht.'
+      : 'Alle Felder beantwortet.';
   }
 
   /**

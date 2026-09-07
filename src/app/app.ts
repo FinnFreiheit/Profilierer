@@ -67,6 +67,13 @@ function istZweigWahl(el: HTMLElement): boolean {
   return el instanceof HTMLInputElement && el.type === 'radio';
 }
 
+/**
+ * Rueckmeldung, wenn eine Antwort-Taste ins Leere greift: die Profilierung
+ * kennt keine Statusstufe mit dieser Wirkung. Wortgleich zum Titel der
+ * Platzhalter-Zeile im Detailbereich (`DetailAnsicht.statusButtons`).
+ */
+const KEINE_ANTWORT = 'Keine Antwort mit dieser Wirkung konfiguriert — ⋯ › Antworten anpassen…';
+
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -449,6 +456,11 @@ export class App implements OnInit {
     const t = e.target as HTMLElement | null;
     if (t && ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) && !istZweigWahl(t)) return;
     if (document.querySelector('dialog[open]')) return;
+    // Diese Tastatur gehoert dem Baum-Editor. `selItem` bleibt beim Verlassen
+    // stehen (der Rueckweg raeumt nur die Ansicht), und ohne diese Pruefung
+    // setzte "z" in der Bibliothek eine Antwort an einem Element, das dort
+    // niemand sieht — der Stand des Profils aenderte sich unbemerkt.
+    if (this.state.view() !== 'editor') return;
 
     // Auswahl aufheben (#82). Beim Oeffnen einer Nachricht waehlt der
     // NavService sofort die Wurzel; ohne diesen Ausstieg gaebe es keinen
@@ -540,7 +552,7 @@ export class App implements OnInit {
       // diesem (sie loest es aus), sonst waere kein Knopf mehr per Tastatur
       // bedienbar.
       if (key === 'Enter' && !e.shiftKey && !inBedienelement) {
-        if (!this.guided.gotoNextOpen()) this.toast.show('Alle Felder beantwortet.');
+        this.zumNaechstenOffenen();
         e.preventDefault();
         return;
       }
@@ -554,15 +566,18 @@ export class App implements OnInit {
       // den Punkt sichtbar (#41).
       const wirkung = wirkungFuerTaste(key);
       if (wirkung) {
+        e.preventDefault();
+        // Kennt die Profilierung zu dieser Wirkung keine Stufe, bliebe die
+        // Taste sonst stumm — und der Grund unsichtbar. Die Zeile im
+        // Detailbereich steht dann als Platzhalter da; hier wird gesagt, wo
+        // sie anzulegen ist.
         if (this.state.guided()) {
-          if (this.guided.setzeDisposition(wirkung)) e.preventDefault();
+          if (!this.guided.setzeDisposition(wirkung)) this.toast.show(KEINE_ANTWORT);
           return;
         }
         const st = this.state.statusFuerTaste(key);
-        if (st) {
-          this.disposition.setzeStatus(itemPath(sel), st.id);
-          e.preventDefault();
-        }
+        if (st) this.disposition.setzeStatus(itemPath(sel), st.id);
+        else this.toast.show(KEINE_ANTWORT);
         return;
       }
     }
@@ -578,13 +593,8 @@ export class App implements OnInit {
    * nicht fest; er kommt am Ende noch einmal.
    */
   private zumNaechstenOffenen(): void {
-    const grund = this.guided.ueberspringSperre();
-    if (grund) {
-      this.toast.show(grund);
-      return;
-    }
-    if (!this.guided.gotoNextOpen())
-      this.toast.show('Keine offene Angabe mehr in dieser Nachricht.');
+    const meldung = this.guided.naechstesOffenesMitSperre();
+    if (meldung) this.toast.show(meldung);
   }
 
   async onXsdFiles(files: FileList | File[]): Promise<void> {

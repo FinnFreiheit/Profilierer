@@ -118,6 +118,9 @@ export class Werkzeugleiste {
 
   protected astTitel(a: AstStand): string {
     if (!this.zeigeStand()) return a.name;
+    // Im Durchlauf einer Nachricht wird nichts profiliert: dort zaehlen die
+    // geschuldeten Angaben, und der Profil-Wortlaut waere schlicht falsch.
+    if (this.guided.instanzModus()) return `${a.entschieden} von ${a.gesamt} Pflichtangaben`;
     return (
       `${a.entschieden} von ${a.gesamt} Feldern mit eigener Antwort — ` +
       'bei den übrigen gilt der Standard'
@@ -137,14 +140,24 @@ export class Werkzeugleiste {
    * Zurueck an den Anfang: alles zuklappen und die Wurzel auswaehlen — sonst
    * bliebe die Auswahl an einem Kasten stehen, den niemand mehr sieht.
    */
+  /** Nur den Baum schliessen — die Auswahl bleibt, wo sie ist. */
+  protected zuklappen(): void {
+    this.nav.collapseTree();
+  }
+
   protected zumAnfang(): void {
     this.nav.collapseTree();
     this.state.selItem.set(this.tree.rootItem());
   }
 
-  /** „Nächstes offenes Feld": nichts mehr offen → Rueckmeldung statt Stille. */
+  /**
+   * „Nächstes offenes Feld": derselbe Weg wie die Enter-Taste — samt der
+   * Sperre des Instanz-Durchlaufs, die eine offene Pflichtangabe festhaelt.
+   * Nichts mehr offen → Rueckmeldung statt Stille.
+   */
   protected naechstesOffenes(): void {
-    if (!this.guided.gotoNextOpen()) this.toast.show('Alle Felder beantwortet');
+    const meldung = this.guided.naechstesOffenesMitSperre();
+    if (meldung) this.toast.show(meldung);
   }
 
   protected checked(e: Event): boolean {

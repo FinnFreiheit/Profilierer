@@ -495,8 +495,8 @@ label.menuItem:has(input:disabled) {
   background: var(--accent-soft);
 }
 .vfItem.vfErw {
-  border-left: 3px solid #7f77dd;
-  background: #f7f6fd;
+  border-left: 3px solid var(--erweiterung-fg);
+  background: var(--erweiterung-bg);
 }
 /* Zwischenueberschrift im Pruefbericht (#107): trennt Verstoesse der Nachricht
    von Luecken der Profilierung — die Zurechnung ist der Zweck der Trennung. */
@@ -1731,6 +1731,16 @@ app-detail-panel {
 }
 .antwortZeile:hover {
   border-color: var(--border-stark);
+}
+/* Platzhalter: zu dieser Wirkung kennt die Profilierung keine Stufe. Die Zeile
+   bleibt lesbar stehen — der Titel sagt, wo sie anzulegen ist. */
+.antwortZeile:disabled {
+  border-style: dashed;
+  color: var(--muted);
+  cursor: default;
+}
+.antwortZeile:disabled:hover {
+  border-color: var(--border);
 }
 .antwortPunkt {
   flex: none;
@@ -3217,7 +3227,7 @@ app-tree-context-menu {
     font-size: 10px;
     font-weight: 700;
     color: var(--erweiterung-fg);
-    border: 1px dashed #7f77dd;
+    border: 1px dashed var(--erweiterung-fg);
     border-radius: var(--rund-balken);
     padding: 0 4px;
   }

@@ -156,6 +156,16 @@
     </label>
 
     <div class="menuSep"></div>
+    <!-- Zwei verwandte Wege: „Zuklappen" raeumt nur den Baum auf und laesst
+         den Blick, wo er ist; „Auf den Anfang zurück" nimmt die Auswahl mit. -->
+    <button
+      class="menuItem"
+      [disabled]="!hasRoot()"
+      title="Alle Äste schließen — die Auswahl bleibt bestehen"
+      (click)="ansicht.close(); zuklappen()"
+    >
+      Zuklappen
+    </button>
     <button class="menuItem" [disabled]="!hasRoot()" (click)="ansicht.close(); zumAnfang()">
       Auf den Anfang zurück
     </button>

@@ -74,3 +74,32 @@ describe('Fusszeile — Hilfe', () => {
     }
   });
 });
+
+/**
+ * Statusnamen sind frei gewaehlt und duerfen sich wiederholen; die Liste haengt
+ * darum an der Id. Ueber den Namen verfolgt, brach Angular die Wiederholung mit
+ * "duplicate keys" ab — die ganze Hilfe blieb leer.
+ */
+describe('Fusszeile — Hilfe bei gleichnamigen Stufen', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [Fusszeile] }).compileComponents();
+  });
+
+  it('rendert zwei gleichnamige Stufen ohne Fehler und gibt nur der ersten die Taste', () => {
+    TestBed.inject(StateService).statuses.set([
+      { id: 's1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' },
+      { id: 's2', name: 'zwingend', farbe: '#12684F', wirkung: 'pflicht' },
+    ]);
+    const fixture = TestBed.createComponent(Fusszeile);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    el.querySelector<HTMLButtonElement>('.hilfeBtn')?.click();
+    fixture.detectChanges();
+
+    const zeilen = el.querySelectorAll('.hilfeAbschnitt .hilfeZeile');
+    const tasten = [...zeilen].filter((z) => z.textContent?.includes('zwingend'));
+    expect(tasten.length).toBe(2);
+    expect(tasten.filter((z) => z.querySelector('kbd')).length).toBe(1);
+  });
+});
