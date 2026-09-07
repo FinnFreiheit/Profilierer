@@ -268,6 +268,28 @@ components:
     padding: 2px 7px
     fontSize: 10.5px
     fontWeight: 550
+  bibliothek-rahmen:
+    backgroundColor: '{colors.bg}'
+    maxWidth: 1560px
+    gridColumns: '252px minmax(0, 1fr)'
+  reiterleiste:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    border: '0 0 1px 0 solid {colors.border}'
+    padding: 11px 28px
+    maxWidth: 1560px
+  sprungliste:
+    backgroundColor: transparent
+    textColor: '{colors.text}'
+    typography: '{typography.bedienung}'
+    rounded: '{rounded.bedienung}'
+    padding: 6px 10px
+  szenario-block:
+    backgroundColor: '{colors.panel}'
+    textColor: '{colors.text}'
+    rounded: '{rounded.kasten}'
+    border: '1px solid {colors.border}'
+    shadow: '0 1px 2px rgba(20, 33, 61, 0.04)'
   kachel:
     backgroundColor: '{colors.panel}'
     textColor: '{colors.text}'
@@ -679,7 +701,7 @@ Farbe hat in diesem System eine Arbeitsteilung, die in `styles.scss` wörtlich f
 
 Die Dichte ist hoch, wie es sich für ein Werkzeug gehört, das stundenlang offen bleibt: 13px auf Bedienelementen, 12px auf Nebentext, 10px auf den Kennzeichen im Baum. Nichts ist dekorativ. Schatten erscheinen nur auf Dingen, die tatsächlich schweben — Menüs, Dialoge, das Kontextmenü — und beim Überfahren einer Kachel; Chrome, Kopfleiste und Detailbereich sind flach, getrennt durch 1px-Hairlines.
 
-Drei Oberflächen teilen sich ein Chassis: die **Übersichten** (Profile: Reiterleiste, Filterspalte links, Kopf mit Aktionen, Werkzeugzeile mit Suche, Gliederung und Kacheln/Liste; Testdaten und Projekte noch im älteren Kopf-Layout), der **Editor** (zweizeilige Kopfleiste, Baum aus 270px-Kästen, ziehbarer Detailbereich rechts) und die **Dialoge** (560px, ein Titel, ein Formularraster, rechtsbündige Knopfzeile). Dieselbe Schrift, dieselben Radien, dieselbe Palette — eine Sprache in drei Lautstärken.
+Drei Oberflächen teilen sich ein Chassis: die **Übersichten** — Profile, Testdaten, Projekte, Anleitung und Kennzahlen teilen sich den gemeinsamen Rahmen `app-bibliothek` (feste Kopfleiste mit Reitern und Schema-Suche, Filterspalte links, Kopf mit Aktionen, Werkzeugzeile mit Suche, Gliederung und Kacheln/Liste) —, der **Editor** (zweizeilige Kopfleiste, Baum aus 270px-Kästen, ziehbarer Detailbereich rechts) und die **Dialoge** (560px, ein Titel, ein Formularraster, rechtsbündige Knopfzeile). Dieselbe Schrift, dieselben Radien, dieselbe Palette — eine Sprache in drei Lautstärken.
 
 **Kennzeichen:**
 
@@ -790,8 +812,9 @@ Das System hat keine eigene Schrift; es nimmt, was das Betriebssystem bietet. In
 
 ### Raster & Container
 
-- **Maximale Inhaltsbreite:** 1120px für Kopf, Gruppenköpfe und Kachelraster der Übersichten — zentriert.
-- **Kachelraster:** `repeat(auto-fill, minmax(260px, 1fr))`, Lücke 14px. Alle Kacheln einer Zeile gleich hoch, Mindesthöhe 150px.
+- **Bibliothek-Rahmen** (`app-bibliothek`, alle fünf Übersichten): oben eine **feste Kopfleiste** (Reiter, Schema-Suche, Badges) auf einer bei 1560px zentrierten Spur; darunter ein Grid aus **Filterspalte** (252px, eigene Scrollfläche, rechts durch eine Haarlinie abgesetzt) und **Inhalt** (`.dashMain`, eigene Scrollfläche) — der Rahmen selbst rollt nicht, nur seine beiden Spalten tun es unabhängig voneinander. Ohne Filterspalte (Anleitung, Kennzahlen) nimmt der Inhalt die volle Breite ein.
+- **Maximale Inhaltsbreite:** 1120px für Kopf und Kacheln der einspaltigen Übersichten (Anleitung, Kennzahlen) — zentriert innerhalb von `.dashMain`. Profile, Testdaten und Projekte haben neben der Filterspalte keine eigene Höchstbreite; ihr Kachelraster und ihre Liste nutzen die volle Breite von `.dashMain`.
+- **Kachelraster:** `repeat(auto-fill, minmax(298px, 1fr))`, Lücke 13px. Alle Kacheln einer Zeile gleich hoch, Mindesthöhe 150px.
 - **Editor:** Kopfleiste (zwei Zeilen, feste Höhe) · Baumfläche (scrollend) · Detailbereich `clamp(340px, 28%, 560px)`, per Griff ziehbar, einklappbar auf einen Streifen.
 - **Baum:** Kästen fest 270px breit, 7px Abstand untereinander; Verbindungen als SVG-Linien aus DOM-Maßen.
 
@@ -877,6 +900,10 @@ Das System zeigt keine Bilder außer in der Anleitung (Bildschirmfotos, Vollfens
 
 ### Kacheln & Container
 
+**`bibliothek-rahmen`** (`app-bibliothek`, ADR 0022 Nachtrag „Bibliothek v4") — Der gemeinsame Rahmen aller fünf Übersichten (Profile, Testdaten, Projekte, Anleitung, Kennzahlen): oben `{component.reiterleiste}`, darunter ein Grid aus `{component.filterspalte}` und Inhalt. Der Rahmen selbst rollt nicht — Kopfleiste und Filterspalte stehen, nur der Inhalt (`.dashMain`) und die Filterspalte rollen je für sich. Ohne Filterspalte (Anleitung, Kennzahlen) nimmt der Inhalt die volle Breite ein.
+
+**`reiterleiste`** (`.dashLeiste`) — Feste Kopfleiste über dem Körper, `{colors.panel}`, 1px `{colors.border}` unten, 11px × 28px innen, bei 1560px zentriert. Drei Zonen: links das Reiter-Segment (`{component.ansicht-umschalter}`), mittig `<app-schema-suche>` (`flex: 0 1 420px`, unter 1100px `flex-basis: 260px` — die Suche gibt zuerst nach, die Reiter bleiben lesbar), rechts Beta- und Rollen-Badge.
+
 **`kachel`** — Die Profilierung in der Übersicht. Grund `{colors.panel}`, 1px `{colors.border}`, `{rounded.kasten}` (12px), Kante `0 1px 2px`, 16px × 17px innen, Spalten-Flex mit 8px Abstand, Mindesthöhe 252px, Zeilenhöhe im Raster angeglichen; Raster `auto-fill` mit 298px Mindestbreite und 13px Lücke. Aufbau von oben: Kopfzeile (`{component.modul-pill}` · `{component.zustand-pill-frei}` bzw. `-geaendert`/`-arbeit`/`-leer` · Hinweise-Badge und Erweiterungs-Pille, wenn vorhanden · ⋯-Menüknopf, sichtbar beim Überfahren) · Name in `{typography.kachelname}`, zwei Zeilen reserviert · Nachrichtenname in `{typography.schema-mono}`, in der Mitte gekürzt · Beschreibung in zwei Zeilen, kursiv „keine Beschreibung", wenn leer · Schlagworte als `{component.tag-chip}` · Fuß, durch `{colors.trenner}` abgesetzt: Autor links, Projekt rechts, darunter `{component.meta-pill}` und Datum. Leerzustände (ohne Autor, ohne Projekt) stehen kursiv, nicht versteckt. Aktiv: `{component.kachel-active}`.
 
 **`modul-pill`** — Fachmodul-Kürzel in Mono (11px / 600 / 0.03em), Grund `{colors.flaeche}`, `{rounded.tag}`, 2px × 7px. Steht als erstes auf jeder Kachel und in der Modul-Spalte der Liste.
@@ -885,11 +912,13 @@ Das System zeigt keine Bilder außer in der Anleitung (Bildschirmfotos, Vollfens
 
 **`meta-pill`** — Kennzahl des Stands: „6 offen", „vollständig" (`{component.meta-pill-voll}`, grün) oder im Altbestand „31 Festlegungen". `{rounded.bedienung}`, 12px / 600, tabellarische Ziffern.
 
-**`filterspalte`** — Linke Spalte der Übersicht, 252px, sticky, rechts durch 1px `{colors.border}` abgesetzt. Kopf „Eingrenzen" in `{typography.kennzeichen}` mit „alle"-Link, sobald etwas gesetzt ist; darunter „Alle Profilierungen" mit Gesamtzahl und Marke; dann die Achsen (Fachmodule, Projekte, Schlagworte, Zustand, Rückmeldungen, XJustiz-Version) mit 22px Abstand. Achsen kombinieren mit UND, Werte einer Achse mit ODER.
+**`filterspalte`** — Linke Spalte des `{component.bibliothek-rahmen}`, 252px, eine eigene Scrollfläche (rollt unabhängig vom Inhalt, nicht sticky), rechts durch 1px `{colors.border}` abgesetzt. Kopf „Eingrenzen" in `{typography.kennzeichen}` mit „alle"-Link, sobald etwas gesetzt ist; darunter „Alle …" mit Gesamtzahl und Marke; dann die Achsen mit 22px Abstand — Profile: Fachmodule, Projekte, Schlagworte, Zustand, Rückmeldungen, XJustiz-Version; Testdaten: Fachmodule, Projekte, Profilierungen, Zustand, Schlagworte; Projekte: Schlagworte, Inhalt. Achsen kombinieren mit UND, Werte einer Achse mit ODER. Auf der Projektseite ersetzt `{component.sprungliste}` die Filterspalte.
 
 **`filter-wert`** — Eine Zeile der Achse: Kästchen (14px, `{rounded.tag}`), Beschriftung, Zähler rechts in `{colors.muted}`. `{rounded.bedienung}`, 6px × 10px. Gewählt: `{component.filter-wert-aktiv}` auf `{colors.accent-soft}` mit gefülltem Kästchen in `{colors.accent}`. Werte ohne Treffer stehen in `{colors.muted}`, bleiben aber wählbar. Der Zähler sagt, wie viele Treffer der Klick brächte.
 
 **`aktiv-chip`** — Gesetzte Eingrenzung über der Sammlung: Achse in `{colors.muted}`, Wert, ✕. `{rounded.pill}`, 27px hoch, Grund `{colors.accent-soft}`, Rahmen `{colors.accent-soft-tief}`. Klick entfernt genau diese Eingrenzung.
+
+**`sprungliste`** — Ersetzt auf der Projektseite die Filterspalte: ein `{component.filter-wert}` je Szenario, aber randlos (`.fWert.ohneBox`) und ohne Kästchen, weil hier nichts aus- oder abgewählt wird. Name links, rechts der Anteil in Prozent (bzw. „—" ohne Punkte) statt eines Treffer-Zählers. Klick rollt zum Block des Szenarios in `.dashMain` — Kopfleiste, Sprungliste und Seitenkopf bleiben stehen.
 
 **`liste`** — Die Sammlung als Tabelle: Grund `{colors.panel}`, 1px `{colors.border}`, `{rounded.kasten}`, Kante. Spalten `minmax(0, 2.6fr) 62px minmax(0, 1.1fr) minmax(0, 1fr) 64px 62px 32px` — alle Textspalten `minmax(0, …)`, damit die Liste auch bei 600px Breite vollständig bleibt. Kopf auf `{colors.flaeche-hell}` in `{typography.kennzeichen}`, klickbar sortierend mit Pfeil; Gruppenzeilen ebenfalls auf `{colors.flaeche-hell}`. `{component.liste-zeile}`: Name in 14px / 600 mit Nachrichtenname in Mono darunter, Modul-Pille, Projekt, Tags, Kennzahl, Datum, ⋯. Beim Überfahren `{component.liste-zeile-active}` mit 3px Accent-Kante links.
 
@@ -898,6 +927,10 @@ Das System zeigt keine Bilder außer in der Anleitung (Bildschirmfotos, Vollfens
 **`detailbereich`** — Rechte Spalte des Editors, seit Editor v4 eine **schwebende Karte** auf dem Seitengrund: 394px breit, 12px eingerückt, `{rounded.kasten}`, 1px `{colors.border}` und Panel-Schatten. 16px × 17px innen mit 22px zwischen den Abschnitten, per 6px-Griff ziehbar (Griff beim Ziehen `{colors.accent}` bei 50 %). Eingeklappt ein Streifen mit Aufklapp-Knopf. Reihenfolge: Krümel (die letzten zwei Stationen) · Name · ✕ · **Ihre Antwort** · **Festgelegt als** · **Erlaubte Angaben** · `{component.detail-karte}` · **Was ist das?** · **Notiz für das Team**. Unter 1040px legt sie sich als Overlay über die Kaskade — die braucht die Breite dringender.
 
 **`gruppenkopf`** — Abschnitt je Fachmodul über dem Kachelraster: `{component.pill-modul}` (Mono, 12px) + Zähler in `{colors.muted}`, 8px unter sich, 22px über sich ab dem zweiten Abschnitt, auf derselben 1120px-Spur wie das Raster.
+
+**`testnachricht-kachel`** und **`projekt-kachel`** — Dieselbe Form wie `{component.kachel}` (`.dashCard`), nur der Fuß trägt andere Inhalte: die Testnachricht-Kachel zweizeilig — Herkunft („aus Profil „X“") und Projekt, darunter `{component.meta-pill}` (Stand: Pflichtangaben oder Dateigröße) und Datum; die Projekt-Kachel einzeilig — „n Szenarien · m Testnachrichten" und Datum. Bewusst keine eigene Komponente je Kachelart: Kacheln teilen nur die Klassen, ihr Verhalten (Öffnen, ⋯-Menü) ist je Typ verschieden (ADR 0022 Nachtrag „Bibliothek v4").
+
+**`szenario-block`** (`.liste.szenario`, Projektseite) — Ein Kommunikationsszenario als eigener Kasten: `{colors.panel}`, 1px `{colors.border}`, `{rounded.kasten}`, Kante `0 1px 2px`, 14px Abstand untereinander. Der Kopf (`.szenarioKopf`) liegt auf `{colors.flaeche-hell}`, 11px × 14px, durch 1px `{colors.border}` vom Rumpf abgesetzt: `{component.modul-pill}` · Name (klickbar, öffnet die Profilierung) · `{component.zustand-pill-frei}` bzw. `-geaendert`/`-arbeit`/`-leer` · Nachrichtenname in Mono · Fortschritt · Zähltext · „+ Testnachricht" · ⋯. Die Zeilen darunter (`.tmZeile`) wie `{component.liste-zeile}`, aber eingerückt (26px links) und durch `{colors.trenner}` getrennt — die Einrückung sagt „gehört zum Kopf darüber" ohne eigene Überschrift.
 
 **`leerer-zustand`** — Eine weiße Fläche (`{rounded.kasten}`, 1px `{colors.border}`, 52px × 36px innen), zentriert: Symbol `§ ⇄ </>` in Mono 22px und `{colors.border-stark}`, Titel 15px / 600, ein Satz in `{colors.muted}`, darunter der nächste Schritt als Knopf — „+ Neues Profil" bei leerer Sammlung, „Eingrenzung zurücksetzen" ohne Treffer.
 
@@ -992,13 +1025,14 @@ Das System zeigt keine Bilder außer in der Anleitung (Bildschirmfotos, Vollfens
 
 ### Breakpoints
 
-| Name           | Breite      | Änderungen                                                                                                                                                                               |
-| -------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Halbes Fenster | 900–1040px  | `{component.stand}` kürzt auf „37 / 214", der Sicherungsstand der Fußzeile entfällt, `{component.detailbereich}` legt sich als Overlay über die Kaskade (die Fläche hält den Platz frei) |
-| Eng            | 1040–1240px | Die `{component.ast-chip}`-Kette weicht dem Menü „Abschnitte ▾" — sie wächst mit der Zahl der Äste, das Menü nicht                                                                       |
-| Schmal         | 1240–1280px | Das Ansichtsmenü trägt nur noch sein Zeichen (`.lbl-lang` → `.lbl-kurz`), Kopfzonen-Innenabstand 12px, Lücken 8px bzw. 6px                                                               |
-| Laptop         | 1280–1680px | Volle Kopfzone; Zielkorridor des Werkzeugs                                                                                                                                               |
-| Breit          | ≥ 1680px    | Übersichten bleiben auf 1120px zentriert; der Editor nutzt die volle Breite                                                                                                              |
+| Name            | Breite      | Änderungen                                                                                                                                                                                    |
+| --------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bibliothek-Kopf | ≤ 1100px    | Die Schema-Suche der `{component.reiterleiste}` gibt zuerst nach (`flex-basis` 420px → 260px) — die Reiter bleiben lesbar                                                                     |
+| Halbes Fenster  | 900–1040px  | `{component.stand}` kürzt auf „37 / 214", der Sicherungsstand der Fußzeile entfällt, `{component.detailbereich}` legt sich als Overlay über die Kaskade (die Fläche hält den Platz frei)      |
+| Eng             | 1040–1240px | Die `{component.ast-chip}`-Kette weicht dem Menü „Abschnitte ▾" — sie wächst mit der Zahl der Äste, das Menü nicht                                                                            |
+| Schmal          | 1240–1280px | Das Ansichtsmenü trägt nur noch sein Zeichen (`.lbl-lang` → `.lbl-kurz`), Kopfzonen-Innenabstand 12px, Lücken 8px bzw. 6px                                                                    |
+| Laptop          | 1280–1680px | Volle Kopfzone; Zielkorridor des Werkzeugs                                                                                                                                                    |
+| Breit           | ≥ 1680px    | `{component.bibliothek-rahmen}` bleibt auf 1560px zentriert; einspaltige Übersichten (Anleitung, Kennzahlen) zentrieren ihren Inhalt zusätzlich auf 1120px; der Editor nutzt die volle Breite |
 
 Dazu zwei Zustandsabfragen: `(hover: none)` macht den ⋯-Knopf der Kachel dauerhaft sichtbar (Tablet); `print` liefert das Druckdokument des Baums.
 
@@ -1009,7 +1043,7 @@ Desktop und Laptop, halbes Fenster neben einer anderen Anwendung als Untergrenze
 ### Nachgeben statt Umbrechen
 
 - **Kopfzone**: drei Zeilen bei jeder Breite. Reihenfolge des Nachgebens: das Suchfeld schrumpft → der Nachrichtenname kürzt mit Ellipsis → die Ast-Chips werden zum Menü → die Stand-Beschriftung kürzt. Ein Überlauf-Menü braucht es nicht mehr: alle Werkzeuge des Objekts stehen ohnehin im ⋯-Menü der Kopfzeile.
-- **Kachelraster**: `auto-fill` mit 260px Mindestbreite; die Spaltenzahl folgt der Breite.
+- **Kachelraster**: `auto-fill` mit 298px Mindestbreite; die Spaltenzahl folgt der Breite.
 - **Detailbereich**: 394px, ziehbar (min. 340px); auf einen Streifen einklappbar; unter 1040px Overlay.
 - **Pfad in der Fußzeile**: rollt waagerecht, statt Stationen auszulassen — die Kette bleibt vollständig.
 
@@ -1028,7 +1062,7 @@ Desktop und Laptop, halbes Fenster neben einer anderen Anwendung als Untergrenze
 - **Halbe Schriftgrößen:** 12.5px (Reiter, Home-Knopf), 11.5px (Datum, Zweig-Chip, Mini-Kasten) und 10.5px kommen im Bestand vor. Sie sind Drift, keine Stufen; eine Bereinigung auf die Leiter steht aus.
 - **Kein dunkles Thema.** Es gibt keine `prefers-color-scheme`-Ableitung; das System ist hell.
 - **Baum-Tags:** rund zwanzig Fläche-Text-Paare in `styles.scss`, hier nur durch `{colors.auswahl-bg}` / `{colors.auswahl-fg}` vertreten. Die vollständige Liste zeigt die Karte „Baum-Tags" des Styleguides.
-- **v4 auf Profil-Übersicht und Editor:** Filterspalte, Werkzeugzeile, Liste, Kachel — und im Editor Kopfzone, Baum-Kasten, Detailbereich, Fußzeile und XML-Darstellung. Testdaten und Projekte tragen die neuen Tokens (Grund, Rahmen, Radien, Kachelform), aber noch den älteren Kopf mit Aktionszeile und Filterleiste.
+- **v4 auf allen fünf Übersichten und dem Editor:** gemeinsamer Rahmen `{component.bibliothek-rahmen}` mit `{component.reiterleiste}` und `{component.filterspalte}` (bzw. `{component.sprungliste}` auf der Projektseite), Werkzeugzeile, Liste, Kachel-Varianten (`{component.kachel}`, testnachricht-kachel, projekt-kachel), `{component.szenario-block}` — und im Editor Kopfzone, Baum-Kasten, Detailbereich, Fußzeile und XML-Darstellung.
 - **Typografie, Radien und Abstände** sind Stufen in dieser Datei und Karten im Styleguide, aber keine CSS-Variablen — `styles.scss` trägt die Werte noch als Zahlen in den Regeln. Abstände und Schriftgrößen der neuen Editor-Bausteine sind entsprechend Zahlen, keine Tokens.
 - **Statusfarben sind Daten, keine Tokens:** die Farbe einer Antwort steht im Profil-Dokument (`profile-defaults.ts`), nicht in `:root`. Antwort-Zeile, Statusstreifen und Hilfe-Punkte bekommen sie als Inline-Wert; die Karten des Styleguides zeigen sie stellvertretend mit `{colors.frei-fg}` und Verwandten.
 - **Toast** fehlt weiterhin als Karte im Spiegel (Id-Kollision mit der globalen Instanz), ebenso der Grundlage-Dialog und die Dialoge insgesamt.

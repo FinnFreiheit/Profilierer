@@ -163,12 +163,12 @@ export class Howto {
           text: [
             'Der Testdaten-Speicher ist der zentrale Ablageort aller XJustiz-Testnachrichten, nach Fachmodul ' +
               'geordnet. Erreichbar ist er über den Umschalter oben links.',
-            '„Neue Testnachricht erstellen…" startet den Durchlauf. Derselbe Ablauf startet auch direkt an einer ' +
+            '„+ Neue Testnachricht" startet den Durchlauf. Derselbe Ablauf startet auch direkt an einer ' +
               'Profil-Kachel über deren ⋯-Menü („Testnachricht erstellen…").',
           ],
           bild: '07-testdaten-speicher',
           bildText:
-            'Testdaten-Speicher. Die Auswahlliste „alle Profilierungen" grenzt auf die Testdaten eines Szenarios ein.',
+            'Testdaten-Speicher. Die Achse „Profilierungen" in der Filterspalte grenzt auf die Testdaten eines Szenarios ein.',
         },
         {
           nr: 2,

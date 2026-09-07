@@ -25,7 +25,13 @@ import { Bibliothek } from '../../shared/bibliothek/bibliothek';
 import { Menu } from '../../shared/menu/menu';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
-import { normalisiereTags, schalteTag, tagOptionen, tagsAlsText } from '../../core/util/tags.util';
+import {
+  hatAlleTags,
+  normalisiereTags,
+  schalteTag,
+  tagOptionen,
+  tagsAlsText,
+} from '../../core/util/tags.util';
 import { ZUSTAND_LABEL, zustandVon } from '../../core/util/profil-zustand.util';
 import { fachmodulOf } from '../../core/util/fachmodul.util';
 
@@ -152,7 +158,7 @@ export class Projekte {
 
   /** Freitextsuche der Projektuebersicht: Name, Beschreibung, Schlagworte. */
   protected readonly search = signal('');
-  /** Gewaehlte Schlagworte; innerhalb der Achse wirken sie mit ODER. */
+  /** Gewaehlte Schlagworte. Mehrere wirken zusammen (UND) — jeder Klick grenzt weiter ein. */
   protected readonly gewaehlteTags = signal<string[]>([]);
   protected readonly fInhalt = signal<InhaltKey[]>([]);
 
@@ -173,10 +179,8 @@ export class Projekte {
       ![p.name, p.beschreibung, ...(p.tags ?? [])].some((v) => (v || '').toLowerCase().includes(q))
     )
       return false;
-    if (ohne !== 'tag' && this.gewaehlteTags().length) {
-      const vorhanden = new Set((p.tags ?? []).map((t) => t.toLocaleLowerCase('de')));
-      if (!this.gewaehlteTags().some((t) => vorhanden.has(t.toLocaleLowerCase('de')))) return false;
-    }
+    if (ohne !== 'tag' && this.gewaehlteTags().length && !hatAlleTags(p.tags, this.gewaehlteTags()))
+      return false;
     if (ohne !== 'inhalt' && this.fInhalt().length) {
       if (!this.fInhalt().some((i) => this.hatInhalt(p, i))) return false;
     }

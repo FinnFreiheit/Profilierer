@@ -35,7 +35,7 @@ xjustiz-profilierer/
 │   │   │                      BackendClient (der eine Weg ans Backend)
 │   │   ├── ansicht/           Anzeige-Ableitungen (BaumkastenAnsicht, DetailAnsicht, StandAnsicht, sperrgrund)
 │   │   ├── util/              xml.util, pretty.util, testmessage.util, pattern-sample.util,
-│   │   │                      eintragsliste.util, positions-pfad.util
+│   │   │                      eintragsliste.util, positions-pfad.util, profil-zustand.util
 │   │   ├── refs.ts            Referenz-Metadaten (Type.GDS.Ref.*)
 │   │   └── profile-defaults.ts
 │   ├── features/              Kopfzone in drei Zeilen: Objektleiste (Kopfzeile mit ⋯-Menue), Ortzeile
@@ -43,8 +43,10 @@ xjustiz-profilierer/
 │   │                          Fusszeile (Pfad/Zustand/Hilfe, ersetzt Legend), Crumbs, Ueberlagerung,
 │   │                          Tree (TreeCanvas + rekursive TreeNode), XmlAnsicht, Detail,
 │   │                          Dialoge (Status/Meta/Diff/Grundlage), Print, Styleguide,
-│   │                          Dashboard, Testdaten, Howto (bebilderte Anleitung, Bilder in public/howto/)
-│   ├── shared/                Menu (richtung/breite/ausrichtung), Toast, FileDropDirective
+│   │                          Dashboard, Testdaten, Projekte, Kennzahlen,
+│   │                          Howto (bebilderte Anleitung, Bilder in public/howto/)
+│   ├── shared/                Bibliothek (gemeinsamer Rahmen der fuenf Uebersichten), SchemaSuche,
+│   │                          Menu (richtung/breite/ausrichtung), Toast, FileDropDirective
 │   ├── app.ts / app.html      Shell (Komposition + Tastatur-Nav + Drop-Routing)
 │   └── styles.scss            globale Styles (aus der Single-File-Version portiert)
 ├── public/schemas/           Hinterlegte XJustiz-Schemata (3.6.2, 4.0.0) + index.json (Manifest)

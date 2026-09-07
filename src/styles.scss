@@ -2330,28 +2330,11 @@ textarea {
   flex: 1;
   padding: 26px 28px;
 }
-.dashHead {
-  max-width: 1120px;
-  margin: 0 auto 20px;
-}
-.dashHead h1 {
-  font-size: 20px;
-  margin: 0;
-  font-weight: 650;
-}
-.dashHead h1 span {
-  color: var(--accent);
-}
 .dashSub {
   color: var(--muted);
   margin: 4px 0 14px;
 }
-.dashActions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-/* Schema-Suche in der Aktionszeile: das Feld ist das Flex-Element, die
+/* Schema-Suche in der Kopfleiste: das Feld ist das Flex-Element, die
    Trefferliste haengt absolut darunter. */
 app-schema-suche {
   display: contents;
@@ -2504,29 +2487,6 @@ app-schema-suche {
   min-width: 280px;
   flex: 1;
   max-width: 420px;
-}
-.tdGroupHead {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 8px;
-}
-.tdGroupHead .pill {
-  font-family: var(--mono);
-  font-size: 12px;
-}
-.tdGroupCount {
-  font-size: 12px;
-  color: var(--muted);
-}
-.tdNote {
-  font-size: 12px;
-  color: var(--muted);
-  white-space: pre-wrap;
-  word-break: break-word;
-  background: var(--accent-soft);
-  border-radius: var(--rund-bedienung);
-  padding: 5px 8px;
 }
 /* ── Schlagworte (Tags) ──────────────────────────────────────────────
    Dieselben Chips in Filterleiste, Kachel und Eingabefeld: ein Schlagwort
@@ -3747,13 +3707,6 @@ app-tree-context-menu {
   color: var(--muted);
   align-self: center;
 }
-/* Zeitraumwahl: der aktive Knopf muss sich abheben, sonst weiss niemand,
-   welche 30 Tage er gerade sieht. Gleiche Sprache wie .viewToggle. */
-.kzZeitraumAktiv {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--weiss);
-}
 .kzDiagramm {
   max-width: 1120px;
   margin: 0 auto 18px;
@@ -4044,13 +3997,15 @@ body.dsVorschau .sgKarte {
 }
 
 /* ------------------------------------------------------------------
-   Uebersicht v4 (design/profil-uebersicht-v4.dc.html, ADR 0022)
+   Bibliothek v4 (design/profil-uebersicht-v4.dc.html, ADR 0022)
 
-   Leiste mit Reitern, Filterspalte links, Sammlung als Kacheln oder
-   Liste. Die Regeln hier ueberschreiben bewusst die aelteren Kachel- und
-   Reiter-Regeln oben (gleiche Spezifitaet, spaetere Regel gewinnt), damit
-   Testdaten und Projekte dieselbe Formensprache bekommen, ohne dass ihre
-   Templates angefasst werden muessen.
+   Der gemeinsame Rahmen `app-bibliothek` (shared/bibliothek/) traegt
+   Kopfleiste, Schema-Suche und Filterspalte fuer alle fuenf Uebersichten
+   (Profile, Testdaten, Projekte, Anleitung, Kennzahlen); ihre Templates
+   sind entsprechend umgebaut. Die Regeln hier ueberschreiben bewusst die
+   aelteren Kachel- und Reiter-Regeln oben (gleiche Spezifitaet, spaetere
+   Regel gewinnt) — Leiste mit Reitern, Filterspalte links, Sammlung als
+   Kacheln oder Liste.
    ------------------------------------------------------------------ */
 /* Reiterleiste: ruhige Segmentgruppe statt Rahmenkasten. */
 .viewToggle {
@@ -4085,11 +4040,6 @@ body.dsVorschau .sgKarte {
 .viewToggle button:not(.active):hover {
   background: var(--panel);
   color: var(--text);
-}
-.dashHead h1 {
-  font-size: 24px;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
 }
 /* Menues: weicher Schatten, Eintraege mit eigener Rundung. */
 .menuPanel {

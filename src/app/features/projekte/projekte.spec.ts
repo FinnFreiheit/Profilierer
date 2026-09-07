@@ -82,7 +82,7 @@ describe('Projekte — Szenarien einer Projektseite', () => {
     {
       id: 'prj1',
       name: 'GenUVA',
-      tags: ['Pilot'],
+      tags: ['Pilot', 'Schulung'],
       angelegt: 0,
       aktualisiert: 0,
       nProfile: 3,
@@ -185,6 +185,13 @@ describe('Projekte — Szenarien einer Projektseite', () => {
     prj.resetAlles();
     expect(prj.gefiltert().length).toBe(3);
     expect(prj.trefferText()).toBe('3 Projekte');
+  });
+
+  it('verknuepft mehrere Schlagworte derselben Achse mit UND', () => {
+    // "Pilot" traegt prj1 und prj3, "Schulung" nur prj1 — zusammen bleibt nur
+    // prj1 uebrig, nicht die Vereinigung beider Schlagworte.
+    prj.gewaehlteTags.set(['Pilot', 'Schulung']);
+    expect(prj.gefiltert().map((p) => p.id)).toEqual(['prj1']);
   });
 
   it('zaehlt an den Achsen, was der Klick braechte — nicht was uebrig bliebe', () => {
