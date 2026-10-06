@@ -34,9 +34,10 @@ const XL_TESTDATEN = 'FFBDD7EE';
 const XL_HINWEIS = 'FFDFF2F0';
 /**
  * Gliederungsstreifen je Einrueck-Tiefe (Referenz: Office-Themefarben
- * accent6/5/4/2/1/lt2 mit Tint 0,6 fuer die Spalten A..F, dann wiederholt).
+ * accent6/5/4/2/1/dk2 mit Tint 0,6 fuer die Spalten A..F, dann wiederholt).
+ * Als RGB, weil ExcelJS ein abweichendes Standard-Theme schreibt.
  */
-const XL_STREIFEN = ['FFC6DEB5', 'FFB4C7E7', 'FFFFE699', 'FFF8CBAD', 'FFBDD7EE', 'FFF5F5F5'];
+const XL_STREIFEN = ['FFC5E0B4', 'FFB4C7E7', 'FFFFE699', 'FFF8CBAD', 'FFBDD7EE', 'FFADB9CA'];
 const XL_FONT = { name: 'Arial', size: 10 };
 
 /** Kompakte Kardinalitaet im Referenz-Stil ("1", "0..1", "1..n"). */
@@ -76,7 +77,7 @@ export class ExcelExportService {
   private readonly hinweise = inject(HinweisStoreService);
 
   async exportExcel(): Promise<void> {
-    if (!this.exporter.bestaetigeOffeneEntscheidungen()) return;
+    if (!this.exporter.bestaetigeZuKlaerende()) return;
     const root = this.state.root();
     if (!root) return;
     const mod = await import('exceljs');
@@ -149,41 +150,41 @@ export class ExcelExportService {
       if (!this.tree.isLeaf(n)) this.tree.expandNode(n);
       const p = this.state.elemente()[n.path] ?? {};
       const k = this.state.effKard(n);
-      // Vererbter Ausschluss wie im Druck: Zeile bleibt (Strukturreferenz),
-      // Szenariospalte "entfällt", gespeicherte Festlegungen unterdrueckt.
-      const inh = this.state.inheritedExcluded(n.path);
-      const status = inh ? 'entfällt' : this.statusText(n.path, p);
+      // Ausschluss (eigener oder geerbter): Zeile bleibt als Strukturreferenz,
+      // die Szenariospalte bleibt leer, gespeicherte Festlegungen unterdrueckt.
+      const leer = this.state.entfaellt(n.path);
+      const status = leer ? '' : this.statusText(n.path, p);
       zeilen.push({
         art: 'el',
         tiefe,
         text: n.name,
-        // Auch echte Elemente mit choice-Inhalt (auswahl_*) als [choice] markieren;
+        // Auswahl-/Gruppenknoten ohne Typ (Referenz: leere Typ-Spalte);
         // Schema-Erweiterungen deutlich kennzeichnen.
         typ: n.erweiterung
           ? '[Erweiterung] ' + (n.typeName || 'Container')
           : n.synthetic
-            ? `[${n.model}]`
-            : n.typeName || (n.model === 'choice' ? '[choice]' : ''),
+            ? ''
+            : n.typeName || '',
         anzahl: kurzKard(n.min, n.max) + (k.changed ? '\n' + kurzKard(k.min, k.max) : ''),
         status,
-        testdaten: (!inh && p.beispiel) || '',
+        testdaten: (!leer && p.beispiel) || '',
         hinweis: this.hinweisZelle(n.path),
       });
-      if (n.doc) zeilen.push({ art: 'desc', tiefe, text: n.doc, status: status ? '.' : '' });
+      if (n.doc) zeilen.push({ art: 'desc', tiefe, text: n.doc });
       if (kollabiert?.(n) || tiefe >= maxTiefe || n.recursive) continue;
       const vorkommen = this.tree.vorkommenKinder(n);
       if (vorkommen) {
         for (const { node: cn, ausp: a } of vorkommen) {
           const ap = this.state.elemente()[cn.path] ?? {};
-          const auspInh = this.state.inheritedExcluded(cn.path);
+          const auspLeer = this.state.entfaellt(cn.path);
           zeilen.push({
             art: 'el',
             tiefe: tiefe + 1,
             text: `${n.name} (${a.name})`,
             typ: n.typeName || '',
             anzahl: kurzKard(ap.min || '1', ap.max || '1'),
-            status: auspInh ? 'entfällt' : this.statusText(cn.path, ap),
-            testdaten: (!auspInh && ap.beispiel) || '',
+            status: auspLeer ? '' : this.statusText(cn.path, ap),
+            testdaten: (!auspLeer && ap.beispiel) || '',
             hinweis: this.hinweisZelle(cn.path),
           });
           this.sammleZeilen(this.tree.kinder(cn), tiefe + 2, zeilen, undefined, maxTiefe);
@@ -210,10 +211,14 @@ export class ExcelExportService {
       .join('\n');
   }
 
-  /** Szenariozelle: Statusname, Anmerkung angehaengt, Werte/Verweis darunter. */
+  /**
+   * Szenariozelle: Statusname, Anmerkung angehaengt, Werte/Verweis darunter.
+   * Elemente ohne Status gehoeren nicht zur Profilierung — Zelle leer.
+   */
   private statusText(pfad: string, p: ElementProfile): string {
     const st = this.state.statusOf(pfad);
-    let s = [st?.name, p.anmerkung].filter(Boolean).join(', ');
+    if (!st) return '';
+    let s = [st.name, p.anmerkung].filter(Boolean).join(', ');
     if (p.werte && p.werte.length) {
       const w =
         p.werte.length <= 6
@@ -268,8 +273,18 @@ export class ExcelExportService {
     // damit das Referenzlayout sonst unveraendert bleibt.
     const colHinweis = zeilen.some((z) => z.hinweis) ? colTest + 1 : 0;
     for (let c = 1; c < einrueck; c++) ws.getColumn(c).width = 4.8;
-    ws.getColumn(einrueck).width = 14;
-    ws.getColumn(colTyp).width = 44;
+    // Spaltenbreiten so, dass Elementnamen (fett, bis vor die Typ-Spalte
+    // gemergt) und Typnamen nicht abgeschnitten werden. Breite ≈ Zeichen.
+    const zeichen = (t: string, fett: boolean): number =>
+      Math.ceil(Math.max(...t.split('\n').map((x) => x.length)) * (fett ? 1.15 : 1.05)) + 2;
+    const breiteName = zeilen.reduce(
+      (m, z) =>
+        z.art === 'el' ? Math.max(m, zeichen(z.text, true) - 4.8 * (maxTiefe - z.tiefe)) : m,
+      14,
+    );
+    const breiteTyp = zeilen.reduce((m, z) => (z.typ ? Math.max(m, zeichen(z.typ, false)) : m), 44);
+    ws.getColumn(einrueck).width = breiteName;
+    ws.getColumn(colTyp).width = breiteTyp;
     ws.getColumn(colAnzahl).width = 10;
     ws.getColumn(colStatus).width = 40;
     ws.getColumn(colTest).width = 40;
@@ -285,6 +300,7 @@ export class ExcelExportService {
     zelle(1, colStatus, profilName, true);
     zelle(2, 1, titel, true);
     zelle(3, 1, 'Kindelement', true);
+    if (einrueck > 1) ws.mergeCells(3, 1, 3, einrueck);
     zelle(3, colTyp, 'Typ', true);
     zelle(3, colAnzahl, 'Anzahl', true);
     for (let c = 1; c <= colAnzahl; c++)
@@ -317,7 +333,7 @@ export class ExcelExportService {
     // Zeilenhoehe aus der Textlaenge: gemergte Zellen passt Excel nicht
     // automatisch an, daher Zeilen (~Zeichen je Zeilenbreite) selbst schaetzen.
     const breiteAb = (von: number): number => {
-      let w = 44 + 10 + 14; // Typ + Anzahl + letzte Einrueckspalte
+      let w = breiteTyp + 10 + breiteName; // Typ + Anzahl + letzte Einrueckspalte
       for (let c = von; c < einrueck; c++) w += 4.8;
       return w;
     };
@@ -328,7 +344,11 @@ export class ExcelExportService {
     for (const z of zeilen) {
       const cName = z.tiefe + 1;
       if (z.art === 'el') {
+        // Elementname bis vor die Typ-Spalte gemergt (Referenz: B9:D9);
+        // ohne Typ auch ueber die Typ-Spalte (Referenz: A8:E8).
         zelle(r, cName, z.text, true);
+        const bis = z.typ ? einrueck : colTyp;
+        if (cName < bis) ws.mergeCells(r, cName, r, bis);
         if (z.typ) zelle(r, colTyp, z.typ);
         if (z.anzahl) zelle(r, colAnzahl, z.anzahl);
       } else {
@@ -365,7 +385,8 @@ export class ExcelExportService {
     // faerbt (a) seine Einrueckspalte vertikal ueber den gesamten Block —
     // bis zum naechsten Element derselben oder einer hoeheren Ebene — und
     // (b) seine Element- und Beschreibungszeile horizontal von der eigenen
-    // Spalte bis zur Anzahl-Spalte. Farbe rotiert je Tiefe.
+    // Spalte bis zur Anzahl-Spalte. Farbe rotiert je Tiefe. Die Einrueckspalte
+    // unterhalb der eigenen Zeilen ist ueber den Block gemergt (Referenz: A9:A39).
     const fuelle = (rr: number, c: number, argb: string): void => {
       ws.getCell(rr, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
     };
@@ -386,14 +407,14 @@ export class ExcelExportService {
       const bandBis = zeilen[i + 1]?.art === 'desc' ? i + 1 : i;
       for (let bi = i; bi <= bandBis; bi++)
         for (let c = z.tiefe + 1; c <= colAnzahl; c++) fuelle(4 + bi, c, farbe);
+      if (ende - 1 > bandBis + 1) ws.mergeCells(5 + bandBis, z.tiefe + 1, 3 + ende, z.tiefe + 1);
     }
-    // Die Szenariospalte ist in der Referenz durchgaengig gefuellt.
-    for (let rr = 4; rr < r; rr++)
-      ws.getCell(rr, colStatus).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: XL_SZENARIO },
-      };
+    // Duenner Rahmen um jede Zelle ab der Kopfzeile bis zur letzten Spalte.
+    const rahmen = { style: 'thin' as const };
+    const letzteSpalte = colHinweis || colTest;
+    for (let rr = 3; rr < r; rr++)
+      for (let c = 1; c <= letzteSpalte; c++)
+        ws.getCell(rr, c).border = { top: rahmen, left: rahmen, bottom: rahmen, right: rahmen };
   }
 
   /** Ein Codelisten-Sheet: Titelzeile, Header code|wert, vollstaendige Werte. */
