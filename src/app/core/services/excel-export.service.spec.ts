@@ -116,7 +116,7 @@ describe('ExcelExportService (NGem-Layout)', () => {
     const haupt = inhalt(wb, 'Notar an Gemeinde');
     expect(haupt).toContain('Notar an Gemeinde\nVorkaufsrecht');
     expect(haupt).toContain('Testdaten\nNotar an Gemeinde');
-    expect(haupt).toContain('[choice]');
+    expect(haupt).not.toContain('[choice]'); // Auswahlknoten ohne Typ wie in der Referenz
   });
 
   it('Szenariozelle: Statusname mit angehaengter Anmerkung; Testdaten aus Beispiel', async () => {
@@ -131,28 +131,78 @@ describe('ExcelExportService (NGem-Layout)', () => {
     expect(haupt).toContain('12345/2026');
   });
 
-  it('Beschreibungszeile unter dem Element traegt "." als Fueller nur bei Statustext', async () => {
-    const wb1 = await exportiert();
-    const ws1 = wb1.getWorksheet('Notar an Gemeinde')!;
-    let beschrZeile = 0;
-    ws1.eachRow((row, nr) => {
+  /** Zeilennummer der ersten Zelle, deren Wert mit `text` beginnt. */
+  const zeileVon = (ws: import('exceljs').Worksheet, text: string): number => {
+    let nr = 0;
+    ws.eachRow((row, r) =>
       row.eachCell((c) => {
-        if (String(c.value).startsWith('Das amtliche Aktenzeichen')) beschrZeile = nr;
-      });
-    });
-    expect(beschrZeile).toBeGreaterThan(0);
-    // Ohne Status: kein Fueller. Statusspalte = letzte Spalte - 1 (vor Testdaten).
-    const colStatus = ws1.columnCount - 1;
-    expect(ws1.getCell(beschrZeile, colStatus).value ?? '').toBe('');
+        if (!nr && String(c.value).startsWith(text)) nr = r;
+      }),
+    );
+    return nr;
+  };
 
-    downloaded = [];
+  it('Beschreibungszeile bleibt in der Szenariospalte leer, auch mit Status', async () => {
     state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, { status: 's1' });
-    const wb2 = await exportiert();
-    const ws2 = wb2.getWorksheet('Notar an Gemeinde')!;
-    expect(ws2.getCell(beschrZeile, colStatus).value).toBe('.');
+    const wb = await exportiert();
+    const ws = wb.getWorksheet('Notar an Gemeinde')!;
+    const beschrZeile = zeileVon(ws, 'Das amtliche Aktenzeichen');
+    expect(beschrZeile).toBeGreaterThan(0);
+    // Statusspalte = letzte Spalte - 1 (vor Testdaten).
+    const colStatus = ws.columnCount - 1;
+    expect(ws.getCell(beschrZeile - 1, colStatus).value).toBe('zwingend');
+    expect(ws.getCell(beschrZeile, colStatus).value ?? '').toBe('');
   });
 
-  it('unter Ausschluss: Zeile bleibt, Szenariospalte "entfällt", Status/Anmerkung/Testdaten unterdrueckt', async () => {
+  it('ohne Status keine Angabe: Anmerkung allein fuellt die Szenariospalte nicht', async () => {
+    state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, { anmerkung: 'nur notiert' });
+    const wb = await exportiert();
+    expect(inhalt(wb, 'Notar an Gemeinde')).not.toContain('nur notiert');
+  });
+
+  it('ausgeschlossenes Element: Zeile bleibt, Szenariospalte leer', async () => {
+    state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, {
+      status: 's3',
+      anmerkung: 'brauchen wir nicht',
+    });
+    const wb = await exportiert();
+    const haupt = inhalt(wb, 'Notar an Gemeinde');
+    expect(haupt).toContain('aktenzeichen');
+    expect(haupt).not.toContain('nicht verwendet');
+    expect(haupt).not.toContain('brauchen wir nicht');
+  });
+
+  it('Rahmen und verbundene Zellen wie in der Referenz', async () => {
+    const wb = await exportiert();
+    const ws = wb.getWorksheet('Notar an Gemeinde')!;
+    // Struktur: fachdaten (Tiefe 0) > aktenzeichen, [choice] > zusage/absage → 3 Einrueckspalten.
+    const fach = zeileVon(ws, 'fachdaten');
+    const akt = zeileVon(ws, 'aktenzeichen');
+    const zusage = zeileVon(ws, 'zusage');
+    // Kopf "Kindelement" ueber alle Einrueckspalten.
+    expect(ws.getCell(3, 3).master.address).toBe('A3');
+    // Elementname bis vor die Typ-Spalte, ohne Typ auch ueber sie hinweg.
+    expect(ws.getCell(fach, 4).master.address).toBe(`A${fach}`);
+    expect(ws.getCell(akt, 3).master.address).toBe(`B${akt}`);
+    expect(ws.getCell(akt, 4).master.address).toBe(`D${akt}`);
+    // Einrueckspalte des Elternelements senkrecht ueber den Block.
+    expect(ws.getCell(zusage, 1).master.address).toBe(`A${akt}`);
+    // Gliederungsfarbe der Referenz: Ebene 0 Gruen (accent6, Tint 0,6) — auf
+    // Name und Anzahl des Elternelements sowie senkrecht im Block.
+    const farbe = (r: number, c: number) =>
+      (ws.getCell(r, c).fill as { fgColor?: { argb?: string } }).fgColor?.argb;
+    expect(farbe(fach, 1)).toBe('FFC5E0B4');
+    expect(farbe(fach, 5)).toBe('FFC5E0B4');
+    expect(farbe(akt, 1)).toBe('FFC5E0B4');
+    // Spaltenbreite reicht fuer den Elementnamen (fett, ueber die Einrueckspalten).
+    const breite = [1, 2, 3].reduce((w, c) => w + (ws.getColumn(c).width ?? 0), 0);
+    expect(breite).toBeGreaterThanOrEqual('aktenzeichen'.length * 1.15);
+    // Duenner Rahmen bis in die letzte Spalte.
+    expect(ws.getCell(zusage, ws.columnCount).border?.bottom?.style).toBe('thin');
+    expect(ws.getCell(3, 1).border?.top?.style).toBe('thin');
+  });
+
+  it('unter Ausschluss: Zeile bleibt, Szenariospalte leer, Status/Anmerkung/Testdaten unterdrueckt', async () => {
     state.setElementProfile(`${M2}/fachdaten`, { status: 's3' });
     state.setElementProfile(`${M2}/fachdaten/aktenzeichen`, {
       status: 's1',
@@ -162,14 +212,14 @@ describe('ExcelExportService (NGem-Layout)', () => {
     const wb = await exportiert();
     const haupt = inhalt(wb, 'Notar an Gemeinde');
     expect(haupt).toContain('aktenzeichen'); // Strukturreferenz bleibt vollstaendig
-    expect(haupt).toContain('nicht verwendet'); // eigener Status des Elternteils
-    expect(haupt).toContain('entfällt');
+    expect(haupt).not.toContain('nicht verwendet');
+    expect(haupt).not.toContain('entfällt');
     expect(haupt).not.toContain('zwingend'); // schlummernder Status unterdrueckt
     expect(haupt).not.toContain('Wert 001');
     expect(haupt).not.toContain('12345/2026');
   });
 
-  it('unter Ausschluss: auch Ausprägungs-Blöcke zeigen "entfällt" statt gespeicherter Status', async () => {
+  it('unter Ausschluss: auch Ausprägungs-Blöcke bleiben ohne gespeicherten Status', async () => {
     state.setElementProfile(`${M2}/fachdaten`, { status: 's3' });
     const id = state.addAusp(`${M2}/fachdaten/aktenzeichen`, 'Fall A');
     state.setElementProfile(`${M2}/fachdaten/aktenzeichen@${id}`, {
@@ -179,7 +229,7 @@ describe('ExcelExportService (NGem-Layout)', () => {
     const wb = await exportiert();
     const haupt = inhalt(wb, 'Notar an Gemeinde');
     expect(haupt).toContain('aktenzeichen (Fall A)'); // Block bleibt als Strukturreferenz
-    expect(haupt).toContain('entfällt');
+    expect(haupt).not.toContain('entfällt');
     expect(haupt).not.toContain('zwingend');
     expect(haupt).not.toContain('99999/2026');
   });
