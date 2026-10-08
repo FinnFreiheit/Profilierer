@@ -47,7 +47,7 @@ Bereits vorhanden und wiederverwendbar:
 - **Baum-Editor mit Führungsschicht**, kein separater Wizard — dieselbe
   Entscheidung wie bei der geführten Profilierung, gleiche Bedienlogik und
   Wiedererkennung.
-- **Einstieg im Testspeicher:** Button „Neue Testnachricht erstellen…"; im
+- **Einstieg im Testspeicher:** Button „+ Neue Testnachricht"; im
   Dialog zweistufig **XJustiz-Version** (hinterlegte 3.6.2/4.0.0, plus „aktuell
   geladenes Schema" falls ein Fremdschema geladen ist) und dann die
   **Nachricht** (durchsuchbar). Danach direkt im Baum-Editor mit aktiver
@@ -150,7 +150,7 @@ Bereits vorhanden und wiederverwendbar:
 
 ### A. Einstieg
 
-- Auf der Testspeicher-Oberfläche gibt es „**Neue Testnachricht erstellen…**";
+- Auf der Testspeicher-Oberfläche gibt es „**+ Neue Testnachricht**";
   der Dialog bietet die hinterlegten XJustiz-Versionen (und, falls geladen, das
   aktuelle Fremdschema) und darin **jede** Nachricht zur Auswahl (durchsuchbar).
 - Nach der Wahl öffnet sich der Baum-Editor im Nachrichten-Modus mit **aktiver
@@ -251,7 +251,7 @@ die ursprüngliche Fassung verlangte an jedem optionalen Element ein aufnehmen/w
   _Nachgezogen (Issue #35):_ „Aus Profilierung erzeugen" ist **entfallen**. Von
   der Profilierung zur Testnachricht führt genau ein Weg — der geführte
   Durchlauf mit Bindung, erreichbar über die Profil-Kachel im Dashboard und über
-  „Neue Testnachricht erstellen… → aus Profilierung".
+  „+ Neue Testnachricht → aus Profilierung".
 
 ## Betroffene Bausteine (Orientierung, kein Auftrag)
 

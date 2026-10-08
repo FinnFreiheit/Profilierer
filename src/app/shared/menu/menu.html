@@ -15,7 +15,14 @@
 </button>
 
 @if (open()) {
-  <div style="position: fixed; inset: 0; z-index: 39" (click)="close()"></div>
+  <!-- Der Schliess-Backdrop liegt im DOM **innerhalb** der klickbaren Kachel
+       bzw. Listenzeile, in der das Menue steht. Ohne stopPropagation traefe
+       "daneben klicken" den Wirt darunter und oeffnete den Eintrag. -->
+  <div
+    class="menuBackdrop"
+    style="position: fixed; inset: 0; z-index: 39"
+    (click)="close(); $event.stopPropagation()"
+  ></div>
   <div
     class="menuPanel"
     #panel

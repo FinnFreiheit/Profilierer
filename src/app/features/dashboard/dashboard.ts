@@ -19,8 +19,6 @@ import { HinweisStoreService } from '../../core/services/hinweis-store.service';
 import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
 import { TeilenService } from '../../core/services/teilen.service';
 import { UiSettingsService } from '../../core/services/ui-settings.service';
-import { BetaBadge } from '../../shared/beta-badge/beta-badge';
-import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
 import { Menu } from '../../shared/menu/menu';
 import { LibraryEntry } from '../../models/profile.model';
 import { fachmodulOf } from '../../core/util/fachmodul.util';
@@ -28,7 +26,7 @@ import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiter
 import { nachrichtTeile } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { NeuesProfilWizard } from '../dialogs/neues-profil-wizard';
-import { SchemaSuche } from './schema-suche';
+import { Bibliothek } from '../../shared/bibliothek/bibliothek';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
 import { ProjektStoreService } from '../../core/services/projekt-store.service';
 import { EinordnenService } from '../../core/services/einordnen.service';
@@ -39,21 +37,14 @@ import {
   tagOptionen,
   tagsAlsText,
 } from '../../core/util/tags.util';
-
-/**
- * Zustand einer Profilierung, wie ihn die Kachel als Pille traegt und die
- * Filterspalte als Achse anbietet (v4-Entwurf, design/profil-uebersicht-v4).
- * Er ist aus dem Eintrag abgeleitet, kein gespeichertes Feld.
- */
-type Zustand = 'frei' | 'geaendert' | 'arbeit' | 'leer';
-
-const ZUSTAND_LABEL: Record<Zustand, string> = {
-  frei: 'freigegeben',
-  geaendert: 'seit Freigabe geändert',
-  arbeit: 'in Arbeit',
-  leer: 'leer',
-};
-const ZUSTAND_ORDER: readonly Zustand[] = ['frei', 'geaendert', 'arbeit', 'leer'];
+import {
+  ZUSTAND_LABEL,
+  ZUSTAND_ORDER,
+  Zustand,
+  zustandLabel,
+  zustandVon,
+} from '../../core/util/profil-zustand.util';
+import { datumKurz } from '../../core/util/datum.util';
 
 /** Die Achsen der Filterspalte. `hinweise` hat nur einen Wert (#43). */
 type AchsenKey = 'modul' | 'projekt' | 'tag' | 'zustand' | 'hinweise' | 'version';
@@ -134,13 +125,11 @@ interface Meta {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     NgTemplateOutlet,
-    BetaBadge,
-    RolleBadge,
+    Bibliothek,
     Menu,
     KeinAutofillDirective,
     NeuesProfilWizard,
     TagEingabe,
-    SchemaSuche,
   ],
   templateUrl: './dashboard.html',
 })
@@ -331,11 +320,18 @@ export class Dashboard {
       }));
   });
 
-  /** Die Achsen der Filterspalte mit Zaehlern. */
+  /**
+   * Die Achsen der Filterspalte mit Zaehlern. Die Grundmenge einer Achse wird
+   * **einmal** gefiltert, nicht je Wert erneut — sonst laeuft bei jedem
+   * Tastendruck in der Suche Werte × Eintraege durch `passt`.
+   *
+   * Bei den ODER-Achsen faellt die eigene Achse aus der Grundmenge: der
+   * Zaehler sagt, was der Klick braechte. Die Schlagworte wirken dagegen mit
+   * UND — dort zaehlt die Schnittmenge aus den bereits gewaehlten und diesem
+   * einen, sonst verspraeche der Zaehler Treffer, die der Klick nicht bringt.
+   */
   protected readonly achsen = computed<FilterAchse[]>(() => {
     const alle = this.store.entries();
-    const zaehle = (key: AchsenKey, trifft: (e: LibraryEntry) => boolean): number =>
-      alle.filter((e) => this.passt(e, key) && trifft(e)).length;
     const achse = (
       key: AchsenKey,
       label: string,
@@ -343,18 +339,21 @@ export class Dashboard {
       werte: readonly { id: string; label: string }[],
       gewaehlt: readonly string[],
       trifft: (e: LibraryEntry, id: string) => boolean,
-    ): FilterAchse => ({
-      key,
-      label,
-      mono,
-      aktiv: gewaehlt.length > 0,
-      werte: werte.map((w) => ({
-        id: w.id,
-        label: w.label,
-        n: zaehle(key, (e) => trifft(e, w.id)),
-        aktiv: gewaehlt.includes(w.id),
-      })),
-    });
+    ): FilterAchse => {
+      const basis = alle.filter((e) => this.passt(e, key === 'tag' ? undefined : key));
+      return {
+        key,
+        label,
+        mono,
+        aktiv: gewaehlt.length > 0,
+        werte: werte.map((w) => ({
+          id: w.id,
+          label: w.label,
+          n: basis.filter((e) => trifft(e, w.id)).length,
+          aktiv: gewaehlt.includes(w.id),
+        })),
+      };
+    };
     const tagSchluessel = (t: string): string => t.toLocaleLowerCase('de');
     return [
       achse(
@@ -521,15 +520,9 @@ export class Dashboard {
 
   // ── Anzeige je Eintrag ─────────────────────────────────────────────
 
-  protected zustandVon(e: LibraryEntry): Zustand {
-    if (e.abgenommen) return e.geaendertSeitAbnahme ? 'geaendert' : 'frei';
-    if (!e.nStatus && !e.nAusp && !e.nEntschieden) return 'leer';
-    return 'arbeit';
-  }
-
-  protected zustandLabel(e: LibraryEntry): string {
-    return ZUSTAND_LABEL[this.zustandVon(e)];
-  }
+  /** Abgeleitet, nicht gespeichert — die Regel steht in `profil-zustand.util`. */
+  protected readonly zustandVon = zustandVon;
+  protected readonly zustandLabel = zustandLabel;
 
   /** Tooltip der Zustandspille — bei Freigabe mit Datum und Kommentar. */
   protected zustandTitel(e: LibraryEntry): string {
@@ -654,27 +647,6 @@ export class Dashboard {
     return this.erwSperre(e)
       ? ERW_SPERRE_GRUND
       : 'Testnachricht zu dieser Profilierung erstellen — geführter Durchlauf mit Wahl der zu bindenden Fassung';
-  }
-
-  // ── Navigation ─────────────────────────────────────────────────────
-
-  /** Zur Projektansicht (#135) — Vorhaben mit ihren Kommunikationsszenarien. */
-  protected goProjekte(): void {
-    this.state.view.set('projekte');
-  }
-
-  protected goTestdaten(): void {
-    this.state.view.set('testdaten');
-  }
-
-  /** Zur bebilderten Anleitung wechseln. */
-  protected goHowto(): void {
-    this.state.view.set('howto');
-  }
-
-  /** Zu den Kennzahlen wechseln (nur mit AG-Rolle sichtbar). */
-  protected goKennzahlen(): void {
-    this.state.view.set('kennzahlen');
   }
 
   /** US "Schema ansehen": reine Schema-Ansicht ohne Profilierung oeffnen. */
@@ -907,8 +879,7 @@ export class Dashboard {
    * auf den Kacheln sonst "2026-07-24" und "3.8.2026" (#88).
    */
   protected datum(e: LibraryEntry): string {
-    const roh = e.gespeichert ? new Date(e.gespeichert) : new Date(e.aktualisiert);
-    if (Number.isNaN(roh.getTime())) return e.gespeichert ?? '';
-    return roh.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    // Unlesbares Datum: lieber die Rohangabe als eine leere Zelle.
+    return datumKurz(e.gespeichert ?? e.aktualisiert) || (e.gespeichert ?? '');
   }
 }

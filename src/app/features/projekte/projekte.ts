@@ -10,7 +10,6 @@ import {
 import { ProjektStoreService } from '../../core/services/projekt-store.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { TestmessageStoreService } from '../../core/services/testmessage-store.service';
-import { RolleService } from '../../core/services/rolle.service';
 import { StateService } from '../../core/services/state.service';
 import { ToastService } from '../../core/services/toast.service';
 import { VergleichService } from '../../core/services/vergleich.service';
@@ -22,12 +21,63 @@ import { TestnachrichtStartService } from '../../core/services/testnachricht-sta
 import { LibraryEntry } from '../../models/profile.model';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { Projekt } from '../../models/projekt.model';
-import { BetaBadge } from '../../shared/beta-badge/beta-badge';
-import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
+import { Bibliothek } from '../../shared/bibliothek/bibliothek';
 import { Menu } from '../../shared/menu/menu';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
-import { normalisiereTags, tagOptionen, tagsAlsText } from '../../core/util/tags.util';
+import {
+  hatAlleTags,
+  normalisiereTags,
+  schalteTag,
+  tagOptionen,
+  tagsAlsText,
+} from '../../core/util/tags.util';
+import { zustandKlasse, zustandLabel } from '../../core/util/profil-zustand.util';
+import { fachmodulOf } from '../../core/util/fachmodul.util';
+import { datumKurz } from '../../core/util/datum.util';
+
+/**
+ * Die Achsen der Filterspalte der Uebersicht. Muster und Bezeichner folgen der
+ * Profil-Uebersicht (`features/dashboard/dashboard.ts`) und dem Testdaten-
+ * Speicher — dieselbe Geste soll in allen drei Ansichten dasselbe tun.
+ */
+type AchsenKey = 'tag' | 'inhalt';
+
+/**
+ * Was ein Projekt enthaelt. Ein leeres Vorhaben zu finden ist so haeufig wie
+ * das Gegenteil: es ist das, an dem noch zu arbeiten ist.
+ */
+type InhaltKey = 'mitSzenarien' | 'ohneSzenarien' | 'mitTestnachrichten';
+
+const INHALT_LABEL: Record<InhaltKey, string> = {
+  mitSzenarien: 'mit Szenarien',
+  ohneSzenarien: 'ohne Szenarien',
+  mitTestnachrichten: 'mit Testnachrichten',
+};
+const INHALT_ORDER: readonly InhaltKey[] = ['mitSzenarien', 'ohneSzenarien', 'mitTestnachrichten'];
+
+interface FilterWert {
+  id: string;
+  label: string;
+  /** Treffer, wenn nur dieser Wert (zusaetzlich) gesetzt waere. */
+  n: number;
+  aktiv: boolean;
+}
+
+interface FilterAchse {
+  key: AchsenKey;
+  label: string;
+  werte: FilterWert[];
+  aktiv: boolean;
+}
+
+/** Ein gesetzter Filter als Chip ueber der Sammlung. */
+interface AktivChip {
+  achse: string;
+  label: string;
+  key: AchsenKey | 'suche';
+  id: string;
+}
 
 /**
  * Eine Zeile der Projektseite: eine Profilierung = ein Kommunikationsszenario,
@@ -36,6 +86,20 @@ import { normalisiereTags, tagOptionen, tagsAlsText } from '../../core/util/tags
 interface Szenario {
   profil: LibraryEntry;
   nachrichten: TestmessageEntry[];
+}
+
+/**
+ * Ein Eintrag der Sprungliste links auf der Projektseite. Sie ersetzt dort die
+ * Filterspalte: bei acht Szenarien ist die Frage nicht "welche zeigen?",
+ * sondern "wo steht das eine, das ich suche?".
+ */
+interface Sprung {
+  id: string;
+  name: string;
+  /** Fortschritt in Prozent; null, solange es keine Punkte gibt. */
+  anteil: number | null;
+  /** Tooltip: "x von y entschieden · n Testnachrichten". */
+  titel: string;
 }
 
 /**
@@ -54,7 +118,7 @@ interface Szenario {
 @Component({
   selector: 'app-projekte',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BetaBadge, RolleBadge, Menu, KeinAutofillDirective, TagEingabe],
+  imports: [Bibliothek, Menu, KeinAutofillDirective, TagEingabe],
   templateUrl: './projekte.html',
 })
 export class Projekte {
@@ -62,7 +126,6 @@ export class Projekte {
   private readonly profile = inject(ProfileStoreService);
   private readonly testmessages = inject(TestmessageStoreService);
   private readonly state = inject(StateService);
-  protected readonly rolle = inject(RolleService);
   private readonly toast = inject(ToastService);
   private readonly vergleich = inject(VergleichService);
   protected readonly ueberlagerung = inject(UeberlagerungService);
@@ -72,6 +135,8 @@ export class Projekte {
   private readonly testnachrichtStart = inject(TestnachrichtStartService);
   private readonly bearbeitenDlg =
     viewChild.required<ElementRef<HTMLDialogElement>>('bearbeitenDlg');
+  /** Eigener Wirt: die Sprungliste sucht ihre Bloecke nur im eigenen Baum. */
+  private readonly host = inject(ElementRef<HTMLElement>);
 
   constructor() {
     // Beim Betreten der Ansicht den Index frisch holen: die Zahlen am Projekt
@@ -90,25 +155,155 @@ export class Projekte {
     () => this.store.entries().find((p) => p.id === this.offenesId()) ?? null,
   );
 
+  // ── Filter der Uebersicht ────────────────────────────────────────────
+
   /** Freitextsuche der Projektuebersicht: Name, Beschreibung, Schlagworte. */
   protected readonly search = signal('');
+  /** Gewaehlte Schlagworte. Mehrere wirken zusammen (UND) — jeder Klick grenzt weiter ein. */
+  protected readonly gewaehlteTags = signal<string[]>([]);
+  protected readonly fInhalt = signal<InhaltKey[]>([]);
 
-  protected readonly gefiltert = computed(() => {
-    const q = this.search().trim().toLowerCase();
-    if (!q) return this.store.entries();
-    return this.store
-      .entries()
-      .filter((p) =>
-        [p.name, p.beschreibung, ...(p.tags ?? [])].some((v) =>
-          (v || '').toLowerCase().includes(q),
-        ),
-      );
-  });
-
-  /** Vergebene Schlagworte aller Projekte (Vorschlaege im Dialog). */
+  /** Vergebene Schlagworte aller Projekte (Achse und Vorschlaege im Dialog). */
   protected readonly verfuegbareTags = computed(() =>
     tagOptionen(this.store.entries(), (p) => p.tags),
   );
+
+  /**
+   * Prueft ein Projekt gegen alle Filter — bis auf die Achse `ohne`. So zaehlt
+   * die Filterspalte je Wert, was ein Klick darauf braechte, statt was er in
+   * der aktuellen Auswahl uebrig liesse (Muster: dashboard.ts).
+   */
+  private passt(p: Projekt, ohne?: AchsenKey): boolean {
+    const q = this.search().trim().toLowerCase();
+    if (
+      q &&
+      ![p.name, p.beschreibung, ...(p.tags ?? [])].some((v) => (v || '').toLowerCase().includes(q))
+    )
+      return false;
+    if (ohne !== 'tag' && this.gewaehlteTags().length && !hatAlleTags(p.tags, this.gewaehlteTags()))
+      return false;
+    if (ohne !== 'inhalt' && this.fInhalt().length) {
+      if (!this.fInhalt().some((i) => this.hatInhalt(p, i))) return false;
+    }
+    return true;
+  }
+
+  /** Die drei Inhalts-Aussagen; `ohneSzenarien` ist das Gegenstueck, kein Rest. */
+  private hatInhalt(p: Projekt, i: InhaltKey): boolean {
+    if (i === 'mitSzenarien') return p.nProfile > 0;
+    if (i === 'ohneSzenarien') return p.nProfile === 0;
+    return p.nTestnachrichten > 0;
+  }
+
+  /** Die Treffer der Uebersicht — der Name bleibt, er ist eingefuehrt. */
+  protected readonly gefiltert = computed(() => this.store.entries().filter((p) => this.passt(p)));
+
+  /**
+   * Die Achsen der Filterspalte mit Zaehlern (Muster: dashboard.ts). Die
+   * Grundmenge einer Achse wird **einmal** gefiltert, nicht je Wert erneut.
+   *
+   * Der Zaehler einer ODER-Achse laesst die eigene Achse weg — er sagt, was
+   * der Klick braechte. Die Schlagworte wirken dagegen mit UND: dort zaehlt
+   * die Schnittmenge aus den bereits gewaehlten und diesem einen, sonst
+   * verspraeche der Zaehler Treffer, die der Klick gar nicht bringt.
+   */
+  protected readonly achsen = computed<FilterAchse[]>(() => {
+    const alle = this.store.entries();
+    const inhaltBasis = alle.filter((p) => this.passt(p, 'inhalt'));
+    const tagBasis = alle.filter((p) => this.passt(p));
+    const schluessel = (t: string): string => t.toLocaleLowerCase('de');
+    return [
+      {
+        key: 'tag' as const,
+        label: 'Schlagworte',
+        aktiv: this.gewaehlteTags().length > 0,
+        werte: this.verfuegbareTags().map((t) => ({
+          id: t.tag,
+          label: t.tag,
+          n: tagBasis.filter((p) => (p.tags ?? []).some((x) => schluessel(x) === schluessel(t.tag)))
+            .length,
+          aktiv: this.tagAktiv(t.tag),
+        })),
+      },
+      {
+        key: 'inhalt' as const,
+        label: 'Inhalt',
+        aktiv: this.fInhalt().length > 0,
+        werte: INHALT_ORDER.map((i) => ({
+          id: i,
+          label: INHALT_LABEL[i],
+          n: inhaltBasis.filter((p) => this.hatInhalt(p, i)).length,
+          aktiv: this.fInhalt().includes(i),
+        })),
+      },
+    ].filter((a) => a.werte.length > 0);
+  });
+
+  /** Gesetzte Filter als Chips ueber der Sammlung, in Achsenreihenfolge. */
+  protected readonly aktiveChips = computed<AktivChip[]>(() => {
+    const out: AktivChip[] = [];
+    for (const t of this.gewaehlteTags()) out.push({ achse: 'Tag', label: t, key: 'tag', id: t });
+    for (const i of this.fInhalt())
+      out.push({ achse: 'Inhalt', label: INHALT_LABEL[i], key: 'inhalt', id: i });
+    const q = this.search().trim();
+    if (q) out.push({ achse: 'Suche', label: `„${q}“`, key: 'suche', id: q });
+    return out;
+  });
+
+  protected readonly hatFilter = computed(() => this.aktiveChips().length > 0);
+
+  /** „12 Projekte" bzw. „4 von 12" — der Zaehler neben der Suche. */
+  protected readonly trefferText = computed(() => {
+    const n = this.gefiltert().length;
+    const gesamt = this.store.entries().length;
+    if (n !== gesamt) return `${n} von ${gesamt}`;
+    return gesamt === 1 ? '1 Projekt' : `${gesamt} Projekte`;
+  });
+
+  /** Einen Wert einer Achse an- bzw. abwaehlen. */
+  protected schalte(key: AchsenKey, id: string): void {
+    if (key === 'tag') {
+      this.gewaehlteTags.set(schalteTag(this.gewaehlteTags(), id));
+      return;
+    }
+    this.fInhalt.update((cur) =>
+      cur.includes(id as InhaltKey) ? cur.filter((x) => x !== id) : [...cur, id as InhaltKey],
+    );
+  }
+
+  /** Eine Achse leeren (× am Achsenkopf). */
+  protected leereAchse(key: AchsenKey): void {
+    if (key === 'tag') this.gewaehlteTags.set([]);
+    else this.fInhalt.set([]);
+  }
+
+  /** Chip entfernen — derselbe Weg wie der Klick in der Spalte. */
+  protected entferneChip(c: AktivChip): void {
+    if (c.key === 'suche') this.search.set('');
+    else this.schalte(c.key, c.id);
+  }
+
+  protected resetAlles(): void {
+    this.search.set('');
+    this.gewaehlteTags.set([]);
+    this.fInhalt.set([]);
+  }
+
+  /** Ist das Schlagwort gerade als Filter gesetzt (Kachel-Chip hervorheben)? */
+  protected tagAktiv(tag: string): boolean {
+    const schluessel = tag.toLocaleLowerCase('de');
+    return this.gewaehlteTags().some((t) => t.toLocaleLowerCase('de') === schluessel);
+  }
+
+  /**
+   * Klick auf ein Schlagwort der Kachel: dasselbe wie ein Klick in der
+   * Filterspalte. `stopPropagation`, sonst oeffnete der Klick das Projekt
+   * darunter.
+   */
+  protected filtereNachTag(tag: string, ev: Event): void {
+    ev.stopPropagation();
+    this.gewaehlteTags.set(schalteTag(this.gewaehlteTags(), tag));
+  }
 
   /**
    * Die Szenarien des offenen Projekts: je zugeordneter Profilierung eine
@@ -152,6 +347,41 @@ export class Projekte {
       .sort((a, b) => a.name.localeCompare(b.name, 'de'));
   });
 
+  /**
+   * Die Sprungliste links: ein Eintrag je Szenario, mit dem Anteil als Zahl.
+   * Sie beantwortet dieselbe Frage wie die Filterspalte der Uebersicht — "wo
+   * ist das eine, das ich suche?" —, nur ohne etwas auszublenden: auf der
+   * Projektseite gehoert alles zusammen, was da steht.
+   */
+  protected readonly sprungliste = computed<Sprung[]>(() =>
+    this.szenarien().map((s) => {
+      const a = this.anteil(s.profil);
+      const entschieden = s.profil.nEntschieden ?? 0;
+      const punkte = s.profil.nPunkte ?? 0;
+      return {
+        id: s.profil.id,
+        name: s.profil.name || '(ohne Namen)',
+        anteil: a,
+        titel:
+          (punkte ? `${entschieden} von ${punkte} entschieden` : 'noch nichts entschieden') +
+          ' · ' +
+          this.zaehlText(s.nachrichten.length),
+      };
+    }),
+  );
+
+  /**
+   * Zum Block eines Szenarios rollen. Gerollt wird `.dashMain` — Kopfleiste,
+   * Sprungliste und Seitenkopf bleiben stehen, weil der Rahmen der Bibliothek
+   * der Scroll-Container ist.
+   */
+  protected springe(id: string): void {
+    const wirt = this.host.nativeElement as HTMLElement;
+    wirt
+      .querySelector('#szenario-' + CSS.escape(id))
+      ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+
   // ── Navigation ───────────────────────────────────────────────────────
 
   protected oeffne(id: string): void {
@@ -171,23 +401,6 @@ export class Projekte {
 
   protected zurUebersicht(): void {
     this.offenesId.set(null);
-  }
-
-  protected goDashboard(): void {
-    this.state.view.set('dashboard');
-  }
-
-  protected goTestdaten(): void {
-    this.state.view.set('testdaten');
-  }
-
-  protected goHowto(): void {
-    this.state.view.set('howto');
-  }
-
-  /** Zu den Kennzahlen wechseln (nur mit AG-Rolle sichtbar). */
-  protected goKennzahlen(): void {
-    this.state.view.set('kennzahlen');
   }
 
   /** Eine Profilierung des Projekts oeffnen (wie ein Klick auf ihre Kachel). */
@@ -438,8 +651,31 @@ export class Projekte {
     return n === 1 ? '1 Testnachricht' : `${n} Testnachrichten`;
   }
 
+  /** Datum der letzten Aenderung im Kachelfuss. */
+  protected datum(p: Projekt): string {
+    return datumKurz(p.aktualisiert);
+  }
+
+  /** Fachmodul-Kuerzel der Szenario-Zeile (wie auf der Profil-Kachel). */
+  protected modulVon(e: LibraryEntry): string {
+    return fachmodulOf(e.nachricht) || '—';
+  }
+
+  protected modulTitel(e: LibraryEntry): string {
+    const m = fachmodulOf(e.nachricht);
+    return m ? `Fachmodul ${m}` : 'noch keine Nachricht gewählt';
+  }
+
   /** Kurzform des Nachrichtentyps fuer die Szenario-Zeile. */
   protected nachrichtKurz(e: LibraryEntry): string {
     return e.nachricht || '(keine Nachricht)';
   }
+
+  /**
+   * Zustandspille des Szenarios — dieselbe Ableitung wie auf der Profil-Kachel
+   * (`core/util/profil-zustand.util`), damit dasselbe Profil in beiden
+   * Ansichten dasselbe sagt.
+   */
+  protected readonly zustandKlasse = zustandKlasse;
+  protected readonly zustandLabel = zustandLabel;
 }

@@ -1,387 +1,346 @@
 <!--
   Uebersicht der Profilierungen nach dem v4-Entwurf (design/profil-uebersicht-v4):
-  Leiste mit Reitern, links die Filterspalte, rechts Kopf, Werkzeugzeile und die
-  Sammlung als Kacheln oder Liste. Das ⋯-Menue je Eintrag steht einmal als
-  Template und wird in Kachel und Listenzeile eingesetzt.
+  Der gemeinsame Rahmen `app-bibliothek` traegt Kopfleiste, Schema-Suche und die
+  Filterspalte; hier stehen nur die Achsen (Einschub `filter`) und die Sammlung
+  als Kacheln oder Liste. Das ⋯-Menue je Eintrag steht einmal als Template und
+  wird in Kachel und Listenzeile eingesetzt.
 -->
-<div id="dash" class="dashV4">
-  <div class="dashLeiste">
-    <div class="dashLeisteInnen">
-      <nav class="viewToggle" aria-label="Bereiche">
-        <button title="Vorhaben mit ihren Kommunikationsszenarien" (click)="goProjekte()">
-          Projekte
+<app-bibliothek aktiv="dashboard">
+  <!-- Filterspalte: Achsen kombinieren mit UND, Werte einer Achse mit ODER.
+       Die Zaehler sagen, wie viele Treffer der Klick braechte. -->
+  <div filter>
+    <div class="fKopf">
+      <span class="fAchseTitel">Eingrenzen</span>
+      @if (hatFilter()) {
+        <button class="fReset" title="Alle Eingrenzungen entfernen" (click)="resetAlles()">
+          alle
         </button>
-        <button class="active" disabled>Profile</button>
-        <button title="Sammlung der erzeugten Testnachrichten" (click)="goTestdaten()">
-          Testdaten
-        </button>
-        <button
-          title="Bebilderte Anleitung: profilieren und Testnachrichten erstellen"
-          (click)="goHowto()"
-        >
-          Anleitung
-        </button>
-        @if (rolle.agAktiv()) {
-          <button title="Nutzung und Bestand dieser Instanz (AG)" (click)="goKennzahlen()">
-            Kennzahlen
-          </button>
-        }
-      </nav>
-      <div class="dashLeisteRechts">
-        <app-beta-badge></app-beta-badge>
-        <app-rolle-badge></app-rolle-badge>
-      </div>
+      }
     </div>
-  </div>
-
-  <div class="dashKoerper">
-    <!-- Filterspalte: Achsen kombinieren mit UND, Werte einer Achse mit ODER.
-         Die Zaehler sagen, wie viele Treffer der Klick braechte. -->
-    <aside class="dashFilter" aria-label="Eingrenzen">
-      <div class="fKopf">
-        <span class="fAchseTitel">Eingrenzen</span>
-        @if (hatFilter()) {
-          <button class="fReset" title="Alle Eingrenzungen entfernen" (click)="resetAlles()">
-            alle
-          </button>
-        }
-      </div>
-      <button
-        class="fAlle"
-        [class.aktiv]="!hatFilter()"
-        title="Eingrenzung aufheben"
-        (click)="resetAlles()"
-      >
-        <span class="fMarke"></span>
-        <span class="fLabel">Alle Profilierungen</span>
-        <span class="fZahl">{{ store.entries().length }}</span>
-      </button>
-      <div class="fAchsen">
-        @for (a of achsen(); track a.key) {
-          <div class="fAchse">
-            <div class="fAchseKopf">
-              <span class="fAchseTitel">{{ a.label }}</span>
-              @if (a.aktiv) {
-                <button
-                  class="fAchseReset"
-                  title="Diese Achse zurücksetzen"
-                  (click)="leereAchse(a.key)"
-                >
-                  ×
-                </button>
-              }
-            </div>
-            @for (w of a.werte; track w.id) {
+    <button
+      class="fAlle"
+      [class.aktiv]="!hatFilter()"
+      title="Eingrenzung aufheben"
+      (click)="resetAlles()"
+    >
+      <span class="fMarke"></span>
+      <span class="fLabel">Alle Profilierungen</span>
+      <span class="fZahl">{{ store.entries().length }}</span>
+    </button>
+    <div class="fAchsen">
+      @for (a of achsen(); track a.key) {
+        <div class="fAchse">
+          <div class="fAchseKopf">
+            <span class="fAchseTitel">{{ a.label }}</span>
+            @if (a.aktiv) {
               <button
-                class="fWert"
-                [class.aktiv]="w.aktiv"
-                [class.leer]="!w.n && !w.aktiv"
-                [title]="w.label + ' — ' + w.n + ' Einträge'"
-                (click)="schalte(a.key, w.id)"
+                class="fAchseReset"
+                title="Diese Achse zurücksetzen"
+                (click)="leereAchse(a.key)"
               >
-                <span class="fBox">{{ w.aktiv ? '✓' : '' }}</span>
-                <span class="fLabel" [class.mono]="a.mono">{{ w.label }}</span>
-                <span class="fZahl">{{ w.n }}</span>
+                ×
               </button>
             }
           </div>
-        }
-      </div>
-    </aside>
-
-    <main class="dashMain">
-      <div class="dashKopf">
-        <div class="dashKopfText">
-          <h1>Profilierungen</h1>
-          <p class="dashSub">
-            Kommunikationsszenarien für XJustiz-Nachrichten. Jede Profilierung gehört zu einem
-            Fachmodul; Projekt und Schlagworte sind frei.
-          </p>
-        </div>
-        <div class="dashKopfAktionen">
-          <button
-            title="Ein XJustiz-Schema nur ansehen und durchsuchen — ohne eine Profilierung anzulegen"
-            (click)="schemaAnsehen()"
-          >
-            Schema ansehen
-          </button>
-          <button class="primary" (click)="createNew()">+ Neues Profil</button>
-          <input #imp type="file" accept=".json" class="hidden" (change)="onImport($event)" />
-          <app-menu label="⋯" [pfeil]="false" btnClass="dashMehrBtn" titel="Weitere Aktionen" #mehr>
-            <button class="menuItem" (click)="mehr.close(); imp.click()">
-              Profil aus Datei importieren…
-            </button>
-          </app-menu>
-        </div>
-      </div>
-
-      <div class="dashWerkzeuge">
-        <label class="dashSucheFeld">
-          <span aria-hidden="true">⌕</span>
-          <input
-            type="search"
-            placeholder="Suchen — Name, Nachricht, Autor…"
-            [value]="search()"
-            (input)="search.set($any($event.target).value)"
-          />
-        </label>
-        <span class="dashTreffer">{{ trefferText() }}</span>
-        <span class="spacer"></span>
-        <app-schema-suche></app-schema-suche>
-        <select
-          class="dashGliederung"
-          title="Gliederung der Sammlung"
-          [value]="gliederung()"
-          (change)="gliederung.set($any($event.target).value)"
-        >
-          @for (g of gliederungen; track g.id) {
-            <option [value]="g.id">{{ g.label }}</option>
-          }
-        </select>
-        <div class="ansichtToggle">
-          <button
-            [class.aktiv]="ansicht() !== 'liste'"
-            title="Kacheln mit mehr Kontext je Eintrag"
-            (click)="ansicht.set('kacheln')"
-          >
-            Kacheln
-          </button>
-          <button
-            [class.aktiv]="ansicht() === 'liste'"
-            title="Kompakte Liste — viele Einträge auf einen Blick"
-            (click)="ansicht.set('liste')"
-          >
-            Liste
-          </button>
-        </div>
-      </div>
-
-      @if (hatFilter()) {
-        <div class="aktivChips">
-          @for (c of aktiveChips(); track c.key + ':' + c.id) {
-            <button class="aktivChip" title="Diese Eingrenzung entfernen" (click)="entferneChip(c)">
-              <span class="aktivChipAchse">{{ c.achse }}</span
-              >{{ c.label }}
-              <span class="aktivChipX" aria-hidden="true">✕</span>
+          @for (w of a.werte; track w.id) {
+            <button
+              class="fWert"
+              [class.aktiv]="w.aktiv"
+              [attr.aria-pressed]="w.aktiv"
+              [class.leer]="!w.n && !w.aktiv"
+              [title]="w.label + ' — ' + w.n + ' Einträge'"
+              (click)="schalte(a.key, w.id)"
+            >
+              <span class="fBox">{{ w.aktiv ? '✓' : '' }}</span>
+              <span class="fLabel" [class.mono]="a.mono">{{ w.label }}</span>
+              <span class="fZahl">{{ w.n }}</span>
             </button>
           }
         </div>
       }
+    </div>
+  </div>
 
-      @if (!store.entries().length) {
-        <div class="dashLeer">
-          <div class="dashLeerSymbol">§ ⇄ &lt;/&gt;</div>
-          <h3>Noch keine Profilierungen</h3>
-          <p>
-            Lege ein <b>neues Profil</b> an oder importiere eine bestehende
-            <code>.profil.json</code>-Datei.
-          </p>
-          <button class="primary" (click)="createNew()">+ Neues Profil</button>
-        </div>
-      } @else if (!sektionen().length) {
-        <div class="dashLeer">
-          <div class="dashLeerSymbol">§ ⇄ &lt;/&gt;</div>
-          <h3>Keine Treffer</h3>
-          @if (search().trim()) {
-            <p>Kein Eintrag passt zur Suche „{{ search().trim() }}“.</p>
-          } @else {
-            <p>Kein Eintrag passt zu dieser Eingrenzung.</p>
-          }
-          <button (click)="resetAlles()">Eingrenzung zurücksetzen</button>
-        </div>
-      } @else if (ansicht() === 'liste') {
-        <div class="liste">
-          <div class="listeKopf">
-            <button [class.aktiv]="sortKey() === 'name'" (click)="sortiere('name')">
-              Profilierung{{ sortPfeil('name') }}
-            </button>
-            <button [class.aktiv]="sortKey() === 'modul'" (click)="sortiere('modul')">
-              Modul{{ sortPfeil('modul') }}
-            </button>
-            <button [class.aktiv]="sortKey() === 'projekt'" (click)="sortiere('projekt')">
-              Projekt{{ sortPfeil('projekt') }}
-            </button>
-            <span>Tags</span>
-            <button [class.aktiv]="sortKey() === 'meta'" (click)="sortiere('meta')">
-              Stand{{ sortPfeil('meta') }}
-            </button>
-            <button
-              class="rechts"
-              [class.aktiv]="sortKey() === 'datum'"
-              (click)="sortiere('datum')"
-            >
-              Datum{{ sortPfeil('datum') }}
-            </button>
-            <span></span>
+  <div class="dashKopf">
+    <div class="dashKopfText">
+      <h1>Profilierungen</h1>
+      <p class="dashSub">
+        Kommunikationsszenarien für XJustiz-Nachrichten. Jede Profilierung gehört zu einem
+        Fachmodul; Projekt und Schlagworte sind frei.
+      </p>
+    </div>
+    <div class="dashKopfAktionen">
+      <button
+        title="Ein XJustiz-Schema nur ansehen und durchsuchen — ohne eine Profilierung anzulegen"
+        (click)="schemaAnsehen()"
+      >
+        Schema ansehen
+      </button>
+      <button class="primary" (click)="createNew()">+ Neues Profil</button>
+      <input #imp type="file" accept=".json" class="hidden" (change)="onImport($event)" />
+      <app-menu label="⋯" [pfeil]="false" btnClass="dashMehrBtn" titel="Weitere Aktionen" #mehr>
+        <button class="menuItem" (click)="mehr.close(); imp.click()">
+          Profil aus Datei importieren…
+        </button>
+      </app-menu>
+    </div>
+  </div>
+
+  <div class="dashWerkzeuge">
+    <label class="dashSucheFeld">
+      <span aria-hidden="true">⌕</span>
+      <input
+        type="search"
+        placeholder="Suchen — Name, Nachricht, Autor…"
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+      />
+    </label>
+    <span class="dashTreffer">{{ trefferText() }}</span>
+    <span class="spacer"></span>
+    <select
+      class="dashGliederung"
+      title="Gliederung der Sammlung"
+      [value]="gliederung()"
+      (change)="gliederung.set($any($event.target).value)"
+    >
+      @for (g of gliederungen; track g.id) {
+        <!-- `selected` an der Option, nicht nur `value` am Feld: die Optionen
+             entstehen erst nach dem Binden, sonst stuende immer die erste. -->
+        <option [value]="g.id" [selected]="g.id === gliederung()">{{ g.label }}</option>
+      }
+    </select>
+    <div class="ansichtToggle">
+      <button
+        [class.aktiv]="ansicht() !== 'liste'"
+        title="Kacheln mit mehr Kontext je Eintrag"
+        (click)="ansicht.set('kacheln')"
+      >
+        Kacheln
+      </button>
+      <button
+        [class.aktiv]="ansicht() === 'liste'"
+        title="Kompakte Liste — viele Einträge auf einen Blick"
+        (click)="ansicht.set('liste')"
+      >
+        Liste
+      </button>
+    </div>
+  </div>
+
+  @if (hatFilter()) {
+    <div class="aktivChips">
+      @for (c of aktiveChips(); track c.key + ':' + c.id) {
+        <button class="aktivChip" title="Diese Eingrenzung entfernen" (click)="entferneChip(c)">
+          <span class="aktivChipAchse">{{ c.achse }}</span
+          >{{ c.label }}
+          <span class="aktivChipX" aria-hidden="true">✕</span>
+        </button>
+      }
+    </div>
+  }
+
+  @if (!store.entries().length) {
+    <div class="dashLeer">
+      <div class="dashLeerSymbol">§ ⇄ &lt;/&gt;</div>
+      <h3>Noch keine Profilierungen</h3>
+      <p>
+        Lege ein <b>neues Profil</b> an oder importiere eine bestehende
+        <code>.profil.json</code>-Datei.
+      </p>
+      <button class="primary" (click)="createNew()">+ Neues Profil</button>
+    </div>
+  } @else if (!sektionen().length) {
+    <div class="dashLeer">
+      <div class="dashLeerSymbol">§ ⇄ &lt;/&gt;</div>
+      <h3>Keine Treffer</h3>
+      @if (search().trim()) {
+        <p>Kein Eintrag passt zur Suche „{{ search().trim() }}“.</p>
+      } @else {
+        <p>Kein Eintrag passt zu dieser Eingrenzung.</p>
+      }
+      <button (click)="resetAlles()">Eingrenzung zurücksetzen</button>
+    </div>
+  } @else if (ansicht() === 'liste') {
+    <div class="liste">
+      <div class="listeKopf">
+        <button [class.aktiv]="sortKey() === 'name'" (click)="sortiere('name')">
+          Profilierung{{ sortPfeil('name') }}
+        </button>
+        <button [class.aktiv]="sortKey() === 'modul'" (click)="sortiere('modul')">
+          Modul{{ sortPfeil('modul') }}
+        </button>
+        <button [class.aktiv]="sortKey() === 'projekt'" (click)="sortiere('projekt')">
+          Projekt{{ sortPfeil('projekt') }}
+        </button>
+        <span>Tags</span>
+        <button [class.aktiv]="sortKey() === 'meta'" (click)="sortiere('meta')">
+          Stand{{ sortPfeil('meta') }}
+        </button>
+        <button class="rechts" [class.aktiv]="sortKey() === 'datum'" (click)="sortiere('datum')">
+          Datum{{ sortPfeil('datum') }}
+        </button>
+        <span></span>
+      </div>
+      @for (s of sektionen(); track s.schluessel) {
+        @if (s.zeigeKopf) {
+          <div class="listeGruppe">
+            <span class="gruppeLabel" [class.mono]="s.mono">{{ s.label }}</span>
+            <span class="gruppeZahl">{{ s.items.length }}</span>
           </div>
-          @for (s of sektionen(); track s.schluessel) {
-            @if (s.zeigeKopf) {
-              <div class="listeGruppe">
-                <span class="gruppeLabel" [class.mono]="s.mono">{{ s.label }}</span>
-                <span class="gruppeZahl">{{ s.items.length }}</span>
+        }
+        @for (e of s.items; track e.id) {
+          @let m = meta(e);
+          <div
+            class="listeZeile"
+            tabindex="0"
+            title="Profilierung öffnen und bearbeiten"
+            (click)="open(e.id)"
+            (keydown)="oeffneBeiTaste($event, e.id)"
+          >
+            <div class="listeName">
+              <div class="listeName1">{{ e.name || '(ohne Namen)' }}</div>
+              <div class="listeName2" [title]="e.nachricht ?? ''">
+                {{ e.nachricht || 'keine Nachricht gewählt' }}
               </div>
-            }
+            </div>
+            <span class="modulPill" [title]="modulTitel(e)">{{ modulVon(e) }}</span>
+            <span class="listeText" [class.leer]="!projektName(e.projektId)">
+              {{ projektName(e.projektId) || 'ohne Projekt' }}
+            </span>
+            <span class="listeText" [title]="(e.tags ?? []).join(' · ')">{{ tagsText(e) }}</span>
+            <span [class]="'metaPill meta-' + m.art" [title]="m.titel">{{ m.kurz }}</span>
+            <span class="listeDatum" [title]="fussTitel(e)">{{ datum(e) }}</span>
+            <ng-container
+              [ngTemplateOutlet]="werkzeuge"
+              [ngTemplateOutletContext]="{ $implicit: e }"
+            ></ng-container>
+          </div>
+        }
+      }
+    </div>
+  } @else {
+    <div class="kachelGruppen">
+      @for (s of sektionen(); track s.schluessel) {
+        <div>
+          @if (s.zeigeKopf) {
+            <div class="kachelGruppeKopf">
+              <span class="gruppeLabel" [class.mono]="s.mono">{{ s.label }}</span>
+              <span class="gruppeZahl">{{ s.items.length }}</span>
+              <span class="gruppeLinie"></span>
+            </div>
+          }
+          <div class="kachelRaster">
             @for (e of s.items; track e.id) {
               @let m = meta(e);
               <div
-                class="listeZeile"
+                class="dashCard"
                 tabindex="0"
                 title="Profilierung öffnen und bearbeiten"
                 (click)="open(e.id)"
                 (keydown)="oeffneBeiTaste($event, e.id)"
               >
-                <div class="listeName">
-                  <div class="listeName1">{{ e.name || '(ohne Namen)' }}</div>
-                  <div class="listeName2" [title]="e.nachricht ?? ''">
-                    {{ e.nachricht || 'keine Nachricht gewählt' }}
+                <div class="dcKopf">
+                  <span class="modulPill" [title]="modulTitel(e)">{{ modulVon(e) }}</span>
+                  @if (e.abgenommen && e.geaendertSeitAbnahme) {
+                    <button
+                      type="button"
+                      class="pill pillBtn zustandPill z-geaendert"
+                      [title]="zustandTitel(e)"
+                      (click)="zustandKlick(e, $event)"
+                    >
+                      {{ zustandLabel(e) }}
+                    </button>
+                  } @else {
+                    <span [class]="'pill zustandPill z-' + zustandVon(e)" [title]="zustandTitel(e)">
+                      {{ zustandLabel(e) }}
+                    </span>
+                  }
+                  @if (e.nHinweiseOffen) {
+                    <button
+                      type="button"
+                      class="pill pillBtn"
+                      title="Offene Rückmeldungen ansehen — öffnet die Profilierung und die Hinweis-Übersicht"
+                      (click)="zeigeHinweise(e.id, $event)"
+                    >
+                      {{ hinweisBadge(e) }}
+                    </button>
+                  }
+                  @if (e.nErw) {
+                    <span
+                      class="pill pillExt"
+                      title="Enthält nachzubeauftragende Elemente, die nicht im XJustiz-Schema stehen"
+                      >{{ e.nErw }} Erw.</span
+                    >
+                  }
+                  <span class="spacer"></span>
+                  <ng-container
+                    [ngTemplateOutlet]="werkzeuge"
+                    [ngTemplateOutletContext]="{ $implicit: e }"
+                  ></ng-container>
+                </div>
+
+                <div class="dcName" [title]="e.name || '(ohne Namen)'">
+                  {{ e.name || '(ohne Namen)' }}
+                </div>
+                <!-- Einzeilig und in der Mitte gekürzt: das Ende trägt die Nummer,
+                         an der die Nachricht wiedererkannt wird. -->
+                @if (e.nachricht) {
+                  <div class="dcMsg" [title]="e.nachricht">
+                    <span class="dcMsgKopf">{{ msgKopf(e) }}</span
+                    ><span class="dcMsgEnde">{{ msgEnde(e) }}</span>
+                  </div>
+                } @else {
+                  <div class="dcMsg dcMsgLeer">keine Nachricht gewählt</div>
+                }
+
+                <!-- Leerzustaende tragen Information: kursiv, nicht versteckt. -->
+                <div
+                  class="dcBeschreibung"
+                  [class.leer]="!e.beschreibung"
+                  [title]="e.beschreibung ?? ''"
+                >
+                  {{ e.beschreibung || 'keine Beschreibung' }}
+                </div>
+
+                <div class="dcTags">
+                  @for (t of e.tags ?? []; track t) {
+                    <button
+                      type="button"
+                      class="tagChip"
+                      [class.tagChipAktiv]="tagAktiv(t)"
+                      [title]="'Übersicht auf „' + t + '“ eingrenzen'"
+                      (click)="filtereNachTag(t, $event)"
+                    >
+                      {{ t }}
+                    </button>
+                  }
+                </div>
+
+                <div class="dcFuss">
+                  <div class="dcFussZeile">
+                    <span class="dcAutor" [class.leer]="!e.autor">{{
+                      e.autor || 'ohne Autor'
+                    }}</span>
+                    <span class="spacer"></span>
+                    <span class="dcProjekt" [class.leer]="!projektName(e.projektId)">
+                      {{ projektName(e.projektId) || 'ohne Projekt' }}
+                    </span>
+                  </div>
+                  <div class="dcFussZeile">
+                    <span class="spacer"></span>
+                    <span [class]="'metaPill meta-' + m.art" [title]="m.titel">{{ m.text }}</span>
+                    <span class="dcDate" [title]="fussTitel(e)">{{ datum(e) }}</span>
                   </div>
                 </div>
-                <span class="modulPill" [title]="modulTitel(e)">{{ modulVon(e) }}</span>
-                <span class="listeText" [class.leer]="!projektName(e.projektId)">
-                  {{ projektName(e.projektId) || 'ohne Projekt' }}
-                </span>
-                <span class="listeText" [title]="(e.tags ?? []).join(' · ')">{{
-                  tagsText(e)
-                }}</span>
-                <span [class]="'metaPill meta-' + m.art" [title]="m.titel">{{ m.kurz }}</span>
-                <span class="listeDatum" [title]="fussTitel(e)">{{ datum(e) }}</span>
-                <ng-container
-                  [ngTemplateOutlet]="werkzeuge"
-                  [ngTemplateOutletContext]="{ $implicit: e }"
-                ></ng-container>
               </div>
             }
-          }
-        </div>
-      } @else {
-        <div class="kachelGruppen">
-          @for (s of sektionen(); track s.schluessel) {
-            <div>
-              @if (s.zeigeKopf) {
-                <div class="kachelGruppeKopf">
-                  <span class="gruppeLabel" [class.mono]="s.mono">{{ s.label }}</span>
-                  <span class="gruppeZahl">{{ s.items.length }}</span>
-                  <span class="gruppeLinie"></span>
-                </div>
-              }
-              <div class="kachelRaster">
-                @for (e of s.items; track e.id) {
-                  @let m = meta(e);
-                  <div
-                    class="dashCard"
-                    tabindex="0"
-                    title="Profilierung öffnen und bearbeiten"
-                    (click)="open(e.id)"
-                    (keydown)="oeffneBeiTaste($event, e.id)"
-                  >
-                    <div class="dcKopf">
-                      <span class="modulPill" [title]="modulTitel(e)">{{ modulVon(e) }}</span>
-                      @if (e.abgenommen && e.geaendertSeitAbnahme) {
-                        <button
-                          type="button"
-                          class="pill pillBtn zustandPill z-geaendert"
-                          [title]="zustandTitel(e)"
-                          (click)="zustandKlick(e, $event)"
-                        >
-                          {{ zustandLabel(e) }}
-                        </button>
-                      } @else {
-                        <span
-                          [class]="'pill zustandPill z-' + zustandVon(e)"
-                          [title]="zustandTitel(e)"
-                        >
-                          {{ zustandLabel(e) }}
-                        </span>
-                      }
-                      @if (e.nHinweiseOffen) {
-                        <button
-                          type="button"
-                          class="pill pillBtn"
-                          title="Offene Rückmeldungen ansehen — öffnet die Profilierung und die Hinweis-Übersicht"
-                          (click)="zeigeHinweise(e.id, $event)"
-                        >
-                          {{ hinweisBadge(e) }}
-                        </button>
-                      }
-                      @if (e.nErw) {
-                        <span
-                          class="pill pillExt"
-                          title="Enthält nachzubeauftragende Elemente, die nicht im XJustiz-Schema stehen"
-                          >{{ e.nErw }} Erw.</span
-                        >
-                      }
-                      <span class="spacer"></span>
-                      <ng-container
-                        [ngTemplateOutlet]="werkzeuge"
-                        [ngTemplateOutletContext]="{ $implicit: e }"
-                      ></ng-container>
-                    </div>
-
-                    <div class="dcName" [title]="e.name || '(ohne Namen)'">
-                      {{ e.name || '(ohne Namen)' }}
-                    </div>
-                    <!-- Einzeilig und in der Mitte gekürzt: das Ende trägt die Nummer,
-                         an der die Nachricht wiedererkannt wird. -->
-                    @if (e.nachricht) {
-                      <div class="dcMsg" [title]="e.nachricht">
-                        <span class="dcMsgKopf">{{ msgKopf(e) }}</span
-                        ><span class="dcMsgEnde">{{ msgEnde(e) }}</span>
-                      </div>
-                    } @else {
-                      <div class="dcMsg dcMsgLeer">keine Nachricht gewählt</div>
-                    }
-
-                    <!-- Leerzustaende tragen Information: kursiv, nicht versteckt. -->
-                    <div
-                      class="dcBeschreibung"
-                      [class.leer]="!e.beschreibung"
-                      [title]="e.beschreibung ?? ''"
-                    >
-                      {{ e.beschreibung || 'keine Beschreibung' }}
-                    </div>
-
-                    <div class="dcTags">
-                      @for (t of e.tags ?? []; track t) {
-                        <button
-                          type="button"
-                          class="tagChip"
-                          [class.tagChipAktiv]="tagAktiv(t)"
-                          [title]="'Übersicht auf „' + t + '“ eingrenzen'"
-                          (click)="filtereNachTag(t, $event)"
-                        >
-                          {{ t }}
-                        </button>
-                      }
-                    </div>
-
-                    <div class="dcFuss">
-                      <div class="dcFussZeile">
-                        <span class="dcAutor" [class.leer]="!e.autor">{{
-                          e.autor || 'ohne Autor'
-                        }}</span>
-                        <span class="spacer"></span>
-                        <span class="dcProjekt" [class.leer]="!projektName(e.projektId)">
-                          {{ projektName(e.projektId) || 'ohne Projekt' }}
-                        </span>
-                      </div>
-                      <div class="dcFussZeile">
-                        <span class="spacer"></span>
-                        <span [class]="'metaPill meta-' + m.art" [title]="m.titel">{{
-                          m.text
-                        }}</span>
-                        <span class="dcDate" [title]="fussTitel(e)">{{ datum(e) }}</span>
-                      </div>
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
-          }
+          </div>
         </div>
       }
-    </main>
-  </div>
-</div>
+    </div>
+  }
+</app-bibliothek>
 
 <!-- Werkzeuge auf Abruf: dasselbe Menue an Kachel und Listenzeile. -->
 <ng-template #werkzeuge let-e>

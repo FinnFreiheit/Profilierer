@@ -1,40 +1,26 @@
-<div id="dash">
-  <div class="dashHead">
-    <div class="dashTop">
-      <div class="viewToggle">
-        <button title="Vorhaben mit ihren Kommunikationsszenarien" (click)="goProjekte()">
-          Projekte
-        </button>
-        <button (click)="goDashboard()">Profile</button>
-        <button (click)="goTestdaten()">Testdaten</button>
-        <button
-          title="Bebilderte Anleitung: profilieren und Testnachrichten erstellen"
-          (click)="goHowto()"
-        >
-          Anleitung
-        </button>
-        <button class="active" disabled>Kennzahlen</button>
-      </div>
-      <app-beta-badge></app-beta-badge>
-      <app-rolle-badge></app-rolle-badge>
+<!--
+  Kennzahlen im gemeinsamen Rahmen der Bibliothek (`app-bibliothek`), einspaltig:
+  keine Filterspalte, der Inhalt rollt in `.dashMain`.
+-->
+<app-bibliothek aktiv="kennzahlen" [mitFilter]="false">
+  <div class="dashKopf">
+    <div class="dashKopfText">
+      <h1>XJustiz Pfadfinder — Kennzahlen</h1>
+      <p class="dashSub">Nutzung und Bestand dieser Instanz</p>
     </div>
-    <h1><span>XJustiz</span> Pfadfinder</h1>
-    <p class="dashSub">Kennzahlen — Nutzung und Bestand dieser Instanz</p>
-    <div class="dashActions">
+  </div>
+
+  <div class="dashWerkzeuge">
+    <div class="ansichtToggle">
       @for (z of zeitraeume; track z) {
-        <button
-          class="kzZeitraum"
-          [class.kzZeitraumAktiv]="tage() === z"
-          (click)="waehleZeitraum(z)"
-        >
-          {{ z }} Tage
-        </button>
-      }
-      <button (click)="aktualisieren()" [disabled]="store.laedt()">Aktualisieren</button>
-      @if (daten(); as d) {
-        <span class="kzStand">{{ zeitraumText() }} · Stand {{ standText() }}</span>
+        <button [class.aktiv]="tage() === z" (click)="waehleZeitraum(z)">{{ z }} Tage</button>
       }
     </div>
+    <span class="spacer"></span>
+    @if (daten(); as d) {
+      <span class="kzStand">{{ zeitraumText() }} · Stand {{ standText() }}</span>
+    }
+    <button (click)="aktualisieren()" [disabled]="store.laedt()">Aktualisieren</button>
   </div>
 
   @if (store.fehler(); as f) {
@@ -42,7 +28,11 @@
   } @else if (!daten()) {
     <p class="kzLeer">Kennzahlen werden geladen …</p>
   } @else if (nutzung(); as n) {
-    <div class="tdGroupHead">Nutzung <span class="tdGroupCount">anonym gezählt</span></div>
+    <div class="kachelGruppeKopf">
+      <span class="gruppeLabel">Nutzung</span>
+      <span class="gruppeZahl">anonym gezählt</span>
+      <span class="gruppeLinie"></span>
+    </div>
     <div class="kzKacheln">
       <div class="kzKachel">
         <div class="kzZahl">{{ n.heute.klienten }}</div>
@@ -153,7 +143,11 @@
     </div>
 
     @if (bestand(); as b) {
-      <div class="tdGroupHead">Bestand <span class="tdGroupCount">Ist-Stand</span></div>
+      <div class="kachelGruppeKopf">
+        <span class="gruppeLabel">Bestand</span>
+        <span class="gruppeZahl">Ist-Stand</span>
+        <span class="gruppeLinie"></span>
+      </div>
       <div class="kzKacheln">
         <div class="kzKachel">
           <div class="kzZahl">{{ b.profile }}</div>
@@ -207,4 +201,4 @@
       Tagessummen verdichtet; Tagesgrenzen sind die des Servers.
     </p>
   }
-</div>
+</app-bibliothek>

@@ -88,8 +88,40 @@
     }
   },
   {
+    "name": "Kopfleiste",
+    "path": "uebersicht/kopfleiste.html",
+    "group": "Übersicht",
+    "viewport": {
+      "width": 1200
+    }
+  },
+  {
     "name": "Kachel",
     "path": "uebersicht/kachel.html",
+    "group": "Übersicht",
+    "viewport": {
+      "width": 1000
+    }
+  },
+  {
+    "name": "Testnachricht-Kachel",
+    "path": "uebersicht/testnachricht-kachel.html",
+    "group": "Übersicht",
+    "viewport": {
+      "width": 1000
+    }
+  },
+  {
+    "name": "Projekt-Kachel",
+    "path": "uebersicht/projekt-kachel.html",
+    "group": "Übersicht",
+    "viewport": {
+      "width": 1000
+    }
+  },
+  {
+    "name": "Szenario-Block",
+    "path": "uebersicht/szenario-block.html",
     "group": "Übersicht",
     "viewport": {
       "width": 1000

@@ -2325,63 +2325,23 @@ textarea {
 .homeBtn {
   font-size: 12.5px;
 }
-app-dashboard {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
-}
-#dash {
+/* Rahmenseite des Styleguides — sie hatte die Polsterung von `#dash`. */
+.sgSeite {
   flex: 1;
   padding: 26px 28px;
-}
-.dashHead {
-  max-width: 1120px;
-  margin: 0 auto 20px;
-}
-.dashHead h1 {
-  font-size: 20px;
-  margin: 0;
-  font-weight: 650;
-}
-.dashHead h1 span {
-  color: var(--accent);
 }
 .dashSub {
   color: var(--muted);
   margin: 4px 0 14px;
 }
-.dashActions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-/* Schema-Suche in der Aktionszeile: das Feld ist das Flex-Element, die
+/* Schema-Suche in der Kopfleiste: das Feld ist das Flex-Element, die
    Trefferliste haengt absolut darunter. */
 app-schema-suche {
   display: contents;
 }
-.dashSuche {
-  position: relative;
-  flex: 1;
-  min-width: 280px;
-  max-width: 420px;
-}
-.dashSuche .suchfeld {
-  width: 100%;
-  max-width: none;
-}
 .dashSuche .srPanel {
   top: calc(100% + 4px);
   left: 0;
-}
-#dashGrid {
-  max-width: 1120px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
 }
 .dashCard {
   background: var(--panel);
@@ -2408,11 +2368,6 @@ app-schema-suche {
    Bereiche haben reservierte Hoehen — vorher schwankte die Kachelhoehe
    mit der Zahl der Pillen und das Raster franste aus.
    ------------------------------------------------------------------ */
-.dcHead {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-}
 .dcName {
   flex: 1;
   min-width: 0;
@@ -2428,25 +2383,29 @@ app-schema-suche {
      schwanken lassen; laengere machen ihre Kachelzeile hoeher. */
   min-height: 2.6em;
 }
-/* Werkzeuge auf Abruf — sichtbar beim Ueberfahren und sobald sie den
-   Tastaturfokus tragen (nicht display:none, sonst waeren sie unerreichbar). */
 .dcMenuBtn {
-  opacity: 0;
   padding: 2px 8px;
   line-height: 1.1;
   color: var(--muted);
   transition: opacity 0.12s ease-out;
 }
+/* Auf der **Kachel** auf Abruf — sichtbar beim Ueberfahren und sobald der
+   Knopf den Tastaturfokus traegt (nicht display:none, sonst waere er
+   unerreichbar). Nur dort: in Listenzeile und Szenario-Kopf steht er
+   dauerhaft, und zwar ohne Gegenregel, die die Ausblendung wieder aufhebt. */
+.dashCard .dcMenuBtn {
+  opacity: 0;
+}
 .dashCard:hover .dcMenuBtn,
 .dashCard:focus-within .dcMenuBtn,
-.dcMenuBtn:focus-visible {
+.dashCard .dcMenuBtn:focus-visible {
   opacity: 1;
 }
 /* Ohne Hover (Tablet, Touchscreen) bleibt der Knopf sichtbar — sonst waeren
    Umbenennen, Kopie, Export und Loeschen dort unerreichbar: er liegt zwar an
    seinem Platz und trifft bei einem Tipp, ist aber nicht zu sehen. */
 @media (hover: none) {
-  .dcMenuBtn {
+  .dashCard .dcMenuBtn {
     opacity: 1;
   }
 }
@@ -2472,28 +2431,6 @@ app-schema-suche {
   font-style: italic;
   opacity: 0.7;
 }
-/* Eine Zeile, auch wenn nichts drinsteht — sonst wandert der Fuss. */
-.dcStatus {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 22px;
-  overflow: hidden;
-}
-.dcStatus .pill {
-  white-space: nowrap;
-}
-.dcProg {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* Fortschrittsbalken der Kachel (#93). Er erscheint nur, wenn der Stand der
    Entscheidungspunkte bekannt ist — ohne Nenner waere jeder Balken geraten. */
 .kachelBalken {
@@ -2511,15 +2448,6 @@ app-schema-suche {
   height: 100%;
   background: var(--signal);
 }
-.dcFoot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: auto;
-  padding-top: 9px;
-  border-top: 1px solid var(--border);
-}
 .dcDate {
   font-size: 11.5px;
   color: var(--muted);
@@ -2529,19 +2457,6 @@ app-schema-suche {
   background: var(--fehler-bg);
   color: var(--fehler-fg);
 }
-#dashEmpty {
-  max-width: 640px;
-  margin: 60px auto;
-  text-align: center;
-  color: var(--muted);
-}
-#dashEmpty .big {
-  font-size: 40px;
-}
-#dashEmpty h2 {
-  color: var(--text-stark);
-}
-
 /* Ansicht-Umschalter Profile ↔ Testdaten */
 .viewToggle {
   display: inline-flex;
@@ -2577,43 +2492,9 @@ app-schema-suche {
   flex: 1;
   max-width: 420px;
 }
-.tdGroupHead {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 8px;
-}
-/* Gruppenueberschrift auf dieselbe Spur wie das Raster darunter (#88) —
-   sie stand bisher links ausserhalb des zentrierten Rasters. Gilt fuer beide
-   Uebersichten: Profile und Testdaten teilen sich `#dash` (#91). */
-#dash .tdGroupHead {
-  max-width: 1120px;
-  margin: 0 auto 8px;
-}
-#dash .tdGroupHead:not(:first-of-type) {
-  margin-top: 22px;
-}
-.tdGroupHead .pill {
-  font-family: var(--mono);
-  font-size: 12px;
-}
-.tdGroupCount {
-  font-size: 12px;
-  color: var(--muted);
-}
-.tdNote {
-  font-size: 12px;
-  color: var(--muted);
-  white-space: pre-wrap;
-  word-break: break-word;
-  background: var(--accent-soft);
-  border-radius: var(--rund-bedienung);
-  padding: 5px 8px;
-}
 /* ── Schlagworte (Tags) ──────────────────────────────────────────────
    Dieselben Chips in Filterleiste, Kachel und Eingabefeld: ein Schlagwort
    sieht ueberall gleich aus, egal ob es gerade filtert oder nur beschreibt. */
-.tagLeiste,
 .tagVorschlaege {
   display: flex;
   flex-wrap: wrap;
@@ -2657,15 +2538,6 @@ app-tag-eingabe input {
   opacity: 0.65;
   font-variant-numeric: tabular-nums;
 }
-.tagReset {
-  font-size: 12px;
-  padding: 2px 8px;
-  border: none;
-  background: none;
-  color: var(--muted);
-  text-decoration: underline;
-  cursor: pointer;
-}
 /* Schlagworte umbrechen auf der Kachel: sie sollen vollstaendig lesbar sein.
    Das laesst Kacheln unterschiedlich hoch werden — innerhalb einer Zeile
    gleicht das Grid sie aus, ueber Zeilen hinweg nicht (bewusst, vgl. #91). */
@@ -2686,19 +2558,6 @@ app-tag-eingabe input {
   color: var(--muted);
 }
 
-/* Beschreibung/Notiz auf der Kachel: vollstaendig, mit Umbruch. Frueher stand
-   hier eine gekuerzte Zeile mit dem vollen Text im Tooltip (#91) — der Text ist
-   aber das, was eine Profilierung von der naechsten unterscheidet, und ein
-   Tooltip zeigt sich weder beim Ueberfliegen noch auf dem Tablet. Lange Texte
-   machen ihre Kachelzeile jetzt hoeher; `overflow-wrap` haelt Bandwurmwoerter
-   (Pfade, IDs) im Kasten. */
-.dcNotiz {
-  font-size: 12px;
-  color: var(--muted);
-  min-height: 17px;
-  white-space: pre-line;
-  overflow-wrap: anywhere;
-}
 .pillMuted {
   background: var(--bg);
   color: var(--muted);
@@ -2722,22 +2581,10 @@ app-tag-eingabe input {
   background: var(--warn-bg);
   color: var(--warn-fg);
 }
-/* In der Uebersichts-Kopfzeile (space-between) zieht das Badge den freien Raum
-   an sich, damit es zusammen mit dem Rollen-Badge rechts steht. */
-.dashTop app-beta-badge {
-  margin-left: auto;
-  margin-right: 8px;
-}
 .rolleBadge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-/* Kopfzeile über dem Dashboard: Umschalter links, Rollen-Element in der Ecke rechts */
-.dashTop {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
 }
 /* Dezenter Anmelde-Einstieg — tritt erst beim Überfahren hervor */
 .rolleAnmelden {
@@ -2755,15 +2602,6 @@ app-tag-eingabe input {
   color: #b3261e;
   font-size: 13px;
 }
-.abnFilter {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 13px;
-  color: var(--muted);
-  cursor: pointer;
-}
-
 dialog {
   border: 1px solid var(--border);
   border-radius: var(--rund-kasten);
@@ -3421,10 +3259,13 @@ app-tree-context-menu {
 }
 
 /* ── Projektseite (#135) ────────────────────────────────────────────────
-   Eine Zeile je Kommunikationsszenario (= Profilierung), darunter ihre
-   Testnachrichten. Bewusst Zeilen statt Kacheln: die Frage ist "was gehoert
+   Ein Block je Kommunikationsszenario (= Profilierung), darunter seine
+   Testnachrichten. Bewusst Bloecke statt Kacheln: die Frage ist "was gehoert
    zusammen und was fehlt", und die beantwortet eine Liste besser als eine
-   Kachelwand — genau die gibt es in den beiden anderen Ansichten schon. */
+   Kachelwand — genau die gibt es in den beiden anderen Ansichten schon.
+
+   Der Block ist ein `.liste` mit eigenem Kopf; die Spur gibt seit Bibliothek
+   v4 `.dashMain`, nicht mehr eine eigene max-width. */
 .crumbZurueck {
   background: none;
   border: 0;
@@ -3437,61 +3278,65 @@ app-tree-context-menu {
   color: var(--fg);
   text-decoration: underline;
 }
-/* Wie `.dashHead`, `#dashGrid` und `.tdGroupHead`: der Inhalt der App steht in
-   einer 1120px-Spalte. Ohne diese Bindung liefen die Zeilen auf breiten
-   Schirmen ueber die volle Fensterbreite, und der Knopf am rechten Rand haette
-   mit dem Namen am linken sichtbar nichts mehr zu tun. */
 .szenario {
-  max-width: 1120px;
-  margin: 0 auto 12px;
   background: var(--panel);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--rund-kasten);
+  box-shadow: var(--schatten-kasten);
+  margin-bottom: 14px;
   overflow: hidden;
+  /* Die Sprungliste rollt `.dashMain`; ohne diesen Abstand klebte der
+     angesprungene Kopf an der Oberkante des Rollbereichs. */
+  scroll-margin-top: 12px;
 }
-/* Kopfzeile in der Seitenfarbe: sie hebt das Szenario von seinen
-   Testnachrichten ab, ohne einen zweiten Rahmen zu brauchen. */
-/* Zwei Ebenen statt einer Reihe gleichrangiger Angaben: oben der Name (der
-   Anker, nach dem man sucht) mit seinen Kennzeichen, darunter die Metadaten.
-   Vorher konkurrierten Name, Nachrichtentyp, Badge und Fortschritt auf
-   derselben Zeile um dieselbe Aufmerksamkeit.
+/* Eine Zeile statt eines Rasters: Fachmodul, Name, Zustand, Nachricht, Stand
+   und die Aktionen stehen nebeneinander wie im Kopf einer Listengruppe. Die
+   helle Flaeche hebt den Kopf von seinen Testnachrichten ab, ohne dass es
+   dafuer einen zweiten Rahmen braucht.
 
-   Der Kopf traegt **keine** eigene Flaeche: `--bg` ist die Farbe der Seite, und
-   ein Feld darin wirkt in einer weissen Kachel wie ein Loch statt wie eine
-   Ueberschrift — Grau auf Grau. Die Gliederung machen Typografie und die
-   Trennlinie; Flaechen bleiben dem vorbehalten, was wirklich hervorsticht. */
+   Was nicht passt, kuerzt — der Nachrichtentyp zuerst, dann der Name; Kuerzel
+   und Pillen bleiben ganz. Die Aktionen kuerzen nie: sie sind der einzige
+   Zugang zu Vergleichen, Ueberlagern und Entfernen. Reicht die Breite nicht
+   (schmale Spalte, ~850px), rutschen sie als Gruppe in eine zweite Zeile —
+   `overflow: hidden` hatte sie dort einfach abgeschnitten. */
 .szenarioKopf {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px 10px;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 11px 14px;
+  background: var(--flaeche-hell);
   border-bottom: 1px solid var(--border);
 }
-.szenarioTitel {
+/* Rechts am Kopf, und beim Umbruch zusammen in die naechste Zeile. */
+.szenarioKopf > .szenarioAktionen {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex: none;
+  margin-left: auto;
+}
+.szenarioKopf > .pill,
+.szenarioKopf > .metaPill,
+.szenarioKopf > button:not(.szenarioName),
+.szenarioKopf > app-menu {
+  flex: none;
+}
+/* Der Zaehltext ist kurz; nur der Hinweis der Sammelzeile ist lang genug, um
+   zu kuerzen. Er gibt nach dem Nachrichtentyp nach, aber vor dem Namen. */
+.szenarioKopf > .szenarioProg {
+  flex: 0 200 auto;
   min-width: 0;
-}
-.szenarioMeta {
-  grid-column: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-/* Die Aktionen stehen rechts und ueberspannen beide Zeilen — so bleiben sie auf
-   Augenhoehe des Namens, statt an der Metazeile zu kleben. */
-.szenarioAktionen {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  display: flex;
-  gap: 6px;
-  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .szenarioName {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: none;
   border: 0;
   padding: 0;
@@ -3510,34 +3355,58 @@ app-tree-context-menu {
 .szenarioNameStumm:hover {
   text-decoration: none;
 }
+/* Kuerzt als Erstes, und zwar vollstaendig: der Nachrichtentyp ist die
+   laengste und die am besten erratbare Angabe der Zeile — der Name ist der
+   Anker, nach dem gesucht wird, und gibt zuletzt nach. */
 .szenarioMsg {
+  flex: 0 200 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--mono);
   font-size: 11.5px;
   color: var(--muted);
-  overflow-wrap: anywhere;
 }
 .projektZahlen {
   margin: 2px 0 0;
   font-size: 12px;
   color: var(--muted);
 }
-/* Die Sammelzeile traegt einen Zuordnen-Knopf je Nachricht — der Klick auf die
-   Zeile oeffnet weiterhin die Nachricht, der Knopf daneben tut etwas anderes.
-   Deshalb zwei getrennte Schaltflaechen statt eines verschachtelten Knopfes
-   (der waere ungueltiges HTML). */
-.tmZeileMitAktion {
-  justify-content: space-between;
-  cursor: default;
+.szenarioProg,
+.tmFassung {
+  font-size: 12px;
+  color: var(--muted);
 }
-.tmZeileMitAktion:hover {
-  background: none;
+.szenarioAktion {
+  font-size: 12px;
+  padding: 3px 8px;
 }
-.tmOeffnen {
+/* Im Szenario-Kopf steht das ⋯-Menue dauerhaft (die Ausblendung gilt nur auf
+   der Kachel); der Hover gibt ihm hier nur seinen Rahmen. */
+.szenarioKopf:hover .dcMenuBtn {
+  border-color: var(--border);
+  background: var(--bg);
+}
+/* Wie `.listeZeile`, nur eingerueckt: die Einrueckung sagt "gehoert zu dem
+   Kopf darueber", ohne dass es dafuer eine Linie oder Ueberschrift braucht. */
+.tmZeile {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
-  min-width: 0;
+  flex-wrap: wrap;
+  padding: 11px 14px 11px 26px;
+  border-top: 1px solid var(--trenner);
+  font-size: 13px;
+  color: var(--fg);
+}
+.tmZeile:hover {
+  background: var(--flaeche-hell);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+/* Der Name ist die Schaltflaeche, nicht die Zeile: daneben steht in der
+   Sammelzeile ein zweiter Knopf, und ein Knopf im Knopf waere ungueltig. */
+.tmName {
   background: none;
   border: 0;
   padding: 0;
@@ -3545,58 +3414,18 @@ app-tree-context-menu {
   color: inherit;
   text-align: left;
   cursor: pointer;
-}
-.tmOeffnen:hover .tmName {
-  text-decoration: underline;
-}
-.szenarioProg,
-.tmFassung {
-  font-size: 12px;
-  color: var(--muted);
-}
-.szenarioSpacer {
-  flex: 1;
-}
-.szenarioAktion {
-  font-size: 12px;
-  padding: 3px 8px;
-}
-.szenarioListe {
-  display: flex;
-  flex-direction: column;
-}
-/* Eingerueckt gegenueber dem Szenario-Kopf: die Einrueckung sagt "gehoert
-   dazu", ohne dass es dafuer eine Linie oder Ueberschrift braucht. */
-.tmZeile {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  width: 100%;
-  padding: 6px 12px 6px 26px;
-  background: none;
-  border: 0;
-  border-top: 1px solid var(--border);
-  text-align: left;
-  font-size: 13px;
-  color: var(--fg);
-  cursor: pointer;
-}
-/* `--flaeche` (#f1f2f5) statt `--bg` (#e5e5e5): die Neutralstufe der Palette
-   ist heller als die Seite und hebt sich deshalb auch INNERHALB einer weissen
-   Kachel ab. Gilt fuer alle Hover-/Auswahlflaechen hier. */
-.tmZeile:hover {
-  background: var(--flaeche);
-}
-.tmName {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
-/* Eine Luecke ist eine Aussage: zu diesem Szenario gibt es noch keine
-   Testdaten. Sie darf nicht unsichtbar sein. */
+.tmName:hover {
+  background: none;
+  text-decoration: underline;
+}
 /* Die Luecke bleibt sichtbar, nimmt aber weniger Raum als ein Eintrag: sie ist
    eine Aussage, kein Inhalt. */
 .szenarioLeer {
-  padding: 5px 12px 5px 26px;
+  padding: 9px 14px 9px 26px;
+  border-top: 1px solid var(--trenner);
   font-size: 12px;
   color: var(--muted);
 }
@@ -3888,13 +3717,6 @@ app-tree-context-menu {
   color: var(--muted);
   align-self: center;
 }
-/* Zeitraumwahl: der aktive Knopf muss sich abheben, sonst weiss niemand,
-   welche 30 Tage er gerade sieht. Gleiche Sprache wie .viewToggle. */
-.kzZeitraumAktiv {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--weiss);
-}
 .kzDiagramm {
   max-width: 1120px;
   margin: 0 auto 18px;
@@ -4137,6 +3959,8 @@ app-styleguide {
 .sgFilterStatisch {
   position: static;
   max-height: none;
+  height: auto;
+  overflow: visible;
   border-right: 0;
   padding: 0;
 }
@@ -4183,13 +4007,15 @@ body.dsVorschau .sgKarte {
 }
 
 /* ------------------------------------------------------------------
-   Uebersicht v4 (design/profil-uebersicht-v4.dc.html, ADR 0022)
+   Bibliothek v4 (design/profil-uebersicht-v4.dc.html, ADR 0022)
 
-   Leiste mit Reitern, Filterspalte links, Sammlung als Kacheln oder
-   Liste. Die Regeln hier ueberschreiben bewusst die aelteren Kachel- und
-   Reiter-Regeln oben (gleiche Spezifitaet, spaetere Regel gewinnt), damit
-   Testdaten und Projekte dieselbe Formensprache bekommen, ohne dass ihre
-   Templates angefasst werden muessen.
+   Der gemeinsame Rahmen `app-bibliothek` (shared/bibliothek/) traegt
+   Kopfleiste, Schema-Suche und Filterspalte fuer alle fuenf Uebersichten
+   (Profile, Testdaten, Projekte, Anleitung, Kennzahlen); ihre Templates
+   sind entsprechend umgebaut. Die Regeln hier ueberschreiben bewusst die
+   aelteren Kachel- und Reiter-Regeln oben (gleiche Spezifitaet, spaetere
+   Regel gewinnt) — Leiste mit Reitern, Filterspalte links, Sammlung als
+   Kacheln oder Liste.
    ------------------------------------------------------------------ */
 /* Reiterleiste: ruhige Segmentgruppe statt Rahmenkasten. */
 .viewToggle {
@@ -4211,6 +4037,7 @@ body.dsVorschau .sgKarte {
   font-weight: 400;
   background: transparent;
   color: var(--muted);
+  white-space: nowrap;
 }
 .viewToggle button.active {
   background: var(--panel);
@@ -4223,14 +4050,6 @@ body.dsVorschau .sgKarte {
 .viewToggle button:not(.active):hover {
   background: var(--panel);
   color: var(--text);
-}
-.dashTop .viewToggle {
-  margin-bottom: 14px;
-}
-.dashHead h1 {
-  font-size: 24px;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
 }
 /* Menues: weicher Schatten, Eintraege mit eigener Rundung. */
 .menuPanel {
@@ -4289,10 +4108,32 @@ button:hover {
   background: var(--bg);
 }
 
-#dash.dashV4 {
-  padding: 0;
+/* Die fuenf Bibliotheks-Ansichten sind nur Huellen um den Rahmen: sie geben
+   die Fensterhoehe von `app-root` an ihn weiter, statt selbst zu rollen. */
+app-dashboard,
+app-testdaten,
+app-projekte,
+app-howto,
+app-kennzahlen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
+/* Der Rahmen nimmt die Fensterhoehe ein: Kopfleiste in der ersten Zeile,
+   Koerper in der zweiten. `minmax(0, 1fr)` erlaubt dem Koerper zu schrumpfen —
+   ohne das waere er so hoch wie sein Inhalt und die Seite rollte als Ganzes. */
+app-bibliothek {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+/* Ueber dem Inhalt und der Filterspalte, damit das Trefferpanel der
+   Schema-Suche (`.srPanel`, z-index 41) nicht dahinter verschwindet. */
 .dashLeiste {
+  position: relative;
+  z-index: 3;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
 }
@@ -4305,6 +4146,21 @@ button:hover {
   justify-content: space-between;
   gap: 20px;
 }
+/* Unter ~900px passen Reiter, Suche und Badges nicht mehr nebeneinander: die
+   Leiste schob das Dokument in den Querscroll. Die Suche rutscht darum in
+   eine zweite Zeile (order 3) und bekommt dort die volle Breite; Reiter und
+   Badges bleiben in Zeile 1. */
+@media (max-width: 900px) {
+  .dashLeisteInnen {
+    flex-wrap: wrap;
+    gap: 10px 16px;
+  }
+  .dashLeiste .dashSuche {
+    order: 3;
+    flex: 1 1 100%;
+    margin: 0;
+  }
+}
 .dashLeisteRechts {
   display: flex;
   align-items: center;
@@ -4312,18 +4168,24 @@ button:hover {
 }
 .dashKoerper {
   max-width: 1560px;
+  width: 100%;
   margin: 0 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: 252px minmax(0, 1fr);
-  align-items: start;
+  /* `stretch` statt `start`: beide Spalten sind so hoch wie der Koerper und
+     bringen ihren eigenen Rollbalken mit. */
+  align-items: stretch;
+}
+/* Anleitung und Kennzahlen kommen ohne Achsen aus. */
+.dashKoerper.ohneFilter {
+  grid-template-columns: minmax(0, 1fr);
 }
 
-/* Filterspalte: Achsen mit Zaehlern; der Zaehler sagt, was der Klick braechte. */
+/* Filterspalte: Achsen mit Zaehlern; der Zaehler sagt, was der Klick braechte.
+   Sie steht (der Rahmen rollt nicht) und rollt bei vielen Werten selbst. */
 .dashFilter {
-  position: sticky;
-  top: 0;
-  align-self: start;
-  max-height: 100vh;
+  min-height: 0;
   overflow: auto;
   padding: 22px 16px 40px 28px;
   border-right: 1px solid var(--border);
@@ -4398,6 +4260,12 @@ button:hover {
 .fWert.leer {
   color: var(--muted);
 }
+/* Sprungliste der Projektseite: dieselbe Zeile ohne Kaestchen — hier wird
+   nichts an- und abgewaehlt, sondern gerollt. Ohne `.fBox` faellt der linke
+   Anschlag weg, dafuer darf die Zeile etwas hoeher stehen. */
+.fWert.ohneBox {
+  padding-block: 7px;
+}
 .fMarke {
   flex: none;
   width: 3px;
@@ -4460,9 +4328,11 @@ button:hover {
   padding: 0 10px 7px;
 }
 
-/* Kopf und Werkzeugzeile der Sammlung. */
+/* Kopf und Werkzeugzeile der Sammlung. Der einzige Bereich, der rollt. */
 .dashMain {
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
   padding: 24px 28px 80px;
 }
 .dashKopf {
@@ -4562,13 +4432,25 @@ button:hover {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.dashV4 .dashSuche {
-  flex: 0 1 280px;
-  min-width: 0;
+/* Schema-Suche mittig in der Kopfleiste: sie gilt in allen Bibliotheks-
+   Ansichten, nicht nur ueber der Profil-Sammlung. */
+.dashLeiste .dashSuche {
+  position: relative;
+  flex: 0 1 420px;
+  min-width: 160px;
+  margin: 0 auto;
 }
-.dashV4 .dashSuche .suchfeld {
+.dashLeiste .dashSuche .suchfeld {
+  width: 100%;
+  max-width: none;
   height: 36px;
   border-radius: var(--rund-umschalter);
+}
+/* Enger Schirm: die Reiter bleiben lesbar, die Suche gibt zuerst nach. */
+@media (max-width: 1100px) {
+  .dashLeiste .dashSuche {
+    flex-basis: 260px;
+  }
 }
 .dashGliederung {
   height: 36px;
@@ -4700,6 +4582,24 @@ button:hover {
   flex: none;
   font-weight: 600;
 }
+/* Traegt eine Kachel mehrere Kennzeichen (Entwurf, „Profil weiterentwickelt",
+   Hinweise, Erweiterungen), reicht die schmalste Rasterspalte nicht. Statt ueber
+   die Kante zu laufen, kuerzen die Zustandspillen — Fachmodul und ⋯ bleiben
+   ganz, der volle Text steht im Tooltip. */
+.dcKopf {
+  overflow: hidden;
+}
+.dcKopf .pill {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Das Fachmodul ordnet die Kachel ein und ist kurz — es kuerzt als Letztes. */
+.dcKopf .modulPill {
+  flex: none;
+}
 .z-frei {
   background: var(--frei-bg);
   color: var(--frei-fg);
@@ -4775,6 +4675,22 @@ button:hover {
 .dcAutor.leer {
   font-weight: 400;
   color: var(--muted);
+}
+/* Herkunft der Testnachricht: liest sich als Fusszeilen-Text, springt aber in
+   die gebundene Profilierung — darum ein Knopf ohne Knopf-Optik. */
+.dcAutorBtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  text-align: left;
+  cursor: pointer;
+}
+.dcAutorBtn:hover {
+  background: none;
+  text-decoration: underline;
 }
 .dcProjekt {
   font-size: 12px;
@@ -4918,7 +4834,6 @@ button:hover {
 }
 .listeZeile .dcMenuBtn {
   width: 32px;
-  opacity: 1;
 }
 
 /* Leerer Zustand der Sammlung: eine Flaeche mit dem naechsten Schritt. */

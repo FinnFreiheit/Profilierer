@@ -1,8 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { RolleService } from '../../core/services/rolle.service';
-import { StateService } from '../../core/services/state.service';
-import { BetaBadge } from '../../shared/beta-badge/beta-badge';
-import { RolleBadge } from '../../shared/rolle-badge/rolle-badge';
+import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { Bibliothek } from '../../shared/bibliothek/bibliothek';
 
 /** Ein Schritt der Anleitung: Fliesstext, Bild, optionaler Merksatz. */
 interface Schritt {
@@ -37,13 +34,10 @@ interface Teil {
 @Component({
   selector: 'app-howto',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BetaBadge, RolleBadge],
+  imports: [Bibliothek],
   templateUrl: './howto.html',
 })
 export class Howto {
-  private readonly state = inject(StateService);
-  protected readonly rolle = inject(RolleService);
-
   /** Grossansicht eines Bildes (Klick aufs Bild) — null = geschlossen. */
   protected readonly lupe = signal<string | null>(null);
 
@@ -169,12 +163,12 @@ export class Howto {
           text: [
             'Der Testdaten-Speicher ist der zentrale Ablageort aller XJustiz-Testnachrichten, nach Fachmodul ' +
               'geordnet. Erreichbar ist er über den Umschalter oben links.',
-            '„Neue Testnachricht erstellen…" startet den Durchlauf. Derselbe Ablauf startet auch direkt an einer ' +
+            '„+ Neue Testnachricht" startet den Durchlauf. Derselbe Ablauf startet auch direkt an einer ' +
               'Profil-Kachel über deren ⋯-Menü („Testnachricht erstellen…").',
           ],
           bild: '07-testdaten-speicher',
           bildText:
-            'Testdaten-Speicher. Die Auswahlliste „alle Profilierungen" grenzt auf die Testdaten eines Szenarios ein.',
+            'Testdaten-Speicher. Die Achse „Profilierungen" in der Filterspalte grenzt auf die Testdaten eines Szenarios ein.',
         },
         {
           nr: 2,
@@ -333,23 +327,5 @@ export class Howto {
 
   protected bildPfad(name: string): string {
     return 'howto/' + name + '.webp';
-  }
-
-  protected goDashboard(): void {
-    this.state.view.set('dashboard');
-  }
-
-  /** Zur Projektansicht (#135) — Vorhaben mit ihren Kommunikationsszenarien. */
-  protected goProjekte(): void {
-    this.state.view.set('projekte');
-  }
-
-  protected goTestdaten(): void {
-    this.state.view.set('testdaten');
-  }
-
-  /** Zu den Kennzahlen wechseln (nur mit AG-Rolle sichtbar). */
-  protected goKennzahlen(): void {
-    this.state.view.set('kennzahlen');
   }
 }
