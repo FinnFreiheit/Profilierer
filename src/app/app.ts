@@ -1,14 +1,17 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
 import { Objektleiste } from './features/objektleiste/objektleiste';
+import { Ortzeile } from './features/ortzeile/ortzeile';
 import { Werkzeugleiste } from './features/werkzeugleiste/werkzeugleiste';
 import { TreeCanvas } from './features/tree/tree-canvas';
+import { XmlAnsicht } from './features/xml-ansicht/xml-ansicht';
 import { DetailPanel } from './features/detail/detail-panel';
 import { StatusDialog } from './features/dialogs/status-dialog';
 import { MetaDialog } from './features/dialogs/meta-dialog';
 import { HinweiseDialog } from './features/dialogs/hinweise-dialog';
 import { VersionsDialog } from './features/dialogs/versions-dialog';
 import { DiffDialog } from './features/dialogs/diff-dialog';
-import { Legend } from './features/legend/legend';
+import { GrundlageDialog } from './features/dialogs/grundlage-dialog';
+import { Fusszeile } from './features/fusszeile/fusszeile';
 import { PrintDoc } from './features/print/print-doc';
 import { Toast } from './shared/toast/toast';
 import { FileDropDirective } from './shared/file-drop.directive';
@@ -17,6 +20,7 @@ import { Testdaten } from './features/testdaten/testdaten';
 import { Howto } from './features/howto/howto';
 import { Kennzahlen } from './features/kennzahlen/kennzahlen';
 import { Projekte } from './features/projekte/projekte';
+import { Styleguide } from './features/styleguide/styleguide';
 import { PersistenceService } from './core/services/persistence.service';
 import { CodelistService } from './core/services/codelist.service';
 import { ExportService } from './core/services/export.service';
@@ -47,7 +51,11 @@ import { UeberlagerungService } from './core/services/ueberlagerung.service';
 import { ErweiterungDialog } from './features/dialogs/erweiterung-dialog';
 import { BundledVersion } from './models/schema-bundle.model';
 import { vereineVersionen } from './core/util/schema-quellen.util';
+import { ansichtAusUrl } from './core/util/ansicht-url.util';
+import { DispositionService } from './core/services/disposition.service';
 import { NachrichtSpeichernDialog } from './features/dialogs/nachricht-speichern-dialog';
+import { itemPath } from './models/node.model';
+import { STANDARD_TASTE, wirkungFuerTaste } from './core/profile-defaults';
 
 /**
  * Ist das Ziel ein **Zweig-Radio** der gefuehrten Auswahl? Solche Knoepfe geben
@@ -59,21 +67,31 @@ function istZweigWahl(el: HTMLElement): boolean {
   return el instanceof HTMLInputElement && el.type === 'radio';
 }
 
+/**
+ * Rueckmeldung, wenn eine Antwort-Taste ins Leere greift: die Profilierung
+ * kennt keine Statusstufe mit dieser Wirkung. Wortgleich zum Titel der
+ * Platzhalter-Zeile im Detailbereich (`DetailAnsicht.statusButtons`).
+ */
+const KEINE_ANTWORT = 'Keine Antwort mit dieser Wirkung konfiguriert — ⋯ › Antworten anpassen…';
+
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown)': 'onKeydown($event)' },
   imports: [
     Objektleiste,
+    Ortzeile,
     Werkzeugleiste,
     TreeCanvas,
+    XmlAnsicht,
     DetailPanel,
     StatusDialog,
     MetaDialog,
     HinweiseDialog,
     VersionsDialog,
     DiffDialog,
-    Legend,
+    GrundlageDialog,
+    Fusszeile,
     PrintDoc,
     Toast,
     FileDropDirective,
@@ -82,6 +100,7 @@ function istZweigWahl(el: HTMLElement): boolean {
     Howto,
     Projekte,
     Kennzahlen,
+    Styleguide,
     ValidationDialog,
     ProfilDiffDialog,
     XmlDiffDialog,
@@ -107,6 +126,7 @@ export class App implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly state = inject(StateService);
   private readonly guided = inject(GuidedService);
+  private readonly disposition = inject(DispositionService);
   private readonly bundled = inject(BundledSchemaService);
   private readonly schemas = inject(SchemaStoreService);
   private readonly remoteSchemas = inject(RemoteSchemaService);
@@ -122,6 +142,8 @@ export class App implements OnInit {
   protected readonly view = this.state.view;
   /** Reine Schema-Ansicht (US "Schema ansehen") — eigener Empty-State-Text. */
   protected readonly schemaView = this.state.schemaView;
+  /** Baum oder XML in der Arbeitsflaeche (Segment der Ort-Zeile). */
+  protected readonly darstellung = this.state.darstellung;
 
   /**
    * Zurueck zur Uebersicht (Topbar-Button). Wohin, entscheidet das offene
@@ -167,6 +189,8 @@ export class App implements OnInit {
    * selbst nach).
    */
   async ngOnInit(): Promise<void> {
+    // Vor allem anderen lesen: `startZiel()` raeumt die Adresszeile.
+    const ansicht = ansichtAusUrl(window.location.search);
     // Einmalige Migration der frueher im localStorage gehaltenen Profil-Bibliothek
     // ins DB-Backend (idempotent, nur bei leerem Backend).
     await this.migration.runOnce();
@@ -185,6 +209,10 @@ export class App implements OnInit {
     }
     if (geteilt?.art === 'profil') await this.persistence.openFromLibrary(geteilt.id);
     if (geteilt?.art === 'testnachricht') await this.oeffneGeteilteNachricht(geteilt.id);
+    // Entwicklerwerkzeug: der Styleguide ist die Quelle des Design-System-
+    // Spiegels (ADR 0022) und haengt an keinem Store — nach dem Schema, damit
+    // die Datenbasis fuer einen spaeteren Wechsel in die Uebersicht steht.
+    if (ansicht === 'styleguide') this.state.view.set('styleguide');
   }
 
   /**
@@ -402,9 +430,12 @@ export class App implements OnInit {
   }
 
   /**
-   * Tastatur-Navigation (Z.2443-2463): Pfeiltasten im Baum; im gefuehrten
-   * Profil-Modus zusaetzlich Links/Rechts = Spur (vorheriger Punkt / naechster
-   * offener) und z/o/n = Disposition mit Auto-Sprung.
+   * Tastatur-Navigation (Z.2443-2463): Pfeiltasten im Baum. Beim Profilieren
+   * kommen die **Antwort-Tasten** dazu — S (wie Standard), Z/O/N/K je Wirkung
+   * und Enter (naechstes offenes Feld). Sie gelten im Bearbeiten- wie im
+   * gefuehrten Modus, weil die Antwort-Liste im Detailbereich dieselbe ist;
+   * gefuehrt blaettert eine Antwort zusaetzlich weiter, und Links/Rechts
+   * steuern dort die Spur (vorheriger Punkt / naechster offener).
    *
    * Im gefuehrten **Instanz**-Durchlauf blaettert man statt zu entscheiden
    * (ADR 0016): **senkrecht die Spur** (↓ zur naechsten Station — zugleich das
@@ -425,6 +456,11 @@ export class App implements OnInit {
     const t = e.target as HTMLElement | null;
     if (t && ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) && !istZweigWahl(t)) return;
     if (document.querySelector('dialog[open]')) return;
+    // Diese Tastatur gehoert dem Baum-Editor. `selItem` bleibt beim Verlassen
+    // stehen (der Rueckweg raeumt nur die Ansicht), und ohne diese Pruefung
+    // setzte "z" in der Bibliothek eine Antwort an einem Element, das dort
+    // niemand sieht — der Stand des Profils aenderte sich unbemerkt.
+    if (this.state.view() !== 'editor') return;
 
     // Auswahl aufheben (#82). Beim Oeffnen einer Nachricht waehlt der
     // NavService sofort die Wurzel; ohne diesen Ausstieg gaebe es keinen
@@ -490,37 +526,58 @@ export class App implements OnInit {
       }
     }
 
-    // Gefuehrter Profil-Modus (gleiche Bedingung wie gv im Detail-Panel).
-    if (
-      this.state.guided() &&
-      !this.state.readOnly() &&
-      !this.guided.instanzModus() &&
-      this.state.selItem()
-    ) {
+    // Antwort-Tasten beim Profilieren: im Bearbeiten- **und** im gefuehrten
+    // Modus, weil die Antwort-Liste im Detailbereich dieselbe ist. Der
+    // Unterschied liegt allein im Weiterspringen — gefuehrt blaettert die
+    // Antwort zur naechsten offenen Stelle, beim Bearbeiten bleibt der Blick,
+    // wo er ist.
+    const sel = this.state.selItem();
+    if (!this.state.readOnly() && !this.guided.instanzModus() && !this.state.msgMode() && sel) {
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      if (key === 'ArrowLeft') {
-        this.guided.gotoPrev();
+      const inBedienelement = !!t && ['BUTTON', 'INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName);
+      if (this.state.guided()) {
+        if (key === 'ArrowLeft') {
+          this.guided.gotoPrev();
+          e.preventDefault();
+          return;
+        }
+        if (key === 'ArrowRight') {
+          this.guided.gotoNextOpen();
+          e.preventDefault();
+          return;
+        }
+      }
+      // Enter fuehrt zum naechsten offenen Feld — die Bewegung, die den
+      // Durchlauf ohne Maus traegt. Auf einem Bedienelement gehoert die Taste
+      // diesem (sie loest es aus), sonst waere kein Knopf mehr per Tastatur
+      // bedienbar.
+      if (key === 'Enter' && !e.shiftKey && !inBedienelement) {
+        this.zumNaechstenOffenen();
         e.preventDefault();
         return;
       }
-      if (key === 'ArrowRight') {
-        this.guided.gotoNextOpen();
+      // s = „wie Standard": nimmt die eigene Antwort zurueck.
+      if (key === STANDARD_TASTE.toLowerCase()) {
+        this.disposition.setzeStatus(itemPath(sel), undefined);
         e.preventDefault();
         return;
       }
-      // k = „zu klären": parkt den Punkt sichtbar (#41).
-      const wirkung =
-        key === 'z'
-          ? 'pflicht'
-          : key === 'o'
-            ? 'optional'
-            : key === 'n'
-              ? 'ausgeschlossen'
-              : key === 'k'
-                ? 'markierung'
-                : null;
+      // z/o/n/k setzen die Antwort ueber ihre Wirkung; k („zu klären") parkt
+      // den Punkt sichtbar (#41).
+      const wirkung = wirkungFuerTaste(key);
       if (wirkung) {
-        if (this.guided.setzeDisposition(wirkung)) e.preventDefault();
+        e.preventDefault();
+        // Kennt die Profilierung zu dieser Wirkung keine Stufe, bliebe die
+        // Taste sonst stumm — und der Grund unsichtbar. Die Zeile im
+        // Detailbereich steht dann als Platzhalter da; hier wird gesagt, wo
+        // sie anzulegen ist.
+        if (this.state.guided()) {
+          if (!this.guided.setzeDisposition(wirkung)) this.toast.show(KEINE_ANTWORT);
+          return;
+        }
+        const st = this.state.statusFuerTaste(key);
+        if (st) this.disposition.setzeStatus(itemPath(sel), st.id);
+        else this.toast.show(KEINE_ANTWORT);
         return;
       }
     }
@@ -536,13 +593,8 @@ export class App implements OnInit {
    * nicht fest; er kommt am Ende noch einmal.
    */
   private zumNaechstenOffenen(): void {
-    const grund = this.guided.ueberspringSperre();
-    if (grund) {
-      this.toast.show(grund);
-      return;
-    }
-    if (!this.guided.gotoNextOpen())
-      this.toast.show('Keine offene Angabe mehr in dieser Nachricht.');
+    const meldung = this.guided.naechstesOffenesMitSperre();
+    if (meldung) this.toast.show(meldung);
   }
 
   async onXsdFiles(files: FileList | File[]): Promise<void> {

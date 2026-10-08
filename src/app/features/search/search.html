@@ -1,8 +1,9 @@
-<div class="toolgroup" style="position: relative">
+<div class="suchFeld">
+  <span class="suchZeichen" aria-hidden="true">⌕</span>
   <input
     type="text"
-    placeholder="Suchen: Baum, Nachricht, Datentyp…"
-    style="width: 160px"
+    placeholder="Feld, Nachricht oder Datentyp suchen…"
+    aria-label="Suchen: Baum, Nachricht, Datentyp"
     [disabled]="!hasIdx()"
     [value]="query()"
     (input)="onInput($event)"

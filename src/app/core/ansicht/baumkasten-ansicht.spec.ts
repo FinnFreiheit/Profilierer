@@ -213,4 +213,138 @@ describe('BaumkastenAnsicht', () => {
       expect(ansicht.zeigtErweiterungHinzu(item('datum'))).toBeFalse();
     });
   });
+
+  /**
+   * Der Farbstreifen links am Kasten steht immer — er ist die Zeile, an der
+   * man den Zustand eines Astes im Vorbeigehen liest. Ohne eigene Antwort sagt
+   * er, was das Schema verlangt.
+   */
+  describe('Statusstreifen', () => {
+    it('mit eigener Antwort die Farbe der Statusstufe', () => {
+      state.setElementProfile(`${M}/frei`, { status: 's1' });
+
+      expect(ansicht.kasten(item('frei')).statusStrip).toBe('#1D9E75');
+    });
+
+    it('ohne Antwort: Pflicht laut Schema gedämpft grün', () => {
+      expect(ansicht.kasten(item('datum')).statusStrip).toBe('var(--schema-pflicht)');
+    });
+
+    it('ohne Antwort: optionale Angabe nur in Rahmenfarbe', () => {
+      expect(ansicht.kasten(item('frei')).statusStrip).toBe('var(--border)');
+    });
+
+    /**
+     * Ein Vorkommen ist keine Angabe des Schemas: `min`/`inChoice` gehoeren
+     * dem tragenden Element, nicht der Auspraegung. Uebernaehme der Streifen
+     * sie, traege jedes Vorkommen eines Pflicht-Elements das Pflicht-Gruen,
+     * obwohl das Schema ueber Vorkommen gar nichts sagt.
+     */
+    it('eine Auspraegung erbt die Schema-Pflicht ihres Elements nicht', () => {
+      const traeger = tree.kinder(root).find((k) => k.path === `${M}/datum`)!;
+      expect(ansicht.kasten({ kind: 'el', node: traeger }).statusStrip).toBe(
+        'var(--schema-pflicht)',
+      );
+
+      const vorkommen: TreeItem = {
+        kind: 'ausp',
+        parentNode: traeger,
+        ausp: { id: 'a1', name: 'Erstes' },
+        path: `${M}/datum@a1`,
+      };
+      expect(ansicht.kasten(vorkommen).statusStrip).toBe('var(--border)');
+    });
+
+    /** Die Wurzel ist die Nachricht selbst — sie schuldet sich nicht. */
+    it('die Wurzel traegt keinen Pflicht-Streifen', () => {
+      expect(ansicht.kasten({ kind: 'el', node: root }).statusStrip).toBe('var(--border)');
+    });
+
+    it('ein synthetischer Knoten schuldet nichts', () => {
+      // „(Auswahl)" ist kein Element, sondern die Klammer um mehrere — ihre
+      // Mindestanzahl 1 ist keine Pflicht zu einer Angabe.
+      const MW = 'nachricht.test.0002';
+      const dom = new DOMParser().parseFromString(
+        `<?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+          <xs:element name="${MW}" type="Type.Test.Wahl"/>
+          <xs:complexType name="Type.Test.Wahl">
+            <xs:sequence>
+              <xs:choice>
+                <xs:element name="links" type="xs:string"/>
+                <xs:element name="rechts" type="xs:string"/>
+              </xs:choice>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:schema>`,
+        'application/xml',
+      );
+      const idx = TestBed.inject(XsdParserService).buildIndexFrom([
+        { file: 'xjustiz_0000_wahl.xsd', dom },
+      ]).idx;
+      state.idx.set(idx);
+      state.msgName.set(MW);
+      const wurzel = tree.buildRoot(MW, idx);
+      state.root.set(wurzel);
+      const synth = tree.kinder(wurzel).find((k) => k.synthetic)!;
+
+      expect(ansicht.kasten({ kind: 'el', node: synth }).statusStrip).toBe('var(--border)');
+    });
+  });
+
+  /**
+   * Farbige Umrandung („Ansicht ▾"): drei Schalter, dieselbe Zählweise wie der
+   * Stand in der Arbeits-Zeile. Ein geparkter Punkt („zu klären") ist weder
+   * offen noch beantwortet — sonst zählte die Zeile anders, als der Baum färbt.
+   */
+  describe('Farbige Umrandung', () => {
+    it('ohne Schalter bleibt kein Kasten markiert', () => {
+      state.setElementProfile(`${M}/frei`, { status: 's1', anmerkung: 'Rückfrage' });
+
+      expect(ansicht.kasten(item('frei')).markiert).toBeFalse();
+    });
+
+    it('„offen“ markiert die unbeantworteten Entscheidungspunkte', () => {
+      state.hervorhebung.set({ offen: true, beantwortet: false, notiz: false });
+
+      expect(ansicht.kasten(item('frei')).markiert).toBeTrue();
+      // Pflichtangabe ohne Wahlmöglichkeit: gar kein Entscheidungspunkt.
+      expect(ansicht.kasten(item('datum')).markiert).toBeFalse();
+    });
+
+    it('„beantwortet“ markiert erst nach der Antwort', () => {
+      state.hervorhebung.set({ offen: false, beantwortet: true, notiz: false });
+      expect(ansicht.kasten(item('frei')).markiert).toBeFalse();
+
+      state.setElementProfile(`${M}/frei`, { status: 's1' });
+
+      expect(ansicht.kasten(item('frei')).markiert).toBeTrue();
+      expect(ansicht.kasten(item('datum')).markiert).toBeFalse();
+    });
+
+    it('ein geparkter Punkt („zu klären“) ist weder offen noch beantwortet', () => {
+      state.setElementProfile(`${M}/frei`, { status: 's4' });
+
+      state.hervorhebung.set({ offen: true, beantwortet: false, notiz: false });
+      expect(ansicht.kasten(item('frei')).markiert).toBeFalse();
+
+      state.hervorhebung.set({ offen: false, beantwortet: true, notiz: false });
+      expect(ansicht.kasten(item('frei')).markiert).toBeFalse();
+    });
+
+    it('„Notiz“ markiert auch ein Element, das kein Entscheidungspunkt ist', () => {
+      state.setElementProfile(`${M}/datum`, { anmerkung: 'mit der Fachseite klären' });
+      state.hervorhebung.set({ offen: false, beantwortet: false, notiz: true });
+
+      expect(ansicht.kasten(item('datum')).markiert).toBeTrue();
+      expect(ansicht.kasten(item('frei')).markiert).toBeFalse();
+    });
+
+    it('Leerraum ist keine Notiz', () => {
+      state.setElementProfile(`${M}/datum`, { anmerkung: '   ' });
+      state.hervorhebung.set({ offen: false, beantwortet: false, notiz: true });
+
+      expect(ansicht.kasten(item('datum')).markiert).toBeFalse();
+    });
+  });
 });

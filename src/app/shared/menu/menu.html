@@ -10,7 +10,7 @@
     <span class="lbl-kurz">{{ kurz() }}</span>
   }
   @if (pfeil()) {
-    ▾
+    {{ richtung() === 'oben' ? '▴' : '▾' }}
   }
 </button>
 
@@ -18,8 +18,11 @@
   <div style="position: fixed; inset: 0; z-index: 39" (click)="close()"></div>
   <div
     class="menuPanel"
+    #panel
     [style.left.px]="pos().left"
-    [style.top.px]="pos().top"
+    [style.top.px]="richtung() === 'unten' ? pos().top : null"
+    [style.bottom.px]="richtung() === 'oben' ? pos().bottom : null"
+    [style.max-width.px]="pos().breite"
     (click)="$event.stopPropagation()"
   >
     <ng-content></ng-content>

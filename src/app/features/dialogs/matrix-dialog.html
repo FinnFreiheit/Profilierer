@@ -11,7 +11,7 @@
   }
 
   @if (fehler()) {
-    <div style="color: #b23a3a; font-size: 13px; padding: 10px 0">{{ fehler() }}</div>
+    <div style="color: var(--fehler-fg); font-size: 13px; padding: 10px 0">{{ fehler() }}</div>
   }
 
   @if (result(); as r) {

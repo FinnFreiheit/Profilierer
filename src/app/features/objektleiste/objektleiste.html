@@ -1,25 +1,26 @@
 <!--
-  Zeile 1 der Kopfzone (#80): das Dokument. Feste Zonen, wechselnder Inhalt —
-  die Primaeraktion sitzt in jedem Modus an derselben Stelle.
+  Kopfzeile des Editors (Editor v4): zurueck · Identitaet · Zustand ·
+  Primaeraktion · ⋯. Werkzeuge stehen ausschliesslich im ⋯-Menue — die Leiste
+  traegt nur, was in jedem Modus an derselben Stelle stehen soll.
 -->
-<div id="objektleiste" class="kopfleiste">
+<div id="objektleiste" class="kopfleiste kopfzeile">
   <input #profilInput type="file" accept=".json" class="hidden" (change)="onProfile($event)" />
   <input #nachrichtInput type="file" accept=".xml" class="hidden" (change)="onInstance($event)" />
 
   <!-- Zone: zurueck -->
   <button
-    class="homeBtn zone"
+    class="homeBtn"
     [title]="
       ueberlagerung.aktiv()
         ? 'Zurück zum Projekt'
         : msgMode()
           ? 'Zurück zum Testdatenspeicher'
-          : 'Zurück zur Übersicht der Profilierungen'
+          : 'Zurück zur Übersicht der Profilierungen — Ihr Stand bleibt gesichert'
     "
     (click)="homeClick.emit()"
   >
     <span aria-hidden="true">←</span>
-    <span class="lbl-lang">{{
+    <span>{{
       ueberlagerung.aktiv() ? 'Projekt' : msgMode() ? 'Testnachrichten' : 'Übersicht'
     }}</span>
   </button>
@@ -35,10 +36,11 @@
       <span class="objName" [title]="ueberlagerungText()">{{ ueberlagerungText() }}</span>
     } @else if (isProfil()) {
       @if (!state.readOnly()) {
-        <label class="lbl-lang" for="profilName">Szenario:</label>
         <input
           type="text"
           id="profilName"
+          class="kopfName"
+          title="Name dieses Szenarios — zum Ändern hineinklicken"
           placeholder="Name des Kommunikationsszenarios"
           [value]="state.meta().name || ''"
           (change)="onName($event)"
@@ -59,149 +61,89 @@
     }
   </div>
 
-  <!-- Zone: Objekt-Werkzeuge -->
-  <div class="zone zoneWerkzeuge">
-    @if (isProfil() && !state.readOnly()) {
-      <button class="inline-only" title="Autor, Beschreibung, Datum" (click)="metaClick.emit()">
-        Details…
-      </button>
-      <button class="inline-only" title="Statusstufen konfigurieren" (click)="statusClick.emit()">
-        Status…
-      </button>
-      <button
-        class="inline-only"
-        title="Stände sichern und wiederherstellen"
-        (click)="versionenClick.emit()"
-      >
-        Versionen…
-      </button>
-      <button
-        class="inline-only"
-        [disabled]="!hasRoot()"
-        title="Alle Pflichtelemente als „zwingend“ vorbelegen"
-        (click)="prefillMandatory()"
-      >
-        Pflicht vorbelegen
-      </button>
-    }
-    @if (isProfil() && hinweise.eintraege().length) {
-      <button
-        class="inline-only"
-        title="Übersicht aller Hinweise — Klick springt zum Element"
-        (click)="hinweiseClick.emit()"
-      >
-        Hinweise ({{ hinweise.nOffen() }})
-      </button>
-    }
-    @if ((isCreate() || isMessage()) && !state.readOnly()) {
-      <button
-        class="inline-only"
-        [disabled]="!hasRoot()"
-        title="Alle offenen Pflichtfelder typkonform mit Dummy-Werten befüllen (UUID, Datum, Pattern, Codeliste)"
-        (click)="fillPflicht()"
-      >
-        Offene Pflichtfelder füllen
-      </button>
-    }
-    @if (bindungLoesbar()) {
-      <button
-        class="inline-only"
-        title="Sperren und Führung der gebundenen Profilierung beenden — für Negativtests. Die Herkunftsangabe bleibt erhalten."
-        (click)="bindungLoesenClick.emit()"
-      >
-        Profilbindung lösen
-      </button>
-    }
-  </div>
-
-  <span class="zoneTrenner"></span>
+  <span class="spacer"></span>
 
   <!-- Zone: Zustand (nur Handlungsrelevantes — die Freigabe sperrt das Bearbeiten) -->
-  <div class="zone zoneZustand">
-    @if (abnahme(); as a) {
-      <button
-        class="pill pillBtn"
-        [class.pillAbn]="!a.warn"
-        [class.pillAbnWarn]="a.warn"
-        [title]="
-          a.warn
-            ? 'Anzeigen, was sich seit der Freigabe geändert hat'
-            : 'Von der BLK-AG freigegeben — dieser Stand ist die valide Fassung' +
-              (a.kommentar ? ' · ' + a.kommentar : '') +
-              ' · mit dem Arbeitsstand vergleichen'
-        "
-        (click)="abnahmeDiffClick.emit()"
-      >
-        <span aria-hidden="true">{{ a.warn ? '⚠' : '✔' }}</span>
-        <span class="lbl-lang">{{
-          a.warn ? ' seit Freigabe geändert' : ' BLK-AG freigegeben'
-        }}</span>
-      </button>
-    }
-  </div>
+  @if (abnahme(); as a) {
+    <button
+      class="pill pillBtn"
+      [class.pillAbn]="!a.warn"
+      [class.pillAbnWarn]="a.warn"
+      [title]="
+        a.warn
+          ? 'Anzeigen, was sich seit der Freigabe geändert hat'
+          : 'Von der BLK-AG geprüft und freigegeben — dieser Stand ist die valide Fassung' +
+            (a.kommentar ? ' · ' + a.kommentar : '') +
+            ' · mit dem Arbeitsstand vergleichen'
+      "
+      (click)="abnahmeDiffClick.emit()"
+    >
+      {{ a.warn ? '⚠ seit Freigabe geändert' : '✔ freigegeben' }}
+    </button>
+  }
 
   <!-- Zone: Primaeraktion — in jedem Modus dieselbe Position -->
-  <div class="zone zonePrimaer">
-    <button
-      class="primary"
-      [disabled]="primaerGesperrt()"
-      [title]="primaerTitel()"
-      (click)="primaer()"
-    >
-      {{ primaerLabel() }}
-    </button>
-  </div>
+  <button
+    class="primary"
+    [disabled]="primaerGesperrt()"
+    [title]="primaerTitel()"
+    (click)="primaer()"
+  >
+    {{ primaerLabel() }}
+  </button>
 
-  <!-- Zone: Weiteres. Fasst das Objekt-Laden/-Exportieren und bei schmalem
-       Fenster die ausgewichenen Werkzeuge (.overflow-only) zusammen. -->
-  <app-menu [label]="weiteresLabel()" kurz="⋯" btnClass="mWeiteres" #weiteres>
+  <!-- Zone: Weiteres. Saemtliche Werkzeuge des Objekts stehen hier — die
+       Kopfzeile bleibt dadurch bei jeder Fensterbreite gleich. -->
+  <app-menu
+    label="⋯"
+    [pfeil]="false"
+    btnClass="mWeiteres"
+    titel="Weitere Aktionen"
+    [breite]="300"
+    ausrichtung="rechts"
+    #weiteres
+  >
     @if (isProfil()) {
-      <button class="menuItem" (click)="weiteres.close(); pick(profilInput)">Profil laden…</button>
-      <button
-        class="menuItem"
-        [disabled]="!hasRoot()"
-        title="Bestehende XJustiz-Nachricht (XML) laden und als Testnachricht anzeigen"
-        (click)="weiteres.close(); pick(nachrichtInput)"
-      >
-        Nachricht laden…
-      </button>
-      @if (state.activeProfileId()) {
-        <button
-          class="menuItem"
-          title="Link in die Zwischenablage legen — er öffnet diese Profilierung direkt (aktueller Stand)"
-          (click)="weiteres.close(); teilenClick.emit()"
-        >
-          Link zum Teilen kopieren
+      @if (!state.readOnly()) {
+        <button class="menuItem" (click)="weiteres.close(); metaClick.emit()">
+          Angaben zum Szenario…<span class="menuNeben">Name, Beteiligte</span>
+        </button>
+        <button class="menuItem" (click)="weiteres.close(); statusClick.emit()">
+          Antworten anpassen…<span class="menuNeben">Statusstufen</span>
+        </button>
+      }
+      @if (abnahme(); as a) {
+        <button class="menuItem" (click)="weiteres.close(); abnahmeDiffClick.emit()">
+          Freigegebene Fassung vergleichen…
+          @if (a.warn) {
+            <span class="menuNeben">seit Freigabe geändert</span>
+          }
         </button>
       }
       @if (!state.readOnly()) {
-        <div class="menuSep"></div>
-        <button
-          class="menuItem"
-          [disabled]="!hasRoot()"
-          (click)="weiteres.close(); excelClick.emit()"
-        >
-          Excel
+        <button class="menuItem" (click)="weiteres.close(); versionenClick.emit()">
+          Frühere Fassungen…
+          @if (letzteFassung()) {
+            <span class="menuNeben">{{ letzteFassung() }}</span>
+          }
         </button>
-        <!-- title am Wrapper: ueber einen disabled-Knopf kommt kein Tooltip. -->
-        <span class="menuHuelle" [title]="state.hatErweiterungen() ? erwGrund : ''">
-          <button
-            class="menuItem"
-            [disabled]="!hasRoot() || state.hatErweiterungen()"
-            (click)="weiteres.close(); schClick.emit()"
-          >
-            Schematron
-            @if (state.hatErweiterungen()) {
-              <span class="menuGrund">gesperrt: Schema-Erweiterungen</span>
-            }
-          </button>
-        </span>
         <button
           class="menuItem"
           [disabled]="!hasRoot()"
-          (click)="weiteres.close(); xmlClick.emit()"
+          (click)="weiteres.close(); prefillMandatory()"
         >
-          Beispiel-XML
+          Pflichtfelder vorbelegen<span class="menuNeben"
+            >Pflicht-Antwort für alle Pflichtfelder</span
+          >
+        </button>
+      }
+      @if (hinweise.eintraege().length) {
+        <button
+          class="menuItem"
+          title="Übersicht aller Hinweise — Klick springt zum Element"
+          (click)="weiteres.close(); hinweiseClick.emit()"
+        >
+          Hinweise<span class="menuNeben">{{ hinweise.nOffen() }} offen</span>
         </button>
       }
     }
@@ -238,7 +180,55 @@
         Weitere Testnachricht: als Kopie
       </button>
     }
-    <div class="menuSep"></div>
+    @if ((isCreate() || isMessage()) && !state.readOnly()) {
+      <button
+        class="menuItem"
+        [disabled]="!hasRoot()"
+        title="Alle offenen Pflichtfelder typkonform mit Dummy-Werten befüllen (UUID, Datum, Pattern, Codeliste)"
+        (click)="weiteres.close(); fillPflicht()"
+      >
+        Offene Pflichtfelder füllen
+      </button>
+    }
+    @if (bindungLoesbar()) {
+      <button
+        class="menuItem"
+        title="Sperren und Führung der gebundenen Profilierung beenden — für Negativtests. Die Herkunftsangabe bleibt erhalten."
+        (click)="weiteres.close(); bindungLoesenClick.emit()"
+      >
+        Profilbindung lösen
+      </button>
+    }
+
+    @if (hatVorspann()) {
+      <div class="menuSep"></div>
+    }
+    <div class="menuKopf">Herunterladen</div>
+    @if (isProfil() && !state.readOnly()) {
+      <button
+        class="menuItem"
+        [disabled]="!hasRoot()"
+        (click)="weiteres.close(); excelClick.emit()"
+      >
+        Excel
+      </button>
+      <!-- title am Wrapper: ueber einen disabled-Knopf kommt kein Tooltip. -->
+      <span class="menuHuelle" [title]="state.hatErweiterungen() ? erwGrund : ''">
+        <button
+          class="menuItem"
+          [disabled]="!hasRoot() || state.hatErweiterungen()"
+          (click)="weiteres.close(); schClick.emit()"
+        >
+          Schematron
+          @if (state.hatErweiterungen()) {
+            <span class="menuGrund">gesperrt: Schema-Erweiterungen</span>
+          }
+        </button>
+      </span>
+      <button class="menuItem" [disabled]="!hasRoot()" (click)="weiteres.close(); xmlClick.emit()">
+        Beispiel-XML
+      </button>
+    }
     <!-- Auch hier gesperrt: der Druck kennt nur einen Wert je Element (#147). -->
     <span class="menuHuelle" [title]="ueberlagerung.aktiv() ? primaerTitel() : ''">
       <button
@@ -250,46 +240,37 @@
       </button>
     </span>
 
-    <!-- Ab ~1050px weichen die Objekt-Werkzeuge aus der Leiste hierher aus. -->
-    @if (isProfil() && !state.readOnly()) {
-      <div class="menuSep overflow-only"></div>
-      <button class="menuItem overflow-only" (click)="weiteres.close(); metaClick.emit()">
-        Details…
-      </button>
-      <button class="menuItem overflow-only" (click)="weiteres.close(); statusClick.emit()">
-        Status…
-      </button>
-      <button class="menuItem overflow-only" (click)="weiteres.close(); versionenClick.emit()">
-        Versionen…
-      </button>
+    @if (isProfil()) {
+      <div class="menuSep"></div>
+      <div class="menuKopf">Laden</div>
+      <button class="menuItem" (click)="weiteres.close(); pick(profilInput)">Profil laden…</button>
       <button
-        class="menuItem overflow-only"
+        class="menuItem"
         [disabled]="!hasRoot()"
-        (click)="weiteres.close(); prefillMandatory()"
+        title="Bestehende XJustiz-Nachricht (XML) laden und als Testnachricht anzeigen"
+        (click)="weiteres.close(); pick(nachrichtInput)"
       >
-        Pflicht vorbelegen
+        Nachricht laden…
       </button>
+      @if (state.activeProfileId()) {
+        <button
+          class="menuItem"
+          title="Link in die Zwischenablage legen — er öffnet diese Profilierung direkt (aktueller Stand)"
+          (click)="weiteres.close(); teilenClick.emit()"
+        >
+          Link zum Teilen kopieren
+        </button>
+      }
     }
-    @if (isProfil() && hinweise.eintraege().length) {
-      <button class="menuItem overflow-only" (click)="weiteres.close(); hinweiseClick.emit()">
-        Hinweise ({{ hinweise.nOffen() }})
-      </button>
-    }
-    @if ((isCreate() || isMessage()) && !state.readOnly()) {
-      <div class="menuSep overflow-only"></div>
-      <button
-        class="menuItem overflow-only"
-        [disabled]="!hasRoot()"
-        (click)="weiteres.close(); fillPflicht()"
-      >
-        Offene Pflichtfelder füllen
-      </button>
-    }
-    @if (bindungLoesbar()) {
-      <button class="menuItem overflow-only" (click)="weiteres.close(); bindungLoesenClick.emit()">
-        Profilbindung lösen
-      </button>
-    }
+
+    <div class="menuSep"></div>
+    <button
+      class="menuItem"
+      title="Worauf diese Ansicht beruht: XJustiz-Version, Schemata und Codelisten"
+      (click)="weiteres.close(); grundlageClick.emit()"
+    >
+      Grundlage…<span class="menuNeben">{{ grundlageHinweis() }}</span>
+    </button>
   </app-menu>
 
   <app-beta-badge></app-beta-badge>

@@ -3,6 +3,7 @@ import { WritableSignal, signal } from '@angular/core';
 import { App } from './app';
 import { StateService } from './core/services/state.service';
 import { GuidedService } from './core/services/guided.service';
+import { DispositionService } from './core/services/disposition.service';
 import { NavService } from './core/services/nav.service';
 import { ToastService } from './core/services/toast.service';
 import { NachrichtSpeichernService } from './core/services/nachricht-speichern.service';
@@ -31,7 +32,7 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.dashHead h1')?.textContent).toContain('Pfadfinder');
+    expect(compiled.querySelector('.dashKopf h1')?.textContent).toContain('Profilierungen');
   });
 
   describe('Rueckweg der Kopfzeile', () => {
@@ -109,6 +110,7 @@ describe('App', () => {
       const fixture = TestBed.createComponent(App);
       const app = fixture.componentInstance;
       const state = TestBed.inject(StateService);
+      state.view.set('editor');
       state.selItem.set({ kind: 'el', node: { path: 'x' } } as unknown as TreeItem);
 
       const ev = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
@@ -122,6 +124,7 @@ describe('App', () => {
       const fixture = TestBed.createComponent(App);
       const app = fixture.componentInstance;
       const state = TestBed.inject(StateService);
+      state.view.set('editor');
       state.selItem.set(null);
 
       const ev = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
@@ -148,6 +151,8 @@ describe('App', () => {
       state = TestBed.inject(StateService);
       guided = TestBed.inject(GuidedService);
       nav = TestBed.inject(NavService);
+      // Die Tastatur gehoert dem Baum-Editor; die Suite spielt dort.
+      state.view.set('editor');
       state.guided.set(true);
       state.selItem.set(fakeItem);
       spyOn(guided, 'gotoPrev');
@@ -178,6 +183,15 @@ describe('App', () => {
       expect(guided.setzeDisposition).toHaveBeenCalledWith('ausgeschlossen');
     });
 
+    it('meldet auch gefuehrt, wenn zu der Wirkung keine Antwort konfiguriert ist', () => {
+      (guided.setzeDisposition as jasmine.Spy).and.returnValue(false);
+      const toast = spyOn(TestBed.inject(ToastService), 'show');
+
+      app.onKeydown(key('k'));
+
+      expect(toast).toHaveBeenCalledWith(jasmine.stringContaining('Antworten anpassen'));
+    });
+
     it('greift nicht bei Modifier-Tasten oder Fokus in Eingabefeldern', () => {
       app.onKeydown(key('z', { metaKey: true }));
       app.onKeydown(key('n', { ctrlKey: true }));
@@ -185,6 +199,24 @@ describe('App', () => {
       Object.defineProperty(inInput, 'target', { value: document.createElement('input') });
       app.onKeydown(inInput);
       expect(guided.setzeDisposition).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Die Auswahl bleibt beim Verlassen des Editors stehen (der Rueckweg
+     * raeumt nur die Ansicht). Ohne die View-Pruefung setzte eine Antwort-Taste
+     * in der Bibliothek eine Antwort an einem Element, das dort niemand sieht.
+     */
+    it('z auf der Uebersicht aendert nichts', () => {
+      const disposition = TestBed.inject(DispositionService);
+      spyOn(disposition, 'setzeStatus');
+      state.view.set('dashboard');
+
+      const ev = key('z');
+      app.onKeydown(ev);
+
+      expect(guided.setzeDisposition).not.toHaveBeenCalled();
+      expect(disposition.setzeStatus).not.toHaveBeenCalled();
+      expect(ev.defaultPrevented).toBeFalse();
     });
 
     it('faellt ohne gefuehrten Modus auf die Baum-Navigation zurueck', () => {
@@ -203,6 +235,71 @@ describe('App', () => {
       state.readOnly.set(true);
       app.onKeydown(key('z'));
       expect(guided.setzeDisposition).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Editor v4: die Antwort-Tasten gelten auch im **Bearbeiten**-Modus — die
+     * Antwort-Liste im Detailbereich ist dieselbe. Der Unterschied liegt allein
+     * im Weiterspringen: gefuehrt blaettert die Antwort zur naechsten offenen
+     * Stelle, hier bleibt der Blick, wo er ist.
+     */
+    describe('Bearbeiten-Modus (nicht gefuehrt)', () => {
+      let disposition: DispositionService;
+
+      beforeEach(() => {
+        state.guided.set(false);
+        disposition = TestBed.inject(DispositionService);
+        spyOn(disposition, 'setzeStatus');
+      });
+
+      it('s nimmt die eigene Antwort zurueck („wie Standard")', () => {
+        const ev = key('s');
+        app.onKeydown(ev);
+
+        expect(disposition.setzeStatus).toHaveBeenCalledWith('x', undefined);
+        expect(ev.defaultPrevented).toBeTrue();
+      });
+
+      it('z setzt den Status ohne Sprung — nicht ueber die Fuehrung', () => {
+        const ev = key('z');
+        app.onKeydown(ev);
+
+        expect(disposition.setzeStatus).toHaveBeenCalledWith('x', 's1');
+        expect(guided.setzeDisposition).not.toHaveBeenCalled();
+        expect(ev.defaultPrevented).toBeTrue();
+      });
+
+      it('Enter springt zum naechsten offenen Feld', () => {
+        (guided.gotoNextOpen as jasmine.Spy).and.returnValue(true);
+        const ev = key('Enter');
+        app.onKeydown(ev);
+
+        expect(guided.gotoNextOpen).toHaveBeenCalled();
+        expect(ev.defaultPrevented).toBeTrue();
+      });
+
+      /**
+       * Kennt die Profilierung zu einer Wirkung keine Stufe, greift die Taste
+       * ins Leere. Vorher schwieg sie — der Grund war nirgends zu sehen.
+       */
+      it('sagt es, wenn zu der Taste keine Antwort konfiguriert ist', () => {
+        state.statuses.set([{ id: 's1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' }]);
+        const toast = spyOn(TestBed.inject(ToastService), 'show');
+
+        app.onKeydown(key('n')); // ausgeschlossen — dazu gibt es keine Stufe
+
+        expect(disposition.setzeStatus).not.toHaveBeenCalled();
+        expect(toast).toHaveBeenCalledWith(jasmine.stringContaining('Antworten anpassen'));
+      });
+
+      it('laesst einem fokussierten Knopf sein Enter', () => {
+        const ev = key('Enter');
+        Object.defineProperty(ev, 'target', { value: document.createElement('button') });
+        app.onKeydown(ev);
+
+        expect(guided.gotoNextOpen).not.toHaveBeenCalled();
+        expect(ev.defaultPrevented).toBeFalse();
+      });
     });
 
     // ── Gefuehrter Durchlauf einer Nachricht (ADR 0016) ────────────────

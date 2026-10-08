@@ -14,12 +14,12 @@
   }
 
   @if (fehler()) {
-    <div style="color: #b23a3a; font-size: 13px; padding: 10px 0">{{ fehler() }}</div>
+    <div style="color: var(--fehler-fg); font-size: 13px; padding: 10px 0">{{ fehler() }}</div>
   }
 
   @if (result(); as r) {
     @if (r.wurzelUnterschied; as w) {
-      <div style="color: #b23a3a; font-size: 13px; padding: 10px 0">
+      <div style="color: var(--fehler-fg); font-size: 13px; padding: 10px 0">
         Die Nachrichtenart hat gewechselt: <code>{{ w.vorher }}</code> →
         <code>{{ w.nachher }}</code> — ein Detailvergleich ist damit nicht aussagekräftig.
       </div>
@@ -27,7 +27,7 @@
       <div style="font-size: 13px; margin-bottom: 6px">
         @if (r.eintraege.length) {
           <b style="color: #1e7d3e">{{ r.zaehler.neu }} neu</b> ·
-          <b style="color: #b23a3a">{{ r.zaehler.entfernt }} entfallen</b> ·
+          <b style="color: var(--fehler-fg)">{{ r.zaehler.entfernt }} entfallen</b> ·
           <b style="color: #8a6d0b">{{ r.zaehler['geändert'] }} geändert</b>
         } @else {
           <b>keine inhaltlichen Unterschiede</b> — abweichen können nur Formatierung oder

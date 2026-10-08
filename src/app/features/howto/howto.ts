@@ -75,7 +75,7 @@ export class Howto {
           text: [
             'Im Editor öffnet „Nachricht wählen" die Liste aller Nachrichtentypen der geladenen XJustiz-Version, ' +
               'gruppiert nach Fachmodul und durchsuchbar nach Name und Beschreibung.',
-            'Die Schemaversion steht rechts in der Werkzeugleiste (beim Start 3.6.2) und lässt sich dort wechseln. ' +
+            'Die Schemaversion steht im ⋯-Menü der Kopfzeile unter „Grundlage…" (beim Start 3.6.2) und lässt sich dort wechseln. ' +
               'Im Feld „Szenario" oben wird die Profilierung benannt — dieser Name steht später auf der Kachel.',
           ],
           bild: '02-nachricht-waehlen',

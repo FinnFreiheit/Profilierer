@@ -18,7 +18,7 @@ import { DiffAnc, DiffEntry } from '../../models/diff.model';
 import { XsdDoc, XsdIndex } from '../../models/xsd-index.model';
 import { BundledVersion } from '../../models/schema-bundle.model';
 import { MessageCreateSession, MessageEditSession } from '../../models/testmessage.model';
-import { newProfile } from '../profile-defaults';
+import { newProfile, wirkungFuerTaste } from '../profile-defaults';
 import { kardText, pretty } from '../util/pretty.util';
 import { REF_TARGETS, RefSchluessel, SGO_KENNUNG, refSchluesselArt } from '../refs';
 import { HinweisStoreService } from './hinweis-store.service';
@@ -264,9 +264,11 @@ export class StateService {
   /**
    * Projekte vs. Dashboard (Bibliothek) vs. Baum-Editor vs. Testdaten-Speicher
    * vs. Anleitung vs. Kennzahlen (AG-exklusiv). Startseite ist das Dashboard.
+   * `styleguide` ist ein Entwicklerwerkzeug ohne Reiter, nur per
+   * `?ansicht=styleguide` erreichbar (ADR 0022).
    */
   readonly view = signal<
-    'dashboard' | 'editor' | 'testdaten' | 'howto' | 'projekte' | 'kennzahlen'
+    'dashboard' | 'editor' | 'testdaten' | 'howto' | 'projekte' | 'kennzahlen' | 'styleguide'
   >('dashboard');
   /**
    * Geoeffnetes Projekt (#135) — null zeigt die Projektuebersicht. Der Zustand
@@ -293,6 +295,25 @@ export class StateService {
   readonly onlyValues = signal(false);
   readonly showRefs = signal(true);
   readonly focusMode = signal(true);
+  /**
+   * Farbige Umrandung im Baum (Ansicht-Menue der Arbeits-Zeile): welche der
+   * drei Klassen — ohne eigene Antwort, mit eigener Antwort, mit Notiz —
+   * hervorgehoben wird. Eine Ansichtsfrage, keine Aussage der Profilierung:
+   * nicht persistiert.
+   */
+  readonly hervorhebung = signal<{ offen: boolean; beantwortet: boolean; notiz: boolean }>({
+    offen: false,
+    beantwortet: false,
+    notiz: false,
+  });
+  /**
+   * Darstellung der Nachricht in der Arbeitsflaeche (Segment der Ort-Zeile):
+   * als Kasten-Kaskade oder als XJustiz-XML. Eine reine Ansichtsfrage —
+   * **nicht persistiert** und beim Wechsel des Nachrichtentyps bewusst **nicht**
+   * zurueckgesetzt: wer die XML-Sicht aufhat, vergleicht meist mehrere
+   * Nachrichten darin und will nicht nach jedem Wechsel neu umschalten.
+   */
+  readonly darstellung = signal<'baum' | 'xml'>('baum');
   /** Blaetter linksbuendig auf die tiefste Spalte ausrichten (bündige Wertespalte). */
   readonly alignLeaves = signal(false);
   /** Betrachtungsmodus: gesperrte Ansicht ohne Profilier-Bedienelemente (Nachricht inspizieren). */
@@ -425,6 +446,22 @@ export class StateService {
    */
   markierungStatus(): Status | null {
     return this.statuses().find((s) => s.wirkung === 'markierung') ?? null;
+  }
+
+  /**
+   * Die Statusstufe hinter einer Antwort-Taste (Z/O/N/K). Eine Taste haengt an
+   * der **Wirkung**, nicht am Status: fuehrt die Profilierung mehrere Stufen
+   * derselben Wirkung, greift sie an der ersten — dieselbe Regel wie
+   * `pflichtStatus()` und die Hilfe in der Fusszeile. `null`, wenn die Taste
+   * keine Wirkung meint oder die Profilierung dafuer keine Stufe hat.
+   *
+   * Eine Quelle fuer beide Enden: die Tastatur im `App`-Handler loest die Taste
+   * hierueber auf, der Detailbereich beschriftet die Antwort-Zeile damit.
+   */
+  statusFuerTaste(taste: string): Status | null {
+    const wirkung = wirkungFuerTaste(taste);
+    if (!wirkung) return null;
+    return this.statuses().find((s) => s.wirkung === wirkung) ?? null;
   }
 
   /**

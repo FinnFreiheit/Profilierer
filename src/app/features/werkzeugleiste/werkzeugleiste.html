@@ -1,236 +1,245 @@
 <!--
-  Zeile 2 der Kopfzone (#80): Nachricht + Pfad links, Werkzeuge rechts.
-  Feste Zonen — die Leiste bricht nie um, sie schrumpft nach Prioritaet.
+  Zeile 3 der Kopfzone (Editor v4): die Arbeit am Baum — wie arbeite ich,
+  wie weit bin ich, wo im Baum steht die Arbeit, was zeigt die Ansicht.
+  Die Leiste bricht nie um; was nicht mehr passt, weicht per Breakpoint
+  (Ast-Chips ab 1240px ins Menue, Stand-Beschriftung ab 1040px auf "x / y").
 -->
-<div id="werkzeugleiste" class="kopfleiste">
-  <input #xsdInput type="file" webkitdirectory multiple class="hidden" (change)="onXsd($event)" />
-  <input
-    #clInput
-    type="file"
-    multiple
-    accept=".xml,.zip"
-    class="hidden"
-    (change)="onCodelist($event)"
-  />
-
-  <!-- Zone: wo bin ich — Nachrichtenwahl und Pfad als eine Kette -->
-  <div class="zone zoneOrt">
-    <app-message-picker></app-message-picker>
-    <app-crumbs></app-crumbs>
+<div id="werkzeugleiste" class="kopfleiste arbeitszeile">
+  <div class="viewToggle modusSeg" role="group" aria-label="Arbeitsweise" [title]="modusTitel()">
+    <button
+      [class.active]="modus() === 'betrachten'"
+      [attr.aria-pressed]="modus() === 'betrachten'"
+      [disabled]="!hasRoot()"
+      title="Nur lesen — es wird nichts geändert"
+      (click)="setzeModus('betrachten')"
+    >
+      Ansehen
+    </button>
+    <button
+      [class.active]="modus() === 'bearbeiten'"
+      [attr.aria-pressed]="modus() === 'bearbeiten'"
+      [disabled]="modusGesperrt()"
+      title="Felder einzeln beantworten"
+      (click)="setzeModus('bearbeiten')"
+    >
+      Bearbeiten
+    </button>
+    <button
+      [class.active]="modus() === 'gefuehrt'"
+      [attr.aria-pressed]="modus() === 'gefuehrt'"
+      [disabled]="modusGesperrt()"
+      title="Schritt für Schritt durch alle offenen Felder"
+      (click)="setzeModus('gefuehrt')"
+    >
+      Geführt
+    </button>
   </div>
 
-  <span class="zoneTrenner"></span>
+  @if (zeigeStand()) {
+    <span class="zeilenTrenner"></span>
 
-  <!-- Zone: wie arbeite ich -->
-  <div class="zone zoneModus">
-    <div class="modusSeg" role="group" aria-label="Arbeitsweise" [title]="modusTitel()">
-      <button
-        [class.aktiv]="modus() === 'betrachten'"
-        [attr.aria-pressed]="modus() === 'betrachten'"
-        [disabled]="!hasRoot()"
-        title="Nur ansehen — es wird nichts entschieden und nichts geändert"
-        (click)="setzeModus('betrachten')"
-      >
-        Betrachten
-      </button>
-      <button
-        [class.aktiv]="modus() === 'bearbeiten'"
-        [attr.aria-pressed]="modus() === 'bearbeiten'"
-        [disabled]="modusGesperrt()"
-        title="Frei entscheiden — Status, Kardinalitäten und Werte am ausgewählten Element"
-        (click)="setzeModus('bearbeiten')"
-      >
-        Bearbeiten
-      </button>
-      <button
-        [class.aktiv]="modus() === 'gefuehrt'"
-        [attr.aria-pressed]="modus() === 'gefuehrt'"
-        [disabled]="modusGesperrt()"
-        [title]="
-          isCreate() || isMessage()
-            ? 'Geführt durch die Nachricht: Station für Station blättern, Werte eintragen, Auswahlen treffen'
-            : 'Geführt durch alle offenen Entscheidungen der Profilierung'
-        "
-        (click)="setzeModus('gefuehrt')"
-      >
-        Geführt
-      </button>
-    </div>
+    <!-- Der Stand bleibt bei jeder Breite stehen; nur seine Beschriftung kuerzt. -->
+    <span class="stand" [title]="standTitel()">
+      <span class="standText">
+        <b class="standZahl">{{ stand().x }}</b>
+        <!-- &ngsp; haelt das Leerzeichen: Angular entfernt reine Leerraum-Knoten. -->
+        <span class="standLang">&ngsp;von {{ stand().y }} {{ standWort() }}</span>
+        <span class="standKurz">&ngsp;/ {{ stand().y }}</span>
+      </span>
+      <span class="fsBalken" aria-hidden="true">
+        <span class="fsBalkenFuell" [style.width.%]="standAnteil()"></span>
+      </span>
+    </span>
+  }
 
-    <app-search></app-search>
+  @if (aeste().length) {
+    <span class="zeilenTrenner"></span>
 
-    @if (ueberlagerung.aktiv()) {
-      <app-ueberlagerung-menu></app-ueberlagerung-menu>
-    }
-
-    <app-menu label="Ansicht" kurz="≡" btnClass="mAnsicht" #ansicht>
-      <label class="menuItem" title="Versionsunterschiede im Baum markieren">
-        <input
-          type="checkbox"
-          [disabled]="!hasIdxB()"
-          [checked]="state.showDiff()"
-          (change)="state.showDiff.set(checked($event))"
-        />
-        Diff
-      </label>
-      <label
-        class="menuItem"
-        title="Aktiver Pfad und seine Kinder in voller Größe, alles andere als Kompakt-Chips"
-      >
-        <input
-          type="checkbox"
-          [checked]="state.focusMode()"
-          (change)="state.focusMode.set(checked($event))"
-        />
-        Fokus
-      </label>
-      <label class="menuItem">
-        <input
-          type="checkbox"
-          [checked]="state.showTech()"
-          (change)="state.showTech.set(checked($event))"
-        />
-        Technik
-      </label>
-      <label class="menuItem">
-        <input
-          type="checkbox"
-          [checked]="state.showRefs()"
-          (change)="state.showRefs.set(checked($event))"
-        />
-        Verweise
-      </label>
-      <label
-        class="menuItem"
-        title="Blätter auf eine bündige Wertespalte ausrichten (aus: Blatt direkt am Elternknoten, kurze Wege)"
-      >
-        <input
-          type="checkbox"
-          [checked]="state.alignLeaves()"
-          (change)="state.alignLeaves.set(checked($event))"
-        />
-        Blätter ausrichten
-      </label>
-      @if (!isSchemaView()) {
-        <label
-          class="menuItem"
-          [title]="
-            state.hatVorgabe()
-              ? 'Von der gebundenen Profilierung Ausgeschlossenes einblenden (gesperrt, mit Begründung)'
-              : 'Ausgeschlossene Elemente ausblenden'
-          "
-        >
-          <input
-            type="checkbox"
-            [checked]="state.onlyProfile()"
-            (change)="state.onlyProfile.set(checked($event))"
-          />
-          nur Profil
-        </label>
-        <label
-          class="menuItem"
-          title="Nur Elemente mit Wert/Inhalt zeigen statt des gesamten Standards"
-        >
-          <input
-            type="checkbox"
-            [checked]="state.onlyValues()"
-            (change)="toggleOnlyValues(checked($event))"
-          />
-          nur Werte
-        </label>
-      }
-      <div class="menuSep"></div>
-      <button class="menuItem" [disabled]="!hasRoot()" (click)="ansicht.close(); expand()">
-        Alles ausklappen
-      </button>
-      <button class="menuItem" [disabled]="!hasRoot()" (click)="ansicht.close(); collapse()">
-        Zuklappen
-      </button>
-    </app-menu>
-
-    <!--
-      Der Versions-Umschalter ist selbst das Datenbasis-Menue (#80): Versionen
-      und Quellen sind dieselbe Frage — "worauf beruht das hier".
-    -->
-    <app-menu
-      [label]="datenbasisLabel()"
-      kurz="XJ"
-      btnClass="mDatenbasis"
-      [titel]="verInfo()"
-      #datenbasis
-    >
-      @for (v of bundledVersions(); track v.dir) {
+    <!-- Abschnitte: im Band Chips, bei schmalem Fenster dasselbe als Menue. -->
+    <div class="astChips" role="group" aria-label="Abschnitte">
+      @for (a of aeste(); track a.path) {
         <button
-          class="menuItem"
-          [class.aktiv]="v.dir === activeBundle()"
-          [title]="quellHinweis(v)"
-          (click)="datenbasis.close(); bundledPick.emit(v.dir)"
+          class="astChip"
+          [class.aktiv]="a.aktiv"
+          [title]="astTitel(a)"
+          (click)="springe(a.path)"
         >
-          {{ v.dir === activeBundle() ? '✓ ' : '' }}XJustiz {{ v.label
-          }}{{ v.default ? ' (Standard)' : '' }}
-          @if (v.zipUrl) {
-            <span class="menuQuelle">xjustiz.de</span>
+          {{ a.name }}
+          @if (zeigeStand()) {
+            <span class="astZahl" [class.voll]="a.vollstaendig"
+              >{{ a.entschieden }}/{{ a.gesamt }}</span
+            >
           }
         </button>
       }
-      @if (bundledVersions().length) {
-        <div class="menuSep"></div>
-      }
-      <button
-        class="menuItem"
-        title="Eigenen Ordner mit XJustiz-Schemadateien laden"
-        (click)="datenbasis.close(); pick(xsdInput)"
-      >
-        Eigener XSD-Ordner…
-      </button>
-      <button
-        class="menuItem"
-        title="Versionsliste von xjustiz.de neu abrufen und bereits geholte Versionen auf den veröffentlichten Stand bringen. Geholte Versionen bleiben gespeichert und veralten nicht von selbst."
-        (click)="datenbasis.close(); remoteSchemaClick.emit()"
-      >
-        Von xjustiz.de aktualisieren
-      </button>
-      <button
-        class="menuItem"
-        [disabled]="!hasIdx()"
-        title="Alle vom Standard genutzten Codelisten über die XRepository-REST-Schnittstelle abrufen"
-        (click)="datenbasis.close(); xrepClick.emit()"
-      >
-        Codelisten: XRepository
-      </button>
-      <button
-        class="menuItem"
-        title="Genericode-Dateien oder ZIP aus Dateien laden"
-        (click)="datenbasis.close(); pick(clInput)"
-      >
-        Codelisten: Datei…
-      </button>
-      <div class="menuSep"></div>
-      <button
-        class="menuItem"
-        [disabled]="!hasIdx()"
-        title="Zweiten XSD-Ordner (andere XJustiz-Version) laden und Unterschiede anzeigen"
-        (click)="datenbasis.close(); diffClick.emit()"
-      >
-        {{ diffLabel() }}
-      </button>
-      <button
-        class="menuItem"
-        title="Protokoll der letzten Fehler und Warnungen als Textdatei speichern (für Fehlermeldungen)"
-        (click)="datenbasis.close(); logExportClick.emit()"
-      >
-        Fehlerprotokoll speichern…
-      </button>
-    </app-menu>
-  </div>
+    </div>
 
-  <!-- Zone: Fortschritt — reservierte Breite, damit der wechselnde Text nichts verschiebt -->
-  <div class="zone zoneFortschritt" [title]="fortschrittText()">
-    @if (fortschrittAnteil() !== null) {
-      <span class="fsBalken" aria-hidden="true">
-        <span class="fsBalkenFuell" [style.width.%]="fortschrittAnteil()! * 100"></span>
-      </span>
+    <app-menu label="Abschnitte" btnClass="astMenuBtn" class="astMenu" #abschnitte>
+      @for (a of aeste(); track a.path) {
+        <button
+          class="menuItem astMenuZeile"
+          [class.aktiv]="a.aktiv"
+          [title]="astTitel(a)"
+          (click)="abschnitte.close(); springe(a.path)"
+        >
+          <span class="astMenuKopf">
+            <span class="astMenuName">{{ a.name }}</span>
+            @if (zeigeStand()) {
+              <span class="astZahl" [class.voll]="a.vollstaendig"
+                >{{ a.entschieden }}/{{ a.gesamt }}</span
+              >
+            }
+          </span>
+          @if (zeigeStand()) {
+            <span class="astMenuBalken" aria-hidden="true">
+              <span class="astMenuBalkenFuell" [style.width.%]="anteil(a)"></span>
+            </span>
+          }
+        </button>
+      }
+    </app-menu>
+  }
+
+  <span class="spacer"></span>
+
+  @if (ueberlagerung.aktiv()) {
+    <app-ueberlagerung-menu></app-ueberlagerung-menu>
+  }
+
+  <app-menu label="Ansicht" kurz="≡" btnClass="mAnsicht" ausrichtung="rechts" #ansicht>
+    <div class="menuKopf">Darstellung</div>
+    <label class="menuItem" title="Die technischen Elementnamen des Schemas mitzeigen">
+      <input
+        type="checkbox"
+        [checked]="state.showTech()"
+        (change)="state.showTech.set(checked($event))"
+      />
+      Namen aus dem Schema zeigen
+    </label>
+    <label class="menuItem" title="Nur der aktive Pfad wird groß dargestellt">
+      <input
+        type="checkbox"
+        [checked]="state.focusMode()"
+        (change)="state.focusMode.set(checked($event))"
+      />
+      Umfeld kompakt darstellen
+    </label>
+
+    <div class="menuSep"></div>
+    <div class="menuKopf">Farbig umranden</div>
+    <label class="menuItem" title="Felder ohne eigene Antwort im Baum umranden">
+      <input
+        type="checkbox"
+        [checked]="state.hervorhebung().offen"
+        (change)="setzeHervorhebung('offen', checked($event))"
+      />
+      ohne eigene Antwort
+      <span class="menuNeben">{{ zaehler().offen }}</span>
+    </label>
+    <label class="menuItem" title="Felder, bei denen eine Antwort gesetzt ist">
+      <input
+        type="checkbox"
+        [checked]="state.hervorhebung().beantwortet"
+        (change)="setzeHervorhebung('beantwortet', checked($event))"
+      />
+      mit eigener Antwort
+      <span class="menuNeben">{{ zaehler().beantwortet }}</span>
+    </label>
+    <label class="menuItem" title="Felder mit einer Notiz für das Team">
+      <input
+        type="checkbox"
+        [checked]="state.hervorhebung().notiz"
+        (change)="setzeHervorhebung('notiz', checked($event))"
+      />
+      mit Notiz
+      <span class="menuNeben">{{ zaehler().notiz }}</span>
+    </label>
+
+    <div class="menuSep"></div>
+    <!-- Zwei verwandte Wege: „Zuklappen" raeumt nur den Baum auf und laesst
+         den Blick, wo er ist; „Auf den Anfang zurück" nimmt die Auswahl mit. -->
+    <button
+      class="menuItem"
+      [disabled]="!hasRoot()"
+      title="Alle Äste schließen — die Auswahl bleibt bestehen"
+      (click)="ansicht.close(); zuklappen()"
+    >
+      Zuklappen
+    </button>
+    <button class="menuItem" [disabled]="!hasRoot()" (click)="ansicht.close(); zumAnfang()">
+      Auf den Anfang zurück
+    </button>
+
+    <div class="menuSep"></div>
+    <div class="menuKopf">Weitere</div>
+    <label class="menuItem" title="Versionsunterschiede im Baum markieren">
+      <input
+        type="checkbox"
+        [disabled]="!hasIdxB()"
+        [checked]="state.showDiff()"
+        (change)="state.showDiff.set(checked($event))"
+      />
+      Diff
+    </label>
+    <label class="menuItem">
+      <input
+        type="checkbox"
+        [checked]="state.showRefs()"
+        (change)="state.showRefs.set(checked($event))"
+      />
+      Verweise
+    </label>
+    <label
+      class="menuItem"
+      title="Blätter auf eine bündige Wertespalte ausrichten (aus: Blatt direkt am Elternknoten, kurze Wege)"
+    >
+      <input
+        type="checkbox"
+        [checked]="state.alignLeaves()"
+        (change)="state.alignLeaves.set(checked($event))"
+      />
+      Blätter ausrichten
+    </label>
+    @if (!isSchemaView()) {
+      <label
+        class="menuItem"
+        [title]="
+          state.hatVorgabe()
+            ? 'Von der gebundenen Profilierung Ausgeschlossenes einblenden (gesperrt, mit Begründung)'
+            : 'Ausgeschlossene Elemente ausblenden'
+        "
+      >
+        <input
+          type="checkbox"
+          [checked]="state.onlyProfile()"
+          (change)="state.onlyProfile.set(checked($event))"
+        />
+        nur Profil
+      </label>
+      <label
+        class="menuItem"
+        title="Nur Elemente mit Wert/Inhalt zeigen statt des gesamten Standards"
+      >
+        <input
+          type="checkbox"
+          [checked]="state.onlyValues()"
+          (change)="toggleOnlyValues(checked($event))"
+        />
+        nur Werte
+      </label>
     }
-    <span id="fortschritt">{{ fortschrittText() }}</span>
-  </div>
+    <button class="menuItem" [disabled]="!hasRoot()" (click)="ansicht.close(); expand()">
+      Alles ausklappen
+    </button>
+  </app-menu>
+
+  @if (guided.offeneSet().size > 0 && !isSchemaView()) {
+    <button
+      class="primary klein"
+      title="Zum nächsten Feld springen, das noch keine eigene Antwort hat"
+      (click)="naechstesOffenes()"
+    >
+      Nächstes offenes Feld ›
+    </button>
+  }
 </div>

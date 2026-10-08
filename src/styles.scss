@@ -16,25 +16,71 @@
   --alabaster: #e5e5e5;
   --weiss: #ffffff;
 
-  --bg: var(--alabaster);
+  /* Seitengrund (v4): Preussischblau zu 4 % auf Weiss — kuehler und heller
+     als Alabaster, das als Grundfarbe fuer Flaechen erhalten bleibt. */
+  --bg: #f4f5f8;
   --panel: var(--weiss);
   --text: var(--preussischblau);
   --text-stark: var(--schwarz);
   --accent: var(--preussischblau);
   /* Preussischblau aufgehellt — nur fuer :hover auf gefuellten Flaechen. */
   --accent-hover: #223357;
-  --accent-soft: #dfe4ef;
+  --accent-soft: #e8ecf5;
   --accent-soft-tief: #ccd5e8;
+  /* Die leiseste Stufe des Accents — aktiver Ast-Chip, aktive XML-Zeile,
+     Kruemel beim Ueberfahren. Traegt keine Bedeutung, nur einen Hauch Ort. */
+  --accent-hauch: #f2f5fa;
   --signal: var(--orange);
   --signal-soft: #fef1db;
   /* Neutralstufen: Alabaster gegen Weiss bzw. Preussischblau verrechnet. */
-  --flaeche: #f1f2f5;
-  --flaeche-tief: #d6d8dd;
-  --border: #c6c8cc;
-  --border-stark: #a9adb6;
-  --muted: #5a6477;
+  --flaeche-hell: #f7f8fa;
+  --flaeche: #f0f1f4;
+  --flaeche-tief: #e8eaef;
+  --border: #e4e6eb;
+  --border-stark: #c3ccdd;
+  /* Trennlinien innerhalb einer Flaeche (Listenzeilen, Kachelfuss) — leichter
+     als der Rahmen darum. */
+  --trenner: #edeff3;
+  --muted: #545e70;
   --muted-schwach: #8d93a1;
+  --on-accent: var(--weiss);
+  /* Fachliche Signalfarben (design.md): sie bedeuten Zustaende, keine Marke —
+     immer als Paar aus Flaeche und Textfarbe, immer in einer Pille oder einem
+     Tag. Die rund zwanzig Tag-Varianten des Baums behalten ihre eigenen
+     Flaechen; `auswahl` steht stellvertretend fuer sie. */
+  --frei-bg: #ddf3e4;
+  --frei-fg: #17693c;
+  --warn-bg: #fdeecd;
+  --warn-fg: #9a6a00;
+  --erweiterung-bg: #efedfb;
+  --erweiterung-fg: #5a50c0;
+  --fehler-bg: #f9e9e9;
+  --fehler-fg: #b23a3a;
+  --belegt-bg: #f0f9f2;
+  --auswahl-bg: #f1eaf8;
+  --auswahl-fg: #7a4fa3;
+  /* Verweise (Type.GDS.Ref.*): Tag am Kasten und die Verweislinien im Baum —
+     Rosé, damit sie sich von den Struktur- und Statusfarben abheben. */
+  --verweis-bg: #fbeaf0;
+  --verweis-fg: #993556;
+  /* Statusstreifen am Baumkasten: laut Schema Pflicht, aber ohne eigene
+     Antwort in der Profilierung — gedaempftes Gruen, kein Statusfarbton. */
+  --schema-pflicht: #a9dcc9;
+  /* Werte in der XML-Darstellung (Petrol) — hebt den Inhalt vom Tag ab. */
+  --xml-wert: #0f6e56;
   --mono: ui-monospace, 'SF Mono', Consolas, monospace;
+  /* Radien (design.md): drei Familien — Bedienung, Kasten, Pille. */
+  --rund-balken: 3px;
+  --rund-tag: 4px;
+  --rund-bedienung: 8px;
+  --rund-umschalter: 10px;
+  --rund-kasten: 12px;
+  --rund-pill: 999px;
+  /* Schatten nur auf Schwebendem und beim Ueberfahren eines Kastens. */
+  --schatten-kasten: 0 1px 2px rgba(20, 33, 61, 0.04);
+  --schatten-hover: 0 6px 20px rgba(20, 33, 61, 0.1);
+  --schatten-panel: 0 12px 32px rgba(20, 33, 61, 0.14);
+  --schatten-modal: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 * {
   box-sizing: border-box;
@@ -67,8 +113,11 @@ app-root {
    Die Zonenhoehe ist bei jeder Fensterbreite gleich — statt umzubrechen
    geben die Elemente nach fester Reihenfolge nach (Breakpoints am Ende
    dieses Abschnitts): erst schrumpfen Eingabefelder, dann verlieren
-   Knoepfe ihre Beschriftung (.lbl-lang), zuletzt weichen die selten
-   genutzten ins Ueberlauf-Menue (.inline-only -> .overflow-only).
+   Knoepfe ihre Beschriftung (.lbl-lang).
+
+   Die Kopfzeile (Zeile 1, Objektleiste) traegt seit Editor v4 zusaetzlich
+   `.kopfzeile` und ihre eigenen Regeln am Ende dieser Datei; alle
+   Objekt-Werkzeuge stehen dort im ⋯-Menue, ein Ueberlauf entfaellt.
    ------------------------------------------------------------------ */
 .kopfleiste {
   background: var(--panel);
@@ -86,14 +135,6 @@ app-root {
   gap: 6px;
   min-width: 0;
 }
-/* Sichtbare Grenze zwischen Arbeitsbereich und Zustand/Aktion. */
-.zoneTrenner {
-  flex: 1 1 auto;
-  min-width: 8px;
-  border-right: 1px solid var(--border);
-  align-self: stretch;
-  margin: -7px 0;
-}
 /* Objekt-Identitaet darf schrumpfen, aber nicht verschwinden. */
 .zoneIdent {
   flex: 0 1 auto;
@@ -106,53 +147,11 @@ app-root {
   white-space: nowrap;
   max-width: 320px;
 }
-.zoneWerkzeuge {
-  flex: 0 1 auto;
-  overflow: hidden;
-}
-.zoneWerkzeuge button {
-  white-space: nowrap;
-}
-/* Der Zustand wechselt seinen Text — reservierte Breite haelt die
-   Primaeraktion an ihrem Platz (Befund 3 zu #80). */
-.zoneZustand {
-  flex: none;
-  justify-content: flex-end;
-  min-width: 0;
-}
-.zonePrimaer {
-  flex: none;
-}
-.zonePrimaer button {
-  min-width: 92px;
-  justify-content: center;
-}
-/* Zeile 2: Ort (Nachricht + Pfad) darf als einzige stark schrumpfen. */
-.zoneOrt {
-  flex: 1 1 auto;
-  overflow: hidden;
-}
-/* Innerhalb der Zone gibt die Nachrichtenwahl zuerst nach — ihr Name steht
-   als Wurzel ohnehin im Pfad, der Pfad dagegen ist nirgends sonst zu sehen. */
-.zoneOrt app-message-picker {
-  display: block;
-  flex: 0 3 auto;
-  min-width: 0;
-}
-.zoneModus {
-  flex: none;
-  gap: 8px;
-}
-.zoneFortschritt {
-  flex: none;
-  justify-content: flex-end;
-  gap: 6px;
-}
 .fsBalken {
   display: inline-block;
   width: 46px;
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--rund-balken);
   background: var(--signal-soft);
   overflow: hidden;
 }
@@ -162,15 +161,11 @@ app-root {
   background: var(--signal);
   transition: width 0.2s ease-out;
 }
-/* Ueberlauf-Eintraege sind erst unterhalb des schmalen Breakpoints da. */
-.overflow-only {
-  display: none;
-}
 .pill {
   font-size: 12px;
   background: var(--accent-soft);
   color: var(--accent);
-  border-radius: 20px;
+  border-radius: var(--rund-pill);
   padding: 2px 10px;
 }
 .spacer {
@@ -181,7 +176,7 @@ button {
   font-size: 13px;
   padding: 6px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   background: var(--panel);
   color: var(--text);
   cursor: pointer;
@@ -212,7 +207,7 @@ select {
   font: inherit;
   font-size: 13px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   padding: 6px 8px;
   background: var(--panel);
   color: var(--text);
@@ -240,73 +235,12 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
-#msgBtn {
-  max-width: 420px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 0 1 auto;
-  min-width: 84px;
-}
-#profilName {
-  width: 210px;
-  min-width: 0;
-}
-.toolgroup {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.toolgroup label {
-  font-size: 12px;
-  color: var(--muted);
-}
-/* Segment-Umschalter Betrachten|Bearbeiten|Geführt — ein Bedienelement fuer
-   alle Modi (#80); frueher je nach Modus Segment oder Menue-Haekchen. */
-.modusSeg {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  flex: none;
-}
-.modusSeg button {
-  border-radius: 0;
-}
-.modusSeg button:first-child {
-  border-radius: 6px 0 0 6px;
-}
-.modusSeg button:last-child {
-  border-radius: 0 6px 6px 0;
-  margin-left: -1px;
-}
-.modusSeg button.aktiv {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--weiss);
-  /* Der aktive Zustand ist der Zustand, nicht das Ziel — nicht anklickbar wirken. */
-  cursor: default;
-}
-.modusSeg button.aktiv:hover {
-  background: var(--accent);
-}
-#fortschritt {
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  /* Reservierte Breite: der Text wechselt beim Entscheiden staendig seine
-     Laenge und wuerde sonst seine Nachbarn verschieben. */
-  min-width: 0;
-  max-width: 230px;
-}
-
 #msgPanel {
   position: absolute;
   z-index: 40;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   width: 640px;
   max-width: 94vw;
@@ -364,7 +298,7 @@ a:focus-visible {
   z-index: 41;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   width: 460px;
   max-width: 92vw;
@@ -426,7 +360,7 @@ a:focus-visible {
   letter-spacing: 0.04em;
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--rund-pill);
   padding: 0 6px;
   margin-left: 4px;
   white-space: nowrap;
@@ -438,10 +372,12 @@ a:focus-visible {
   z-index: 40;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   min-width: 230px;
-  max-width: min(320px, calc(100vw - 16px));
+  /* Die Breite steht am Panel selbst (app-menu `breite`, Vorgabe 320px) —
+     hier bleibt nur die Notbremse gegen das Fenster. */
+  max-width: calc(100vw - 16px);
   max-height: 70vh;
   overflow: auto;
   padding: 4px 0;
@@ -480,7 +416,7 @@ label.menuItem {
 .menuGrund {
   display: block;
   font-size: 11px;
-  color: #5a50c0;
+  color: var(--erweiterung-fg);
   margin-top: 1px;
 }
 label.menuItem:has(input:disabled) {
@@ -539,7 +475,7 @@ label.menuItem:has(input:disabled) {
 /* Validierungsbericht (app-validation-dialog) */
 .validFehler {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   max-height: 320px;
   overflow: auto;
   font-family: var(--mono);
@@ -559,8 +495,8 @@ label.menuItem:has(input:disabled) {
   background: var(--accent-soft);
 }
 .vfItem.vfErw {
-  border-left: 3px solid #7f77dd;
-  background: #f7f6fd;
+  border-left: 3px solid var(--erweiterung-fg);
+  background: var(--erweiterung-bg);
 }
 /* Zwischenueberschrift im Pruefbericht (#107): trennt Verstoesse der Nachricht
    von Luecken der Profilierung — die Zurechnung ist der Zweck der Trennung. */
@@ -694,7 +630,7 @@ app-crumbs {
 }
 .crumb {
   padding: 2px 9px;
-  border-radius: 12px;
+  border-radius: var(--rund-kasten);
   cursor: pointer;
   color: var(--accent);
   background: var(--accent-soft);
@@ -737,16 +673,21 @@ app-crumbs {
   flex: 1;
   display: flex;
   min-height: 0;
+  position: relative;
+  background: var(--bg);
 }
 #colWrap {
   flex: 1;
   overflow: auto;
   min-width: 0;
   position: relative;
+  background: var(--bg);
 }
+/* Die Verweislinien schwingen rechts ueber den letzten Kasten hinaus
+   (refCurve: +50px Bauch) — das Polster rechts ist ihr Raum, nicht Luft. */
 #treeCanvas {
   position: relative;
-  padding: 14px 40px 40px 16px;
+  padding: 18px 40px 26px 20px;
   min-width: max-content;
   cursor: grab;
 }
@@ -771,6 +712,14 @@ app-crumbs {
   pointer-events: all;
   cursor: pointer;
 }
+/* Pfeilspitze der Verweislinien — im Stylesheet, weil ein Marker die Farbe
+   seiner Linie nicht erbt. */
+#linkSvg .refPfeil {
+  fill: var(--verweis-fg);
+}
+#linkSvg .refPfeilLeise {
+  fill-opacity: 0.45;
+}
 #linkSvg .lineLabel.onPath {
   fill: var(--accent);
   font-weight: 600;
@@ -788,7 +737,7 @@ app-crumbs {
 .nkids {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 9px;
   margin-left: 44px;
   padding: 0 0 4px;
 }
@@ -799,42 +748,51 @@ app-crumbs {
   margin-top: 0;
 }
 
-/* Kästen */
+/* Kästen — der Statusstreifen sitzt links in der Fläche, daher das größere
+   Polster auf dieser Seite. `overflow: hidden` hält ihn in der Rundung.
+   Rahmenstärke bleibt in jedem Zustand 1px: der ausgewählte Kasten bekommt
+   seinen zweiten Strich als Ring (box-shadow), damit beim Anklicken nichts
+   springt — die SVG-Linien vermessen die Kanten. */
 .box {
   background: var(--panel);
-  border: 1.5px solid var(--border);
-  border-radius: 9px;
-  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+  padding: 9px 12px 10px 15px;
   cursor: pointer;
   position: relative;
+  overflow: hidden;
   flex: none;
   width: 270px;
-  margin-bottom: 7px;
+  box-shadow: var(--schatten-kasten);
+  transition:
+    box-shadow 0.13s,
+    border-color 0.13s;
 }
 .box:hover {
   border-color: var(--border-stark);
+  box-shadow: var(--schatten-hover);
+}
+/* Farbige Umrandung (Ansicht-Menü): steht vor `.sel`, damit die Auswahl den
+   Ring gewinnt — beide Regeln haben dieselbe Spezifität. */
+.box.markiert {
+  border-color: var(--signal);
+  box-shadow: 0 0 0 1px var(--signal);
 }
 .box.sel {
-  border: 2.5px solid var(--accent);
-  padding: 6px 9px;
-}
-.box.parentBox {
-  background: var(--flaeche);
-}
-.box.leafBox {
-  background: var(--panel);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    var(--schatten-hover);
 }
 .box.mini {
-  padding: 3px 9px;
-  margin-bottom: 4px;
+  padding: 6px 11px 6px 15px;
   opacity: 0.75;
 }
 .box.mini:hover {
   opacity: 1;
 }
 .box.mini .bt {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 12.5px;
   display: flex;
   gap: 6px;
   align-items: center;
@@ -843,8 +801,8 @@ app-crumbs {
 .box.mini .bdoc,
 .box.mini .tags,
 .box.mini .tech,
+.box.mini .attrs,
 .box.mini .kard,
-.box.mini .togBtn,
 .box.mini .vrow {
   display: none;
 }
@@ -856,16 +814,13 @@ app-crumbs {
    bewusst NACH .leafBox/.parentBox — gleiche Spezifität, die spätere Regel
    gewinnt. .sel bleibt darüber (eigener 2.5px-Rahmen in der Akzentfarbe). */
 .box.belegt {
-  background: #f0f9f2;
+  background: var(--belegt-bg);
 }
 .box.belegt:not(.sel) {
-  border-color: #6fb98a;
-}
-.box.belegt:not(.sel):hover {
-  border-color: #4f9f6d;
+  border-color: var(--frei-fg);
 }
 .box.belegtSub:not(.belegt):not(.sel) {
-  border-color: #c3ddcb;
+  border-color: var(--schema-pflicht);
 }
 /* Der Haken gehört zum Namen und steht direkt dahinter; der Zähler ist ein
    Badge und sitzt rechts. Im Mini-Kasten schiebt der Testwert (.mv, margin-left:
@@ -875,7 +830,7 @@ app-crumbs {
   font-size: 12px;
   font-weight: 700;
   line-height: 1;
-  color: #1e7d3e;
+  color: var(--frei-fg);
 }
 .wsub {
   margin-left: auto;
@@ -884,10 +839,9 @@ app-crumbs {
   font-size: 10.5px;
   font-weight: 600;
   line-height: 1;
-  color: #2f7d51;
-  background: #e6f4ea;
-  border: 1px solid #c3ddcb;
-  border-radius: 999px;
+  color: var(--frei-fg);
+  background: var(--frei-bg);
+  border-radius: var(--rund-pill);
   padding: 2px 6px;
 }
 .mv + .wsub,
@@ -896,8 +850,9 @@ app-crumbs {
 }
 /* Steht der Zähler davor, hat der schon rechtsbündig geschoben — sonst teilten
    sich zwei `margin-left: auto` den freien Raum und das Badge rutschte in die
-   Mitte. */
-.wsub ~ .togBtn {
+   Mitte. Für den Wert am kompakten Kasten gilt dasselbe. */
+.wsub ~ .togBtn,
+.mv ~ .togBtn {
   margin-left: 6px;
 }
 .bname {
@@ -910,7 +865,8 @@ app-crumbs {
   margin-left: auto;
   font-family: var(--mono);
   font-size: 11px;
-  color: #1e7d3e;
+  font-style: italic;
+  color: var(--muted);
   max-width: 48%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -934,7 +890,7 @@ app-crumbs {
 .roval code {
   font-family: var(--mono);
   font-size: 12px;
-  color: #14532d;
+  color: var(--xml-wert);
   flex: none;
 }
 .roval .rolabel {
@@ -956,24 +912,24 @@ app-crumbs {
   font-family: var(--mono);
   font-size: 12px;
   padding: 3px 7px;
-  border: 1px solid #cfe0d3;
-  border-radius: 5px;
-  background: #f6fbf7;
-  color: #14532d;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-bedienung);
+  background: var(--flaeche-hell);
+  color: var(--xml-wert);
 }
 .vin::placeholder {
-  color: #a3b8ab;
+  color: var(--muted-schwach);
   font-style: italic;
 }
 /* Typwidrige Beispiel-/Testwerte (ValueService.wertProblem) */
 .vin.invalid,
 #detail textarea.invalid {
-  border-color: #c62828;
-  background: #fdf3f3;
-  color: #8e1c1c;
+  border-color: var(--fehler-fg);
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
 .feldProblem {
-  color: #c62828;
+  color: var(--fehler-fg);
   font-size: 11.5px;
   margin-top: 3px;
 }
@@ -1003,41 +959,50 @@ app-crumbs {
   display: none;
 }
 .box .bt {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 13.5px;
+  font-weight: 550;
+  letter-spacing: -0.006em;
+  line-height: 1.4;
   display: flex;
   align-items: center;
   gap: 6px;
   padding-right: 16px;
 }
+/* Ausgewählt und auf dem offenen Pfad (Container) kräftiger: die Kette, an der
+   man gerade arbeitet, soll sich vom Umfeld abheben. */
+.box.sel .bt,
+.box.parentBox .bt {
+  font-weight: 650;
+}
 .hideBtn,
 .dupBtn {
   position: absolute;
-  top: 5px;
+  top: 7px;
   display: none;
-  border: none;
-  background: var(--flaeche);
+  border: 1px solid var(--border);
+  background: var(--bg);
   color: var(--muted);
-  border-radius: 5px;
-  width: 20px;
+  border-radius: var(--rund-bedienung);
+  width: 22px;
   height: 20px;
-  line-height: 20px;
+  line-height: 18px;
   padding: 0;
   font-size: 11px;
   text-align: center;
   z-index: 2;
 }
 .hideBtn {
-  right: 5px;
+  right: 7px;
 }
 .dupBtn {
-  right: 28px;
+  right: 33px;
   font-size: 12px;
 }
 .hideBtn:hover,
 .dupBtn:hover {
   background: var(--flaeche-tief);
   color: var(--text);
+  border-color: var(--border-stark);
 }
 /* Gesperrt (Mindestanzahl der Profilierung, kein Duplizieren an der Vorgabe):
    sichtbar untaetig — ohne eigenen Zustand sieht das ✕ aus wie ein aktives und
@@ -1050,8 +1015,9 @@ app-crumbs {
 }
 .hideBtn:disabled:hover,
 .dupBtn:disabled:hover {
-  background: var(--flaeche);
+  background: var(--bg);
   color: var(--muted);
+  border-color: var(--border);
 }
 /* Auswahl-Zweig, auf den nicht umgeschaltet werden darf (Issue #50). */
 .gZweig.gesperrt {
@@ -1059,8 +1025,8 @@ app-crumbs {
   cursor: not-allowed;
 }
 .delBtn:hover {
-  background: #f9e9e9;
-  color: #b23a3a;
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
 .box:hover .hideBtn,
 .box:hover .dupBtn {
@@ -1072,19 +1038,26 @@ app-crumbs {
 .box.auspBox:hover .delBtn {
   display: block;
 }
+/* Auf-/Zuklappen: im Ruhezustand nur das Zeichen — der Rahmen erscheint erst,
+   wenn der Kasten unter dem Zeiger liegt oder ausgewählt ist. */
 .togBtn {
   margin-left: auto;
   flex: none;
-  border: 1px solid var(--border);
-  background: var(--flaeche);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--muted);
-  border-radius: 5px;
-  width: 20px;
+  border-radius: var(--rund-bedienung);
+  width: 22px;
   height: 20px;
-  line-height: 18px;
+  line-height: 1;
   padding: 0;
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
+}
+.box:hover .togBtn,
+.box.sel .togBtn {
+  border-color: var(--border);
+  background: var(--bg);
 }
 .togBtn:hover {
   background: var(--accent-soft);
@@ -1103,13 +1076,20 @@ app-crumbs {
   word-break: break-all;
 }
 .box .kard {
-  font-size: 11.5px;
-  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 3px;
+}
+/* Mit eigener Antwort trägt die Zeile den Statusnamen — sie ist dann Aussage,
+   nicht Fußnote. */
+.box .kard.kardStatus {
+  font-weight: 600;
 }
 .box .bdoc {
-  font-size: 11.5px;
+  font-size: 12px;
+  line-height: 1.45;
   color: var(--muted);
-  margin-top: 2px;
+  margin-top: 3px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -1128,11 +1108,12 @@ app-crumbs {
    title. */
 .attr {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 10.5px;
   line-height: 1.5;
+  background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0 4px;
+  border-radius: var(--rund-tag);
+  padding: 1px 6px;
   color: var(--muted);
   max-width: 100%;
   white-space: nowrap;
@@ -1144,7 +1125,7 @@ app-crumbs {
   opacity: 0.6;
 }
 .attr.attrPflicht {
-  border-color: var(--accent);
+  border-color: var(--accent-soft-tief);
   color: var(--accent);
 }
 .attr .attrWert {
@@ -1162,74 +1143,81 @@ app-crumbs {
   flex-wrap: wrap;
   margin-top: 3px;
 }
+/* Kennzeichen als Pillen: Fläche und Textfarbe tragen die Aussage, kein
+   Rahmen. Jede Variante ist ein Token-Paar — die Farben stehen in :root. */
 .tag {
-  font-size: 10px;
-  border-radius: 4px;
-  padding: 0 5px;
-  font-weight: 600;
+  font-size: 10.5px;
+  font-weight: 550;
+  line-height: 1.4;
+  border-radius: var(--rund-pill);
+  padding: 2px 7px;
+  white-space: nowrap;
 }
 .tag.t-choice {
-  background: #f1eaf8;
-  color: #7a4fa3;
+  background: var(--auswahl-bg);
+  color: var(--auswahl-fg);
 }
 .tag.t-wert {
-  background: #e5f4ea;
-  color: #1e7d3e;
+  background: var(--frei-bg);
+  color: var(--frei-fg);
 }
 .tag.t-ref {
-  background: #fbeaf0;
-  color: #993556;
+  background: var(--verweis-bg);
+  color: var(--verweis-fg);
 }
 .tag.t-dent {
-  background: #f9e9e9;
-  color: #b23a3a;
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
 .tag.t-daend {
-  background: #fdf3d7;
-  color: #8a6d0b;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 .box.phantom {
-  border: 1.5px dashed #1d9e75;
-  background: #f2faf5;
+  border: 1px dashed var(--xml-wert);
+  background: var(--belegt-bg);
   cursor: default;
 }
 .box.phantom .bt {
-  color: #0f6e56;
+  color: var(--xml-wert);
 }
 .tag.t-dsub {
-  background: #fdf3d7;
-  color: #8a6d0b;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 .box.mini.dfA .bname::after {
   content: ' Δ';
-  color: #8a6d0b;
+  color: var(--warn-fg);
   font-weight: 700;
 }
 .box.mini.dfR .bname::after {
   content: ' Δ';
-  color: #b23a3a;
+  color: var(--fehler-fg);
   font-weight: 700;
 }
 .tag.t-verr {
-  background: #f9e9e9;
-  color: #b23a3a;
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
 .tag.t-vsub {
-  background: #f9e9e9;
-  color: #b23a3a;
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
+/* Schema-Fehler des letzten Prüflaufs: der Ring gewinnt gegen Auswahl und
+   farbige Umrandung — ein ungültiger Kasten ist die dringlichere Aussage. */
 .box.valErr {
-  border-color: #b23a3a;
-  box-shadow: inset 0 0 0 1px #b23a3a;
+  border-color: var(--fehler-fg);
+  box-shadow: 0 0 0 1px var(--fehler-fg);
 }
 .box.mini.valErr .bname::after {
   content: ' !';
-  color: #b23a3a;
+  color: var(--fehler-fg);
   font-weight: 700;
 }
+/* Auswahlliste (Codeliste): der Wert kommt aus einer festen Liste. */
 .tag.t-code {
-  background: #faf1e2;
-  color: #b07018;
+  background: var(--accent-soft);
+  color: var(--text);
 }
 .tag.t-rec {
   background: var(--flaeche-tief);
@@ -1243,116 +1231,106 @@ app-crumbs {
   background: var(--accent-soft);
   color: var(--accent);
 }
-.tag.t-hint {
-  background: #dff2f0;
-  color: #0d7268;
-}
+.tag.t-hint,
 .tag.t-hsub {
-  background: #eef7f6;
-  color: #0d7268;
+  background: var(--frei-bg);
+  color: var(--frei-fg);
 }
 .tag.t-open {
-  background: #fdeecd;
-  color: #9a6a00;
-  border: 1px dashed #d9a927;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 /* Durchlauf einer Nachricht: was die Nachricht verlangt (grün) und was frei
    ist (orange) — dieselben Farben wie die Dispositionen der Profilierung. */
 .tag.t-mand {
-  background: #e6f5ef;
-  color: #12684f;
-  border: 1px solid #1d9e75;
+  background: var(--frei-bg);
+  color: var(--frei-fg);
 }
 .tag.t-frei {
-  background: #fbf1e2;
-  color: #8a560f;
-  border: 1px solid #ba7517;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 /* Gebundener Durchlauf: die Profilierung laesst die Frage offen ("zu klaeren"). */
 .tag.t-klaeren {
-  background: #fdf3d8;
-  color: #8a6400;
-  border: 1px solid #e2c469;
+  background: var(--verweis-bg);
+  color: var(--verweis-fg);
 }
 /* Gebundener Durchlauf: die Profilierung sagt zu diesem Element nichts. */
 .tag.t-nprof {
   background: var(--flaeche);
   color: var(--muted);
-  border: 1px dotted var(--border);
 }
 /* Gebundener Durchlauf: von der Profilierung ausgeschlossen (gesperrt). */
 .tag.t-lock {
   background: var(--flaeche-tief);
   color: var(--muted);
-  border: 1px solid var(--border-stark);
 }
-.box.excluded {
-  opacity: 0.55;
-  background: var(--flaeche);
-}
-.box.excluded .bt {
-  text-decoration: line-through;
-}
+/* Ausgeschlossen: durchgestrichener Name und gedämpft — keine graue Fläche
+   mehr, die den Kasten aus der Reihe der übrigen nähme. */
+.box.excluded,
 .box.exclInherit {
-  opacity: 0.4;
+  opacity: 0.62;
 }
-.box.exclInherit .bt {
+.box.excluded .bname,
+.box.exclInherit .bname {
   text-decoration: line-through;
 }
 .box.auspBox .bt {
   font-style: normal;
 }
 .box.addBox {
-  border-style: dashed;
+  border: 1px dashed var(--border-stark);
+  padding: 9px 12px;
   color: var(--muted);
   text-align: center;
   font-size: 12.5px;
   background: transparent;
+  box-shadow: none;
 }
 .box.addBox:hover {
-  color: var(--accent);
+  color: var(--text);
   border-color: var(--accent);
+  background: var(--panel);
 }
 /* Schema-Erweiterung: benutzerdefiniertes Element ausserhalb des XJustiz-Schemas. */
 .box.extBox {
-  border: 1.5px dashed #7f77dd;
-  background: #f7f6fd;
+  border: 1px dashed var(--erweiterung-fg);
+  background: var(--erweiterung-bg);
 }
 .tag.t-ext {
-  background: #efedfb;
-  color: #5a50c0;
-  border: 1px dashed #7f77dd;
+  background: var(--erweiterung-bg);
+  color: var(--erweiterung-fg);
 }
 .box.addBox.addExt:hover {
-  color: #5a50c0;
-  border-color: #7f77dd;
+  color: var(--erweiterung-fg);
+  border-color: var(--erweiterung-fg);
 }
 /* Datentyp der Nachbeauftragung (#97) — dezenter als die Kennzeichnung selbst. */
 .tag.t-typ {
-  background: #f5f4fc;
-  color: #5a50c0;
+  background: var(--erweiterung-bg);
+  color: var(--erweiterung-fg);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 /* Der gespeicherte Schema-Typ fehlt im aktiven Schema: Defekt, nicht Normalfall. */
 .tag.t-typerr {
-  background: #f9e9e9;
-  color: #b23a3a;
-  border: 1px solid #d98b8b;
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
 .typFehlt {
-  color: #b23a3a;
+  color: var(--fehler-fg);
 }
 .pillExt {
-  background: #efedfb;
-  color: #5a50c0;
+  background: var(--erweiterung-bg);
+  color: var(--erweiterung-fg);
 }
+/* Der Streifen läuft über die volle Höhe; die Rundung des Kastens schneidet
+   ihn zu (`.box { overflow: hidden }`). */
 .statusStrip {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 5px;
-  border-radius: 9px 0 0 9px;
+  width: 4px;
 }
 
 /* ── Nachrichten-Überlagerung (#147) ────────────────────────────────────
@@ -1371,7 +1349,6 @@ app-crumbs {
 .box.wertBox {
   width: 250px;
   padding: 3px 8px 3px 12px;
-  margin-bottom: 0;
   display: flex;
   align-items: baseline;
   gap: 7px;
@@ -1389,7 +1366,7 @@ app-crumbs {
   line-height: 1;
   letter-spacing: 0.02em;
   color: var(--text);
-  border-radius: 4px;
+  border-radius: var(--rund-tag);
   padding: 3px 4px;
 }
 .wertText {
@@ -1417,7 +1394,7 @@ app-crumbs {
   align-self: center;
   font-weight: 700;
   line-height: 1;
-  color: #b45309;
+  color: var(--warn-fg);
 }
 .box.wertBox.wertFehlt {
   background: transparent;
@@ -1447,14 +1424,14 @@ app-crumbs {
   line-height: 1;
   color: var(--muted);
   background: var(--flaeche-tief);
-  border-radius: 999px;
+  border-radius: var(--rund-pill);
   padding: 2px 6px;
 }
 .wbilanz + .wbilanz {
   margin-left: 4px;
 }
 .wbilanz.wbilanzAbw {
-  color: #b45309;
+  color: var(--warn-fg);
   background: var(--signal-soft);
 }
 
@@ -1470,18 +1447,25 @@ app-detail-panel {
    vorher hing ihre Sichtbarkeit an der Auswahl, und der erste Klick auf
    einen Kasten verschmaelerte den Baumbereich schlagartig um ~400px.
 
-   Die Breite waechst mit dem Fenster (clamp) und laesst sich am Griff
-   ziehen; der gezogene Wert kommt als Inline-Style und gewinnt dann.
+   Seit Editor v4 ist sie eine schwebende Karte auf dem Seitengrund, keine
+   angeklebte Randspalte: eingerueckt, gerundet, mit Schatten. Die
+   Standardbreite ist fest (394px) und laesst sich am Griff ziehen; der
+   gezogene Wert kommt als Inline-Style und gewinnt dann.
    ------------------------------------------------------------------ */
-#detail {
-  width: clamp(340px, 28%, 560px);
-  border-left: 1px solid var(--border);
+#detail,
+.sgDetailKarte {
+  width: 394px;
+  margin: 12px 12px 12px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+  box-shadow: var(--schatten-panel);
   background: var(--panel);
   padding: 0;
   display: flex;
   flex: none;
   position: relative;
   min-height: 0;
+  overflow: hidden;
 }
 #detail.zu {
   width: auto;
@@ -1491,23 +1475,29 @@ app-detail-panel {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  padding: 16px;
+  padding: 16px 17px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
 }
 /* Griff: schmal sichtbar, grosszuegig greifbar (Pseudo-Element verbreitert
-   die Trefferflaeche, ohne Layout zu kosten). */
+   die Trefferflaeche, ohne Layout zu kosten). Er liegt an der linken Kante
+   der Karte auf — `overflow: hidden` schneidet alles ab, was darueber
+   hinausragt. */
 .detailGriff {
-  flex: none;
-  width: 5px;
-  margin-left: -3px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 6px;
   cursor: col-resize;
-  position: relative;
   z-index: 2;
   touch-action: none;
 }
 .detailGriff::before {
   content: '';
   position: absolute;
-  inset: 0 -4px;
+  inset: 0 -3px 0 0;
 }
 .detailGriff:hover::after,
 .detailGriff:active::after {
@@ -1519,8 +1509,8 @@ app-detail-panel {
 }
 /* Eingeklappt: nur noch ein Streifen mit dem Wiederaufklapp-Knopf. */
 .detailAuf {
+  flex: 1;
   border: none;
-  border-left: 1px solid var(--border);
   background: var(--panel);
   color: var(--muted);
   padding: 0 6px;
@@ -1538,12 +1528,46 @@ app-detail-panel {
   top: -16px;
   z-index: 1;
   background: var(--panel);
-  margin: -16px -16px 8px;
-  padding: 12px 16px 8px;
+  margin: -16px -17px 0;
+  padding: 15px 17px 13px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
+}
+/* Die letzten beiden Stationen des Pfads: kurzer Weg zurueck, ohne die
+   Kopfzone selbst zum Pfad zu machen — die ganze Kette traegt die Fusszeile. */
+.detailKrumen {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-bottom: 5px;
+  overflow: hidden;
+}
+.krumeSep {
+  color: var(--muted);
+  flex: none;
+}
+.krumeBtn {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 18ch;
+  font-size: 12px;
+  padding: 2px 5px;
+  border: 0;
+  border-radius: var(--rund-tag);
+  background: transparent;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 auto;
+}
+.krumeBtn:hover {
+  background: var(--accent-hauch);
+  color: var(--accent);
 }
 .detailKopfText {
   flex: 1;
@@ -1551,21 +1575,20 @@ app-detail-panel {
 }
 .detailZu {
   flex: none;
-  border: none;
-  background: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--rund-bedienung);
+  background: transparent;
   color: var(--muted);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
-  padding: 2px 6px;
 }
 .detailZu:hover {
-  background: var(--accent-soft);
+  border-color: var(--border);
+  background: var(--bg);
   color: var(--accent);
-}
-/* Trennt Entscheidungen von Nachschlagbarem. */
-.detailTrenner {
-  border-top: 1px dashed var(--border);
-  margin: 16px 0 4px;
 }
 .detailRuhe {
   color: var(--muted);
@@ -1605,72 +1628,347 @@ app-detail-panel {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Standard-Beschreibung gedeckelt: bei gut dokumentierten Elementen schob sie
-   Status und Kardinalitaet sonst unter die Falz. */
-.docDeckel {
-  max-height: 5.6em;
+/* Standard-Beschreibung: Fliesstext, bei langen Erlaeuterungen auf drei
+   Zeilen gedeckelt — sonst schob sie Antwort und Karte unter die Falz. */
+.dokuText {
+  margin: 0;
+  min-width: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.dokuText.dokuKurz {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.docDeckel.docOffen {
-  max-height: none;
-}
 .docMehr {
+  align-self: flex-start;
   border: none;
   background: none;
   color: var(--accent);
-  font-size: 12px;
-  padding: 2px 0;
+  font-size: 13px;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .docMehr:hover {
   background: none;
-  text-decoration: underline;
+  color: var(--accent-hover);
 }
-#detail h3 {
+#detail h3,
+.sgDetailKarte h3 {
   color: var(--text-stark);
-  margin: 0 0 2px;
-  font-size: 15px;
-  word-break: break-word;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 640;
+  letter-spacing: -0.014em;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
 }
-#detail .sub {
+#detail .sub,
+.sgDetailKarte .sub {
   color: var(--muted);
-  font-size: 12px;
-  margin-bottom: 10px;
-  font-family: var(--mono);
-  word-break: break-all;
+  font-size: 12.5px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
 }
+/* Die Abschnitte liegen als Spalte mit festem Abstand im Inhalt (`gap`); ein
+   eigener Aussenabstand doppelte ihn. */
 .dsec {
-  margin: 14px 0;
+  margin: 0;
+  min-width: 0;
 }
-/* `.dsecTitel` ist die Variante fuer Abschnitte ohne Formularfeld (dort waere
-   ein <label> ohne Bezug — siehe label-has-associated-control). */
-.dsec > label,
-.dsec > .dsecTitel {
+/* Abschnitts-Label des Detailbereichs. Ein <span>, kein <label>: die meisten
+   Abschnitte tragen kein einzelnes Formularfeld, an das es gehoerte (siehe
+   label-has-associated-control). */
+.dLabel {
   display: block;
-  font-size: 11.5px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--muted);
   margin-bottom: 5px;
+}
+/* Kopf der gefuehrten Entscheidung: Titel und Zustandsmerker, die Antwort
+   selbst steht darunter in der gemeinsamen Liste. */
+.gefuehrtKopf {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.gefuehrtKopf .dLabel {
+  margin-bottom: 0;
+}
+/* ── Antwort-Liste: das meistbenutzte Bedienelement der Seite ────────
+   Eine Zeile je Antwort, 32px hoch, ohne Erklaertext — der steht im Tooltip
+   und in der Hilfe der Fusszeile. Ausgeschrieben machten die vier Saetze den
+   Block viermal so hoch wie noetig. Sie loest den alten Status-Strip **und**
+   die vier Dispositions-Knoepfe des gefuehrten Modus ab: eine Quelle. */
+.antwortListe {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.antwortZeile {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-bedienung);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+}
+.antwortZeile:hover {
+  border-color: var(--border-stark);
+}
+/* Platzhalter: zu dieser Wirkung kennt die Profilierung keine Stufe. Die Zeile
+   bleibt lesbar stehen — der Titel sagt, wo sie anzulegen ist. */
+.antwortZeile:disabled {
+  border-style: dashed;
+  color: var(--muted);
+  cursor: default;
+}
+.antwortZeile:disabled:hover {
+  border-color: var(--border);
+}
+.antwortPunkt {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--border-stark);
+  background: var(--panel);
+}
+.antwortZeile.aktiv .antwortPunkt {
+  border-width: 3.5px;
+}
+.antwortName {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.antwortZeile.aktiv .antwortName {
+  font-weight: 650;
+}
+.antwortFuell {
+  flex: 1;
+  min-width: 2px;
+}
+.antwortTaste {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10px;
   font-weight: 600;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: var(--rund-tag);
+  background: var(--bg);
+  color: var(--muted);
+}
+.antwortZeile.aktiv .antwortTaste {
+  background: var(--accent-soft);
+}
+/* Dieselbe Aussage ohne Bedienelemente — was in der freigegebenen Fassung
+   festgelegt ist, samt Klartext der Wirkung. */
+.festgelegt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+  background: var(--accent-soft);
+}
+.festgelegtPunkt {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  margin-top: 4px;
+  border-radius: 50%;
+  border: 3.5px solid var(--accent);
+  background: var(--panel);
+}
+.festgelegtText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.festgelegtName {
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--text);
+}
+.festgelegtErkl {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+/* Alternativen einer Auswahl: angehakt = im Szenario zulaessig. */
+.zweigListe {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.zweigZeile {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-bedienung);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 450;
+}
+.zweigZeile.an {
+  border-color: var(--accent-soft-tief);
+  background: var(--accent-hauch);
+  font-weight: 550;
+}
+.zweigZeile:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.zweigBox {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: var(--rund-tag);
+  border: 1px solid var(--border-stark);
+  background: var(--panel);
+  font-size: 10px;
+  line-height: 1;
+  color: transparent;
+}
+.zweigZeile.an .zweigBox {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.zweigName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* ── Karte: Kardinalitaet, Wert und der technische Name ──────────────
+   Was zusammen gelesen wird, steht zusammen in einer Flaeche — der
+   technische Name als Fussnote darunter, nicht als Untertitel oben. */
+.detailKarte {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 13px;
+  background: var(--flaeche-hell);
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+}
+.karteFeld {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.karteText {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.kardHint {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.karteSchema {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.karteSchema .dLabel {
+  flex: none;
+  margin-bottom: 0;
+}
+.karteTech {
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Die Notiz geht ins Team, nicht in die Nachricht — das muss dabeistehen. */
+.notizHinweis {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  margin-top: 6px;
+}
+/* Schmales Fenster: die Karte schwebt ueber der Flaeche statt sie zu
+   halbieren — die Kaskade braucht die Breite dringender. Die Flaeche haelt
+   den Platz trotzdem frei, sonst laege ihr rechter Rand unter dem Panel.
+   Ebene 60: unter den Menues der Kopfzonen, ueber allem im Baum. */
+@media (max-width: 1040px) {
+  #detail {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: min(340px, calc(100% - 24px));
+    max-width: calc(100% - 24px);
+    margin: 0;
+    z-index: 60;
+  }
+  #main:has(#detail:not(.zu)) #colWrap {
+    padding-right: 364px;
+  }
 }
 .docbox {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   padding: 8px 10px;
   font-size: 13px;
 }
 /* Gefuehrte Entscheidung (Detailpanel) */
 .guidedSec {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   padding: 10px;
   background: var(--bg);
 }
-.guidedSec .gOffen {
-  background: #fdeecd;
-  color: #9a6a00;
-  border-radius: 4px;
+.gOffen {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  border-radius: var(--rund-tag);
   padding: 0 6px;
   font-size: 10px;
   margin-left: 6px;
@@ -1685,7 +1983,7 @@ app-detail-panel {
 /* Einordnung der Station: grün = die Nachricht verlangt sie, orange = frei.
    Dieselben Farben wie die Dispositionen der Profilierung (profile-defaults). */
 .guidedSec .gStation {
-  border-radius: 4px;
+  border-radius: var(--rund-tag);
   padding: 0 6px;
   font-size: 10px;
   margin-left: 6px;
@@ -1777,7 +2075,7 @@ app-detail-panel {
 .gChip {
   font-size: 11.5px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--rund-kasten);
   padding: 2px 9px;
   background: var(--panel);
   max-width: 100%;
@@ -1860,8 +2158,8 @@ app-detail-panel {
   background: var(--accent-soft);
 }
 .pillDraft {
-  background: #fdeecd;
-  color: #9a6a00;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 .statusBtns {
   display: flex;
@@ -1879,9 +2177,11 @@ app-detail-panel {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 .kardRow input {
-  width: 70px;
+  width: 62px;
   font-family: var(--mono);
 }
 textarea {
@@ -1891,7 +2191,7 @@ textarea {
 }
 .clWrap {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   max-height: 240px;
   overflow: auto;
 }
@@ -1958,7 +2258,7 @@ textarea {
   font-size: 12.5px;
   color: var(--muted);
   background: #faf1e2;
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   padding: 8px 10px;
 }
 .auspRow {
@@ -1974,26 +2274,21 @@ textarea {
   padding: 4px 8px;
 }
 
-/* Fusszeile (#80): genau eine Zeile — Zustand links, Aufklapper in der Mitte,
-   Tastaturhilfe rechts. Die Erklaerungen liegen darueber in einem eigenen
-   Band, das nur auf Wunsch erscheint. */
-#legend {
+/* Fusszeile: Grundmasse und Systemtelemetrie. Die Optik der drei Zonen
+   steht im Editor-v4-Abschnitt am Ende dieser Datei. */
+#legend,
+.fusszeile {
   border-top: 1px solid var(--border);
   background: var(--panel);
-  padding: 5px 16px;
   display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: var(--muted);
   align-items: center;
   min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
 }
-/* Zustand und Tastaturhilfe teilen sich den Raum zu gleichen Teilen, damit der
-   Aufklapper dazwischen an seinem Platz bleibt. Mit `margin-left:auto` auf
-   beiden Seiten wanderte er sonst mit der Laenge des Zustandstexts — genau das
-   Wandern, das die Kopfzone in #80 losgeworden ist. */
-#zustandText {
-  flex: 1 1 0;
+#zustandText,
+.sgZustandText {
+  flex: none;
   min-width: 0;
   display: flex;
   gap: 8px;
@@ -2001,63 +2296,29 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-#zustandText .warn {
-  color: #b23a3a;
+#zustandText .warn,
+.sgZustandText .warn {
+  color: var(--fehler-fg);
   font-weight: 700;
 }
-#zustandText .zustandTeil::before {
+#zustandText .zustandTeil::before,
+.sgZustandText .zustandTeil::before {
   content: '· ';
-}
-#legendToggle {
-  flex: none;
-  font-size: 12px;
-  padding: 2px 10px;
-  color: var(--muted);
-}
-#tastenHilfe {
-  flex: 1 1 0;
-  min-width: 0;
-  text-align: right;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-#legendErklaerung {
-  border-top: 1px solid var(--border);
-  background: var(--panel);
-  padding: 6px 16px;
-  display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: var(--muted);
-  flex-wrap: wrap;
-  align-items: center;
 }
 .legDot {
   display: inline-block;
   width: 10px;
   height: 10px;
-  border-radius: 3px;
+  border-radius: var(--rund-balken);
   margin-right: 5px;
   vertical-align: -1px;
 }
 
+/* Leerer Zustand des Editors: Breite und Abstand — die Optik kommt von
+   `.dashLeer` (leere Sammlung der Uebersicht). */
 #empty {
   max-width: 640px;
-  margin: 60px auto;
-  text-align: center;
-  color: var(--muted);
-}
-#empty .big {
-  font-size: 40px;
-}
-#empty h2 {
-  color: var(--text-stark);
-}
-#empty ol {
-  text-align: left;
-  display: inline-block;
-  line-height: 2;
+  margin: 48px auto;
 }
 
 /* Dashboard (Bibliothek der Profilierungen) */
@@ -2125,7 +2386,7 @@ app-schema-suche {
 .dashCard {
   background: var(--panel);
   border: 1.5px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--rund-kasten);
   padding: 12px 14px;
   cursor: pointer;
   display: flex;
@@ -2240,7 +2501,7 @@ app-schema-suche {
   display: inline-block;
   width: 42px;
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--rund-balken);
   /* Gleiche Farbgebung wie der Balken in der Kopfzone (.fsBalken). */
   background: var(--signal-soft);
   overflow: hidden;
@@ -2265,8 +2526,8 @@ app-schema-suche {
   flex: none;
 }
 .menuItem.del:hover {
-  background: #f9e9e9;
-  color: #b23a3a;
+  background: var(--fehler-bg);
+  color: var(--fehler-fg);
 }
 #dashEmpty {
   max-width: 640px;
@@ -2287,7 +2548,7 @@ app-schema-suche {
   gap: 0;
   margin-bottom: 14px;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   overflow: hidden;
 }
 .viewToggle button {
@@ -2346,7 +2607,7 @@ app-schema-suche {
   white-space: pre-wrap;
   word-break: break-word;
   background: var(--accent-soft);
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   padding: 5px 8px;
 }
 /* ── Schlagworte (Tags) ──────────────────────────────────────────────
@@ -2376,7 +2637,7 @@ app-tag-eingabe input {
   font-size: 12px;
   line-height: 1.4;
   padding: 2px 10px;
-  border-radius: 20px;
+  border-radius: var(--rund-pill);
   border: 1px solid var(--border);
   background: var(--flaeche);
   color: var(--text);
@@ -2445,12 +2706,12 @@ app-tag-eingabe input {
 
 /* Abnahme durch die BLK-AG: Siegel-Badge, Warnvariante, Rollen-Badge/Filter. */
 .pillAbn {
-  background: #ddf3e4;
-  color: #17693c;
+  background: var(--frei-bg);
+  color: var(--frei-fg);
 }
 .pillAbnWarn {
-  background: #fdeecd;
-  color: #9a6a00;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 /* BETA-Kennzeichnung des Werkzeugs: steht in jeder Kopfzeile neben der Rolle. */
 .betaPill {
@@ -2458,8 +2719,8 @@ app-tag-eingabe input {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  background: #fdeecd;
-  color: #9a6a00;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 /* In der Uebersichts-Kopfzeile (space-between) zieht das Badge den freien Raum
    an sich, damit es zusammen mit dem Rollen-Badge rechts steht. */
@@ -2505,7 +2766,7 @@ app-tag-eingabe input {
 
 dialog {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   max-width: 560px;
   width: 90vw;
@@ -2517,7 +2778,7 @@ dialog::backdrop {
 .menuQuelle {
   margin-left: 6px;
   padding: 1px 5px;
-  border-radius: 6px;
+  border-radius: var(--rund-bedienung);
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 11px;
@@ -2532,7 +2793,7 @@ dialog::backdrop {
   gap: 6px;
   padding: 22px 14px;
   border: 2px dashed var(--border-stark);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   background: var(--flaeche);
   text-align: center;
 }
@@ -2576,7 +2837,7 @@ dialog::backdrop {
   counter-increment: wiz;
   padding: 3px 10px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--rund-pill);
 }
 .wizSchritte li::before {
   content: counter(wiz) '. ';
@@ -2603,7 +2864,7 @@ dialog::backdrop {
   max-height: 46vh;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   padding: 6px 0;
 }
 /* Die Wahl ist ein Knopf, sieht aber aus wie ein Listeneintrag (.msgItem). */
@@ -2668,14 +2929,14 @@ dialog::backdrop {
 }
 .typWarn {
   font-size: 12px;
-  color: #9a6a00;
+  color: var(--warn-fg);
 }
 .typPanel {
   position: fixed;
   z-index: 60;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   /* Breite muss zu DatentypPicker.BREITE passen; Hoehe setzt die Komponente
      je nach Platz ueber dem/unter dem Knopf. */
@@ -2727,12 +2988,12 @@ dialog::backdrop {
   color: var(--muted);
 }
 .erwProblem {
-  color: #b23a3a;
+  color: var(--fehler-fg);
   font-size: 12.5px;
   margin-top: 8px;
 }
 .erwWarn {
-  color: #9a6a00;
+  color: var(--warn-fg);
   font-size: 12.5px;
   margin-top: 8px;
 }
@@ -2757,7 +3018,7 @@ dialog::backdrop {
   background: var(--preussischblau);
   color: var(--weiss);
   padding: 8px 18px;
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   font-size: 13px;
   opacity: 0;
   transition: opacity 0.3s;
@@ -2781,7 +3042,7 @@ app-tree-context-menu {
   padding: 4px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   box-shadow: 0 8px 24px rgba(28, 39, 51, 0.18);
   display: flex;
   flex-direction: column;
@@ -2793,7 +3054,7 @@ app-tree-context-menu {
   font: inherit;
   color: var(--text);
   padding: 6px 10px;
-  border-radius: 5px;
+  border-radius: var(--rund-tag);
   cursor: pointer;
 }
 .ctxMenu button:hover {
@@ -2807,7 +3068,7 @@ app-tree-context-menu {
   max-height: 52vh;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
 }
 .vglZeile {
   display: flex;
@@ -2844,7 +3105,7 @@ app-tree-context-menu {
   color: var(--muted);
 }
 .vglVorher {
-  color: #b23a3a;
+  color: var(--fehler-fg);
   text-decoration: line-through;
 }
 .vglNachher {
@@ -2875,14 +3136,19 @@ app-tree-context-menu {
   display: none;
 }
 /* ------------------------------------------------------------------
-   Breakpoints der Kopfzone (#80)
+   Breakpoints der Kopfzone (Editor v4)
 
    Zielkorridor sind 900-1680px: halbes Fenster neben einer anderen App
    bis Laptop-Vollbild. Statt umzubrechen gibt die Kopfzone in fester
-   Reihenfolge nach — die Zeilenzahl bleibt dabei immer zwei.
+   Reihenfolge nach — die Zeilenzahl bleibt dabei immer drei.
 
    ~1280px  lange Beschriftungen weichen Kurzform/Symbol, Felder schrumpfen
-   ~1050px  selten Genutztes weicht in das Ueberlauf-Menue
+   ~1240px  die Ast-Chips weichen dem Menue "Abschnitte" (Editor-v4-Block)
+   ~1040px  die Stand-Beschriftung kuerzt auf "x / y" (Editor-v4-Block)
+
+   Die Kopfzeile (Zeile 1) traegt seit Editor v4 alle Werkzeuge im ⋯-Menue
+   und bleibt bei jeder Breite gleich; die Ort-Zeile schrumpft intrinsisch
+   (das Suchfeld gibt zuerst nach, der Nachrichtenname kuerzt mit Ellipsis).
 
    Bewusst `display: none` statt `visibility`: die ausgeblendete Fassung
    darf von Screenreadern nicht als zweite, identische Aktion vorgelesen
@@ -2898,35 +3164,12 @@ app-tree-context-menu {
     padding-left: 12px;
     padding-right: 12px;
   }
-  #profilName {
-    width: 130px;
-  }
-  #msgBtn {
-    max-width: 240px;
-  }
-  #fortschritt {
-    max-width: 150px;
-  }
-  .zoneIdent .objName {
-    max-width: 190px;
-  }
-  /* Menues, Zurueck-Knopf und das Feldlabel tragen nur noch ihre Kurzform;
-     der Platzhalter im Feld sagt ohnehin, was dort hineingehoert. */
-  .mAnsicht .lbl-lang,
-  .mDatenbasis .lbl-lang,
-  .mWeiteres .lbl-lang,
-  .homeBtn .lbl-lang,
-  .zoneIdent .lbl-lang {
+  /* Das Ansichtsmenue traegt nur noch sein Zeichen. */
+  .mAnsicht .lbl-lang {
     display: none;
   }
-  .mAnsicht .lbl-kurz,
-  .mDatenbasis .lbl-kurz,
-  .mWeiteres .lbl-kurz {
+  .mAnsicht .lbl-kurz {
     display: inline;
-  }
-  /* Die Abnahme bleibt als Zeichen stehen — der Tooltip traegt den Text. */
-  .zoneZustand .pillBtn .lbl-lang {
-    display: none;
   }
 }
 
@@ -2934,39 +3177,11 @@ app-tree-context-menu {
   .kopfleiste {
     gap: 6px;
   }
-  /* Objekt-Werkzeuge weichen ins Menue; die Eintraege dort sind dieselben
-     Aktionen (.overflow-only im Template). */
-  .inline-only {
-    display: none;
-  }
-  .overflow-only {
-    display: block;
-  }
-  .zoneWerkzeuge {
-    display: none;
-  }
-  #profilName {
-    width: 110px;
-  }
-  /* Der Pfad hat Vorrang: die Nachrichtenwahl behaelt nur noch so viel
-     Breite, dass ihr Anfang lesbar bleibt (voller Name im Tooltip). */
-  #msgBtn {
-    max-width: 120px;
-    min-width: 64px;
-  }
-  /* Der Fortschritt bleibt als Balken; die Zahl steht im Tooltip der Zone. */
-  #fortschritt {
-    display: none;
-  }
-  .zoneIdent .objName {
-    max-width: 130px;
-  }
 }
 
 @media print {
   .kopfleiste,
   #legend,
-  #legendErklaerung,
   #main,
   #msgPanel,
   #toast {
@@ -3011,9 +3226,9 @@ app-tree-context-menu {
   .prow .pext {
     font-size: 10px;
     font-weight: 700;
-    color: #5a50c0;
-    border: 1px dashed #7f77dd;
-    border-radius: 3px;
+    color: var(--erweiterung-fg);
+    border: 1px dashed var(--erweiterung-fg);
+    border-radius: var(--rund-balken);
     padding: 0 4px;
   }
   .prow .pst {
@@ -3036,7 +3251,7 @@ app-tree-context-menu {
     color: var(--text);
     background: var(--flaeche);
     padding: 1px 6px;
-    border-radius: 3px;
+    border-radius: var(--rund-balken);
   }
 }
 
@@ -3061,7 +3276,7 @@ app-tree-context-menu {
   gap: 18px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--rund-kasten);
   padding: 16px 18px;
   margin-bottom: 28px;
 }
@@ -3132,7 +3347,7 @@ app-tree-context-menu {
 .htMerke {
   border-left: 3px solid var(--accent);
   background: var(--accent-soft);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--rund-bedienung) var(--rund-bedienung) 0;
   padding: 8px 12px;
   font-size: 13px;
 }
@@ -3144,7 +3359,7 @@ app-tree-context-menu {
   width: 100%;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   background: var(--panel);
   cursor: zoom-in;
   overflow: hidden;
@@ -3176,7 +3391,7 @@ app-tree-context-menu {
 .htLupe img {
   max-width: 100%;
   max-height: 100%;
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
 }
 
@@ -3201,7 +3416,7 @@ app-tree-context-menu {
   font-size: 11.5px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--rund-tag);
   padding: 1px 5px;
 }
 
@@ -3231,7 +3446,7 @@ app-tree-context-menu {
   margin: 0 auto 12px;
   background: var(--panel);
   border: 1.5px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--rund-kasten);
   overflow: hidden;
 }
 /* Kopfzeile in der Seitenfarbe: sie hebt das Szenario von seinen
@@ -3421,7 +3636,7 @@ app-tree-context-menu {
   overflow: auto;
   max-height: 60vh;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
 }
 .matrixTabelle {
   border-collapse: collapse;
@@ -3516,7 +3731,7 @@ app-tree-context-menu {
   max-height: 32vh;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--rund-bedienung);
 }
 .eoEintrag {
   display: flex;
@@ -3586,7 +3801,7 @@ app-tree-context-menu {
   gap: 5px;
   padding: 2px 9px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--rund-pill);
   background: var(--accent-soft);
   color: var(--text);
   font-size: 12px;
@@ -3645,7 +3860,7 @@ app-tree-context-menu {
 .kzKachel {
   background: var(--panel);
   border: 1.5px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--rund-kasten);
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -3685,7 +3900,7 @@ app-tree-context-menu {
   margin: 0 auto 18px;
   background: var(--panel);
   border: 1.5px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--rund-kasten);
   padding: 12px 16px 8px;
 }
 .kzDiagrammKopf {
@@ -3733,7 +3948,7 @@ app-tree-context-menu {
 /* Fehleranteil: Signalrot bewusst ausserhalb der Markenpalette, wie die
    uebrigen fachlichen Warnfarben. */
 .kzBalkenFehler {
-  fill: #b23a3a;
+  fill: var(--fehler-fg);
 }
 .kzBalkenText {
   font-family: var(--mono);
@@ -3761,4 +3976,1635 @@ app-tree-context-menu {
   font-size: 12px;
   line-height: 1.5;
   color: var(--muted);
+}
+
+/* ------------------------------------------------------------------
+   Styleguide (?ansicht=styleguide, ADR 0022): Bausteine und Tokens der App
+   mit dem echten Stylesheet — Quelle des Design-System-Spiegels. Jede
+   Karte ist ein <section data-ds-card>; scripts/design-system-bundle.mjs
+   exportiert ihr Markup unveraendert. Die .sg*-Klassen sind nur der Rahmen
+   der Seite, kein Baustein.
+   ------------------------------------------------------------------ */
+app-styleguide {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.sgGruppe {
+  max-width: 1120px;
+  margin: 30px auto 6px;
+  font-size: 16px;
+  color: var(--text-stark);
+}
+.sgTitel {
+  max-width: 1120px;
+  margin: 16px auto 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.sgTitel code {
+  font-family: var(--mono);
+}
+.sgKarte {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 18px;
+  border: 1px dashed var(--border-stark);
+  border-radius: var(--rund-kasten);
+}
+.sgReihe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.sgReihe + .sgReihe {
+  margin-top: 14px;
+}
+.sgUntertitel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 14px 0 8px;
+}
+.sgUntertitel:first-child {
+  margin-top: 0;
+}
+.sgTypoZeile {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--flaeche-tief);
+}
+.sgTypoZeile:last-child {
+  border-bottom: 0;
+}
+.sgTypoMeta {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.sgTypoMeta code {
+  font-family: var(--mono);
+}
+.sgTypoProbe {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sgProbe {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  min-width: 190px;
+}
+.sgRadiusProbe {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  background: var(--panel);
+  border: 1.5px solid var(--border);
+}
+.sgAbstandZeile {
+  display: grid;
+  grid-template-columns: 90px 120px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 12px;
+}
+.sgAbstandProbe {
+  display: inline-block;
+  height: 14px;
+  background: var(--accent-soft-tief);
+  border-radius: 2px;
+}
+.sgSwatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px 16px;
+}
+.sgSwatch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  min-width: 0;
+}
+.sgFarbe {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--rund-bedienung);
+  border: 1px solid var(--border);
+}
+.sgSwatchText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+.sgSwatchText code,
+.sgWert {
+  font-family: var(--mono);
+}
+.sgWert,
+.sgRolle {
+  color: var(--muted);
+}
+.sgTypo h2,
+.sgTypo h3 {
+  margin: 10px 0 4px;
+}
+.sgMono {
+  font-family: var(--mono);
+}
+/* Das Menue liegt in der App fixiert unter seinem Knopf; im Styleguide steht
+   es im Fluss, damit es als Baustein sichtbar ist. */
+.sgMenuStatisch {
+  position: static;
+}
+.sgFilterStatisch {
+  position: static;
+  max-height: none;
+  border-right: 0;
+  padding: 0;
+}
+/* Reihe mit Elementen ungleicher Hoehe (Baum-Kaesten, Menuepanels): oben
+   buendig statt mittig — sonst schwebten die kurzen Kaesten in der Mitte. */
+/* Karte, die breiter als die 1120px-Spur der Seite gezeigt werden muss —
+   die Kopfzone braucht ihre Zielbreite (1280px), sonst draengen sich die
+   Gruppen der Arbeits-Zeile schon im Styleguide. */
+.sgBreit {
+  max-width: 1360px;
+}
+/* Karte eines schmalen Bausteins: sie soll auf der Seite so breit stehen wie
+   spaeter im Spiegel (`data-ds-width`), nicht ueber die ganze Spur gezogen. */
+.sgSchmal {
+  max-width: 480px;
+}
+.sgReiheOben {
+  align-items: flex-start;
+}
+.sgAbstandOben {
+  margin-top: 18px;
+}
+/* Die Karten der Gruppe „Editor" duerfen die Ids der App nicht mitbringen
+   (`#detail`, `#legend`, `#fussPfad`, `#crumbs`, `#zustandText` kommen je
+   Seite nur einmal vor). Statt die Werte zu wiederholen, tragen die Regeln
+   dort einen Klassen-Alias — `.sgDetailKarte`, `.sgFussPfad`,
+   `.sgZustandText`, `.sgCrumbs`. Hier steht nur, was `#crumbs` sonst selbst
+   setzt: die Kette ist im Fuss immer offen. */
+.sgCrumbs {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+/* Exportierte Karte (design-system/): nur der Baustein auf dem Grund der App. */
+body.dsVorschau {
+  margin: 0;
+  padding: 12px;
+  background: var(--bg);
+}
+body.dsVorschau .sgKarte {
+  border: 0;
+  padding: 0;
+  max-width: none;
+}
+
+/* ------------------------------------------------------------------
+   Uebersicht v4 (design/profil-uebersicht-v4.dc.html, ADR 0022)
+
+   Leiste mit Reitern, Filterspalte links, Sammlung als Kacheln oder
+   Liste. Die Regeln hier ueberschreiben bewusst die aelteren Kachel- und
+   Reiter-Regeln oben (gleiche Spezifitaet, spaetere Regel gewinnt), damit
+   Testdaten und Projekte dieselbe Formensprache bekommen, ohne dass ihre
+   Templates angefasst werden muessen.
+   ------------------------------------------------------------------ */
+/* Reiterleiste: ruhige Segmentgruppe statt Rahmenkasten. */
+.viewToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  margin: 0;
+  background: var(--bg);
+  border: 0;
+  border-radius: var(--rund-umschalter);
+  overflow: visible;
+}
+.viewToggle button {
+  border: 0;
+  border-radius: var(--rund-bedienung);
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 400;
+  background: transparent;
+  color: var(--muted);
+}
+.viewToggle button.active {
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--schatten-kasten);
+  opacity: 1;
+  cursor: default;
+}
+.viewToggle button:not(.active):hover {
+  background: var(--panel);
+  color: var(--text);
+}
+.dashTop .viewToggle {
+  margin-bottom: 14px;
+}
+.dashHead h1 {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+/* Menues: weicher Schatten, Eintraege mit eigener Rundung. */
+.menuPanel {
+  box-shadow: var(--schatten-panel);
+  padding: 6px;
+}
+.menuItem {
+  border-radius: var(--rund-bedienung);
+  padding: 9px 11px;
+}
+.menuItem:hover {
+  background: var(--bg);
+}
+dialog {
+  box-shadow: var(--schatten-modal);
+}
+button:hover {
+  background: var(--bg);
+}
+/* Kachel: ein Rahmen, eine leichte Kante, beim Ueberfahren angehoben. */
+.dashCard {
+  border-width: 1px;
+  padding: 16px 17px;
+  gap: 8px;
+  box-shadow: var(--schatten-kasten);
+  transition:
+    box-shadow 0.14s,
+    border-color 0.14s;
+}
+.dashCard:hover {
+  border-color: var(--border-stark);
+  box-shadow: var(--schatten-hover);
+}
+.dcName {
+  font-size: 15px;
+  line-height: 1.32;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.64em;
+}
+.dcMenuBtn {
+  flex: none;
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--rund-bedienung);
+  font-size: 15px;
+  line-height: 1;
+}
+.dashCard:hover .dcMenuBtn,
+.listeZeile:hover .dcMenuBtn {
+  border-color: var(--border);
+  background: var(--bg);
+}
+
+#dash.dashV4 {
+  padding: 0;
+}
+.dashLeiste {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.dashLeisteInnen {
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 11px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.dashLeisteRechts {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dashKoerper {
+  max-width: 1560px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr);
+  align-items: start;
+}
+
+/* Filterspalte: Achsen mit Zaehlern; der Zaehler sagt, was der Klick braechte. */
+.dashFilter {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow: auto;
+  padding: 22px 16px 40px 28px;
+  border-right: 1px solid var(--border);
+}
+.fKopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 12px;
+}
+.fAchseTitel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.fReset,
+.fAchseReset {
+  font: inherit;
+  font-size: 12px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--rund-tag);
+  background: none;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.fReset:hover,
+.fAchseReset:hover {
+  color: var(--text);
+  background: none;
+}
+.fAchseReset {
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1;
+}
+.fAlle,
+.fWert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--rund-bedienung);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.fAlle {
+  gap: 9px;
+  padding: 7px 10px;
+}
+.fAlle:hover,
+.fWert:hover {
+  background: var(--flaeche);
+}
+.fAlle.aktiv,
+.fWert.aktiv,
+.fAlle.aktiv:hover,
+.fWert.aktiv:hover {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.fWert.leer {
+  color: var(--muted);
+}
+.fMarke {
+  flex: none;
+  width: 3px;
+  height: 15px;
+  border-radius: var(--rund-pill);
+  background: transparent;
+}
+.fAlle.aktiv .fMarke {
+  background: var(--accent);
+}
+.fBox {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--rund-tag);
+  font-size: 9px;
+  line-height: 1;
+  color: var(--on-accent);
+  border: 1px solid var(--border-stark);
+  background: var(--panel);
+}
+.fWert.aktiv .fBox {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.fLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fLabel.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.fZahl {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.fAchsen {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-top: 22px;
+}
+.fAchse {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fAchseKopf {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 0 10px 7px;
+}
+
+/* Kopf und Werkzeugzeile der Sammlung. */
+.dashMain {
+  min-width: 0;
+  padding: 24px 28px 80px;
+}
+.dashKopf {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.dashKopfText {
+  min-width: 0;
+}
+.dashKopf h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.dashKopf .dashSub {
+  margin: 5px 0 0;
+  font-size: 14px;
+  max-width: 66ch;
+  text-wrap: pretty;
+}
+.dashKopfAktionen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dashKopfAktionen button {
+  padding: 9px 14px;
+}
+.dashKopfAktionen button:hover:not(.primary) {
+  border-color: var(--accent);
+}
+.dashMehrBtn {
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 13px;
+  height: 38px;
+}
+.dashWerkzeuge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+/* Eine Formensprache fuer beide Suchen: die der Bibliothek und die der
+   Ort-Zeile im Editor (`.suchFeld`). Groesse und Rundung unterscheiden sich
+   (dort eine Zeile im Band, hier ein Werkzeug ueber der Liste) — alles
+   Uebrige, bis zum Fokusring, ist dieselbe Regel. */
+.suchFeld,
+.dashSucheFeld {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--rund-umschalter);
+  flex: 1 1 280px;
+  max-width: 360px;
+}
+.suchFeld:focus-within,
+.dashSucheFeld:focus-within {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.suchFeld > span,
+.dashSucheFeld > span {
+  flex: none;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+}
+.suchFeld input[type='text'],
+.suchFeld input[type='text']:focus,
+.dashSucheFeld input[type='search'],
+.dashSucheFeld input[type='search']:focus {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+}
+.dashTreffer {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dashV4 .dashSuche {
+  flex: 0 1 280px;
+  min-width: 0;
+}
+.dashV4 .dashSuche .suchfeld {
+  height: 36px;
+  border-radius: var(--rund-umschalter);
+}
+.dashGliederung {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--rund-umschalter);
+  cursor: pointer;
+}
+.ansichtToggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--rund-umschalter);
+}
+.ansichtToggle button {
+  border: 0;
+  border-radius: var(--rund-bedienung);
+  padding: 6px 12px;
+  font-size: 13px;
+  background: transparent;
+  color: var(--muted);
+}
+.ansichtToggle button.aktiv {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+  cursor: default;
+}
+.aktivChips {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.aktivChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 27px;
+  padding: 0 8px 0 11px;
+  border: 1px solid var(--accent-soft-tief);
+  border-radius: var(--rund-pill);
+  background: var(--accent-soft);
+  font-size: 12px;
+  color: var(--text);
+}
+.aktivChip:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.aktivChipAchse,
+.aktivChipX {
+  color: var(--muted);
+}
+.aktivChipX {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* Gruppen, Kacheln und ihre Innenteile. */
+.gruppeLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.gruppeLabel.mono {
+  font-family: var(--mono);
+  letter-spacing: 0.03em;
+  background: var(--accent-soft);
+  border-radius: var(--rund-bedienung);
+  padding: 3px 9px;
+}
+.gruppeZahl {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.gruppeLinie {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.kachelGruppen {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.kachelGruppeKopf {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 11px;
+}
+.kachelRaster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(298px, 1fr));
+  gap: 13px;
+}
+.dashV4 .dashCard {
+  min-height: 252px;
+}
+/* Der Name ist hier Kind der Spalte, nicht der Kopfzeile: `flex: 1` der
+   aelteren Regel wuerde ihm den ganzen freien Raum geben. */
+.dashV4 .dcName {
+  flex: none;
+}
+.dcKopf {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 22px;
+}
+.modulPill {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text);
+  background: var(--flaeche);
+  border-radius: var(--rund-tag);
+  padding: 2px 7px;
+  white-space: nowrap;
+  flex: none;
+}
+.zustandPill {
+  flex: none;
+  font-weight: 600;
+}
+.z-frei {
+  background: var(--frei-bg);
+  color: var(--frei-fg);
+}
+.z-geaendert {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+.z-arbeit {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.z-leer {
+  background: var(--flaeche);
+  color: var(--muted);
+}
+/* Leerzustaende tragen Information: kursiv, nicht versteckt. */
+.dcBeschreibung {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 3em;
+}
+.dcBeschreibung.leer,
+.dcProjekt.leer,
+.listeText.leer,
+.dcAutor.leer {
+  font-style: italic;
+}
+.dashV4 .dcTags {
+  min-height: 22px;
+  gap: 6px;
+}
+.dashV4 .dcTags .tagChip {
+  font-size: 12px;
+  padding: 2px 9px;
+  background: var(--bg);
+  border-color: var(--flaeche-tief);
+  color: var(--muted);
+}
+.dashV4 .dcTags .tagChipAktiv {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.dcFuss {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 11px;
+  border-top: 1px solid var(--trenner);
+}
+.dcFussZeile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.dcAutor {
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dcAutor.leer {
+  font-weight: 400;
+  color: var(--muted);
+}
+.dcProjekt {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.metaPill {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--rund-bedienung);
+  padding: 2px 7px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  /* Darf schrumpfen und kuerzt — der volle Text steht im Tooltip. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--flaeche);
+  color: var(--text);
+}
+.meta-voll {
+  background: var(--frei-bg);
+  color: var(--frei-fg);
+}
+.meta-alt {
+  color: var(--muted);
+}
+
+/* Liste: alle Textspalten minmax(0, …), damit sie auch bei ~600px Breite
+   vollstaendig bleibt — kein Abschneiden, kein Querscrollen. */
+.liste {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+  overflow: hidden;
+  box-shadow: var(--schatten-kasten);
+}
+.listeKopf,
+.listeZeile {
+  display: grid;
+  grid-template-columns: minmax(0, 2.6fr) 62px minmax(0, 1.1fr) minmax(0, 1fr) 64px 62px 32px;
+  gap: 10px;
+  align-items: center;
+}
+.listeKopf {
+  padding: 0 14px;
+  background: var(--flaeche-hell);
+  border-bottom: 1px solid var(--border);
+}
+.listeKopf button,
+.listeKopf span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 11px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+}
+.listeKopf button:hover {
+  background: none;
+  color: var(--text);
+}
+.listeKopf .aktiv {
+  color: var(--text);
+}
+.listeKopf .rechts {
+  justify-content: flex-end;
+}
+.listeGruppe {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 16px;
+  background: var(--flaeche-hell);
+  border-bottom: 1px solid var(--trenner);
+}
+.listeZeile {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--trenner);
+  cursor: pointer;
+  background: var(--panel);
+}
+.listeZeile:hover {
+  background: var(--flaeche-hell);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.listeZeile:last-child {
+  border-bottom: 0;
+}
+.listeName {
+  min-width: 0;
+}
+.listeName1 {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.listeName2 {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.listeText {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.listeDatum {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.listeZeile .modulPill {
+  justify-self: start;
+}
+.listeZeile .dcMenuBtn {
+  width: 32px;
+  opacity: 1;
+}
+
+/* Leerer Zustand der Sammlung: eine Flaeche mit dem naechsten Schritt. */
+.dashLeer {
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+  padding: 52px 36px;
+}
+.dashLeerSymbol {
+  font-family: var(--mono);
+  font-size: 22px;
+  color: var(--border-stark);
+  margin-bottom: 14px;
+}
+.dashLeer h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.dashLeer p {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------
+   Editor v4 — Kopfzeile (design/profilierer-editor-v4.dc.html, ADR 0022)
+
+   Eine Zeile mit vier Aufgaben: zurueck, Identitaet, Zustand+Aktion,
+   ⋯-Menue. Der Szenario-Name ist selbst das Eingabefeld (kein Label,
+   kein Rahmen im Ruhezustand) — er liest sich als Titel und laesst sich
+   trotzdem anklicken. Werkzeuge stehen ausschliesslich im ⋯-Menue; die
+   frueheren Breakpoints der Kopfzeile (1050/1280px) entfallen dadurch.
+   ------------------------------------------------------------------ */
+.kopfzeile {
+  padding: 9px 18px;
+  gap: 12px;
+}
+.kopfzeile .homeBtn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+.kopfzeile .homeBtn:hover {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+.kopfzeile .zoneIdent {
+  flex: 1 1 auto;
+  gap: 9px;
+}
+/* Der Titel als Feld: im Ruhezustand rahmenlos, beim Ueberfahren und im
+   Fokus als Eingabe erkennbar. `input.` statt `.` allein, weil die
+   Grundregel der Eingaben (input[type='text']) sonst gewinnt. */
+input.kopfName {
+  flex: 0 1 300px;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: -0.012em;
+  color: var(--text);
+  padding: 5px 9px;
+  margin-left: -9px;
+  border-color: transparent;
+  background: transparent;
+}
+input.kopfName:hover,
+input.kopfName:focus {
+  border-color: var(--border);
+  background: var(--bg);
+}
+/* Nachrichten-, Ueberlagerungs- und Schema-Ansicht tragen denselben Titel
+   als Text — gleiche Groesse, damit die Zeile beim Moduswechsel ruhig bleibt. */
+.kopfzeile .objName {
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: -0.012em;
+  max-width: 420px;
+}
+.kopfzeile button.primary {
+  flex: none;
+  font-weight: 550;
+  padding: 7px 15px;
+}
+.kopfzeile .pillBtn {
+  flex: none;
+  white-space: nowrap;
+}
+/* Das ⋯ ist selbst schon Menue-Zeichen — kein Pfeil, keine Beschriftung. */
+.mWeiteres {
+  padding: 6px 11px;
+  font-size: 15px;
+  line-height: 18px;
+}
+
+/* Nebenhinweis eines Menueeintrags: rechtsbuendig, grau, nie Traeger der
+   Aussage — er beantwortet nur die Rueckfrage zum Eintrag davor.
+
+   `nowrap` plus `flex-wrap` statt Schrumpfen: passt das Paar nicht in die
+   Panel-Breite, rutscht der Hinweis als Ganzes in die zweite Zeile (weiter
+   rechtsbuendig), statt beide Texte mitten im Wort umzubrechen. */
+.menuNeben {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+.menuItem:has(.menuNeben) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 14px;
+  white-space: nowrap;
+}
+
+/* Grundlage-Dialog: Versionsliste als Menuezeilen, Quellen als Knopfreihe. */
+.grundlageListe {
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+  padding: 4px;
+  margin-bottom: 12px;
+}
+.grundlageZeile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.grundlageZeile.aktiv {
+  font-weight: 600;
+}
+.grundlageHaken {
+  flex: none;
+  width: 14px;
+  color: var(--accent);
+}
+.grundlageAktionen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ------------------------------------------------------------------
+   Editor v4 — Ort- und Arbeits-Zeile (Zeilen 2 und 3 der Kopfzone)
+
+   Die Kopfzone beantwortet drei Fragen, je Zeile eine: was bearbeite ich
+   (Kopfzeile), wo bin ich (Ort-Zeile), wie arbeite ich und wie weit bin
+   ich (Arbeits-Zeile). Beide Zeilen sind flache Flex-Reihen ohne Zonen:
+   was nachgeben darf, sagt seine eigene `flex`-Angabe.
+   ------------------------------------------------------------------ */
+.ortzeile {
+  padding: 8px 18px;
+  gap: 10px;
+}
+/* Die Wirte der beiden Komponenten geben ihre Flex-Angabe nach aussen
+   weiter — sonst waeren sie selbst der Flex-Kasten und das, was darin
+   nachgeben soll, ohne Wirkung. */
+.ortzeile app-message-picker {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.ortzeile app-search {
+  display: flex;
+  flex: 0 1 210px;
+  min-width: 110px;
+}
+/* Der Nachrichtentyp in Monoschrift: er ist ein technischer Bezeichner,
+   kein Titel — und als Wurzel des Pfades der Ort, nicht die Aktion. */
+#msgBtn,
+.msgTyp {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 1 auto;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 7px 11px;
+  max-width: 420px;
+}
+.msgTypName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msgTypPfeil {
+  flex: none;
+  color: var(--muted);
+}
+/* Feldsuche der Ort-Zeile: gibt als Erstes nach (flex 0 1), das Panel
+   haengt darunter (position: absolute in search.html). */
+.suchFeld {
+  position: relative;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: var(--rund-bedienung);
+  flex: 0 1 210px;
+  min-width: 110px;
+  max-width: none;
+}
+
+.arbeitszeile {
+  padding: 7px 18px;
+  gap: 10px;
+}
+/* Leiser Strich zwischen den Gruppen einer Zeile — anders als der frueher
+   durchgehende Zonentrenner nur so hoch wie die Schrift. */
+.zeilenTrenner {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+}
+/* Das Modus-Segment traegt die Optik der .viewToggle-Familie (Dashboard,
+   Testdaten) — dieselbe Frage, dieselbe Form. */
+.arbeitszeile .modusSeg {
+  flex: none;
+}
+
+/* Stand: die eine Zahl, die bei jeder Breite stehen bleibt. */
+.stand {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.stand .standText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.standZahl {
+  font-weight: 650;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.standKurz {
+  display: none;
+}
+.stand .fsBalken {
+  flex: none;
+  width: 64px;
+  height: 6px;
+  border-radius: var(--rund-pill);
+  background: var(--border);
+}
+.stand .fsBalkenFuell {
+  border-radius: var(--rund-pill);
+  background: var(--accent);
+}
+
+/* Abschnitte: im Band eine Kette Pillen, bei Enge dasselbe als Menue. */
+.astChips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.astChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-pill);
+  background: var(--panel);
+  font-size: 12.5px;
+  font-weight: 450;
+  color: var(--text);
+  white-space: nowrap;
+}
+.astChip:hover {
+  border-color: var(--border-stark);
+}
+.astChip.aktiv {
+  border-color: var(--accent-soft-tief);
+  background: var(--accent-hauch);
+  font-weight: 600;
+}
+/* Die Zahl ist Beiwerk, bis der Ast fertig ist — dann traegt sie die
+   Aussage und wird gruen. */
+.astZahl {
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 450;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.astZahl.voll {
+  color: var(--frei-fg);
+  font-weight: 600;
+}
+.astMenu {
+  display: none;
+  flex: none;
+}
+.astMenuBtn {
+  padding: 5px 11px;
+  font-size: 12.5px;
+}
+.astMenuZeile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.astMenuZeile.aktiv {
+  background: var(--accent-hauch);
+  font-weight: 600;
+}
+.astMenuKopf {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.astMenuName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.astMenuBalken {
+  display: block;
+  height: 5px;
+  border-radius: var(--rund-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+.astMenuBalkenFuell {
+  display: block;
+  height: 100%;
+  border-radius: var(--rund-pill);
+  background: var(--accent);
+}
+
+/* Zaehler der Hervorhebungen im Ansicht-Menue: gleiche Ziffernbreite,
+   damit die Spalte beim Entscheiden nicht wackelt. */
+.arbeitszeile .menuNeben {
+  font-variant-numeric: tabular-nums;
+}
+.arbeitszeile label.menuItem:has(.menuNeben) {
+  gap: 2px 8px;
+}
+
+/* Der eine Weg nach vorn — schmaler als die Primaeraktion der Kopfzeile. */
+button.primary.klein {
+  flex: none;
+  font-size: 12.5px;
+  font-weight: 550;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+@media (max-width: 1240px) {
+  /* Die Chip-Kette waechst mit der Zahl der Aeste; das Menue nicht. */
+  .astChips {
+    display: none;
+  }
+  .astMenu {
+    display: block;
+  }
+}
+
+@media (max-width: 1040px) {
+  .standLang {
+    display: none;
+  }
+  .standKurz {
+    display: inline;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Editor v4 — Fusszeile (design/profilierer-editor-v4.dc.html, ADR 0022)
+
+   Die Zeile beantwortet drei Fragen: wo genau stehe ich (der volle Pfad),
+   ist mein Stand gesichert, und was bedeutet das alles. Der Pfad bekommt
+   den ganzen Rest der Zeile und scrollt waagerecht, statt Stationen zu
+   verschlucken — im Workshop wird an ihm entlanggezeigt. Die Erklaerungen
+   liegen im Hilfe-Menue: sie kosten den Baum keine Hoehe mehr und stehen
+   trotzdem einen Klick entfernt.
+   ------------------------------------------------------------------ */
+.fusszeile {
+  gap: 12px;
+  padding: 6px 18px;
+}
+
+/* Der Pfad: einziges nachgebendes Element der Zeile, mit eigener Rollbahn. */
+#fussPfad,
+.sgFussPfad {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  padding: 2px 0;
+}
+#fussPfad app-crumbs {
+  display: block;
+}
+/* Ungefaltet laeuft die Kette ueber die Zeilenbreite hinaus — geklemmt wird
+   sie hier nicht, das erledigt die Rollbahn darum. */
+#fussPfad #crumbs,
+.sgFussPfad .sgCrumbs {
+  width: max-content;
+  overflow: visible;
+  gap: 0;
+}
+#fussPfad .crumb,
+.sgFussPfad .crumb {
+  padding: 3px 8px;
+  border-radius: var(--rund-bedienung);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 450;
+}
+#fussPfad .crumb:hover,
+.sgFussPfad .crumb:hover {
+  background: var(--accent-hauch);
+}
+/* Das aktuelle Glied traegt keine Vollfarbe mehr: es steht am Ende einer
+   langen Kette und soll sie nicht ueberstrahlen. */
+#fussPfad .crumb.cur,
+.sgFussPfad .crumb.cur {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 650;
+  cursor: default;
+}
+#fussPfad .crumbSep,
+.sgFussPfad .crumbSep {
+  margin: 0 3px;
+  font-size: 12px;
+  color: var(--border-stark);
+}
+
+.fussTrenner {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+.hilfeBtn {
+  flex: none;
+  padding: 5px 12px;
+  font-size: 12.5px;
+}
+
+/* Hilfe-Menue: drei Abschnitte, durch je einen Strich getrennt. Es ist
+   das einzige Menue mit Fliesstext — deshalb eigene Innenmasse. */
+.hilfeAbschnitt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+}
+.hilfeAbschnitt + .hilfeAbschnitt {
+  border-top: 1px solid var(--border);
+}
+.hilfeAbschnitt .menuKopf {
+  padding: 0;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+}
+.hilfeZeile {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  white-space: normal;
+}
+.hilfeZeile > span {
+  min-width: 0;
+}
+.hilfeZeile b {
+  font-weight: 600;
+  color: var(--text);
+}
+.hilfePunkt {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: var(--rund-balken);
+}
+/* Die Kennzeichen des Baums stehen als Tag-Beispiele nebeneinander — sie
+   erklaeren sich an ihrer eigenen Form, nicht an einer Zeile Text. */
+.hilfeKennzeichen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+kbd {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-tag);
+  background: var(--bg);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+@media (max-width: 1040px) {
+  /* Der Pfad ist Orientierung, die Sicherungsmeldung nur Beruhigung. */
+  #zustandText,
+  .fussTrenner {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Editor v4 — XML-Darstellung (design/profilierer-editor-v4.dc.html)
+
+   Dieselbe Nachricht wie im Baum, nur in der Form, in der sie die
+   Leitung verlaesst. Eine zentrierte Karte auf dem Seitengrund — kein
+   randloser Texteditor: sie ist ein Ergebnis, das man ansieht, nicht
+   eine Flaeche, in der man tippt. Der Code selbst traegt die einzige
+   Farbe der Karte; alles darum bleibt neutral.
+   ------------------------------------------------------------------ */
+.darstellungSeg {
+  flex: none;
+}
+
+/* Die Flaeche traegt das Polster (wie `#treeCanvas` fuer die Kaskade), die
+   Karte darin nur ihre Breite — sonst klebte sie an den Raendern. */
+app-xml-ansicht {
+  display: block;
+  padding: 18px 20px 26px;
+}
+
+.xmlKarte {
+  max-width: 940px;
+  margin: 0 auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--rund-kasten);
+  overflow: hidden;
+  box-shadow: var(--schatten-kasten);
+}
+
+/* Kopf: was ist das (links), was kann ich damit tun (rechts). */
+.xmlKopf {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--flaeche-hell);
+}
+.xmlKopfText {
+  flex: 1;
+  min-width: 0;
+}
+.xmlTitel {
+  font-size: 14px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+.xmlUnter {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+.xmlKnopf {
+  flex: none;
+  font-size: 12.5px;
+}
+
+/* Zeilen: die Nummernspalte haelt die Kante, der Code rollt darunter weg. */
+.xmlZeilen {
+  padding: 14px 0 18px;
+  overflow-x: auto;
+}
+/* Breiter als die Karte darf eine Zeile werden — die Liste rollt waagerecht.
+   `min-width: 100%` haelt die Hervorhebung trotzdem ueber die ganze Breite. */
+.xmlZeile {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  width: max-content;
+  min-width: 100%;
+  padding: 0 16px 0 0;
+  text-align: left;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  /* Lange Nachrichten haben vierstellige Zeilenzahlen: der Browser soll nur
+     rechnen, was zu sehen ist. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 22px;
+}
+.xmlZeile:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.xmlZeile:not(:disabled):hover {
+  background: var(--flaeche-hell);
+}
+.xmlZeile.aktiv {
+  background: var(--accent-hauch);
+  border-left-color: var(--accent);
+}
+.xmlNr {
+  flex: none;
+  width: 34px;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted-schwach);
+}
+.xmlCode {
+  flex: none;
+  white-space: pre;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+/* Die vier Farben des Codes: Tag, Wert, Nebensache, Rahmen. Attributname und
+   -wert bleiben gedaempft — sie sind Technik (listURI, xmlns), keine Aussage. */
+.xmlTag {
+  color: var(--erweiterung-fg);
+}
+.xmlAttr,
+.xmlAttrWert {
+  color: var(--muted);
+}
+.xmlWert {
+  color: var(--xml-wert);
+}
+.xmlDekl,
+.xmlKommentar {
+  color: var(--muted-schwach);
+}
+.xmlKommentar {
+  font-style: italic;
+}
+
+/* Fuss: die Bilanz links, der Vorbehalt rechts — was nicht drinsteht,
+   gehoert zur Aussage der Karte. */
+.xmlFuss {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 11px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--flaeche-hell);
+  font-size: 12px;
+  color: var(--muted);
+}
+.xmlBilanz {
+  flex: none;
+}
+.xmlFussHinweis {
+  min-width: 0;
+}
+
+.xmlLeer {
+  max-width: 640px;
+  margin: 48px auto;
 }

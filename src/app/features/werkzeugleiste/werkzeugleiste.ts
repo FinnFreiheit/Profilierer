@@ -1,119 +1,52 @@
-import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { NavService } from '../../core/services/nav.service';
+import { TreeService } from '../../core/services/tree.service';
 import { GuidedService } from '../../core/services/guided.service';
+import { AstStand, StandAnsicht } from '../../core/ansicht/stand-ansicht';
 import { ToastService } from '../../core/services/toast.service';
 import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
-import { MessagePicker } from '../message-picker/message-picker';
-import { Search } from '../search/search';
-import { Crumbs } from '../crumbs/crumbs';
 import { Menu } from '../../shared/menu/menu';
 import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
 import { UeberlagerungMenu } from '../ueberlagerung/ueberlagerung-menu';
-import { BundledVersion } from '../../models/schema-bundle.model';
 
 /** Die drei Arbeitsweisen des Segments. */
 export type Arbeitsmodus = 'betrachten' | 'bearbeiten' | 'gefuehrt';
 
 /**
- * Zeile 2 der Kopfzone: die Arbeit am Baum (Issue #80). Nachrichtenwahl und
- * Pfad gehoeren fachlich zusammen ("welche Nachricht, wo darin"), daneben
- * Arbeitsmodus, Suche, Anzeigeschalter, Datenbasis und Fortschritt.
+ * **Arbeits-Zeile** (Editor v4, Zeile 3 der Kopfzone; aus der Werkzeugleiste
+ * zu #80 hervorgegangen): wie arbeite ich — Modus-Segment —, wie weit bin ich
+ * — Stand und Ast-Chips —, was zeigt die Ansicht, und wo geht es weiter.
+ *
+ * Ort und Suche stehen seit Editor v4 eine Zeile hoeher (`app-ortzeile`), die
+ * Datenbasis im Dialog `app-grundlage-dialog` („Grundlage…" im ⋯-Menue der
+ * Kopfzeile). Der Pfad (`app-crumbs`) steht seit E3 in der Fusszeile.
  *
  * Die Leiste bricht nie um: sie ist bei jeder Fensterbreite genau eine Zeile
- * hoch. Was nicht mehr passt, verliert per Breakpoint seine Beschriftung
- * (~1280px) oder weicht in das Ueberlauf-Menue (~1050px, `.overflow-only`).
+ * hoch. Was nicht mehr passt, weicht per Breakpoint — die Ast-Chips ab 1240px
+ * in ein Menue, die Stand-Beschriftung ab 1040px auf „x / y".
  */
 @Component({
   selector: 'app-werkzeugleiste',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MessagePicker, Search, Crumbs, Menu, UeberlagerungMenu],
+  imports: [Menu, UeberlagerungMenu],
   templateUrl: './werkzeugleiste.html',
 })
 export class Werkzeugleiste {
   protected readonly state = inject(StateService);
   private readonly nav = inject(NavService);
-  private readonly guided = inject(GuidedService);
+  private readonly tree = inject(TreeService);
+  protected readonly guided = inject(GuidedService);
+  private readonly standAnsicht = inject(StandAnsicht);
   private readonly toast = inject(ToastService);
   private readonly edit = inject(TestmessageEditService);
   /** Laeuft eine Nachrichten-Ueberlagerung (#147)? Dann steht ihr Filter hier. */
   protected readonly ueberlagerung = inject(UeberlagerungService);
 
-  readonly xsdFiles = output<FileList>();
-  readonly codelistFiles = output<FileList>();
-  readonly xrepClick = output<void>();
-  readonly diffClick = output<void>();
-  /** Wechsel auf eine hinterlegte Schemaversion (dir aus dem Manifest). */
-  readonly bundledPick = output<string>();
-  /** Versionsliste von xjustiz.de abrufen/aktualisieren. */
-  readonly remoteSchemaClick = output<void>();
-  /** Fehlerprotokoll (LoggerService-Ringpuffer) als Datei speichern. */
-  readonly logExportClick = output<void>();
-
   protected readonly hasRoot = this.state.hasRoot;
-  protected readonly hasIdx = computed(() => !!this.state.idx());
   protected readonly hasIdxB = computed(() => !!this.state.idxB());
   protected readonly isMessage = this.state.isMessageEdit;
-  protected readonly isCreate = this.state.isMessageCreate;
   protected readonly isSchemaView = this.state.schemaView;
-
-  protected readonly bundledVersions = computed(() => this.state.bundledVersions());
-  protected readonly activeBundle = computed(() => this.state.activeBundle());
-
-  /** Stammt die aktive Version aus dem Abruf von xjustiz.de? */
-  private readonly ausXjustizDe = computed(() => {
-    const dir = this.state.activeBundle();
-    return !!dir && !!this.state.bundledVersions().find((v) => v.dir === dir)?.zipUrl;
-  });
-
-  /**
-   * Sichtbare Beschriftung des Datenbasis-Menues. Der frueher danebenstehende
-   * verInfo-Text (~350px) ist zum Tooltip geworden (Issue #80) — die Version
-   * stand dort ohnehin doppelt.
-   */
-  protected readonly datenbasisLabel = computed(() =>
-    this.state.idx() ? `XJustiz ${this.state.version() || '?'}` : 'Schemata',
-  );
-
-  /**
-   * Tooltip eines Eintrags im Umschalter: woher die Version stammt. Bei
-   * gespeicherten (von xjustiz.de geholten) ist das die entscheidende Auskunft —
-   * sie liegen im Backend und werden nur auf Zuruf aktualisiert.
-   */
-  protected quellHinweis(v: BundledVersion): string {
-    if (!v.zipUrl) return `Im Projekt hinterlegtes Schema (public/schemas/${v.dir})`;
-    const woher = v.hinweis ? ` — ${v.hinweis}` : '';
-    // Bekannt ist die Version, sobald ihre Bezugsquelle im Speicher steht; die
-    // Dateien kommen erst mit dem ersten Waehlen dazu. Beides ist ein
-    // Unterschied, den man vor dem Klick wissen will (der Abruf dauert).
-    if (!v.files.length)
-      return (
-        `Auf xjustiz.de veröffentlicht${woher}. Das Schema wird beim ersten Wählen ` +
-        'geholt und bleibt danach gespeichert.'
-      );
-    const wann = v.geholt ? ` am ${new Date(v.geholt).toLocaleDateString('de-DE')}` : '';
-    return (
-      `Von xjustiz.de geholt${wann}${woher} — ${v.files.length} Schemadateien im Speicher. ` +
-      'Aktualisiert wird nur über „Von xjustiz.de aktualisieren".'
-    );
-  }
-
-  /** verInfo (Z.980-984): jetzt Tooltip des Datenbasis-Menues statt eigener Pille. */
-  protected readonly verInfo = computed(() => {
-    const idx = this.state.idx();
-    if (!idx) return 'keine Schemata geladen';
-    const ncl = Object.keys(this.state.codelists()).length;
-    return (
-      `XJustiz ${this.state.version() || '?'}${this.ausXjustizDe() ? ' (xjustiz.de)' : ''} · ` +
-      `${this.state.docs().length} Schemata · ` +
-      `${idx.messages.length} Nachrichten${ncl ? ' · ' + ncl + ' Codelisten' : ''}`
-    );
-  });
-
-  protected readonly diffLabel = computed(() => {
-    const b = this.state.idxB();
-    return b ? `Diff ${this.state.version() || '?'} ↔ ${b.version || '?'}` : 'Version vergleichen…';
-  });
 
   /**
    * Der Arbeitsmodus ist abgeleitet, nicht gespeichert: `readOnly` und `guided`
@@ -145,45 +78,86 @@ export class Werkzeugleiste {
     return '';
   });
 
+  // ── Stand ─────────────────────────────────────────────────
+
   /**
-   * Fortschritt als eigene Zone rechts: der Text wechselt seine Breite und
-   * wuerde sonst seine Nachbarn verschieben (Befund 3 zu #80).
+   * Der Stand steht in jeder Arbeitsweise, nicht nur im gefuehrten Lauf: die
+   * Frage „wie weit bin ich" haengt nicht daran, wie man arbeitet. In der
+   * Schema-Ansicht gibt es nichts zu beantworten — dort entfaellt er.
    */
-  protected readonly fortschrittText = computed(() => {
-    if (this.state.guided() && this.hasRoot()) {
-      const { x, y, zuKlaeren } = this.guided.fortschritt();
-      // Im Durchlauf einer Nachricht zaehlen nur die geschuldeten Angaben (ADR 0016).
-      if (this.guided.instanzModus()) return `${x} von ${y} Pflichtangaben`;
-      const offen = y - x - zuKlaeren;
-      return zuKlaeren
-        ? `${x} von ${y} entschieden · ${offen} offen · ${zuKlaeren} zu klären`
-        : `${x} von ${y} entschieden`;
-    }
-    const { nStatus, nAusp } = this.state.fortschritt();
-    return nStatus ? `${nStatus} Festlegungen${nAusp ? ' · ' + nAusp + ' Ausprägungen' : ''}` : '';
+  protected readonly zeigeStand = computed(() => this.hasRoot() && !this.isSchemaView());
+
+  protected readonly stand = this.standAnsicht.gesamt;
+
+  /** Im Durchlauf einer Nachricht zaehlen nur die geschuldeten Angaben (ADR 0016). */
+  protected readonly standWort = computed(() =>
+    this.guided.instanzModus() ? 'Pflichtangaben' : 'eigens beantwortet',
+  );
+
+  protected readonly standTitel = computed(() => {
+    const { zuKlaeren } = this.stand();
+    const basis = 'Bei den übrigen Feldern gilt die Regel des Standards';
+    return zuKlaeren ? `${basis} · ${zuKlaeren} zu klären` : basis;
   });
 
-  /** Anteil erledigter Stationen (0-1) fuer den Balken; nur im gefuehrten Lauf. */
-  protected readonly fortschrittAnteil = computed(() => {
-    if (!this.state.guided() || !this.hasRoot()) return null;
-    const { x, y } = this.guided.fortschritt();
-    return y > 0 ? Math.min(1, x / y) : null;
+  /** Anteil beantworteter Punkte in Prozent — die Breite des Mini-Balkens. */
+  protected readonly standAnteil = computed(() => {
+    const { x, y } = this.stand();
+    return y > 0 ? Math.min(100, (x / y) * 100) : 0;
   });
 
-  protected pick(input: HTMLInputElement): void {
-    input.click();
+  /** Die Aeste der Nachricht als Chips bzw. als Menue (StandAnsicht). */
+  protected readonly aeste = this.standAnsicht.aeste;
+
+  /** Zaehler der drei Hervorhebungen im Ansicht-Menue. */
+  protected readonly zaehler = this.standAnsicht.hervorhebungZaehler;
+
+  protected anteil(a: AstStand): number {
+    return a.gesamt > 0 ? (a.entschieden / a.gesamt) * 100 : 0;
   }
 
-  protected onXsd(e: Event): void {
-    const input = e.target as HTMLInputElement;
-    if (input.files && input.files.length) this.xsdFiles.emit(input.files);
-    input.value = '';
+  protected astTitel(a: AstStand): string {
+    if (!this.zeigeStand()) return a.name;
+    // Im Durchlauf einer Nachricht wird nichts profiliert: dort zaehlen die
+    // geschuldeten Angaben, und der Profil-Wortlaut waere schlicht falsch.
+    if (this.guided.instanzModus()) return `${a.entschieden} von ${a.gesamt} Pflichtangaben`;
+    return (
+      `${a.entschieden} von ${a.gesamt} Feldern mit eigener Antwort — ` +
+      'bei den übrigen gilt der Standard'
+    );
   }
 
-  protected onCodelist(e: Event): void {
-    const input = e.target as HTMLInputElement;
-    if (input.files && input.files.length) this.codelistFiles.emit(input.files);
-    input.value = '';
+  protected springe(path: string): void {
+    this.nav.jumpTo(path);
+  }
+
+  /** Farbige Umrandung im Baum um- und abschalten (Auswertung in E4). */
+  protected setzeHervorhebung(key: 'offen' | 'beantwortet' | 'notiz', on: boolean): void {
+    this.state.hervorhebung.update((h) => ({ ...h, [key]: on }));
+  }
+
+  /**
+   * Zurueck an den Anfang: alles zuklappen und die Wurzel auswaehlen — sonst
+   * bliebe die Auswahl an einem Kasten stehen, den niemand mehr sieht.
+   */
+  /** Nur den Baum schliessen — die Auswahl bleibt, wo sie ist. */
+  protected zuklappen(): void {
+    this.nav.collapseTree();
+  }
+
+  protected zumAnfang(): void {
+    this.nav.collapseTree();
+    this.state.selItem.set(this.tree.rootItem());
+  }
+
+  /**
+   * „Nächstes offenes Feld": derselbe Weg wie die Enter-Taste — samt der
+   * Sperre des Instanz-Durchlaufs, die eine offene Pflichtangabe festhaelt.
+   * Nichts mehr offen → Rueckmeldung statt Stille.
+   */
+  protected naechstesOffenes(): void {
+    const meldung = this.guided.naechstesOffenesMitSperre();
+    if (meldung) this.toast.show(meldung);
   }
 
   protected checked(e: Event): boolean {
@@ -192,10 +166,6 @@ export class Werkzeugleiste {
 
   protected expand(): void {
     this.nav.expandAllTree();
-  }
-
-  protected collapse(): void {
-    this.nav.collapseTree();
   }
 
   /**

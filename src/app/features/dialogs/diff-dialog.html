@@ -21,7 +21,7 @@
       </div>
       @if (msgName()) {
         @if (!d.msgInB) {
-          <div style="color: #b23a3a; font-weight: 600">
+          <div style="color: var(--fehler-fg); font-weight: 600">
             Die Nachricht {{ msgName() }} existiert in Version {{ versionB() }} nicht.
           </div>
         } @else {
@@ -29,7 +29,8 @@
             Nachricht <code>{{ msgName() }}</code
             >: <b>{{ d.rows.length }}</b> Unterschiede
             @if (nProf()) {
-              — davon <b style="color: #b23a3a">{{ nProf() }} mit Bezug zur Profilierung</b>
+              — davon
+              <b style="color: var(--fehler-fg)">{{ nProf() }} mit Bezug zur Profilierung</b>
             }
           </div>
         }
@@ -49,7 +50,7 @@
           }
           @if (d.msgOnlyA.length) {
             <div style="margin-top: 4px">
-              <b style="color: #b23a3a">Nicht mehr enthalten:</b>
+              <b style="color: var(--fehler-fg)">Nicht mehr enthalten:</b>
               {{ d.msgOnlyA.slice(0, 30).join(', ') }}{{ d.msgOnlyA.length > 30 ? ' …' : '' }}
             </div>
           }
@@ -113,7 +114,9 @@
             }
             <span style="font-size: 11.5px; color: var(--muted)"> — {{ pretty(r.name) }}</span>
             @if (r.prof) {
-              <span class="tag" style="background: #f9e9e9; color: #b23a3a">profiliert</span>
+              <span class="tag" style="background: var(--fehler-bg); color: var(--fehler-fg)"
+                >profiliert</span
+              >
             }
             <span
               style="

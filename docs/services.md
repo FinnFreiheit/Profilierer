@@ -54,10 +54,11 @@ Referenz der Logik-Schicht. Alle Services sind `@Injectable({ providedIn: 'root'
 
 Ersetzt das globale `S`/`S.profile` (Z.327-335). Jedes Feld ein Signal, Ableitungen als `computed`.
 
-- **Signale:** Schema/Nachricht (`docs, idx, version, standardKennung, msgName, root`), Profil (`meta, statuses, elemente, auspraegungen, erweiterungen`), UI (`selItem, open, codelists, showTech, onlyProfile, showRefs, focusMode, scrollTarget, autosaveInfo, pendingMsg`), Diff (`showDiff, diffMap, diffAnc, idxB`), Validierung (`valFehler, valAnc`).
+- **Signale:** Schema/Nachricht (`docs, idx, version, standardKennung, msgName, root`), Profil (`meta, statuses, elemente, auspraegungen, erweiterungen`), UI (`selItem, open, codelists, showTech, onlyProfile, showRefs, focusMode, scrollTarget, autosaveInfo, pendingMsg`, dazu seit Editor v4 `hervorhebung` — die drei Schalter der farbigen Umrandung `{offen, beantwortet, notiz}` — und `darstellung` `'baum' | 'xml'`, keiner von beiden persistiert), Diff (`showDiff, diffMap, diffAnc, idxB`), Validierung (`valFehler, valAnc`).
 - **Ableitungen:** `profileDoc`, `fortschritt` (Festlegungen/Ausprägungen/Erweiterungen, Z.1453).
 - **Profil-Zugriff:** `statusOf/wirkungOf/exclStatus`, `inheritedExcluded`, `entfaellt` (eigener **oder** geerbter Ausschluss — die Aussage, die Baum, Druck, Excel und `boxHidden` gleichermaßen treffen), `effKard`, `kardAnzeige` (die Kardinalität, wie sie am Kasten steht: Vorkommen `genau 1`, Elemente die effektive, dazu die Schema-Vorgabe, wo die Profilierung enger fasst), `werteOf/anmerkungOf/beispielOf/refZielOf`, `auspsOf`, `hasNotes`, `boxHidden` (nur-Profil-Filter), `vorgabeSchliesstAus/vorgabeGesperrt` (Sperre der gebundenen Fassung), `profilWirkung/profilWirkungGeerbt` (Festlegung der gebundenen Fassung), `auspNumber/auspLabel`, `refZielKandidaten`, `erweiterungenOf/erweiterungsNamen`.
 - **Mutationen (erzeugen neue Referenzen):** `setElementProfile` (merge + `pruneP`, Z.987-996), `addAusp/removeAusp` (kaskadierend, Z.1017-1035), `addErweiterung/updateErweiterung/removeErweiterung` (kaskadierend über den Präfix `parentPath/~id`, [ADR 0010](adr/0010-schema-erweiterungen-profil-overlay.md)), `bereinigeUnter(pfad)` (dieselbe Kaskade **ohne** den Knoten selbst — der Typwechsel einer Erweiterung, [ADR 0017](adr/0017-erweiterungstyp-lebende-referenz.md)), `renameAusp`, `duplicateElement/copyAusp` (+ private `moveSubProfile/copySubProfile`, Z.1393-1434 — nehmen Erweiterungen mit), `toggleOpen/setOpen`, Status-CRUD (`addStatus/updateStatus/removeStatus/statusUsed`), `patchMeta`, `loadProfile/resetProfile`.
+- **Antwort je Taste:** `statusFuerTaste(taste)` — der **erste** Status mit der zur Taste gehörenden Wirkung (`WIRKUNG_TASTE` in `profile-defaults.ts`). Dieselbe Regel wie `pflichtStatus()`: gibt es mehrere Stufen einer Wirkung, trägt nur die erste das Kürzel — sonst hieße dieselbe Taste zwei Dinge. Speist die Tastatur in `app.ts` **und** das Kürzel an der Antwort-Zeile im Detailbereich.
 - **Zählung:** `festlegungenUnter(pfad)` — Profil-Einträge, Vorkommen und Erweiterungen **unterhalb** eines Pfades; die Zahl, mit der Typwechsel und Löschen einer Schema-Erweiterung ihre Rückfrage begründen.
 
 `removeAusp`, `removeErweiterung`, `bereinigeUnter` und `pruneP` sind der heikelste Teil und **unit-getestet** (`state.service.spec.ts`).
@@ -203,7 +204,7 @@ Konsumenten: `childItems` (die Referenz-Darstellung selbst), `collectMandatoryPa
 
 ## GuidedService
 
-Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten): offene Entscheidungspunkte (`offeneListe/offeneSet`), geparkte (`geparkteSet`), `fortschritt` (x von y plus `zuKlaeren`), `gotoNextOpen`, `offenePflicht`, `markerOf`/`markerZaehlung` (gebundener Durchlauf), `fuellePflichtfelder` (Dummy-Werte typkonform). Getestet in `guided.service.spec.ts`.
+Führungs-/Zählschicht des geführten Modus (Signal-Store über denselben Daten): offene Entscheidungspunkte (`offeneListe/offeneSet`), geparkte (`geparkteSet`), `fortschritt` (x von y plus `zuKlaeren`), `gotoNextOpen`, `offenePflicht`, `markerOf`/`markerZaehlung` (gebundener Durchlauf), `fuellePflichtfelder` (Dummy-Werte typkonform). `punkteSet` gibt dieselben Punkte als Map Pfad → Punkt — die `StandAnsicht` gruppiert daraus je Ast, ohne die Liste je Ast erneut zu durchlaufen. Getestet in `guided.service.spec.ts`.
 
 **Instanz-Modus: der Wert entscheidet** ([ADR 0016](adr/0016-wert-entscheidet-im-instanz-durchlauf.md)). Die Punkte heißen dort **Stationen**, und nur ein Teil schuldet eine Antwort:
 
@@ -342,10 +343,13 @@ Blatt-Wissen steht im Schema, nicht in den beiden Dokumenten — es kommt als re
 Die Anzeige-Ableitungen der beiden großen Sichten. Sie lagen als `computed` in den Komponenten (`TreeNode.vm` 385 Zeilen, `DetailPanel.vm` 178) und waren damit nur über DOM-Selektoren prüfbar — vom Kennzeichen-Katalog des Kastens mit rund 20 Einträgen waren drei getestet. Die Aussage ist fachlich, die Darstellung nicht: der Seam liegt zwischen beidem.
 
 - `BaumkastenAnsicht`: `kasten(item)` (das komplette Anzeige-Modell, `Kastenansicht`), `kinder(item)` (sichtbare Kind-Items), `attribute(item)`, `phantome(item)`, `zeigtVorkommenHinzu`/`vorkommenHinzuSperre`/`zeigtErweiterungHinzu`, `sperrGrund(pfad)`. Bewusst mehrere Methoden statt eines Objekts: die Komponente hält je ein `computed` darauf, damit ein Tastendruck im Wertfeld nicht auch Kinderliste und Kennzeichen neu ableitet.
-- `DetailAnsicht`: `punkt()` — das Anzeige-Modell des ausgewählten Items bzw. `null` im Ruhezustand.
+- `DetailAnsicht`: `punkt()` — das Anzeige-Modell des ausgewählten Items bzw. `null` im Ruhezustand. Darin `statusButtons` (die Antwort-Liste: „wie Standard" plus jede Statusstufe, je mit `farbe`, `farbeHell`, `wirkung`, `erklaerung` und `taste`) und `curStatus` (dieselbe Aussage ohne Bedienelemente, für die freigegebene Fassung).
+- `StandAnsicht`: `aeste()` — je Ast der Nachricht (Top-Level-Kinder der Wurzel) Name, Pfad, Zahl der entschiedenen und der gesamten Punkte, `vollstaendig` und `aktiv` (die Auswahl steht unter diesem Ast). Speist die Ast-Chips und das Menü „Abschnitte" der Werkzeugleiste. Dazu `hervorhebungZaehler()` — wie viele Elemente die drei Umrandungsschalter träfen (die Zahlen im Ansicht-Menü). DOM-frei und einzeln getestet (`stand-ansicht.spec.ts`).
 - `core/ansicht/sperrgrund.ts`: `sperrGrundText(eigen, statusName, anmerkung)` — **eine** Formulierung für die Sperre der gebundenen Fassung. Baum und Detailbereich formulierten sie vorher unterschiedlich; der Anwender las im Kasten etwas anderes als daneben, und nur die eine Fassung nannte die Statusstufe.
 
 Kardinalitäts-Anzeige und „entfällt" liegen bewusst **nicht** hier, sondern als `kardAnzeige`/`entfaellt` im `StateService`: sie speisen auch Druck und Excel.
+
+Der **Klartext einer Antwort** steht in `core/profile-defaults.ts`, nicht in einer Ansicht: `WIRKUNG_ERKLAERUNG` (ein Satz je Wirkung — „Die Angabe muss in jeder Nachricht enthalten sein." und Verwandte), `STANDARD_ERKLAERUNG` für „keine eigene Antwort", `WIRKUNG_TASTE` (Z/O/N/K) und `STANDARD_TASTE` (S) samt Umkehrung `wirkungFuerTaste`. Die Statusnamen einer Profilierung sind frei wählbar; verständlich wird eine Antwort erst über ihre Wirkung — deshalb liest Detailbereich, Hilfe der Fußzeile und Tastatur denselben Satz.
 
 ## BackendClient
 

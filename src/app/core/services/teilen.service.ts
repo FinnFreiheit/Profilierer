@@ -91,8 +91,12 @@ export class TeilenService {
     window.prompt('Link zum Teilen (kopieren mit Strg/Cmd + C):', link);
   }
 
-  /** Beide Kopierwege; false = keiner hat funktioniert. */
-  private async kopiere(text: string): Promise<boolean> {
+  /**
+   * Beide Kopierwege; false = keiner hat funktioniert. Oeffentlich, weil auch
+   * die XML-Karte kopiert — und ohne den execCommand-Rueckfall dort auf einer
+   * per http erreichten Instanz nichts passierte.
+   */
+  async kopiere(text: string): Promise<boolean> {
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);

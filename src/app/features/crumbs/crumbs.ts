@@ -3,11 +3,13 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  Injector,
   afterEveryRender,
   afterNextRender,
   computed,
   effect,
   inject,
+  input,
   signal,
   viewChild,
 } from '@angular/core';
@@ -61,6 +63,10 @@ export function gliedere(kette: TreeItem[], versteckt: number, wurzelAus = false
  * Element verschwand zuerst. Jetzt misst die Komponente den vorhandenen Platz
  * und faltet ueberzaehlige Stationen in ein Auslassungs-Menue ein; Wurzel und
  * aktuelles Element bleiben stehen, notfalls (Klasse `eng`) gekuerzt.
+ *
+ * In der Fusszeile (Editor v4) laeuft die Kette ungekuerzt: dort traegt sie
+ * eine ganze Zeile und ihr Wirt `#fussPfad` scrollt waagerecht. Dafuer steht
+ * `faltbar = false` — gefaltet wird nur, wo der Platz wirklich knapp ist.
  */
 @Component({
   selector: 'app-crumbs',
@@ -71,7 +77,15 @@ export function gliedere(kette: TreeItem[], versteckt: number, wurzelAus = false
 export class Crumbs {
   private readonly state = inject(StateService);
   private readonly nav = inject(NavService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   private readonly leiste = viewChild<ElementRef<HTMLElement>>('leiste');
+
+  /**
+   * Darf die Kette einfalten und kuerzen? Aus fuer den scrollenden Wirt der
+   * Fusszeile: dort bleibt jede Station ausgeschrieben.
+   */
+  readonly faltbar = input(true);
 
   protected readonly chain = computed<TreeItem[]>(() => {
     const sel = this.state.selItem();
@@ -95,6 +109,8 @@ export class Crumbs {
 
   private ro?: ResizeObserver;
   private letzteBreite = -1;
+  /** Zuletzt an das Ende gescrollte Kette (ungefalteter Fall). */
+  private letzteKette = '';
 
   constructor() {
     // Andere Auswahl -> Aufteilung von vorn messen.
@@ -107,6 +123,7 @@ export class Crumbs {
       const el = this.leiste()?.nativeElement;
       if (el && 'ResizeObserver' in window) {
         this.ro = new ResizeObserver(() => {
+          if (!this.faltbar()) return;
           // Nur echte Breitenaenderungen, sonst rechnete sich das Auffalten
           // mit dem eigenen Layout im Kreis.
           if (el.clientWidth === this.letzteBreite) return;
@@ -119,7 +136,23 @@ export class Crumbs {
 
     // Nach jedem Rendern pruefen: passt die Kette noch? Ein Schritt je
     // Durchgang, der naechste Durchgang folgt durch das eigene Signal.
-    afterEveryRender(() => this.falteSchritt());
+    afterEveryRender(() => {
+      if (this.faltbar()) this.falteSchritt();
+    });
+
+    // Ungefaltet gibt es nichts zu messen: dort wird ans Ende der Kette
+    // gescrollt, und zwar genau dann, wenn sie sich geaendert hat. Als Effekt
+    // auf `glieder()` statt in jedem Renderdurchgang — sonst liefe die Frage
+    // "hat sich die Kette geaendert?" auch bei jedem fremden Render mit.
+    effect(() => {
+      const kette = this.glieder()
+        .map((g) => g.key)
+        .join('|');
+      if (this.faltbar() || kette === this.letzteKette) return;
+      this.letzteKette = kette;
+      // Erst nach dem Rendern der neuen Kette hat der Wirt seine neue Breite.
+      afterNextRender(() => this.zumAktuellen(), { injector: this.injector });
+    });
 
     inject(DestroyRef).onDestroy(() => this.ro?.disconnect());
   }
@@ -138,6 +171,7 @@ export class Crumbs {
    * gehen nur vorwaerts: kein Flattern, garantiertes Ende der Durchgaenge.
    */
   private falteSchritt(): void {
+    if (!this.faltbar()) return;
     const el = this.leiste()?.nativeElement;
     if (!el || el.scrollWidth <= el.clientWidth + 1) return;
     if (this.versteckt() < this.chain().length - 2) {
@@ -151,6 +185,17 @@ export class Crumbs {
     if (!this.eng()) this.eng.set(true);
   }
 
+  /**
+   * Ungefaltet laeuft die Kette aus ihrem Wirt heraus; das aktuelle Element
+   * steht am Ende und muss sichtbar bleiben. Nur bei echtem Kettenwechsel,
+   * sonst zerrte jeder Renderdurchgang am Scrollstand des Nutzers.
+   */
+  private zumAktuellen(): void {
+    const el = this.leiste()?.nativeElement;
+    const wirt = el?.closest('#fussPfad') ?? this.host.nativeElement.parentElement;
+    if (wirt) wirt.scrollLeft = wirt.scrollWidth;
+  }
+
   protected keyOf(it: TreeItem): string {
     return itemPath(it);
   }
@@ -159,8 +204,13 @@ export class Crumbs {
     return it.kind === 'ausp' ? it.ausp.name : pretty(it.node.name);
   }
 
-  protected titleOf(it: TreeItem): string {
-    return it.kind === 'el' ? it.node.name : 'Ausprägung';
+  /**
+   * Tooltip eines Glieds: der technische Name — im Baum steht der
+   * Klartextname — und dazu, was ein Klick bewirkt.
+   */
+  protected titleOf(it: TreeItem, letztes = false): string {
+    const tech = it.kind === 'el' ? it.node.name : `Ausprägung ${it.ausp.name}`;
+    return `${tech} — ${letztes ? 'aktuell geöffnet' : 'hierher springen'}`;
   }
 
   /** Tooltip der Auslassung: die uebersprungenen Stationen im Klartext. */

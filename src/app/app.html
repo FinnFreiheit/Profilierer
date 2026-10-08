@@ -30,47 +30,38 @@
     (printClick)="printDoc.print()"
     (teilenClick)="teileAktivesProfil()"
     (teilenNachrichtClick)="teileAktiveNachricht()"
+    (grundlageClick)="grundlageDlg.open()"
   ></app-objektleiste>
 
-  <app-werkzeugleiste
-    (xsdFiles)="onXsdFiles($event)"
-    (codelistFiles)="onCodelistFiles($event)"
-    (xrepClick)="onXrep()"
-    (diffClick)="onDiff(diffDlg, xsdBInput)"
-    (bundledPick)="loadBundled($event)"
-    (remoteSchemaClick)="loadRemoteVersions()"
-    (logExportClick)="exportLog()"
-  ></app-werkzeugleiste>
+  <app-ortzeile></app-ortzeile>
+
+  <app-werkzeugleiste></app-werkzeugleiste>
 
   <div id="main" appFileDrop (filesDropped)="onDropped($event)">
     <div id="colWrap">
       @if (hasRoot()) {
-        <app-tree-canvas></app-tree-canvas>
+        <!-- Dieselbe Nachricht, zwei Formen (Segment der Ort-Zeile): die
+             Kasten-Kaskade zum Arbeiten, das XJustiz-XML zum Zeigen. -->
+        @if (darstellung() === 'xml') {
+          <app-xml-ansicht></app-xml-ansicht>
+        } @else {
+          <app-tree-canvas></app-tree-canvas>
+        }
       } @else {
-        <div id="empty">
-          <div class="big">§ ⇄ &lt;/&gt;</div>
+        <!-- Leerer Zustand: dieselbe Formensprache wie die leere Sammlung
+             der Uebersicht (.dashLeer) — eine Flaeche mit dem naechsten
+             Schritt, nicht eine Anleitung. -->
+        <div id="empty" class="dashLeer">
+          <div class="dashLeerSymbol">§ ⇄ &lt;/&gt;</div>
           @if (schemaView()) {
-            <h2>Schema ansehen</h2>
+            <h3>Schema ansehen</h3>
             <p>
               Der Aufbau der Nachricht wird als Kasten-Kaskade von links nach rechts dargestellt —
               nur zum Betrachten und Durchsuchen. Es wird keine Profilierung angelegt und nichts
               gespeichert.
             </p>
-            <ol>
-              <li>
-                <b>Nachricht wählen</b> — z. B. <code>nachricht.enova.entscheidung.2900003</code>
-              </li>
-              <li><b>Überblick verschaffen</b> — Kästen auf-/zuklappen, Details rechts ansehen</li>
-              <li>
-                <b>Suchen</b> — das Suchfeld findet Elemente im Baum, Nachrichten und Datentypen
-              </li>
-              <li>
-                <b>Datentyp nachschlagen</b> — z. B.
-                <code>Type.GDS.Herstellerinformation</code> über die Suche als eigenen Baum öffnen
-              </li>
-            </ol>
           } @else {
-            <h2>XJustiz-Nachrichten visualisieren und profilieren</h2>
+            <h3>XJustiz-Nachrichten visualisieren und profilieren</h3>
             <p>
               Die Nachricht wird als Kasten-Kaskade von links nach rechts dargestellt — jeder
               Schritt bleibt sichtbar. Für ein Kommunikationsszenario wird der Standard eingegrenzt:
@@ -78,21 +69,22 @@
               wiederholbarer Elemente (z. B. mehrere Beteiligte mit unterschiedlichen Rollen),
               Anmerkungen und Beispielwerte.
             </p>
-            <ol>
-              <li>
-                <b>Nachricht wählen</b> — z. B. <code>nachricht.enova.entscheidung.2900003</code>
-              </li>
-              <li><b>Profilieren</b> — Kästen anklicken, rechts entscheiden</li>
-              <li><b>Exportieren</b> — Profil, Excel, Schematron, Beispiel-XML, Druck</li>
-            </ol>
           }
+          <p class="leerHinweis">
+            Nachrichtentyp oben links wählen — z. B.
+            <code>nachricht.enova.entscheidung.2900003</code>
+          </p>
+          <p class="leerHinweis">
+            Oder das Suchfeld daneben: es findet Nachrichten und Datentypen des Schemas — und,
+            sobald ein Baum steht, auch die Felder darin.
+          </p>
         </div>
       }
     </div>
     <app-detail-panel></app-detail-panel>
   </div>
 
-  <app-legend></app-legend>
+  <app-fusszeile></app-fusszeile>
   <app-print-doc #printDoc></app-print-doc>
 
   <app-status-dialog #statusDlg></app-status-dialog>
@@ -100,6 +92,16 @@
   <app-hinweise-dialog #hinweiseDlg></app-hinweise-dialog>
   <app-versions-dialog #versionenDlg></app-versions-dialog>
   <app-diff-dialog #diffDlg (loadOther)="xsdBInput.click()"></app-diff-dialog>
+  <app-grundlage-dialog
+    #grundlageDlg
+    (xsdFiles)="onXsdFiles($event)"
+    (codelistFiles)="onCodelistFiles($event)"
+    (xrepClick)="onXrep()"
+    (diffClick)="onDiff(diffDlg, xsdBInput)"
+    (bundledPick)="loadBundled($event)"
+    (remoteSchemaClick)="loadRemoteVersions()"
+    (logExportClick)="exportLog()"
+  ></app-grundlage-dialog>
 } @else if (view() === 'testdaten') {
   <app-testdaten></app-testdaten>
 } @else if (view() === 'howto') {
@@ -108,6 +110,8 @@
   <app-projekte></app-projekte>
 } @else if (view() === 'kennzahlen') {
   <app-kennzahlen></app-kennzahlen>
+} @else if (view() === 'styleguide') {
+  <app-styleguide></app-styleguide>
 } @else {
   <app-dashboard></app-dashboard>
 }

@@ -34,7 +34,7 @@
   }
 
   @if (fehler()) {
-    <div style="color: #b23a3a; font-size: 13px; padding: 10px 0">{{ fehler() }}</div>
+    <div style="color: var(--fehler-fg); font-size: 13px; padding: 10px 0">{{ fehler() }}</div>
   }
 
   @if (result(); as r) {
@@ -43,7 +43,7 @@
       >:
       @if (r.eintraege.length) {
         <b style="color: #1e7d3e">{{ r.zaehler.neu }} neu</b> ·
-        <b style="color: #b23a3a">{{ r.zaehler.entfernt }} entfallen</b> ·
+        <b style="color: var(--fehler-fg)">{{ r.zaehler.entfernt }} entfallen</b> ·
         <b style="color: #8a6d0b">{{ r.zaehler['geändert'] }} geändert</b>
       } @else {
         <b>keine Unterschiede</b> — der Arbeitsstand entspricht der eingefrorenen Fassung.

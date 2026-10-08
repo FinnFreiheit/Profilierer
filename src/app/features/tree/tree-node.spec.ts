@@ -492,3 +492,47 @@ describe('TreeNode — XSD-Attribute im Kasten anzeigen', () => {
     expect(rendere(pfad).querySelector('.attrs')).toBeNull();
   });
 });
+
+/**
+ * Farbige Umrandung („Ansicht ▾"): der Kasten bekommt die Klasse `markiert`,
+ * solange einer der drei Schalter auf ihn zutrifft. Die Aussage steht in der
+ * BaumkastenAnsicht — hier wird nur geprueft, dass sie am Kasten ankommt.
+ */
+describe('TreeNode — farbige Umrandung', () => {
+  let state: StateService;
+  let tree: TreeService;
+  let root: TNode;
+  let fixture: ComponentFixture<TreeNode>;
+
+  const M = 'nachricht.test.0001';
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [TreeNode] }).compileComponents();
+    state = TestBed.inject(StateService);
+    tree = TestBed.inject(TreeService);
+    const parser = TestBed.inject(XsdParserService);
+    const dom = new DOMParser().parseFromString(XSD, 'application/xml');
+    const idx = parser.buildIndexFrom([{ file: 'xjustiz_0000_test.xsd', dom }]).idx;
+    state.idx.set(idx);
+    state.msgName.set(M);
+    root = tree.buildRoot(M, idx);
+    state.root.set(root);
+    fixture = TestBed.createComponent(TreeNode);
+  });
+
+  const box = (name: string): HTMLElement => {
+    const node = tree.kinder(root).find((k) => k.path === `${M}/${name}`)!;
+    fixture.componentRef.setInput('item', { kind: 'el', node });
+    fixture.detectChanges();
+    return (fixture.nativeElement as HTMLElement).querySelector('.box')!;
+  };
+
+  it('markiert den offenen Entscheidungspunkt, sobald der Schalter an ist', () => {
+    expect(box('akte').classList).not.toContain('markiert');
+
+    state.hervorhebung.set({ offen: true, beantwortet: false, notiz: false });
+
+    expect(box('akte').classList).toContain('markiert');
+    expect(box('datum').classList).not.toContain('markiert');
+  });
+});
