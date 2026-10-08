@@ -357,7 +357,12 @@ const xml = (n) =>
 /** Legt eine Testnachricht an und gibt ihre id zurueck. */
 async function neueTm(api, n = 1) {
   const r = await api('POST', '/testmessages', {
-    body: { name: `tm${n}.xml`, xml: xml(n), nachricht: 'nachricht.gds.uebermittlung' },
+    body: {
+      name: `tm${n}.xml`,
+      autor: 'F. Freiheit',
+      xml: xml(n),
+      nachricht: 'nachricht.gds.uebermittlung',
+    },
   });
   assert.equal(r.status, 201);
   return r.body.id;

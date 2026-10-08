@@ -10,8 +10,12 @@ import { Menu } from '../../shared/menu/menu';
 import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
 import { UeberlagerungMenu } from '../ueberlagerung/ueberlagerung-menu';
 
-/** Die drei Arbeitsweisen des Segments. */
-export type Arbeitsmodus = 'betrachten' | 'bearbeiten' | 'gefuehrt';
+/**
+ * Die zwei Arbeitsweisen des Segments. Einen eigenen gefuehrten Modus gibt es
+ * seit ADR 0023 nicht mehr: Bearbeiten fuehrt selbst (Spur, offene Punkte,
+ * Tasten).
+ */
+export type Arbeitsmodus = 'betrachten' | 'bearbeiten';
 
 /**
  * **Arbeits-Zeile** (Editor v4, Zeile 3 der Kopfzone; aus der Werkzeugleiste
@@ -49,10 +53,9 @@ export class Werkzeugleiste {
   protected readonly isSchemaView = this.state.schemaView;
 
   /**
-   * Der Arbeitsmodus ist abgeleitet, nicht gespeichert: `readOnly` und `guided`
-   * sind im Segment gegenseitig ausschliessend (Entscheidung zu #80).
-   * Fuehrung heisst Entscheidungen treffen, Betrachten heisst keine treffen —
-   * die Legende macht diese Annahme ohnehin schon (legend.ts).
+   * Der Arbeitsmodus ist abgeleitet, nicht gespeichert: er folgt `readOnly`.
+   * Bis ADR 0023 stand daneben ein gefuehrter Modus (`guided`, Entscheidung zu
+   * #80) — seine Fuehrung gehoert jetzt zum Bearbeiten.
    */
   protected readonly modus = computed<Arbeitsmodus>(() => {
     // Der Abnahme-Schreibschutz zaehlt wie Betrachten, auch wenn `readOnly`
@@ -61,8 +64,7 @@ export class Werkzeugleiste {
     // PersistenceService (readOnly=true) nacheinander dasselbe Signal. Ohne
     // diese Klammer zeigte das Segment je nach Ausgang des Wettlaufs
     // "Bearbeiten" an einem Profil, an dem nichts zu bearbeiten ist.
-    if (this.state.abnahmeSchreibschutz() || this.state.readOnly()) return 'betrachten';
-    return this.state.guided() ? 'gefuehrt' : 'bearbeiten';
+    return this.state.abnahmeSchreibschutz() || this.state.readOnly() ? 'betrachten' : 'bearbeiten';
   });
 
   /** In der Schema-Ansicht gibt es nichts zu entscheiden — die Zone bleibt trotzdem belegt. */
@@ -187,18 +189,17 @@ export class Werkzeugleiste {
     if (this.isMessage()) {
       // Der Weg in die Bearbeitung laeuft ueber den TestmessageEditService: dort
       // haengt die Rueckfrage zu gefuehrt erstellten Nachrichten (#105). Er kann
-      // den Wechsel verweigern (Schreibschutz, abgelehnte Rueckfrage) — die
-      // Fuehrung darf dann nicht trotzdem anspringen.
-      if (m === 'betrachten') this.state.nachrichtBearbeiten(false);
-      else if (!this.edit.bearbeitenAnfordern()) return;
-      this.state.guided.set(m === 'gefuehrt');
-      if (m === 'bearbeiten')
-        this.toast.show(
-          'Bearbeiten — es wird der volle Standard gezeigt; leere Elemente lassen sich jetzt befüllen.',
-        );
+      // den Wechsel verweigern (Schreibschutz, abgelehnte Rueckfrage).
+      if (m === 'betrachten') {
+        this.state.nachrichtBearbeiten(false);
+        return;
+      }
+      if (!this.edit.bearbeitenAnfordern()) return;
+      this.toast.show(
+        'Bearbeiten — es wird der volle Standard gezeigt; leere Elemente lassen sich jetzt befüllen.',
+      );
       return;
     }
     this.state.readOnly.set(m === 'betrachten');
-    this.state.guided.set(m === 'gefuehrt');
   }
 }

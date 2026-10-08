@@ -1,9 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { oeffneTestDb } from './testhelfer.js';
+import { openDb } from './db.js';
+import { createApp } from './app.js';
 
 const input = (over = {}) => ({
   name: 'antrag.xml',
+  autor: 'F. Freiheit',
   xml: '<nachricht.dabag.antrag.2900001 xmlns="http://www.xjustiz.de"/>',
   nachricht: 'nachricht.dabag.antrag.2900001',
   fachmodul: 'dabag',
@@ -554,4 +557,97 @@ test('tmZuordnen: eine gebundene Nachricht wird nicht umgehaengt', (t) => {
   // machte aus der Leitplanke eine falsche Aussage.
   assert.deepEqual(db.tmZuordnen(id, { profilId: anderes.id }), { fehler: 'gebunden' });
   assert.deepEqual(db.tmLoadVorgabe(id), vorgabe);
+});
+
+// ── Autor (Pflichtangabe beim Anlegen) ────────────────────────────────
+
+test('tmCreate haelt den Autor; tmUpdate berichtigt ihn, ohne ihn zu leeren', (t) => {
+  const db = oeffneTestDb(t);
+  const { id, entry } = db.tmCreate(input({ autor: '  F. Freiheit  ' }));
+  assert.equal(entry.autor, 'F. Freiheit'); // getrimmt abgelegt
+  assert.equal(db.tmList()[0].autor, 'F. Freiheit');
+  assert.equal(db.tmUpdate(id, { autor: 'M. Beispiel' }).autor, 'M. Beispiel');
+  // Ohne Angabe unberuehrt; der leere String faellt auf null -- die Route
+  // laesst ihn gar nicht erst durch (Pflicht am Anlegen).
+  assert.equal(db.tmUpdate(id, { notiz: 'x' }).autor, 'M. Beispiel');
+});
+
+test('tmCreate ohne Autor legt an (Altbestand-faehig); der Index zeigt keinen', (t) => {
+  const db = oeffneTestDb(t);
+  const { entry } = db.tmCreate(input({ autor: undefined }));
+  assert.equal(entry.autor, undefined);
+});
+
+test('tmDuplicate: die Variante traegt ihren Ersteller, sonst den des Originals', (t) => {
+  const db = oeffneTestDb(t);
+  const { id } = db.tmCreate(input({ autor: 'F. Freiheit' }));
+  assert.equal(db.tmDuplicate(id, 2000, 'Variante A', 'M. Beispiel').entry.autor, 'M. Beispiel');
+  assert.equal(db.tmDuplicate(id, 2000, 'Variante B').entry.autor, 'F. Freiheit');
+});
+
+// ── HTTP-Seam: die Pflicht haengt am Endpunkt, nicht an der Spalte ────
+
+/** Startet App + DB auf einem Ephemeral-Port; raeumt via t.after auf. */
+async function start(t) {
+  const db = openDb(':memory:');
+  const app = createApp(db, {});
+  const srv = app.listen(0);
+  await new Promise((res) => srv.once('listening', res));
+  const base = `http://127.0.0.1:${srv.address().port}/api`;
+  t.after(() => {
+    srv.close();
+    db.close();
+  });
+  const api = async (method, pfad, body) => {
+    const r = await fetch(base + pfad, {
+      method,
+      headers: body !== undefined ? { 'content-type': 'application/json' } : {},
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    const text = await r.text();
+    let parsed = text;
+    try {
+      parsed = text ? JSON.parse(text) : undefined;
+    } catch {
+      /* Roh-Text */
+    }
+    return { status: r.status, body: parsed };
+  };
+  return { api };
+}
+
+test('POST /testmessages verlangt einen Autor', async (t) => {
+  const { api } = await start(t);
+  const ohne = await api('POST', '/testmessages', input({ autor: undefined }));
+  assert.equal(ohne.status, 400);
+  assert.equal(ohne.body.error, 'Autor erforderlich');
+  assert.equal((await api('POST', '/testmessages', input({ autor: '   ' }))).status, 400);
+
+  const mit = await api('POST', '/testmessages', input());
+  assert.equal(mit.status, 201);
+  assert.equal(mit.body.entry.autor, 'F. Freiheit');
+});
+
+test('PATCH /testmessages/:id berichtigt den Autor, nimmt ihn aber nicht weg', async (t) => {
+  const { api } = await start(t);
+  const { body } = await api('POST', '/testmessages', input());
+  const pfad = `/testmessages/${body.id}`;
+  const geaendert = await api('PATCH', pfad, { autor: 'M. Beispiel' });
+  assert.equal(geaendert.body.entry.autor, 'M. Beispiel');
+  assert.equal((await api('PATCH', pfad, { autor: '' })).status, 400);
+  // Ohne das Feld bleibt der Autor stehen.
+  assert.equal((await api('PATCH', pfad, { notiz: 'x' })).body.entry.autor, 'M. Beispiel');
+});
+
+test('POST /testmessages/:id/duplicate uebernimmt den Ersteller der Variante', async (t) => {
+  const { api } = await start(t);
+  const { body } = await api('POST', '/testmessages', input());
+  const kopie = await api('POST', `/testmessages/${body.id}/duplicate`, {
+    name: 'Variante A',
+    autor: 'M. Beispiel',
+  });
+  assert.equal(kopie.status, 201);
+  assert.equal(kopie.body.entry.autor, 'M. Beispiel');
+  const geerbt = await api('POST', `/testmessages/${body.id}/duplicate`, { name: 'Variante B' });
+  assert.equal(geerbt.body.entry.autor, 'F. Freiheit');
 });

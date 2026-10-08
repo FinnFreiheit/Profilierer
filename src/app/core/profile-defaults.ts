@@ -37,7 +37,7 @@ export const WIRKUNG_ERKLAERUNG: Record<Wirkung, string> = {
 export const STANDARD_ERKLAERUNG = 'Keine eigene Vorgabe — es gilt die Regel des Standards.';
 
 /**
- * Tastenkuerzel je Wirkung im Bearbeiten- und im gefuehrten Modus. Die Taste
+ * Tastenkuerzel je Wirkung beim Bearbeiten einer Profilierung. Die Taste
  * haengt an der Wirkung, nicht am Status: gibt es mehrere Stufen derselben
  * Wirkung, greift sie am ersten Status je Wirkung.
  */

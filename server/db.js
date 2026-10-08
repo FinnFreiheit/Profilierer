@@ -124,7 +124,7 @@ function hinweiseHerausloesen(doc) {
  * `fach_hash` zu vergleichen) bleibt es aus; ein positives "profilkonform" gibt
  * es bewusst nicht.
  */
-const TM_COLS = `t.id, t.name, t.nachricht, t.fachmodul, t.xjustiz_version, t.groesse, t.notiz, t.tags,
+const TM_COLS = `t.id, t.name, t.autor, t.nachricht, t.fachmodul, t.xjustiz_version, t.groesse, t.notiz, t.tags,
               t.hochgeladen, t.aktualisiert, t.entwurf, t.fortschritt,
               (t.entscheidungen IS NOT NULL) AS gefuehrt,
               t.abnahme_ts, t.abnahme_kommentar, (t.abnahme_xml IS NOT NULL) AS abgenommen,
@@ -357,6 +357,10 @@ export function openDb(path) {
     // Projekt ihrer Profilierung (COALESCE in TM_COLS); diese Spalte traegt nur
     // den Fall ohne Bindung -- Uploads -- und den Rest einer geloesten Bindung.
     if (!cols.has('projekt_id')) db.exec('ALTER TABLE testmessages ADD COLUMN projekt_id TEXT');
+    // Autor (Selbstauskunft dessen, der die Nachricht angelegt hat). Pflicht am
+    // Anlege-Endpunkt, nicht in der Spalte: Altbestaende tragen keinen und
+    // sollen weiter les- und aenderbar bleiben (Anzeige "ohne Autor").
+    if (!cols.has('autor')) db.exec('ALTER TABLE testmessages ADD COLUMN autor TEXT');
   }
 
   // Migration: Urheber-Merkmal am Hinweis (Issue #42). Wer einen Hinweis ohne
@@ -675,17 +679,17 @@ export function openDb(path) {
     tmGetRow: db.prepare('SELECT * FROM testmessages WHERE id = ?'),
     tmInsert: db.prepare(
       `INSERT INTO testmessages
-         (id, xml, name, nachricht, fachmodul, xjustiz_version, groesse, notiz, tags, hochgeladen, aktualisiert,
+         (id, xml, name, autor, nachricht, fachmodul, xjustiz_version, groesse, notiz, tags, hochgeladen, aktualisiert,
           entwurf, fortschritt, entscheidungen, bezeichnungen,
           profil_id, profil_name, fassung, vorgabe, vorgabe_hash)
        VALUES
-         (@id, @xml, @name, @nachricht, @fachmodul, @xjustizVersion, @groesse, @notiz, @tags, @ts, @ts,
+         (@id, @xml, @name, @autor, @nachricht, @fachmodul, @xjustizVersion, @groesse, @notiz, @tags, @ts, @ts,
           @entwurf, @fortschritt, @entscheidungen, @bezeichnungen,
           @profilId, @profilName, @fassung, @vorgabe, @vorgabeHash)`,
     ),
     tmUpdate: db.prepare(
       `UPDATE testmessages SET
-         xml = @xml, notiz = @notiz, name = @name, tags = @tags, groesse = @groesse,
+         xml = @xml, notiz = @notiz, name = @name, autor = @autor, tags = @tags, groesse = @groesse,
          entwurf = @entwurf, fortschritt = @fortschritt, entscheidungen = @entscheidungen,
          bezeichnungen = @bezeichnungen, aktualisiert = @aktualisiert
        WHERE id = @id`,
@@ -795,6 +799,9 @@ export function openDb(path) {
     return {
       id: r.id,
       name: r.name,
+      // Selbstauskunft des Erstellers; Altbestaende tragen keine (Anzeige
+      // "ohne Autor"), neu angelegte Nachrichten immer.
+      autor: r.autor ?? undefined,
       nachricht: r.nachricht ?? undefined,
       fachmodul: r.fachmodul ?? undefined,
       xjustizVersion: r.xjustiz_version ?? undefined,
@@ -1759,6 +1766,7 @@ export function openDb(path) {
     tmCreate(
       {
         name,
+        autor,
         xml,
         nachricht,
         fachmodul,
@@ -1782,6 +1790,7 @@ export function openDb(path) {
         id,
         xml: String(xml ?? ''),
         name: name ?? null,
+        autor: (autor ?? '').trim() || null,
         nachricht: nachricht ?? null,
         fachmodul: fachmodul ?? null,
         xjustizVersion: xjustizVersion ?? null,
@@ -1828,7 +1837,7 @@ export function openDb(path) {
      *
      * Gibt { id, entry } oder null bei unbekannter id.
      */
-    tmDuplicate(id, ts, name) {
+    tmDuplicate(id, ts, name, autor) {
       const row = stmt.tmGetRow.get(id);
       if (!row) return null;
       const neueId = randomUUID();
@@ -1857,6 +1866,9 @@ export function openDb(path) {
         id: neueId,
         xml: row.xml,
         name: (name || '').trim() || (row.name || '(ohne Namen)') + ' (Variante)',
+        // Die Variante legt an, wer sie anlegt; ohne Selbstauskunft bleibt der
+        // Autor des Originals stehen (Altbestand ohne Autor: keiner).
+        autor: (autor || '').trim() || row.autor,
         nachricht: row.nachricht,
         fachmodul: row.fachmodul,
         xjustizVersion: row.xjustiz_version,
@@ -1881,7 +1893,7 @@ export function openDb(path) {
      */
     tmUpdate(
       id,
-      { notiz, name, tags, xml, entwurf, fortschritt, entscheidungen, bezeichnungen },
+      { notiz, name, autor, tags, xml, entwurf, fortschritt, entscheidungen, bezeichnungen },
       ts,
     ) {
       const row = stmt.tmGetRow.get(id);
@@ -1892,6 +1904,7 @@ export function openDb(path) {
         groesse: xml !== undefined ? nextXml.length : row.groesse,
         notiz: notiz !== undefined ? notiz || null : row.notiz,
         name: name !== undefined ? name || null : row.name,
+        autor: autor !== undefined ? (autor || '').trim() || null : row.autor,
         tags: tags !== undefined ? schreibeTags(tags) : row.tags,
         entwurf: entwurf !== undefined ? (entwurf ? 1 : null) : row.entwurf,
         fortschritt:

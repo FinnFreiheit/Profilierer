@@ -19,19 +19,10 @@
       [class.active]="modus() === 'bearbeiten'"
       [attr.aria-pressed]="modus() === 'bearbeiten'"
       [disabled]="modusGesperrt()"
-      title="Felder einzeln beantworten"
+      title="Felder beantworten — Pfeiltasten führen von Station zu Station, Enter zum nächsten offenen Feld"
       (click)="setzeModus('bearbeiten')"
     >
       Bearbeiten
-    </button>
-    <button
-      [class.active]="modus() === 'gefuehrt'"
-      [attr.aria-pressed]="modus() === 'gefuehrt'"
-      [disabled]="modusGesperrt()"
-      title="Schritt für Schritt durch alle offenen Felder"
-      (click)="setzeModus('gefuehrt')"
-    >
-      Geführt
     </button>
   </div>
 

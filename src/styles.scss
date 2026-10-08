@@ -4740,6 +4740,15 @@ app-bibliothek {
   gap: 10px;
   align-items: center;
 }
+/* Testnachrichten fuehren eine Spalte mehr: den Autor. Die Uebersicht der
+   Profilierungen bleibt bei ihren sieben Spalten -- dort steht er auf der
+   Kachel und in der Namensspalte, nicht als eigene Spalte. */
+.listeTestdaten .listeKopf,
+.listeTestdaten .listeZeile {
+  grid-template-columns:
+    minmax(0, 2.4fr) 62px minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 0.9fr)
+    64px 62px 32px;
+}
 .listeKopf {
   padding: 0 14px;
   background: var(--flaeche-hell);

@@ -258,14 +258,12 @@ describe('TestmessageEditService', () => {
       await svc.oeffnen(eintrag({ profilId: 'p1', profilName: 'P', fassung: 'v1' }), 'bearbeiten');
 
       expect(state.hatVorgabe()).toBeTrue();
-      expect(state.guided()).toBeTrue();
       expect(state.vorgabeGesperrt(`${M}/spitzname`)).toBeTrue();
     });
 
-    it('ungebundene Nachricht bleibt ohne Vorgabe und ohne Fuehrung', async () => {
+    it('ungebundene Nachricht bleibt ohne Vorgabe', async () => {
       await svc.oeffnen(eintrag(), 'bearbeiten');
       expect(state.hatVorgabe()).toBeFalse();
-      expect(state.guided()).toBeFalse();
     });
   });
 
@@ -281,13 +279,12 @@ describe('TestmessageEditService', () => {
       spyOn(window, 'confirm').and.returnValue(true);
     });
 
-    it('entfernt Sperren und Fuehrung, meldet es dem Backend', async () => {
+    it('entfernt Sperren und Vorgaben, meldet es dem Backend', async () => {
       await svc.oeffnen(eintrag({ profilId: 'p1' }), 'bearbeiten');
 
       expect(await svc.loeseBindung()).toBeTrue();
       expect(geloest).toEqual(['id-1']);
       expect(state.hatVorgabe()).toBeFalse();
-      expect(state.guided()).toBeFalse();
       expect(state.vorgabeGesperrt(`${M}/spitzname`)).toBeFalse();
     });
 

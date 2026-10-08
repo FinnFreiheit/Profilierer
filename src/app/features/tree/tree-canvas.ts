@@ -100,8 +100,10 @@ export class TreeCanvas {
       // ResizeObserver, also ein Bild zu spaet und sichtbar als Ruck.
       this.state.onlyValues();
       this.state.onlyProfile();
-      this.state.guided();
       this.state.readOnly();
+      // Die Hervorhebung "offen" schaltet beim Profilieren das gleichnamige
+      // Kennzeichen am Kasten (ADR 0023) — es aendert dessen Breite.
+      this.state.hervorhebung();
       // Ueberlagerung: An-/Abwaehlen einer Nachricht und der Filter „nur
       // Abweichungen" aendern die Zahl der Kaesten — die Linien muessen mit.
       this.ueberlagerung.nachrichten();

@@ -58,7 +58,6 @@ export class NavService {
     this.state.msgName.set(null);
     this.state.root.set(null);
     this.state.resetProfile();
-    this.state.guided.set(false);
     this.state.schemaView.set(true);
     this.state.readOnly.set(true);
     this.state.view.set('editor');
@@ -82,7 +81,6 @@ export class NavService {
     this.state.activeProfileId.set(null);
     this.state.msgName.set(null);
     this.state.resetProfile();
-    this.state.guided.set(false);
     this.state.schemaView.set(true);
     this.state.readOnly.set(true);
     this.state.typName.set(typName);

@@ -134,7 +134,11 @@ describe('App', () => {
     });
   });
 
-  describe('onKeydown (gefuehrter Profil-Modus)', () => {
+  /**
+   * Seit ADR 0023 gibt es nur Betrachten und Bearbeiten; Bearbeiten fuehrt.
+   * Die Pfeile gehoeren der Spur, Shift+Pfeil der freien Baum-Navigation.
+   */
+  describe('onKeydown (Bearbeiten einer Profilierung)', () => {
     let app: App;
     let state: StateService;
     let guided: GuidedService;
@@ -153,7 +157,6 @@ describe('App', () => {
       nav = TestBed.inject(NavService);
       // Die Tastatur gehoert dem Baum-Editor; die Suite spielt dort.
       state.view.set('editor');
-      state.guided.set(true);
       state.selItem.set(fakeItem);
       spyOn(guided, 'gotoPrev');
       spyOn(guided, 'gotoNextOpen');
@@ -174,6 +177,25 @@ describe('App', () => {
       expect(nav.arrowNavigate).not.toHaveBeenCalled();
     });
 
+    it('Shift+Pfeil bewegt frei im Baum statt auf der Spur', () => {
+      (nav.arrowNavigate as jasmine.Spy).and.returnValue(true);
+
+      const links = key('ArrowLeft', { shiftKey: true });
+      app.onKeydown(links);
+      app.onKeydown(key('ArrowRight', { shiftKey: true }));
+
+      expect(nav.arrowNavigate).toHaveBeenCalledWith('ArrowLeft');
+      expect(nav.arrowNavigate).toHaveBeenCalledWith('ArrowRight');
+      expect(links.defaultPrevented).toBeTrue();
+      expect(guided.gotoPrev).not.toHaveBeenCalled();
+      expect(guided.gotoNextOpen).not.toHaveBeenCalled();
+    });
+
+    it('↑/↓ bleiben die Geschwister-Navigation', () => {
+      app.onKeydown(key('ArrowDown'));
+      expect(nav.arrowNavigate).toHaveBeenCalledWith('ArrowDown');
+    });
+
     it('z/o/n setzen die Disposition gemaess Wirkung', () => {
       app.onKeydown(key('z'));
       expect(guided.setzeDisposition).toHaveBeenCalledWith('pflicht');
@@ -183,7 +205,7 @@ describe('App', () => {
       expect(guided.setzeDisposition).toHaveBeenCalledWith('ausgeschlossen');
     });
 
-    it('meldet auch gefuehrt, wenn zu der Wirkung keine Antwort konfiguriert ist', () => {
+    it('meldet, wenn zu der Wirkung keine Antwort konfiguriert ist', () => {
       (guided.setzeDisposition as jasmine.Spy).and.returnValue(false);
       const toast = spyOn(TestBed.inject(ToastService), 'show');
 
@@ -219,12 +241,12 @@ describe('App', () => {
       expect(ev.defaultPrevented).toBeFalse();
     });
 
-    it('faellt ohne gefuehrten Modus auf die Baum-Navigation zurueck', () => {
-      state.guided.set(false);
+    it('beim Betrachten navigieren die Pfeile den Baum, Antwort-Tasten ruhen', () => {
+      state.readOnly.set(true);
       app.onKeydown(key('ArrowLeft'));
       expect(nav.arrowNavigate).toHaveBeenCalledWith('ArrowLeft');
       expect(guided.gotoPrev).not.toHaveBeenCalled();
-      app.onKeydown(key('z')); // z ohne gefuehrten Modus: keine Wirkung
+      app.onKeydown(key('z'));
       expect(guided.setzeDisposition).not.toHaveBeenCalled();
     });
 
@@ -237,17 +259,10 @@ describe('App', () => {
       expect(guided.setzeDisposition).not.toHaveBeenCalled();
     });
 
-    /**
-     * Editor v4: die Antwort-Tasten gelten auch im **Bearbeiten**-Modus — die
-     * Antwort-Liste im Detailbereich ist dieselbe. Der Unterschied liegt allein
-     * im Weiterspringen: gefuehrt blaettert die Antwort zur naechsten offenen
-     * Stelle, hier bleibt der Blick, wo er ist.
-     */
-    describe('Bearbeiten-Modus (nicht gefuehrt)', () => {
+    describe('Standard und Enter', () => {
       let disposition: DispositionService;
 
       beforeEach(() => {
-        state.guided.set(false);
         disposition = TestBed.inject(DispositionService);
         spyOn(disposition, 'setzeStatus');
       });
@@ -260,15 +275,6 @@ describe('App', () => {
         expect(ev.defaultPrevented).toBeTrue();
       });
 
-      it('z setzt den Status ohne Sprung — nicht ueber die Fuehrung', () => {
-        const ev = key('z');
-        app.onKeydown(ev);
-
-        expect(disposition.setzeStatus).toHaveBeenCalledWith('x', 's1');
-        expect(guided.setzeDisposition).not.toHaveBeenCalled();
-        expect(ev.defaultPrevented).toBeTrue();
-      });
-
       it('Enter springt zum naechsten offenen Feld', () => {
         (guided.gotoNextOpen as jasmine.Spy).and.returnValue(true);
         const ev = key('Enter');
@@ -276,20 +282,6 @@ describe('App', () => {
 
         expect(guided.gotoNextOpen).toHaveBeenCalled();
         expect(ev.defaultPrevented).toBeTrue();
-      });
-
-      /**
-       * Kennt die Profilierung zu einer Wirkung keine Stufe, greift die Taste
-       * ins Leere. Vorher schwieg sie — der Grund war nirgends zu sehen.
-       */
-      it('sagt es, wenn zu der Taste keine Antwort konfiguriert ist', () => {
-        state.statuses.set([{ id: 's1', name: 'zwingend', farbe: '#1D9E75', wirkung: 'pflicht' }]);
-        const toast = spyOn(TestBed.inject(ToastService), 'show');
-
-        app.onKeydown(key('n')); // ausgeschlossen — dazu gibt es keine Stufe
-
-        expect(disposition.setzeStatus).not.toHaveBeenCalled();
-        expect(toast).toHaveBeenCalledWith(jasmine.stringContaining('Antworten anpassen'));
       });
 
       it('laesst einem fokussierten Knopf sein Enter', () => {
@@ -361,6 +353,18 @@ describe('App', () => {
         Object.defineProperty(imFeld, 'target', { value: document.createElement('input') });
         app.onKeydown(imFeld);
         expect(guided.gotoNext).not.toHaveBeenCalled();
+      });
+
+      it('Shift+Pfeil bewegt frei im Baum — auch an einer festhaltenden Pflichtangabe', () => {
+        spyOn(guided, 'ueberspringSperre').and.returnValue('Pflichtangabe — …');
+
+        app.onKeydown(key('ArrowDown', { shiftKey: true }));
+        app.onKeydown(key('ArrowLeft', { shiftKey: true }));
+
+        expect(nav.arrowNavigate).toHaveBeenCalledWith('ArrowDown');
+        expect(nav.arrowNavigate).toHaveBeenCalledWith('ArrowLeft');
+        expect(guided.gotoNext).not.toHaveBeenCalled();
+        expect(guided.betreteStation).not.toHaveBeenCalled();
       });
     });
   });

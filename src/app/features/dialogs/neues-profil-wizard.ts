@@ -14,9 +14,13 @@ import { MessageRef } from '../../models/xsd-index.model';
 import { firstLine } from '../../core/util/pretty.util';
 import { nachFachmodul } from '../../core/util/fachmodul.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
+import { AutorService } from '../../core/services/autor.service';
 
-/** Browser-Storage-Schluessel des zuletzt genannten Autors (Vorbelegung). */
-export const AUTOR_STORAGE = 'xjp.autor';
+/**
+ * Der Storage-Schluessel der Selbstauskunft liegt beim `AutorService` — hier
+ * nur weitergereicht, damit Aufrufer und Tests am gewohnten Ort bleiben.
+ */
+export { AUTOR_STORAGE } from '../../core/services/autor.service';
 
 /** Die drei Schritte des Anlege-Durchlaufs. */
 type Schritt = 'version' | 'nachricht' | 'angaben';
@@ -52,6 +56,7 @@ export class NeuesProfilWizard {
   private readonly state = inject(StateService);
   private readonly persistence = inject(PersistenceService);
   private readonly toast = inject(ToastService);
+  private readonly autoren = inject(AutorService);
   private readonly dlg = viewChild.required<ElementRef<HTMLDialogElement>>('dlg');
 
   protected readonly schritt = signal<Schritt>('version');
@@ -102,7 +107,7 @@ export class NeuesProfilWizard {
     this.nachricht.set(null);
     this.titel.set('');
     this.beschreibung.set('');
-    this.autor.set(localStorage.getItem(AUTOR_STORAGE) ?? '');
+    this.autor.set(this.autoren.name());
     const vs = this.versionen();
     const aktiv = this.state.activeBundle();
     const vor = vs.find((v) => v.dir === aktiv) ?? vs.find((v) => v.default) ?? vs[0];
@@ -167,7 +172,7 @@ export class NeuesProfilWizard {
     const nachricht = this.nachricht();
     if (!nachricht || !this.angabenOk()) return;
     const autor = this.autor().trim();
-    localStorage.setItem(AUTOR_STORAGE, autor);
+    this.autoren.setze(autor);
     this.dlg().nativeElement.close();
     await this.persistence.createNew({
       nachricht,

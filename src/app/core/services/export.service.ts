@@ -73,22 +73,27 @@ export class ExportService {
   private readonly marker = inject(ValidationMarkerService);
 
   /**
-   * Weiche Vollstaendigkeit (gefuehrter Modus): bei offenen Entscheidungen vor
-   * dem Export warnen, aber nicht blockieren. Bei Abbruch zum naechsten offenen
-   * Punkt springen. Gibt true zurueck, wenn der Export fortgesetzt werden soll.
-   * Auch vom ExcelExportService als Guard genutzt.
+   * Weiche Vollstaendigkeit: vor dem Export warnen, wenn Punkte „zu klären"
+   * geparkt sind (#41), aber nicht blockieren. Bei Abbruch zum ersten davon
+   * springen. Gibt true zurueck, wenn der Export fortgesetzt werden soll. Auch
+   * vom ExcelExportService als Guard genutzt.
+   *
+   * Nur die geparkten, nicht die offenen (ADR 0023): ohne eigene Antwort gilt
+   * die Regel des Standards — das ist eine gueltige Aussage, keine Luecke. Bis
+   * dahin warnte der gefuehrte Modus bei jedem offenen Punkt; mit der Fuehrung
+   * im Bearbeiten haette das jede gewachsene Profilierung getroffen. Offen ist
+   * nach einem „zu klären" dagegen die fachliche Frage selbst.
    */
-  bestaetigeOffeneEntscheidungen(): boolean {
-    if (!this.state.guided()) return true;
-    const { x, y } = this.guided.fortschritt();
-    const offen = y - x;
-    if (!offen) return true;
-    if (
-      confirm(`Noch ${offen} offene Entscheidung${offen === 1 ? '' : 'en'} — trotzdem exportieren?`)
-    )
+  bestaetigeZuKlaerende(): boolean {
+    const geparkt = this.guided.geparkteSet();
+    const n = geparkt.size;
+    if (!n) return true;
+    if (confirm(`Noch ${n} ${n === 1 ? 'Punkt' : 'Punkte'} „zu klären" — trotzdem exportieren?`))
       return true;
-    this.guided.gotoNextOpen();
-    this.toast.show('Export abgebrochen — nächste offene Entscheidung ausgewählt.');
+    // Das Set steht in Dokumentreihenfolge (Walk) — der erste ist der oberste.
+    const erster = geparkt.values().next().value;
+    if (erster !== undefined) this.nav.jumpTo(erster, true);
+    this.toast.show('Export abgebrochen — erster Punkt „zu klären" ausgewählt.');
     return false;
   }
 
@@ -127,7 +132,7 @@ export class ExportService {
       this.toast.show(ERW_SPERRE_GRUND);
       return;
     }
-    if (!this.bestaetigeOffeneEntscheidungen()) return;
+    if (!this.bestaetigeZuKlaerende()) return;
     const rules = new Map<string, { test: string; msg: string }[]>();
     const addAssert = (ctx: string, test: string, msg: string): void => {
       if (!rules.has(ctx)) rules.set(ctx, []);
@@ -355,12 +360,12 @@ export class ExportService {
   // ── Beispiel-XML (Z.2041-2161) ──────────────────────────────────────
 
   /**
-   * Toolbar-Fluss: Guard (geführter Modus), Schemavalidierung, Download, Toast.
+   * Toolbar-Fluss: Guard („zu klären"), Schemavalidierung, Download, Toast.
    * Anforderung: nur schema-valide Nachrichten werden exportiert — ein
    * invalides Beispiel (z. B. offene Auswahlen) wird mit Bericht blockiert.
    */
   async genBeispielXml(): Promise<void> {
-    if (!this.bestaetigeOffeneEntscheidungen()) return;
+    if (!this.bestaetigeZuKlaerende()) return;
     const res = this.buildBeispielXmlMitPfaden();
     if (res == null) return;
     const pruefung = await this.validator.validiere(res.xml);

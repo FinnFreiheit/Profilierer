@@ -186,7 +186,7 @@ export class XmlAnsicht {
 
   /**
    * Herunterladen. Im Profil geht das durch `genBeispielXml()` — dort haengen
-   * die Rueckfrage zu offenen Entscheidungen und die Schemavalidierung dran,
+   * die Rueckfrage zu Punkten „zu klären" und die Schemavalidierung dran,
    * und die duerfen nicht daran vorbeifallen, nur weil der Knopf woanders
    * steht. Im Nachrichten-Modus gibt es diesen Weg nicht: der getreue
    * Instanz-Export (`InstanceExportService`) baut aus dem Quell-DOM und wuerde

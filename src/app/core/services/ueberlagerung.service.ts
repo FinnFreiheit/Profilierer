@@ -183,7 +183,6 @@ export class UeberlagerungService {
     this.nav.loadMessage(msgName); // setzt das Profil zurueck (auch die Vorkommen)
     this.state.activeProfileId.set(null); // kein Autosave: hier wird nichts profiliert
     this.state.auspraegungen.set(vereinigung);
-    this.state.guided.set(false);
     // Die Ueberlagerung ist ein Sonderfall der Schema-Ansicht: betrachten,
     // nichts speichern, keine Profilier-Bedienelemente.
     this.state.schemaView.set(true);

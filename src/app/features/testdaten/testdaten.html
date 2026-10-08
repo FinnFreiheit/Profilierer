@@ -91,7 +91,7 @@
       <span aria-hidden="true">⌕</span>
       <input
         type="search"
-        placeholder="Suchen — Name, Nachricht, Notiz, Schlagwort…"
+        placeholder="Suchen — Name, Autor, Nachricht, Notiz, Schlagwort…"
         [value]="search()"
         (input)="search.set($any($event.target).value)"
       />
@@ -163,7 +163,7 @@
       <button (click)="resetAlles()">Eingrenzung zurücksetzen</button>
     </div>
   } @else if (ansicht() === 'liste') {
-    <div class="liste">
+    <div class="liste listeTestdaten">
       <div class="listeKopf">
         <button [class.aktiv]="sortKey() === 'name'" (click)="sortiere('name')">
           Testnachricht{{ sortPfeil('name') }}
@@ -173,6 +173,9 @@
         </button>
         <button [class.aktiv]="sortKey() === 'profil'" (click)="sortiere('profil')">
           Profilierung{{ sortPfeil('profil') }}
+        </button>
+        <button [class.aktiv]="sortKey() === 'autor'" (click)="sortiere('autor')">
+          Autor{{ sortPfeil('autor') }}
         </button>
         <span>Tags</span>
         <span>Stand</span>
@@ -205,6 +208,13 @@
             <span class="modulPill" [title]="modulTitel(e)">{{ modulVon(e) }}</span>
             <span class="listeText" [class.leer]="!e.profilId" [title]="herkunft(e)">
               {{ e.profilId ? e.profilName || '(ohne Namen)' : 'ohne Bindung' }}
+            </span>
+            <span
+              class="listeText"
+              [class.leer]="!e.autor"
+              [title]="e.autor ? 'Angelegt von ' + e.autor : 'Altbestand ohne Autor'"
+            >
+              {{ e.autor || 'ohne Autor' }}
             </span>
             <span class="listeText" [title]="(e.tags ?? []).join(' · ')">{{ tagsText(e) }}</span>
             <span [class]="'metaPill meta-' + metaArt(e)" [title]="metaText(e)">{{
@@ -327,6 +337,12 @@
                     </span>
                   </div>
                   <div class="dcFussZeile">
+                    <span
+                      class="dcAutor"
+                      [class.leer]="!e.autor"
+                      [title]="e.autor ? 'Angelegt von ' + e.autor : 'Altbestand ohne Autor'"
+                      >{{ e.autor || 'ohne Autor' }}</span
+                    >
                     <span class="spacer"></span>
                     <span [class]="'metaPill meta-' + metaArt(e)" [title]="fussTitel(e)">{{
                       metaText(e)
@@ -448,6 +464,15 @@
     werden automatisch erkannt; andere Dateien werden abgelehnt. Nicht schema-valide Nachrichten
     werden <b>als Entwurf abgelegt</b>, nicht abgewiesen — der Bericht nennt die Fehler.
   </p>
+  <label for="uploadAutor" style="display: block; margin-bottom: 4px">Autor</label>
+  <input
+    id="uploadAutor"
+    type="text"
+    style="width: 100%; box-sizing: border-box; margin-bottom: 12px"
+    placeholder="Ihr Name — Pflichtangabe, steht danach an jeder abgelegten Nachricht"
+    [value]="autorName()"
+    (input)="setzeAutor($any($event.target).value)"
+  />
   <!-- Ablageflaeche: eine Datei wird direkt im Baum geoeffnet, mehrere wandern
        als Stapel in den Speicher. -->
   <div id="uploadDrop" appFileDrop (filesDropped)="onDrop($event)">
@@ -679,6 +704,15 @@
     [value]="editName()"
     (input)="editName.set($any($event.target).value)"
   />
+  <label for="testnachrichtAutor" style="display: block; margin: 12px 0 4px">Autor</label>
+  <input
+    id="testnachrichtAutor"
+    type="text"
+    style="width: 100%; box-sizing: border-box"
+    placeholder="Ihr Name — Pflichtangabe"
+    [value]="editAutor()"
+    (input)="editAutor.set($any($event.target).value)"
+  />
   <label style="display: block; margin: 12px 0 4px">Beschreibung</label>
   <textarea
     style="width: 100%; min-height: 100px; box-sizing: border-box"
@@ -694,7 +728,9 @@
   ></app-tag-eingabe>
   <div style="text-align: right; margin-top: 12px">
     <button (click)="editDlg.close()">Abbrechen</button>
-    <button class="primary" (click)="submitEdit()">Übernehmen</button>
+    <button class="primary" [disabled]="!editAutor().trim()" (click)="submitEdit()">
+      Übernehmen
+    </button>
   </div>
 </dialog>
 

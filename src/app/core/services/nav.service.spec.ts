@@ -49,7 +49,6 @@ describe('NavService — Schema-Ansicht (US "Schema ansehen")', () => {
     expect(state.schemaView()).toBeTrue();
     expect(state.readOnly()).toBeTrue();
     expect(state.activeProfileId()).toBeNull();
-    expect(state.guided()).toBeFalse();
     expect(state.root()).toBeNull();
   });
 
