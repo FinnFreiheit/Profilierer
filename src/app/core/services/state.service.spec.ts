@@ -620,10 +620,10 @@ describe('StateService', () => {
       expect(s.onlyValues()).toBeFalse();
     });
 
-    it('laesst guided beim Profil-Reset unangetastet (Nachrichtenwahl im gefuehrten Modus)', () => {
-      s.guided.set(true);
+    it('laesst die Hervorhebung beim Profil-Reset unangetastet (Nachrichtenwahl einer neuen Profilierung)', () => {
+      s.hervorhebung.set({ offen: true, beantwortet: false, notiz: false });
       s.loadProfile({ meta: {}, statuses: [], elemente: {}, auspraegungen: {}, erweiterungen: {} });
-      expect(s.guided()).toBeTrue();
+      expect(s.hervorhebung().offen).toBeTrue();
     });
 
     it('raeumt die Validierungsmarker des vorherigen Prueflaufs', () => {

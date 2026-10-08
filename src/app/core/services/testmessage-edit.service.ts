@@ -117,10 +117,7 @@ export class TestmessageEditService {
     // Bindung (oder nach bewusstem Loesen) liefert der Server 404 und alles
     // bleibt wie bisher.
     const vorgabe = entry.profilId ? await this.store.loadVorgabe(entry.id) : null;
-    if (vorgabe) {
-      this.state.setVorgabe(vorgabe);
-      this.state.guided.set(true);
-    }
+    if (vorgabe) this.state.setVorgabe(vorgabe);
 
     // Vergebene Namen der Vorkommen zurueckholen. Erst hier, nach `setVorgabe`:
     // mit Bindung liefert `alleAuspListen` die Sicht der gebundenen Fassung —
@@ -226,7 +223,6 @@ export class TestmessageEditService {
     // Berichts-Store ersetzen, und sein Inhalt steht dort schon.
     await this.oeffnen(entry, 'betrachten', { schemaHinweis: false });
     this.state.setVorgabe(vorgabe);
-    this.state.guided.set(true);
     this.nav.jumpTo(pfad, true);
   }
 
@@ -343,8 +339,9 @@ export class TestmessageEditService {
 
   /**
    * Profilbindung bewusst loesen (#32) — der Ausstieg fuer Negativtests: die
-   * eingefrorene Kopie faellt am Eintrag weg, Sperren und Fuehrung enden
-   * sofort, das Kennzeichen "Profil weiterentwickelt" verschwindet. Die
+   * eingefrorene Kopie faellt am Eintrag weg, Sperren und Vorgaben der
+   * Profilierung enden sofort (die Fuehrung durch die Stationen bleibt — sie
+   * gehoert seit ADR 0023 zum Bearbeiten, nicht zur Bindung), das Kennzeichen "Profil weiterentwickelt" verschwindet. Die
    * **Herkunft** bleibt am Eintrag stehen und auf der Kachel sichtbar: sie ist
    * Historie, keine Bindung. Gibt true zurueck, wenn geloest wurde.
    */
@@ -353,13 +350,12 @@ export class TestmessageEditService {
     if (!session?.entryId || !this.state.hatVorgabe()) return false;
     if (
       !confirm(
-        'Profilbindung lösen? Sperren und Führung enden, die Nachricht verhält sich danach wie eine freie Instanz. Die Herkunftsangabe bleibt erhalten.',
+        'Profilbindung lösen? Sperren und Vorgaben der Profilierung enden, die Nachricht verhält sich danach wie eine freie Instanz. Die Herkunftsangabe bleibt erhalten.',
       )
     )
       return false;
     await this.store.loeseBindung(session.entryId);
     this.state.clearVorgabe();
-    this.state.guided.set(false);
     this.toast.show('Profilbindung gelöst — die Nachricht ist jetzt eine freie Instanz.');
     return true;
   }

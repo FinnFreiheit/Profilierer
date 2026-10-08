@@ -74,11 +74,16 @@ export function testmessagesRouter(db, auth) {
     res.json({ entry });
   });
 
-  // Anlegen: id serverseitig.
+  // Anlegen: id serverseitig. Der Autor ist **Pflicht** -- eine Testnachricht
+  // ohne Ersteller ist in der AG nicht nachzuhalten (wer hat sie gebaut, wen
+  // fragt man bei einem Befund?). Erzwungen wird sie hier und nicht in der
+  // Spalte: Altbestaende tragen keinen Autor und bleiben aenderbar.
   r.post('/testmessages', (req, res) => {
     const b = req.body;
     if (!b || typeof b !== 'object' || typeof b.xml !== 'string' || !b.xml.trim())
       return res.status(400).json({ error: 'kein XML' });
+    if (typeof b.autor !== 'string' || !b.autor.trim())
+      return res.status(400).json({ error: 'Autor erforderlich' });
     res.status(201).json(db.tmCreate(b));
   });
 
@@ -87,10 +92,15 @@ export function testmessagesRouter(db, auth) {
   // freigegebenen Nachricht eine Variante abzuleiten ruehrt das Original nicht
   // an, und gerade die freigegebenen sind die guten Ausgangspunkte.
   r.post('/testmessages/:id/duplicate', (req, res) => {
-    const { name } = req.body ?? {};
+    const { name, autor } = req.body ?? {};
     if (name !== undefined && typeof name !== 'string')
       return res.status(400).json({ error: 'kein Name' });
-    const out = db.tmDuplicate(req.params.id, undefined, name);
+    if (autor !== undefined && typeof autor !== 'string')
+      return res.status(400).json({ error: 'kein Autor' });
+    // Ohne Angabe bleibt der Autor des Originals stehen -- anders als beim
+    // Anlegen wird hier nichts erzwungen: die Kopie eines Altbestands soll
+    // nicht daran scheitern, dass das Original keinen Autor traegt.
+    const out = db.tmDuplicate(req.params.id, undefined, name, autor);
     if (!out) return res.status(404).json({ error: 'nicht gefunden' });
     res.status(201).json(out);
   });
@@ -100,13 +110,18 @@ export function testmessagesRouter(db, auth) {
   // Profil-Bindung und eingefrorene Kopie bleiben unberuehrt — sie entstehen
   // nur beim Anlegen.
   r.patch('/testmessages/:id', schutz, (req, res) => {
-    const { notiz, name, tags, xml, entwurf, fortschritt, entscheidungen, bezeichnungen } =
+    const { notiz, name, autor, tags, xml, entwurf, fortschritt, entscheidungen, bezeichnungen } =
       req.body ?? {};
     if (xml !== undefined && (typeof xml !== 'string' || !xml.trim()))
       return res.status(400).json({ error: 'kein XML' });
+    // Der Autor laesst sich berichtigen, aber nicht wegnehmen: was einmal einen
+    // Ersteller hat, behaelt ihn (dieselbe Aussage wie die Pflicht am POST).
+    if (autor !== undefined && (typeof autor !== 'string' || !autor.trim()))
+      return res.status(400).json({ error: 'Autor erforderlich' });
     const entry = db.tmUpdate(req.params.id, {
       notiz,
       name,
+      autor,
       tags,
       xml,
       entwurf,

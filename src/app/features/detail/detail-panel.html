@@ -296,14 +296,14 @@
                 Tastatur: ↓ weiter (Pflichtangaben halten fest) · ↑ zurück · ← Teilbaum angeben und
                 betreten · → wieder heraus · 1…9 wählt die Option der Station · Enter übernimmt den
                 Wert und springt zur nächsten offenen Angabe (Shift+Enter macht einen Absatz im
-                Feld)
+                Feld) · Shift+Pfeil bewegt frei im Baum
               </div>
             </div>
           }
 
           @if (gefuehrt; as g) {
             <div class="gefuehrtKopf">
-              <span class="dLabel">Geführte Entscheidung</span>
+              <span class="dLabel">Entscheidung</span>
               @if (g.offen) {
                 <span class="gOffen">offen</span>
               }
@@ -313,7 +313,7 @@
             </div>
           }
 
-          @if (!msgMode() && !roEff() && !gefuehrt?.synthChoice) {
+          @if (!msgMode() && !roEff()) {
             <div class="dsec">
               <span class="dLabel">Ihre Antwort</span>
               <div class="antwortListe">
@@ -431,9 +431,9 @@
                 </button>
               </div>
               <div class="gKbdHint">
-                Tastatur: <kbd>←</kbd> <kbd>→</kbd> navigieren · <kbd>S</kbd> <kbd>Z</kbd>
-                <kbd>O</kbd> <kbd>N</kbd> <kbd>K</kbd> antworten · <kbd>Enter</kbd> nächstes offenes
-                Feld
+                Tastatur: <kbd>←</kbd> <kbd>→</kbd> vorheriger · nächster offener Punkt ·
+                <kbd>S</kbd> <kbd>Z</kbd> <kbd>O</kbd> <kbd>N</kbd> <kbd>K</kbd> antworten ·
+                <kbd>Enter</kbd> nächstes offenes Feld · <kbd>Shift</kbd>+Pfeil frei im Baum
               </div>
             </div>
           }

@@ -285,7 +285,7 @@ export class BaumkastenAnsicht {
       path,
     });
     const rk = refKindOf(n);
-    const stationArt = this.state.guided() && !readOnly ? this.guided.stationArt(path) : null;
+    const stationArt = !readOnly ? this.guided.stationArt(path) : null;
     const wert = this.wertfelder(it, n, path, isValueBox, readOnly);
 
     // Vorkommen anlegen/entfernen (Buttons ⧉ und ✕) — nur wo sie erscheinen,
@@ -723,8 +723,16 @@ export class BaumkastenAnsicht {
           'Freie Angabe — ein Wert bringt das Element in die Nachricht, ohne Wert entfällt es. Mit ↓ übergehen.',
       });
 
-    // Gefuehrter Modus: offene Entscheidungspunkte markieren.
-    if (this.state.guided() && !readOnly && this.guided.offeneSet().has(path))
+    // Offene Entscheidungspunkte markieren (ADR 0023). Beim Profilieren haengt
+    // das Kennzeichen an der Hervorhebung "offen" des Ansicht-Menues: in einer
+    // gewachsenen Profilierung sind hunderte Punkte ohne eigene Antwort, und es
+    // gilt dort der Standard. Im Durchlauf einer Nachricht bleibt es immer an —
+    // offen ist dort nur eine geschuldete Pflichtangabe, und die soll man sehen.
+    if (
+      !readOnly &&
+      (this.guided.instanzModus() || this.state.hervorhebung().offen) &&
+      this.guided.offeneSet().has(path)
+    )
       tags.push({ cls: 't-open', text: 'offen', title: 'Entscheidung steht noch aus' });
 
     return [...tags, ...ctx.diffTags];

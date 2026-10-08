@@ -116,3 +116,12 @@ etwas zwingend setzt.
   Angabe/Rücknahme am Container, Elternabhängigkeit, Zweig aus Wert, Altstand),
   `export.service.spec.ts` (einzig befüllter Zweig wird serialisiert) und
   `testmessage-create.service.spec.ts` (keine Rückfrage mehr).
+
+## Nachtrag 26.09.24: Durchlauf ist Bearbeiten, Baum auf Shift+Pfeil
+
+Mit [ADR 0023](0023-ein-bearbeiten-modus-mit-fuehrung.md) gibt es keinen eigenen geführten
+Modus mehr: der Durchlauf gilt, sobald eine Nachricht bearbeitet wird — auch eine
+hochgeladene oder eine, deren Profilbindung gelöst wurde. Die Belegung dieser ADR bleibt
+(senkrecht die Spur, waagerecht die Tiefe, `1`…`9`); die freie Baum-Navigation, die hier
+„andersherum" lief und deshalb keinen Rückfall bekam, liegt jetzt auf **Shift+Pfeil** und
+greift auch an einer Pflichtangabe, die das Weiterblättern festhält.

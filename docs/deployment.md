@@ -40,6 +40,10 @@ Ablauf, Skripte und Rollback: [`deploy/README.md`](../deploy/README.md) (`deploy
 
 Profilierungen liegen in der SQLite-DB des Backends (`XJP_DB`) — **Backup = diese Datei** (bei WAL zusätzlich `*-wal`/`*-shm`) sichern. Der Codelisten-Cache und einige UI-Flags bleiben clientseitig im `localStorage` (`xjp.clcache`, `xjp.corsproxy`, Migrations-Marker `xjp.migrated`). Profile lassen sich weiterhin als JSON exportieren/importieren. Datenmodell und Migration: [data-model.md](data-model.md).
 
+### Produktivstand lokal spiegeln
+
+`npm run db:spiegeln [-- pi@host]` (bzw. `deploy/db-spiegeln.sh`) holt die Produktiv-DB vom Pi und macht sie zur lokalen Datenbank — für Fehlersuche an echten Daten. Nur lesend auf dem Pi (kurzzeitige Kopie unter `/tmp`, danach gelöscht), WAL-sicher über `sqlite3 .backup`, mit `integrity_check` vor dem Ersetzen und einer lokalen Sicherung `profiles.db.vor-prod-kopie-JJMMTT-hhmm`. Details und Optionen (`--von-datei`, `--force`, Env `XJP_PI`/`XJP_DB`): [`deploy/README.md`](../deploy/README.md).
+
 ### Nutzungszahlen (Kennzahlen-Ansicht)
 
 Die Instanz zählt seit [ADR 0021](adr/0021-nutzungszahlen-als-aggregat.md) ihre eigene Nutzung — **anonym**: eine im Browser erzeugte Zufalls-UUID (`localStorage` `xjp.klientId`) geht als Header `x-klient` an jeden API-Request, gespeichert werden daraus nur Stunden- und Tagessummen (Tabellen `nutzung_*` in derselben DB, vom Backup also mitgesichert). Keine IP-Adressen, keine Namen, keine Inhalte; Rohwerte werden nach 30 Tagen zu Tagessummen verdichtet, die Kennungen dabei zur bloßen Anzahl.

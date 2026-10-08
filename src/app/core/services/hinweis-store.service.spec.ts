@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { AUTOR_STORAGE, HinweisStoreService } from './hinweis-store.service';
+import { HinweisStoreService } from './hinweis-store.service';
+import { AUTOR_STORAGE } from './autor.service';
 import { Hinweis } from '../../models/profile.model';
 
 /** Ein Hinweis-Stub. */
