@@ -682,6 +682,11 @@ app-crumbs {
   min-width: 0;
   position: relative;
   background: var(--bg);
+  /* Die Rollbahn steht direkt neben der Detailkarte — schmal und im Ton
+     der Flaeche, damit sie nicht wie ein Trenner zwischen Baum und Karte
+     wirkt. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-stark) transparent;
 }
 /* Die Verweislinien schwingen rechts ueber den letzten Kasten hinaus
    (refCurve: +50px Bauch) — das Polster rechts ist ihr Raum, nicht Luft. */
@@ -1906,8 +1911,9 @@ app-detail-panel {
 }
 .karteSchema {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: 4px 8px;
   min-width: 0;
   border-top: 1px solid var(--border);
   padding-top: 10px;
@@ -1921,9 +1927,9 @@ app-detail-panel {
   font-family: var(--mono);
   font-size: 11.5px;
   color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Nicht abschneiden: passt der Name nicht hinter das Label, rutscht er
+     darunter und bricht dort notfalls auch mitten im Bezeichner um. */
+  overflow-wrap: anywhere;
 }
 /* Die Notiz geht ins Team, nicht in die Nachricht — das muss dabeistehen. */
 .notizHinweis {
