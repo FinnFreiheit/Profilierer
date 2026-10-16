@@ -406,6 +406,13 @@
     <button class="menuItem" (click)="w.close(); download(e, $event)">XML herunterladen</button>
     <button
       class="menuItem"
+      title="Kompakte Übersicht der Inhalte zum Weitergeben — im Druckdialog „Als PDF sichern“"
+      (click)="w.close(); uebersichtPdf(e, $event)"
+    >
+      Übersicht als PDF
+    </button>
+    <button
+      class="menuItem"
       title="Link in die Zwischenablage legen — er öffnet diese Testnachricht direkt (aktueller Stand)"
       (click)="w.close(); teilen(e, $event)"
     >

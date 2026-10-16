@@ -1,3 +1,4 @@
+import { TestnachrichtDruckService } from '../../core/services/testnachricht-druck.service';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -198,6 +199,7 @@ export class Testdaten {
   private readonly pruefung = inject(ProfilPruefungService);
   private readonly excel = inject(PruefberichtExcelService);
   private readonly ui = inject(UiSettingsService);
+  private readonly druck = inject(TestnachrichtDruckService);
 
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
@@ -1229,6 +1231,19 @@ export class Testdaten {
         this.toast.show('Heruntergeladen — die Nachricht ist als Entwurf gekennzeichnet.');
     } catch {
       this.toast.show('Download fehlgeschlagen — Backend nicht erreichbar.');
+    }
+  }
+
+  /** Kompakte Uebersicht der Nachricht als PDF (Druckdialog → „Als PDF sichern"). */
+  protected async uebersichtPdf(e: TestmessageEntry, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    try {
+      const xml = await this.store.loadXml(e.id);
+      if (xml == null) return;
+      if (!(await this.druck.drucke(xml, e.name || (e.nachricht ?? ''))))
+        this.toast.show('Übersicht nicht möglich — das XML ist nicht lesbar.');
+    } catch {
+      this.toast.show('Übersicht fehlgeschlagen — Backend nicht erreichbar.');
     }
   }
 
