@@ -10,6 +10,7 @@ import { ValidationReportService } from './validation-report.service';
 import { HinweisStoreService } from './hinweis-store.service';
 import { XsdDoc } from '../../models/xsd-index.model';
 import { ERW_SPERRE_GRUND } from '../util/erweiterung-sperre';
+import { itemPath } from '../../models/node.model';
 
 const XSD = `<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
@@ -549,7 +550,7 @@ describe('ExportService (Schematron)', () => {
 
     it('Excel-Guard und Druck bleiben trotz Erweiterungen frei (#98)', () => {
       state.addErweiterung(M, { name: 'zusatzAngabe', min: '1', max: '1', datentyp: 'string' });
-      expect(svc.bestaetigeOffeneEntscheidungen()).toBeTrue();
+      expect(svc.bestaetigeZuKlaerende()).toBeTrue();
       expect(svc.buildPrintRows().length).toBeGreaterThan(0);
     });
 
@@ -599,6 +600,37 @@ describe('ExportService (Schematron)', () => {
       // Nur der echte Fehler markiert den Baum.
       expect(state.valFehler()?.has(`${M}/kopf`)).toBeTrue();
       expect([...state.valFehler()!.keys()].some((p) => p.includes('/~'))).toBeFalse();
+    });
+  });
+
+  /**
+   * Seit ADR 0023 fragt der Export nur noch bei Punkten „zu klären": ohne
+   * eigene Antwort gilt die Regel des Standards — das ist keine Luecke.
+   */
+  describe('Rueckfrage vor dem Export („zu klären")', () => {
+    it('fragt nicht, wenn Punkte nur ohne eigene Antwort sind', () => {
+      const frage = spyOn(window, 'confirm');
+      expect(svc.bestaetigeZuKlaerende()).toBeTrue();
+      expect(frage).not.toHaveBeenCalled();
+    });
+
+    it('fragt bei geparkten Punkten und springt bei Abbruch zum ersten', () => {
+      state.setElementProfile(`${M}/farbe`, { status: 's4' });
+      state.setElementProfile(`${M}/az`, { status: 's4' });
+      const frage = spyOn(window, 'confirm').and.returnValue(false);
+
+      expect(svc.bestaetigeZuKlaerende()).toBeFalse();
+
+      expect(frage).toHaveBeenCalledWith(jasmine.stringContaining('2 Punkte „zu klären"'));
+      // Dokumentreihenfolge: az steht vor farbe.
+      expect(itemPath(state.selItem()!)).toBe(`${M}/az`);
+      expect(toasts.some((t) => t.includes('zu klären'))).toBeTrue();
+    });
+
+    it('exportiert nach Bestaetigung', () => {
+      state.setElementProfile(`${M}/az`, { status: 's4' });
+      spyOn(window, 'confirm').and.returnValue(true);
+      expect(svc.bestaetigeZuKlaerende()).toBeTrue();
     });
   });
 });

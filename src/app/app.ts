@@ -430,20 +430,24 @@ export class App implements OnInit {
   }
 
   /**
-   * Tastatur-Navigation (Z.2443-2463): Pfeiltasten im Baum. Beim Profilieren
-   * kommen die **Antwort-Tasten** dazu — S (wie Standard), Z/O/N/K je Wirkung
-   * und Enter (naechstes offenes Feld). Sie gelten im Bearbeiten- wie im
-   * gefuehrten Modus, weil die Antwort-Liste im Detailbereich dieselbe ist;
-   * gefuehrt blaettert eine Antwort zusaetzlich weiter, und Links/Rechts
-   * steuern dort die Spur (vorheriger Punkt / naechster offener).
+   * Tastatur im Baum-Editor. Seit ADR 0023 gibt es nur noch Betrachten und
+   * Bearbeiten, und Bearbeiten fuehrt: die **Pfeiltasten gehoeren der Spur**,
+   * die freie Baum-Navigation (Z.2443-2463: ← Eltern, → Kind, ↑↓ Geschwister)
+   * liegt auf **Shift+Pfeil** — in jedem Modus, damit sie ueberall dieselbe
+   * Hand hat. Beim Betrachten gibt es keine Spur; dort navigieren auch die
+   * blanken Pfeile den Baum.
    *
-   * Im gefuehrten **Instanz**-Durchlauf blaettert man statt zu entscheiden
+   * Beim Profilieren: ← vorheriger Punkt, → naechster offener, ↑↓ Geschwister,
+   * dazu die **Antwort-Tasten** — S (wie Standard), Z/O/N/K je Wirkung (an
+   * einem offenen Punkt geht es danach zum naechsten offenen, beim Korrigieren
+   * bleibt die Auswahl stehen) und Enter (naechstes offenes Feld).
+   *
+   * Im **Instanz**-Durchlauf blaettert man statt zu entscheiden
    * (ADR 0016): **senkrecht die Spur** (↓ zur naechsten Station — zugleich das
    * Uebergehen einer freien Station —, ↑ zurueck), **waagerecht die Tiefe** (←
    * gibt den ausgewaehlten Container an und geht hinein, → verlaesst ihn).
    * Pflichtangaben halten das Uebergehen fest (`ueberspringSperre`); zurueck,
-   * hinein/heraus und jeder Klick im Baum bleiben frei. Wo keine Station passt,
-   * greift die gewohnte Baum-Navigation.
+   * hinein/heraus, Shift+Pfeil und jeder Klick im Baum bleiben frei.
    *
    * Eingabefelder behalten die Tastatur — die **Zweig-Radios** der Auswahl
    * nicht: dort haben Pfeiltasten keine Eingabebedeutung, und nach einem Klick
@@ -472,12 +476,15 @@ export class App implements OnInit {
       return;
     }
 
-    if (
-      this.state.guided() &&
-      !this.state.readOnly() &&
-      this.guided.instanzModus() &&
-      this.state.selItem()
-    ) {
+    // Freie Baum-Navigation in jedem Modus: Shift+Pfeil. Vor der Spur, denn
+    // die belegt die blanken Pfeile — auch dort, wo eine offene Pflichtangabe
+    // das Weiterblaettern festhaelt, soll man den Baum verlassen koennen.
+    if (e.shiftKey && e.key.startsWith('Arrow')) {
+      if (this.nav.arrowNavigate(e.key)) e.preventDefault();
+      return;
+    }
+
+    if (!this.state.readOnly() && this.guided.instanzModus() && this.state.selItem()) {
       // Hoch/Runter gehoeren der Spur — auch am Ende der Nachricht, wo es keine
       // naechste Station gibt: der Ruecksprung der Baum-Navigation warf den
       // Durchlauf sonst an den Anfang zurueck.
@@ -526,26 +533,21 @@ export class App implements OnInit {
       }
     }
 
-    // Antwort-Tasten beim Profilieren: im Bearbeiten- **und** im gefuehrten
-    // Modus, weil die Antwort-Liste im Detailbereich dieselbe ist. Der
-    // Unterschied liegt allein im Weiterspringen — gefuehrt blaettert die
-    // Antwort zur naechsten offenen Stelle, beim Bearbeiten bleibt der Blick,
-    // wo er ist.
+    // Profilieren: Spur auf ←/→ und die Antwort-Tasten. ↑/↓ fallen unten auf
+    // die Baum-Navigation durch (Geschwister).
     const sel = this.state.selItem();
     if (!this.state.readOnly() && !this.guided.instanzModus() && !this.state.msgMode() && sel) {
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       const inBedienelement = !!t && ['BUTTON', 'INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName);
-      if (this.state.guided()) {
-        if (key === 'ArrowLeft') {
-          this.guided.gotoPrev();
-          e.preventDefault();
-          return;
-        }
-        if (key === 'ArrowRight') {
-          this.guided.gotoNextOpen();
-          e.preventDefault();
-          return;
-        }
+      if (key === 'ArrowLeft') {
+        this.guided.gotoPrev();
+        e.preventDefault();
+        return;
+      }
+      if (key === 'ArrowRight') {
+        this.guided.gotoNextOpen();
+        e.preventDefault();
+        return;
       }
       // Enter fuehrt zum naechsten offenen Feld — die Bewegung, die den
       // Durchlauf ohne Maus traegt. Auf einem Bedienelement gehoert die Taste
@@ -563,7 +565,8 @@ export class App implements OnInit {
         return;
       }
       // z/o/n/k setzen die Antwort ueber ihre Wirkung; k („zu klären") parkt
-      // den Punkt sichtbar (#41).
+      // den Punkt sichtbar (#41). Weiter geht es nur von einem offenen Punkt
+      // aus (GuidedService.setzeDisposition).
       const wirkung = wirkungFuerTaste(key);
       if (wirkung) {
         e.preventDefault();
@@ -571,13 +574,7 @@ export class App implements OnInit {
         // Taste sonst stumm — und der Grund unsichtbar. Die Zeile im
         // Detailbereich steht dann als Platzhalter da; hier wird gesagt, wo
         // sie anzulegen ist.
-        if (this.state.guided()) {
-          if (!this.guided.setzeDisposition(wirkung)) this.toast.show(KEINE_ANTWORT);
-          return;
-        }
-        const st = this.state.statusFuerTaste(key);
-        if (st) this.disposition.setzeStatus(itemPath(sel), st.id);
-        else this.toast.show(KEINE_ANTWORT);
+        if (!this.guided.setzeDisposition(wirkung)) this.toast.show(KEINE_ANTWORT);
         return;
       }
     }

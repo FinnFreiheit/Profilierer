@@ -11,10 +11,13 @@ import { AblagePatch } from '../../models/projekt.model';
 import { LoggerService } from './logger.service';
 import { BackendClient } from './backend-client.service';
 import { mitEintrag, neuesteZuerst, ohneEintrag } from '../util/eintragsliste.util';
+import { AutorService } from './autor.service';
 
 /** Patch fuer PATCH /api/testmessages/:id — nur gesetzte Felder werden geaendert. */
 export interface TestmessagePatch {
   name?: string;
+  /** Ersteller berichtigen; leer wird vom Server abgewiesen (Pflichtangabe). */
+  autor?: string;
   notiz?: string;
   /** Schlagworte der Ablage; ersetzen die bestehende Liste vollstaendig. */
   tags?: string[];
@@ -40,6 +43,13 @@ export interface TestmessagePatch {
 export class TestmessageStoreService {
   private readonly log = inject(LoggerService);
   private readonly http = inject(BackendClient).fuer('Testdaten-Backend');
+  /**
+   * Die Selbstauskunft haengt hier und nicht an den fuenf Speicherwegen: der
+   * Autor ist Pflicht (POST /api/testmessages weist ihn sonst ab), und jeder
+   * Weg — Upload, gefuehrter Durchlauf, Autosave, "als neue Nachricht",
+   * Variante — muesste ihn sonst einzeln beschaffen.
+   */
+  private readonly autoren = inject(AutorService);
 
   /** Testnachrichten-Index, nach letzter Änderung absteigend. */
   readonly entries = signal<TestmessageEntry[]>([]);
@@ -103,13 +113,22 @@ export class TestmessageStoreService {
     this.putEntry(entry);
   }
 
-  /** Neue Testnachricht anlegen; gibt die (serverseitig vergebene) id zurueck. */
+  /**
+   * Neue Testnachricht anlegen; gibt die (serverseitig vergebene) id zurueck.
+   * Der Autor wird — sofern der Aufrufer keinen vorgibt — aus der
+   * Selbstauskunft ergaenzt und notfalls einmalig erfragt. Ohne Namen wird
+   * nicht angelegt: eine Testnachricht ohne Ersteller ist in der AG nicht
+   * nachzuhalten.
+   */
   async create(input: TestmessageInput): Promise<string> {
+    const autor = input.autor?.trim() || this.autoren.sicherstellen();
+    if (!autor)
+      throw new Error('Ohne Autor lässt sich keine Testnachricht anlegen — bitte Namen angeben.');
     const { id, entry } = await this.http.json<{ id: string; entry: TestmessageEntry }>(
       '/testmessages',
       {
         method: 'POST',
-        body: JSON.stringify(input),
+        body: JSON.stringify({ ...input, autor }),
       },
     );
     this.putEntry(entry);
@@ -128,9 +147,14 @@ export class TestmessageStoreService {
    * Server den Namenszusatz " (Variante)".
    */
   async dupliziere(id: string, name?: string): Promise<TestmessageEntry> {
+    // Die Variante legt an, wer sie anlegt — nicht der Autor des Originals.
+    // Ohne Selbstauskunft (Abfrage abgebrochen) bleibt dessen Name stehen; der
+    // Server erzwingt hier nichts, sonst scheiterte die Kopie eines
+    // Altbestands an einer Angabe, die es damals nicht gab.
+    const autor = this.autoren.sicherstellen();
     const { entry } = await this.http.json<{ id: string; entry: TestmessageEntry }>(
       `/testmessages/${encodeURIComponent(id)}/duplicate`,
-      { method: 'POST', body: JSON.stringify({ name: name ?? '' }) },
+      { method: 'POST', body: JSON.stringify({ name: name ?? '', autor }) },
     );
     this.putEntry(entry);
     return entry;

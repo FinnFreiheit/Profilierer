@@ -345,24 +345,24 @@ export class DetailPanel {
   protected readonly vm = computed(() => this.detailAnsicht.punkt());
 
   /**
-   * Gefuehrte Entscheidung (US "Profilierung gefuehrt erstellen"): Dispositions-
-   * Buttons an der Wirkung, Auswahl-Schritt fuer choice-Gruppen, wiederverwendbare
-   * Freitexte und Spur-Navigation. Nur im gefuehrten Modus (nicht read-only).
+   * Gefuehrte Entscheidung (US "Profilierung gefuehrt erstellen"): Stand des
+   * Punkts, Bestaetigung einer synthetischen Auswahl, wiederverwendbare
+   * Freitexte und Spur-Navigation. Beim Bearbeiten einer Profilierung immer
+   * da — die Fuehrung ist seit ADR 0023 kein eigener Modus mehr.
    */
   protected readonly gv = computed(() => {
-    if (!this.state.guided() || this.state.readOnly()) return null;
+    if (this.state.readOnly()) return null;
     if (this.guided.instanzModus()) return null; // Instanz-Fuehrung uebernimmt giv()
     const it = this.state.selItem();
     if (!it) return null;
     const path = itemPath(it);
     // Die vier Dispositionen stehen seit Editor v4 in der Antwort-Liste
-    // (`vm().statusButtons`) — eine Quelle fuer Bearbeiten- und gefuehrten
-    // Modus. Hier bleibt, was den Durchlauf selbst betrifft.
+    // (`vm().statusButtons`). Hier bleibt, was den Durchlauf selbst betrifft.
 
     // Auswahl-Schritt: die zulaessigen Alternativen stehen in `auswahl()`; hier
-    // bleibt nur die Bestaetigung einer **synthetischen** choice-Gruppe, die
-    // sonst keine eigene Antwort tragen kann (model steht erst nach expandNode
-    // fest).
+    // bleibt die Bestaetigung einer **synthetischen** choice-Gruppe — neben der
+    // Antwort-Liste, die an einer optionalen Auswahl die Gruppe als Ganzes
+    // ausschliesst oder parkt (model steht erst nach expandNode fest).
     let isChoice = false;
     let synthChoice = false;
     let minChoice = '1';
@@ -396,7 +396,7 @@ export class DetailPanel {
    * gibt es keine Ja/Nein-Frage — der Wert entscheidet (ADR 0016).
    */
   protected readonly giv = computed(() => {
-    if (!this.state.guided() || this.state.readOnly()) return null;
+    if (this.state.readOnly()) return null;
     if (!this.state.messageCreate()) return null;
     const it = this.state.selItem();
     if (!it) return null;
@@ -631,8 +631,14 @@ export class DetailPanel {
     // ↓/↑ bleiben die Spur des Durchlaufs, auch waehrend der Cursor im Feld
     // steht (ADR 0016). Nur solange der Wert einzeilig ist — sonst gehoeren sie
     // dem Zeilenwechsel im Feld; bewegen wuerden sie den Cursor dort ohnehin
-    // nicht, weil es keine zweite Zeile gibt.
-    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !el.value.includes('\n') && this.giv()) {
+    // nicht, weil es keine zweite Zeile gibt. Mit Shift nicht: Shift+Pfeil ist
+    // nie die Spur (ADR 0023), im Feld markiert es Text.
+    if (
+      (e.key === 'ArrowDown' || e.key === 'ArrowUp') &&
+      !e.shiftKey &&
+      !el.value.includes('\n') &&
+      this.giv()
+    ) {
       e.preventDefault();
       if (!this.schreibeWert(el)) return;
       if (e.key === 'ArrowDown') this.guidedNext();

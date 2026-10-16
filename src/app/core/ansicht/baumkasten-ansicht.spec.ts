@@ -347,4 +347,34 @@ describe('BaumkastenAnsicht', () => {
       expect(ansicht.kasten(item('datum')).markiert).toBeFalse();
     });
   });
+
+  /**
+   * Kennzeichen „offen" (ADR 0023): beim Profilieren folgt es dem Schalter der
+   * Hervorhebung — eine gewachsene Profilierung hat hunderte Punkte ohne
+   * eigene Antwort. Im Durchlauf einer Nachricht steht es immer.
+   */
+  describe('Kennzeichen „offen"', () => {
+    it('steht beim Profilieren erst mit der Hervorhebung „offen"', () => {
+      expect(kennzeichen('frei', 't-open')).toBeUndefined();
+
+      state.hervorhebung.set({ offen: true, beantwortet: false, notiz: false });
+
+      expect(kennzeichen('frei', 't-open')).toBeDefined();
+    });
+
+    it('fehlt beim Betrachten auch mit Hervorhebung', () => {
+      state.hervorhebung.set({ offen: true, beantwortet: false, notiz: false });
+      state.readOnly.set(true);
+
+      expect(kennzeichen('frei', 't-open')).toBeUndefined();
+    });
+
+    it('steht im Durchlauf einer Nachricht ohne Schalter an der offenen Pflichtangabe', () => {
+      state.messageCreate.set({ msgName: M, entryId: null, name: null });
+
+      expect(kennzeichen('datum', 't-open')).toBeDefined();
+      // Ein freies Feld ist im Durchlauf nie offen.
+      expect(kennzeichen('frei', 't-open')).toBeUndefined();
+    });
+  });
 });

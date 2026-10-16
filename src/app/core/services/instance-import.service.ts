@@ -192,7 +192,6 @@ export class InstanceImportService {
     // Inhalt zeigt. Nach dem Reset in loadMessage setzen, damit die Flags stehen.
     this.state.readOnly.set(true);
     this.state.onlyValues.set(true);
-    this.state.guided.set(false); // Nachrichten-Modus: keine gefuehrte Profilierung
     this.toast.show(`Nachricht ${msgName} geladen.`);
     // Codelisten im Hintergrund nachladen, damit belegte Codes zu Klartext
     // aufgelöst werden (Story 4). Best-effort, blockiert das Betrachten nicht.

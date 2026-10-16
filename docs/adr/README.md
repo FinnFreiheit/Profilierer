@@ -28,6 +28,7 @@ Architecture Decision Records halten wesentliche Richtungsentscheidungen mit Beg
 | [0020](0020-schemaquellen-im-backend.md)              | Von xjustiz.de geholte Schemaversionen liegen im Backend          | Angenommen                    |
 | [0021](0021-nutzungszahlen-als-aggregat.md)           | Nutzungszahlen als anonyme Aggregate, nicht als Ereignisprotokoll | Angenommen                    |
 | [0022](0022-design-system-spiegel.md)                 | Design-System als generierter Spiegel des Codes                   | Angenommen                    |
+| [0023](0023-ein-bearbeiten-modus-mit-fuehrung.md)     | Ein Bearbeiten-Modus mit Führung (löst die Drei-Modi-Wahl ab)     | Angenommen                    |
 
 ## Vorlage
 

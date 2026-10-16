@@ -78,21 +78,22 @@ export class Howto {
         },
         {
           nr: 3,
-          titel: 'Geführt entscheiden',
+          titel: 'Schritt für Schritt entscheiden',
           text: [
-            'Der Baum stellt die Nachricht als Kasten-Kaskade von links nach rechts dar. Im Modus „Geführt" ' +
-              'führt der Detailbereich rechts von Entscheidungspunkt zu Entscheidungspunkt; oben rechts steht ' +
-              'der Stand („x von y entschieden").',
+            'Der Baum stellt die Nachricht als Kasten-Kaskade von links nach rechts dar. Beim Bearbeiten ' +
+              'führt der Detailbereich rechts von Entscheidungspunkt zu Entscheidungspunkt; in der Zeile über ' +
+              'dem Baum steht der Stand („x von y eigens beantwortet").',
             'Je Element wird eine der vier Stufen gesetzt: zwingend, anzugeben wenn vorhanden, nicht verwendet, ' +
               'zu klären. Die Stufen sind je Profil frei konfigurierbar (Knopf „Status…": Name, Farbe, Wirkung); ' +
               'die Wirkung steuert, was in Schematron und Beispiel-XML landet.',
-            'Schneller geht es mit der Tastatur: z = zwingend, o = optional, n = nicht verwendet, k = zu klären. ' +
-              'Die Pfeiltasten navigieren, „Nächster offener" springt zum nächsten unerledigten Punkt.',
+            'Schneller geht es mit der Tastatur: z = zwingend, o = optional, n = nicht verwendet, k = zu klären — ' +
+              'an einem offenen Punkt geht es danach gleich zum nächsten. ← und → führen zum vorigen bzw. ' +
+              'nächsten offenen Punkt, Shift+Pfeil bewegt frei im Baum.',
           ],
           bild: '03-gefuehrt-entscheiden',
           bildText:
-            'Baum links, geführte Entscheidung rechts. Der farbige Streifen am Kasten zeigt die gesetzte Stufe, ' +
-            'das Kennzeichen „offen" die noch unerledigten Punkte.',
+            'Baum links, Entscheidung rechts. Der farbige Streifen am Kasten zeigt die gesetzte Stufe, ' +
+            'das Kennzeichen „offen" (Ansicht › Farbig umranden › ohne eigene Antwort) die noch unerledigten Punkte.',
           merke:
             'Ein Element ohne Entscheidung bleibt „offen". Das ist kein Fehler — im Durchlauf einer Testnachricht ' +
             'erscheint es dann aber als „nicht profiliert" und folgt allein der Schema-Semantik.',

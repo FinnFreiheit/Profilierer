@@ -216,6 +216,17 @@ describe('PersistenceService.openFromLibrary (Versions-Angleich)', () => {
     expect(toasts.some((t) => t.includes('nicht gefunden'))).toBeFalse();
   });
 
+  it('oeffnet eine bestehende Profilierung ohne Hervorhebung „offen" (ADR 0023)', async () => {
+    const { svc, state } = setup(doc('nachricht.test.0001', '3.6.2'));
+    await svc.loadXsdFiles([new File([XSD], 'xjustiz_0000_alt.xsd', { type: 'application/xml' })]);
+    state.hervorhebung.set({ offen: true, beantwortet: false, notiz: true });
+
+    await svc.openFromLibrary('p1');
+
+    // Nur "offen" faellt — die uebrigen Schalter sind Sache des Anwenders.
+    expect(state.hervorhebung()).toEqual({ offen: false, beantwortet: false, notiz: true });
+  });
+
   it('laedt kein Bundle, wenn die Profil-Version bereits geladen ist', async () => {
     const { svc, state } = setup(doc('nachricht.test.0001', '3.6.2'));
     state.bundledVersions.set([BUNDLE_400]);
@@ -652,7 +663,8 @@ describe('PersistenceService.createNew (Vorgaben des Wizards)', () => {
     // Die Nachrichtenwahl setzt das Profil zurueck — die Angaben ueberleben.
     expect(state.meta().name).toBe('Szenario A');
     expect(state.meta().autor).toBe('BLK-AG');
-    expect(state.guided()).toBeTrue();
+    // Eine neue Profilierung zeigt, was offen ist (ADR 0023).
+    expect(state.hervorhebung().offen).toBeTrue();
     expect(state.view()).toBe('editor');
     // Pflichtelemente sind wie bei der Nachrichtenwahl vorbelegt.
     expect(Object.keys(state.elemente()).length).toBeGreaterThan(0);
@@ -662,7 +674,7 @@ describe('PersistenceService.createNew (Vorgaben des Wizards)', () => {
     await svc.createNew();
     expect(createdDocs[0]!.meta).toEqual({});
     expect(state.msgName()).toBeNull();
-    expect(state.guided()).toBeTrue();
+    expect(state.hervorhebung().offen).toBeTrue();
   });
 });
 

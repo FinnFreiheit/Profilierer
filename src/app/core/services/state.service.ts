@@ -316,7 +316,12 @@ export class StateService {
   readonly darstellung = signal<'baum' | 'xml'>('baum');
   /** Blaetter linksbuendig auf die tiefste Spalte ausrichten (bündige Wertespalte). */
   readonly alignLeaves = signal(false);
-  /** Betrachtungsmodus: gesperrte Ansicht ohne Profilier-Bedienelemente (Nachricht inspizieren). */
+  /**
+   * Betrachtungsmodus: gesperrte Ansicht ohne Profilier-Bedienelemente
+   * (Nachricht inspizieren). Ohne ihn wird bearbeitet — und zwar immer mit
+   * Fuehrung (GuidedService: Spur, offene Punkte, Tasten). Einen eigenen
+   * gefuehrten Modus gibt es seit ADR 0023 nicht mehr.
+   */
   readonly readOnly = signal(false);
   /**
    * Reine Schema-Ansicht (US "Schema ansehen"): das Schema nur betrachten und
@@ -337,13 +342,6 @@ export class StateService {
    * Erstellungs-Modus und traegt den Testspeicher-Eintrag der Sitzung.
    */
   readonly messageCreate = signal<MessageCreateSession | null>(null);
-  /**
-   * Gefuehrter Profilier-Modus: Fuehrungs-/Zaehlschicht ueber denselben Daten
-   * (GuidedService). Reiner UI-Zustand, nicht Teil des ProfileDoc; bei neuen
-   * Profilierungen standardmaessig an (createNew), sonst zuschaltbar. Bei der
-   * gefuehrten Testnachricht-Erstellung ebenfalls an (Instanz-Modus).
-   */
-  readonly guided = signal(false);
   /** Profil, das vor dem XSD-Ordner geladen wurde (loadProfileFile, Z.1813). */
   readonly pendingMsg = signal<ProfileDoc | null>(null);
   /** Anzeige "automatisch gesichert HH:MM" (autosaveNow, Z.1481). */
@@ -1132,10 +1130,6 @@ export class StateService {
     // mit ihr (oeffneTypAnsicht setzt sie danach neu).
     this.schemaView.set(false);
     this.typName.set(null);
-    // `guided` bleibt hier bewusst unangetastet: loadProfile laeuft auch bei der
-    // Nachrichtenwahl innerhalb eines gefuehrten neuen Profils (loadMessage →
-    // resetProfile). Die Einstiege setzen den Modus explizit (createNew: an;
-    // openFromLibrary/importXml: aus).
   }
 
   /** Frisches, leeres Profil (newProfile). */

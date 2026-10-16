@@ -6,12 +6,7 @@ import { Injector } from '@angular/core';
 import { ProfileStoreService } from './profile-store.service';
 import { HinweisEingabe } from '../util/hinweis.util';
 import { unterPfad, vorfahren } from '../util/pfad.util';
-
-/**
- * Browser-Ablage des Autornamens (Issue #40) — Selbstauskunft, einmal
- * hinterlegt und danach vorbelegt, analog zum gemerkten AG-Schluessel.
- */
-export const AUTOR_STORAGE = 'xjp.hinweisAutor';
+import { AutorService } from './autor.service';
 
 /**
  * Ablage der Hinweise (Rueckmeldungen am Element) — eine eigene Ressource neben
@@ -39,6 +34,9 @@ export class HinweisStoreService {
    * seine Existenz anstossen.
    */
   private readonly injector = inject(Injector);
+
+  /** Selbstauskunft des Nutzers (eine Quelle, siehe AutorService). */
+  private readonly autoren = inject(AutorService);
 
   private uebernehmeEntry(entry: LibraryEntry): void {
     this.injector.get(ProfileStoreService).uebernehmeEntry(entry);
@@ -69,16 +67,14 @@ export class HinweisStoreService {
   /**
    * Der gemerkte Autorname (Issue #40). Reine Selbstauskunft: er wandert als
    * `autor` an den Server, das belastbare Rollenkennzeichen stempelt der Server
-   * selbst aus dem AG-Schluessel. Ueberlebt den Reload im Browser-Storage.
+   * selbst aus dem AG-Schluessel. Gehalten wird er im `AutorService` — derselbe
+   * Name steht am Hinweis wie an der selbst angelegten Testnachricht.
    */
-  readonly autor = signal<string>(localStorage.getItem(AUTOR_STORAGE) ?? '');
+  readonly autor = this.autoren.name;
 
   /** Namen merken (leer = wieder fragen). */
   setzeAutor(name: string): void {
-    const clean = name.trim();
-    this.autor.set(clean);
-    if (clean) localStorage.setItem(AUTOR_STORAGE, clean);
-    else localStorage.removeItem(AUTOR_STORAGE);
+    this.autoren.setze(name);
   }
 
   // ── Abgeleitete Sichten ─────────────────────────────────────────────

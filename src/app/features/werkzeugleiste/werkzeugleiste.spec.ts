@@ -1,79 +1,71 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Werkzeugleiste } from './werkzeugleiste';
 import { StateService } from '../../core/services/state.service';
 import { GuidedService } from '../../core/services/guided.service';
 import { ToastService } from '../../core/services/toast.service';
+import { TestmessageEditService } from '../../core/services/testmessage-edit.service';
 
 /**
- * Das Modus-Segment (#80) fasst `readOnly` und `guided` zu einer einzigen,
- * dreiwertigen Wahl zusammen. Getestet wird die Kopplung selbst — sie ist die
- * eigentliche Verhaltensaenderung gegenueber den frueheren zwei Haekchen.
+ * Das Modus-Segment (#80) ist seit ADR 0023 zweiwertig: Betrachten oder
+ * Bearbeiten — einen eigenen gefuehrten Modus gibt es nicht mehr, Bearbeiten
+ * fuehrt selbst. Getestet wird die Kopplung an `readOnly`.
  */
 describe('Werkzeugleiste — Modus-Segment', () => {
   let state: StateService;
+  let fixture: ComponentFixture<Werkzeugleiste>;
   /** Das Segment ist `protected`; der Test greift bewusst ueber den Typ hinweg zu. */
   let leiste: {
-    modus: () => 'betrachten' | 'bearbeiten' | 'gefuehrt';
-    setzeModus: (m: 'betrachten' | 'bearbeiten' | 'gefuehrt') => void;
+    modus: () => 'betrachten' | 'bearbeiten';
+    setzeModus: (m: 'betrachten' | 'bearbeiten') => void;
     modusGesperrt: () => boolean;
   };
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({ imports: [Werkzeugleiste] }).compileComponents();
     state = TestBed.inject(StateService);
-    const fixture = TestBed.createComponent(Werkzeugleiste);
+    fixture = TestBed.createComponent(Werkzeugleiste);
     leiste = fixture.componentInstance as unknown as typeof leiste;
     // hasRoot: das Segment ist ohne geladene Nachricht gesperrt.
     state.root.set({ path: 'r', name: 'r' } as never);
   });
 
-  it('leitet den Modus aus readOnly und guided ab', () => {
+  it('bietet nur noch Ansehen und Bearbeiten an', () => {
+    fixture.detectChanges();
+    const knoepfe = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        '.modusSeg button',
+      ),
+    ].map((b) => b.textContent?.trim());
+    expect(knoepfe).toEqual(['Ansehen', 'Bearbeiten']);
+  });
+
+  it('leitet den Modus aus readOnly ab', () => {
     state.readOnly.set(false);
-    state.guided.set(false);
     expect(leiste.modus()).toBe('bearbeiten');
 
-    state.guided.set(true);
-    expect(leiste.modus()).toBe('gefuehrt');
-
-    // readOnly gewinnt: Betrachten heisst, keine Entscheidungen zu treffen.
     state.readOnly.set(true);
     expect(leiste.modus()).toBe('betrachten');
   });
 
-  it('schaltet auf Geführt und nimmt dabei den Betrachtungsmodus zurück', () => {
+  it('schaltet auf Bearbeiten und nimmt dabei den Betrachtungsmodus zurück', () => {
     state.readOnly.set(true);
-    state.guided.set(false);
 
-    leiste.setzeModus('gefuehrt');
+    leiste.setzeModus('bearbeiten');
 
     expect(state.readOnly()).toBe(false);
-    expect(state.guided()).toBe(true);
-    expect(leiste.modus()).toBe('gefuehrt');
+    expect(leiste.modus()).toBe('bearbeiten');
   });
 
-  it('beendet mit Betrachten auch die Führung', () => {
+  it('schaltet auf Betrachten', () => {
     state.readOnly.set(false);
-    state.guided.set(true);
 
     leiste.setzeModus('betrachten');
 
     expect(state.readOnly()).toBe(true);
-    expect(state.guided()).toBe(false);
-  });
-
-  it('schliesst Führung und Bearbeiten gegenseitig aus', () => {
-    state.readOnly.set(false);
-    state.guided.set(true);
-
-    leiste.setzeModus('bearbeiten');
-
-    expect(state.guided()).toBe(false);
-    expect(state.readOnly()).toBe(false);
   });
 
   it('laesst den aktiven Modus unberuehrt (kein Umschalten auf sich selbst)', () => {
     state.readOnly.set(false);
-    state.guided.set(false);
     const vorher = state.onlyValues();
 
     leiste.setzeModus('bearbeiten');
@@ -86,7 +78,6 @@ describe('Werkzeugleiste — Modus-Segment', () => {
     // Schreibschutz-Effekt nacheinander dasselbe Signal; die Anzeige darf vom
     // Ausgang dieses Wettlaufs nicht abhaengen.
     state.readOnly.set(false);
-    state.guided.set(false);
     state.abnahmeSchreibschutz.set(true);
 
     expect(leiste.modus()).toBe('betrachten');
@@ -99,6 +90,45 @@ describe('Werkzeugleiste — Modus-Segment', () => {
     state.readOnly.set(true);
     leiste.setzeModus('bearbeiten');
     expect(state.readOnly()).toBe(true);
+  });
+
+  describe('bei einer geoeffneten Nachricht', () => {
+    let edit: TestmessageEditService;
+
+    beforeEach(() => {
+      edit = TestBed.inject(TestmessageEditService);
+      state.messageEdit.set({ entryId: 'e1' } as never);
+      state.nachrichtBearbeiten(false);
+    });
+
+    it('laeuft der Weg ins Bearbeiten ueber den EditService (Rueckfrage #105)', () => {
+      spyOn(edit, 'bearbeitenAnfordern').and.callFake(() => {
+        state.nachrichtBearbeiten(true);
+        return true;
+      });
+
+      leiste.setzeModus('bearbeiten');
+
+      expect(edit.bearbeitenAnfordern).toHaveBeenCalled();
+      expect(leiste.modus()).toBe('bearbeiten');
+    });
+
+    it('bleibt beim Betrachten, wenn der EditService ablehnt', () => {
+      spyOn(edit, 'bearbeitenAnfordern').and.returnValue(false);
+
+      leiste.setzeModus('bearbeiten');
+
+      expect(leiste.modus()).toBe('betrachten');
+    });
+
+    it('schaltet mit Betrachten auch „nur Werte" wieder ein', () => {
+      state.nachrichtBearbeiten(true);
+
+      leiste.setzeModus('betrachten');
+
+      expect(state.readOnly()).toBe(true);
+      expect(state.onlyValues()).toBe(true);
+    });
   });
 });
 

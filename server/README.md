@@ -79,6 +79,12 @@ Profilfassung, 404 ohne Bindung) ·
 `GET /api/testmessages/:id/bezeichnungen` (Namen der benannten Vorkommen,
 404 ohne Ablage) · `POST /api/testmessages` ·
 `PATCH /api/testmessages/:id` · `DELETE /api/testmessages/:id`.
+Der **Autor** ist beim Anlegen Pflicht: `POST` ohne `autor` (oder mit leerem)
+antwortet `400 Autor erforderlich`, `PATCH` berichtigt ihn, nimmt ihn aber nicht
+weg (leerer Wert ebenfalls `400`). Erzwungen wird die Angabe am Endpunkt und
+nicht in der Spalte — Altbestände tragen keinen Autor und bleiben les- und
+änderbar; die Übersicht zeigt dort „ohne Autor", bis der Metadaten-Dialog ihn
+nachträgt.
 Die **Bezeichnungen** (`bezeichnungen`, JSON: Listen-Schlüssel → Namen in
 Vorkommen-Reihenfolge) liegen neben dem XML, weil ein Vorkommen dort nur ein
 weiteres Element ist und keinen Namen tragen kann — ohne sie hieße jedes

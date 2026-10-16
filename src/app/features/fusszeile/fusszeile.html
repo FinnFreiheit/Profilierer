@@ -66,26 +66,11 @@
       <div class="hilfeZeile">
         <span><kbd>+</kbd> <kbd>−</kbd> Ast auf und zu</span>
       </div>
-      @if (guided()) {
+      @if (profilieren()) {
         <div class="hilfeZeile">
           <span
-            ><kbd>←</kbd> <kbd>→</kbd> offene Punkte · <kbd>↑</kbd> <kbd>↓</kbd> Geschwister</span
-          >
-        </div>
-        <div class="hilfeZeile">
-          <span><kbd>Z</kbd> <kbd>O</kbd> <kbd>N</kbd> entscheiden</span>
-        </div>
-      } @else if (durchlauf()) {
-        <div class="hilfeZeile">
-          <span
-            ><kbd>↓</kbd> weiter (Pflichtangaben halten fest) · <kbd>↑</kbd> zurück ·
-            <kbd>←</kbd> Teilbaum betreten · <kbd>→</kbd> heraus</span
-          >
-        </div>
-      } @else {
-        <div class="hilfeZeile">
-          <span
-            ><kbd>←</kbd> Eltern · <kbd>→</kbd> Kind · <kbd>↑</kbd> <kbd>↓</kbd> Geschwister</span
+            ><kbd>←</kbd> voriger Punkt · <kbd>→</kbd> nächster offener · <kbd>↑</kbd>
+            <kbd>↓</kbd> Geschwister</span
           >
         </div>
         <div class="hilfeZeile">
@@ -96,6 +81,27 @@
             }
             — <kbd>Enter</kbd> nächstes offenes Feld
           </span>
+        </div>
+      } @else if (durchlauf()) {
+        <div class="hilfeZeile">
+          <span
+            ><kbd>↓</kbd> weiter (Pflichtangaben halten fest) · <kbd>↑</kbd> zurück ·
+            <kbd>←</kbd> Teilbaum betreten · <kbd>→</kbd> heraus</span
+          >
+        </div>
+      }
+      @if (profilieren() || durchlauf()) {
+        <div class="hilfeZeile">
+          <span
+            ><kbd>Shift</kbd> + <kbd>←</kbd> Eltern · <kbd>→</kbd> Kind · <kbd>↑</kbd>
+            <kbd>↓</kbd> Geschwister</span
+          >
+        </div>
+      } @else {
+        <div class="hilfeZeile">
+          <span
+            ><kbd>←</kbd> Eltern · <kbd>→</kbd> Kind · <kbd>↑</kbd> <kbd>↓</kbd> Geschwister</span
+          >
         </div>
       }
     </div>

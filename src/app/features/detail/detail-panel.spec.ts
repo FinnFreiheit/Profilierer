@@ -340,7 +340,6 @@ describe('DetailPanel — Wert-Feld im gefuehrten Durchlauf', () => {
     const idx = parser.buildIndexFrom([{ file: 'xjustiz_0000_test9.xsd', dom }]).idx;
     state.idx.set(idx);
     state.root.set(tree.buildRoot(M, idx));
-    state.guided.set(true);
     state.messageCreate.set({ msgName: M, entryId: null, name: null });
 
     fixture = TestBed.createComponent(DetailPanel);
@@ -424,6 +423,14 @@ describe('DetailPanel — Wert-Feld im gefuehrten Durchlauf', () => {
     expect(e.defaultPrevented).toBeTrue();
     expect(state.elemente()[`${M}/kopf`]?.beispiel).toBe('A 1');
     expect(state.selItem() && itemPath(state.selItem()!)).toBe(`${M}/az`);
+  });
+
+  it('Shift+Pfeil markiert im Feld Text — die Spur bleibt stehen (ADR 0023)', () => {
+    feld().value = 'A 1';
+    const e = taste('ArrowDown', true);
+
+    expect(e.defaultPrevented).toBeFalse();
+    expect(state.selItem() && itemPath(state.selItem()!)).toBe(`${M}/kopf`);
   });
 
   it('laesst dem mehrzeiligen Wert seine Pfeiltasten', () => {
@@ -558,5 +565,79 @@ describe('DetailPanel — Antwort-Liste, Alternativen und Krümel', () => {
     expect(el.querySelector('.antwortZeile')).toBeNull();
     expect(el.querySelector('.festgelegtName')?.textContent).toContain('zwingend');
     expect(el.querySelector('.festgelegtErkl')?.textContent?.trim()).toBeTruthy();
+  });
+});
+
+/**
+ * Synthetische Auswahl beim Bearbeiten (ADR 0023): der fruehere gefuehrte
+ * Modus blendete hier die Antwort-Liste aus und liess nur „Alternativen
+ * bestätigen". Seit Fuehrung und Bearbeiten ein Modus sind, stehen beide —
+ * sonst liesse sich eine optionale Auswahl per Maus nicht mehr als Ganzes
+ * ausschliessen oder parken.
+ */
+describe('DetailPanel — synthetische Auswahl', () => {
+  const XSD = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="3.6.2">
+  <xs:element name="nachricht.test.0012" type="Type.Test12.Root"/>
+  <xs:complexType name="Type.Test12.Root"><xs:sequence>
+    <xs:choice>
+      <xs:element name="behoerde" type="xs:string"/>
+      <xs:element name="person" type="xs:string"/>
+    </xs:choice>
+    <xs:element name="kopf" type="Type.Test12.Kopf"/>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="Type.Test12.Kopf"><xs:sequence>
+    <xs:choice minOccurs="0">
+      <xs:element name="telefon" type="xs:string"/>
+      <xs:element name="fax" type="xs:string"/>
+    </xs:choice>
+  </xs:sequence></xs:complexType>
+</xs:schema>`;
+  const M = 'nachricht.test.0012';
+
+  let fixture: ComponentFixture<DetailPanel>;
+  let nav: NavService;
+
+  beforeEach(async () => {
+    localStorage.removeItem('xjp.ui.detailBreite');
+    localStorage.removeItem('xjp.ui.detailZu');
+    await TestBed.configureTestingModule({ imports: [DetailPanel] }).compileComponents();
+    const state = TestBed.inject(StateService);
+    nav = TestBed.inject(NavService);
+    const tree = TestBed.inject(TreeService);
+    const parser = TestBed.inject(XsdParserService);
+    const dom = new DOMParser().parseFromString(XSD, 'application/xml');
+    const idx = parser.buildIndexFrom([{ file: 'xjustiz_0000_test12.xsd', dom }]).idx;
+    state.idx.set(idx);
+    state.msgName.set(M);
+    state.root.set(tree.buildRoot(M, idx));
+    fixture = TestBed.createComponent(DetailPanel);
+  });
+
+  const zeige = (path: string): HTMLElement => {
+    nav.jumpTo(path);
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  };
+
+  const bestaetigen = (el: HTMLElement): HTMLButtonElement | null =>
+    el.querySelector<HTMLButtonElement>('.gBestaetigen');
+
+  it('zeigt an der Pflicht-Auswahl Antwort-Liste und „Alternativen bestätigen"', () => {
+    const el = zeige(`${M}/_auswahl`);
+
+    expect(el.querySelectorAll('.antwortZeile').length).toBe(5);
+    expect(bestaetigen(el)).not.toBeNull();
+  });
+
+  it('laesst eine optionale Auswahl ueber die Antwort-Liste als Ganzes ausschliessen', () => {
+    const el = zeige(`${M}/kopf/_auswahl`);
+    const zeilen = el.querySelectorAll<HTMLButtonElement>('.antwortZeile');
+
+    expect(zeilen.length).toBe(5);
+    expect(bestaetigen(el)).toBeNull(); // optional: nichts zu bestaetigen
+    zeilen[3]!.click(); // „nicht verwendet"
+
+    expect(TestBed.inject(StateService).elemente()[`${M}/kopf/_auswahl`]?.status).toBe('s3');
   });
 });

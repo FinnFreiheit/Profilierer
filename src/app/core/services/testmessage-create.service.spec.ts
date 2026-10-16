@@ -156,7 +156,7 @@ describe('TestmessageCreateService', () => {
       expect(state.messageCreate()).toEqual(
         jasmine.objectContaining({ msgName: M, entryId: null }),
       );
-      expect(state.guided()).toBeTrue();
+      expect(state.readOnly()).toBeFalse(); // der Durchlauf ist Bearbeiten
       expect(state.view()).toBe('editor');
       // Keine Vorbelegung von Werten.
       expect(Object.values(state.elemente()).some((p) => p.beispiel)).toBeFalse();
@@ -299,7 +299,7 @@ describe('TestmessageCreateService', () => {
       expect(state.messageCreate()).toEqual(
         jasmine.objectContaining({ entryId: 'id-alt', name: 'Entwurf.xml' }),
       );
-      expect(state.guided()).toBeTrue();
+      expect(state.readOnly()).toBeFalse(); // der Durchlauf ist Bearbeiten
       expect(guided.wertOk(`${M}/kopf`)).toBeTrue();
     });
 
@@ -363,7 +363,7 @@ describe('TestmessageCreateService', () => {
           fassung: 'Arbeitsstand vom 30.07.2026',
         }),
       );
-      expect(state.guided()).toBeTrue();
+      expect(state.readOnly()).toBeFalse(); // der Durchlauf ist Bearbeiten
       expect(state.view()).toBe('editor');
       // Der Entscheidungsstand bleibt leer — die Vorgabe ist eine eigene Schicht.
       expect(state.elemente()).toEqual({});
@@ -880,7 +880,7 @@ describe('TestmessageCreateService', () => {
       );
       // Werte der eben gespeicherten Nachricht sind nicht uebernommen.
       expect(Object.values(state.elemente()).some((p) => p.beispiel)).toBeFalse();
-      expect(state.guided()).toBeTrue();
+      expect(state.readOnly()).toBeFalse(); // der Durchlauf ist Bearbeiten
       expect(state.view()).toBe('editor');
     });
 

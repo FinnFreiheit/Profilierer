@@ -82,7 +82,6 @@ export class TestmessageCreateService {
       entryId: null,
       name: null,
     });
-    this.state.guided.set(true);
     this.state.view.set('editor');
     this.codelistenBereitstellen();
     this.guided.loeseEindeutigeVerweise();
@@ -143,7 +142,6 @@ export class TestmessageCreateService {
       profilName: doc.meta?.name || profil.name,
       fassung,
     });
-    this.state.guided.set(true);
     this.state.view.set('editor');
     this.codelistenBereitstellen();
     // Verweise mit genau einem zulaessigen Ziel sind ohne Zutun erledigt (#30) —
@@ -403,7 +401,6 @@ export class TestmessageCreateService {
       profilName: entry.profilName,
       fassung: entry.fassung,
     });
-    this.state.guided.set(true);
     this.state.view.set('editor');
     this.codelistenBereitstellen();
     this.guided.gotoNextOpen();
@@ -450,7 +447,6 @@ export class TestmessageCreateService {
     // entryId zurueck auf null: das erste Speichern fragt einen Namen ab und
     // legt einen eigenen Eintrag an — der Ausgangseintrag bleibt unberuehrt.
     this.state.messageCreate.set({ ...session, entryId: null, name: null });
-    this.state.guided.set(true);
     this.state.view.set('editor');
     this.guided.loeseEindeutigeVerweise();
     this.guided.gotoNextOpen();

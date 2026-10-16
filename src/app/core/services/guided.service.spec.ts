@@ -568,6 +568,31 @@ describe('GuidedService', () => {
       expect(selPath()).toBe(`${M}/_auswahl`); // Auto-Sprung
     });
 
+    /**
+     * Seit Bearbeiten und Fuehrung ein Modus sind (ADR 0023): wer eine schon
+     * getroffene Antwort korrigiert, bleibt an der Stelle, die er prueft.
+     */
+    it('bleibt beim Korrigieren einer beantworteten Stelle stehen', () => {
+      waehle(`${M}/az`);
+      svc.setzeDisposition('pflicht');
+      waehle(`${M}/az`);
+
+      expect(svc.setzeDisposition('optional')).toBeTrue();
+
+      expect(state.elemente()[`${M}/az`]?.status).toBe(S.optional);
+      expect(selPath()).toBe(`${M}/az`);
+    });
+
+    it('geht von einem geparkten Punkt („zu klären") aus weiter', () => {
+      state.setElementProfile(`${M}/az`, { status: S.markierung });
+      waehle(`${M}/az`);
+
+      svc.setzeDisposition('pflicht');
+
+      expect(state.elemente()[`${M}/az`]?.status).toBe(S.pflicht);
+      expect(selPath()).toBe(`${M}/_auswahl`);
+    });
+
     it('bildet optional und ausgeschlossen auf die passenden Stufen ab', () => {
       waehle(`${M}/az`);
       svc.setzeDisposition('optional');
