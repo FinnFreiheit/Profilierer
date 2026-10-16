@@ -1,0 +1,31 @@
+<div id="tnDruck">
+  @if (druck(); as d) {
+    @for (a of d.abschnitte; track $index) {
+      <section class="tnSeite">
+        <header class="tnKopf">
+          <span class="tnTitel">{{ d.titel }}</span>
+          <span class="tnTech"
+            >{{ d.nachricht }}{{ d.version ? ' · XJustiz ' + d.version : '' }}</span
+          >
+          <span class="tnDatei">{{ d.datei }}</span>
+        </header>
+        <h2 class="tnAbschnitt">{{ a.titel }}</h2>
+        @for (z of a.zeilen; track $index) {
+          @if (z.art === 'gruppe') {
+            <div class="tnGruppe" [style.padding-left.px]="z.ebene * 14">{{ z.name }}</div>
+          } @else {
+            <div class="tnZeile" [style.padding-left.px]="z.ebene * 14">
+              <span class="tnName">{{ z.name }}</span>
+              <span class="tnWert"
+                >{{ z.wert }}
+                @if (z.zusatz) {
+                  <span class="tnZusatz">· {{ z.zusatz }}</span>
+                }
+              </span>
+            </div>
+          }
+        }
+      </section>
+    }
+  }
+</div>
