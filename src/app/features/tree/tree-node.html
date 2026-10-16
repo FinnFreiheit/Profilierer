@@ -91,7 +91,7 @@
         [value]="vin.value"
         [placeholder]="vin.placeholder"
         [title]="vin.problem || 'Testwert für die Beispiel-XML — leer = automatischer Platzhalter'"
-        (click)="stop($event)"
+        (click)="onValueClick($event)"
         (keydown)="onValueKeydown($event)"
         (change)="onValue($event)"
       />
