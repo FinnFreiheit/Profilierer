@@ -77,7 +77,7 @@ export class ExcelExportService {
   private readonly hinweise = inject(HinweisStoreService);
 
   async exportExcel(): Promise<void> {
-    if (!this.exporter.bestaetigeOffeneEntscheidungen()) return;
+    if (!this.exporter.bestaetigeZuKlaerende()) return;
     const root = this.state.root();
     if (!root) return;
     const mod = await import('exceljs');

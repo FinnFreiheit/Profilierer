@@ -1110,11 +1110,16 @@ export class GuidedService {
   }
 
   /**
-   * Disposition des aktuellen Punkts per Wirkung setzen (Tastatur z/o/n) und
-   * automatisch zum naechsten offenen Punkt springen. Aufloesung ueber die
-   * Wirkung statt Status-IDs, damit umbenannte/eigene Stufen greifen (wie die
-   * Dispositions-Buttons im Detail-Panel). false, wenn nichts selektiert ist
-   * oder die Profilierung keine Stufe mit passender Wirkung konfiguriert hat.
+   * Disposition des aktuellen Punkts per Wirkung setzen (Tastatur z/o/n/k).
+   * Aufloesung ueber die Wirkung statt Status-IDs, damit umbenannte/eigene
+   * Stufen greifen (wie die Dispositions-Buttons im Detail-Panel). false, wenn
+   * nichts selektiert ist oder die Profilierung keine Stufe mit passender
+   * Wirkung konfiguriert hat.
+   *
+   * Weitergesprungen wird nur, wenn der Punkt **offen oder geparkt** war — das
+   * ist der Durchlauf von Luecke zu Luecke. Wer eine schon getroffene Antwort
+   * korrigiert, bleibt stehen: sonst risse ihn die Taste aus der Stelle, die er
+   * gerade prueft (ADR 0023, seit Bearbeiten und Fuehrung ein Modus sind).
    */
   setzeDisposition(wirkung: 'pflicht' | 'optional' | 'ausgeschlossen' | 'markierung'): boolean {
     const path = this.selPath();
@@ -1131,8 +1136,9 @@ export class GuidedService {
             ? this.state.exclStatus()
             : this.state.markierungStatus();
     if (!st) return false;
+    const warOffen = this.offeneSet().has(path) || this.geparkteSet().has(path);
     this.disposition.setzeStatus(path, st.id);
-    this.gotoNextOpen();
+    if (warOffen) this.gotoNextOpen();
     return true;
   }
 

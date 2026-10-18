@@ -22,7 +22,8 @@
     "design:bundle": "node scripts/design-system-bundle.mjs",
     "server": "sh -c '[ -f .env.local ] && . ./.env.local; node server/index.js'",
     "dev": "concurrently -n web,api -c cyan,green \"npm:start\" \"npm:server\"",
-    "start:prod": "npm run build && npm run server"
+    "start:prod": "npm run build && npm run server",
+    "db:spiegeln": "deploy/db-spiegeln.sh"
   },
   "prettier": {
     "printWidth": 100,

@@ -210,6 +210,11 @@ die Notiz mit (`tmCreate` legt sie für Uploads immer leer an).
 **Mit wandern:** XML, Nachricht, Fachmodul, Version, Notiz, Schlagworte, Bezeichnungen,
 Entwurfs-Kennzeichen, Fortschritt, Entscheidungsstand.
 
+**Der Autor kommt aus der Kopie, nicht aus dem Original:** die Variante legt an, wer sie
+anlegt (`autor` im Rumpf des Aufrufs). Ohne Angabe bleibt der Autor des Originals stehen —
+anders als beim Anlegen erzwingt der Endpunkt hier nichts, sonst scheiterte die Kopie eines
+Altbestands an einer Angabe, die es damals nicht gab.
+
 **Frisch gesetzt: die Profil-Bindung.** Die Variante entsteht jetzt und soll dem Szenario
 entsprechen — sie wird deshalb an den **aktuellen** Stand der Profilierung gebunden:
 `profil_name` und `vorgabe`/`vorgabe_hash` kommen aus der Profilierung, `fassung` wird zu

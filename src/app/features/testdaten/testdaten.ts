@@ -13,6 +13,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { TestmessageStoreService } from '../../core/services/testmessage-store.service';
 import { StateService } from '../../core/services/state.service';
 import { ToastService } from '../../core/services/toast.service';
+import { AutorService } from '../../core/services/autor.service';
 import { ProfileStoreService } from '../../core/services/profile-store.service';
 import { PersistenceService } from '../../core/services/persistence.service';
 import { TestnachrichtStartService } from '../../core/services/testnachricht-start.service';
@@ -110,7 +111,7 @@ const GLIEDERUNGEN: readonly { id: Gliederung; label: string }[] = [
   { id: 'projekt', label: 'Nach Projekt' },
 ];
 
-type SortKey = 'name' | 'modul' | 'profil' | 'datum';
+type SortKey = 'name' | 'modul' | 'profil' | 'autor' | 'datum';
 
 interface FilterWert {
   id: string;
@@ -200,6 +201,18 @@ export class Testdaten {
   private readonly excel = inject(PruefberichtExcelService);
   private readonly ui = inject(UiSettingsService);
   private readonly druck = inject(TestnachrichtDruckService);
+  private readonly autoren = inject(AutorService);
+
+  /**
+   * Selbstauskunft fuer den Upload-Dialog: der Autor ist Pflicht, und hier
+   * steht er **vor** dem Ablegen — sonst liefe der Stapel in eine Abfrage
+   * mitten im Hochladen (der Store fragt notfalls selbst nach).
+   */
+  protected readonly autorName = this.autoren.name;
+
+  protected setzeAutor(name: string): void {
+    this.autoren.setze(name);
+  }
 
   private readonly uploadDlg = viewChild.required<ElementRef<HTMLDialogElement>>('uploadDlg');
   private readonly abnahmeDlg = viewChild.required<ElementRef<HTMLDialogElement>>('abnahmeDlg');
@@ -315,6 +328,7 @@ export class Testdaten {
   /** Bearbeiten-Dialog: aktive id + Puffer für Name, Beschreibung, Schlagworte. */
   protected readonly editId = signal<string | null>(null);
   protected readonly editName = signal('');
+  protected readonly editAutor = signal('');
   protected readonly editNote = signal('');
   protected readonly editTags = signal('');
 
@@ -352,9 +366,15 @@ export class Testdaten {
   }
 
   private trifft(e: TestmessageEntry, q: string): boolean {
-    return [e.name, e.nachricht, e.fachmodul, e.notiz, e.profilName, ...(e.tags ?? [])].some((v) =>
-      (v || '').toLowerCase().includes(q),
-    );
+    return [
+      e.name,
+      e.autor,
+      e.nachricht,
+      e.fachmodul,
+      e.notiz,
+      e.profilName,
+      ...(e.tags ?? []),
+    ].some((v) => (v || '').toLowerCase().includes(q));
   }
 
   /**
@@ -397,6 +417,8 @@ export class Testdaten {
         else if (k === 'modul')
           r = module.indexOf(a.fachmodul ?? '') - module.indexOf(b.fachmodul ?? '');
         else if (k === 'profil') r = (a.profilName ?? '￿').localeCompare(b.profilName ?? '￿', 'de');
+        // Ohne Autor (Altbestand) ans Ende: '￿' sortiert hinter jedem Namen.
+        else if (k === 'autor') r = (a.autor || '￿').localeCompare(b.autor || '￿', 'de');
         else r = a.hochgeladen - b.hochgeladen;
         return r * dir;
       });
@@ -1191,6 +1213,9 @@ export class Testdaten {
     ev.stopPropagation();
     this.editId.set(e.id);
     this.editName.set(e.name || '');
+    // Altbestaende tragen keinen Autor; vorbelegt wird dann die Selbstauskunft
+    // — wer die Angaben pflegt, traegt sich damit gleich ein.
+    this.editAutor.set(e.autor || this.autoren.name());
     this.editNote.set(e.notiz || '');
     this.editTags.set(tagsAlsText(e.tags));
     this.editDlg().nativeElement.showModal();
@@ -1198,12 +1223,21 @@ export class Testdaten {
 
   protected submitEdit(): void {
     const id = this.editId();
+    const autor = this.editAutor().trim();
+    // Pflichtangabe: ohne Autor bleibt der Dialog offen (der Knopf ist dann
+    // ohnehin gesperrt, hier steht die Regel selbst).
+    if (!autor) {
+      this.toast.show('Bitte einen Autor angeben — er steht danach an der Testnachricht.');
+      return;
+    }
     if (id) {
       const name = this.editName().trim();
+      this.autoren.setze(autor);
       void this.store
         // Leerer Name ändert nichts (undefined) — der bestehende bleibt erhalten.
         .updateMeta(id, {
           name: name || undefined,
+          autor,
           notiz: this.editNote(),
           tags: normalisiereTags(this.editTags()),
         })

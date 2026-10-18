@@ -50,13 +50,16 @@ export class Fusszeile {
   private readonly guidedSvc = inject(GuidedService);
 
   protected readonly statuses = this.state.statuses;
-  /** Tastatur-Hinweis nur im gefuehrten Profil-Modus (nicht Instanz-Modus). */
-  protected readonly guided = computed(
-    () => this.state.guided() && !this.state.readOnly() && !this.guidedSvc.instanzModus(),
+  /**
+   * Tastenbelegung je Arbeitsweise (ADR 0023): beim Bearbeiten gehoeren die
+   * Pfeile der Spur — beim Profilieren der Punkte, im Durchlauf einer
+   * Nachricht den Stationen (ADR 0016) —, beim Betrachten dem Baum.
+   */
+  protected readonly profilieren = computed(
+    () => !this.state.readOnly() && !this.guidedSvc.instanzModus(),
   );
-  /** Gefuehrter Durchlauf einer Nachricht: eigene Farben und Tastenbelegung (ADR 0016). */
   protected readonly durchlauf = computed(
-    () => this.state.guided() && !this.state.readOnly() && this.guidedSvc.instanzModus(),
+    () => !this.state.readOnly() && this.guidedSvc.instanzModus(),
   );
 
   /**

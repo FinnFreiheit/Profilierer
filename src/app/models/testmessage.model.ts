@@ -20,6 +20,12 @@ export interface TestmessageEntry {
   id: string;
   /** Dateiname/Anzeigename beim Upload. */
   name: string;
+  /**
+   * Wer die Nachricht angelegt hat (Selbstauskunft, siehe AutorService).
+   * Pflicht am Anlege-Endpunkt; Altbestaende tragen keinen — die Kachel zeigt
+   * dort "ohne Autor", bis der Metadaten-Dialog ihn nachtraegt.
+   */
+  autor?: string;
   /** Voller Nachrichtenname, z. B. `nachricht.dabag.antrag.2900001`. */
   nachricht?: string;
   /** Cluster-Segment (2. Namenssegment), z. B. `dabag`. */
@@ -108,6 +114,12 @@ export type AuspBezeichnungen = Record<string, string[]>;
 /** Upload-Nutzlast (POST /api/testmessages). */
 export interface TestmessageInput {
   name: string;
+  /**
+   * Ersteller der Nachricht (Pflicht). Wird vom `TestmessageStoreService` aus
+   * der Selbstauskunft gesetzt, damit ihn nicht jeder der Speicherwege einzeln
+   * beschaffen muss; ein Aufrufer kann ihn vorgeben.
+   */
+  autor?: string;
   xml: string;
   nachricht: string;
   fachmodul: string;

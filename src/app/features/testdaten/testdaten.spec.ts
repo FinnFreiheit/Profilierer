@@ -14,6 +14,7 @@ import { XmlValidationService } from '../../core/services/xml-validation.service
 import { ValidationReportService } from '../../core/services/validation-report.service';
 import { DownloadService } from '../../core/services/download.service';
 import { ProjektStoreService } from '../../core/services/projekt-store.service';
+import { AutorService } from '../../core/services/autor.service';
 
 /**
  * Testdaten-Speicher, Schritt "aus Profilierung" (#98): Profilierungen mit
@@ -722,5 +723,112 @@ describe('Testdaten — Gliederung, Reihenfolge und Zaehler', () => {
     td.search.set('');
     bestand.set([nachricht({ id: 'gds', fachmodul: 'gds' })]);
     expect(td.trefferText()).toBe('1 Eintrag');
+  });
+});
+
+/**
+ * Autor der Testnachricht: Pflichtangabe beim Anlegen, sichtbar in Kachel und
+ * Liste, auffindbar ueber Suche und Sortierung. Altbestaende tragen keinen und
+ * bleiben aenderbar — der Metadaten-Dialog traegt ihn dann nach.
+ */
+describe('Testdaten — Autor', () => {
+  let td: {
+    treffer: () => TestmessageEntry[];
+    search: { set: (v: string) => void };
+    sortiere: (k: string) => void;
+    openEdit: (e: TestmessageEntry, ev: Event) => void;
+    submitEdit: () => void;
+    editAutor: { (): string; set: (v: string) => void };
+    editName: { set: (v: string) => void };
+  };
+  let toasts: string[];
+  let patches: { id: string; patch: TestmessagePatch }[];
+
+  const nachricht = (over: Partial<TestmessageEntry> = {}): TestmessageEntry =>
+    ({
+      id: 'x',
+      name: 'a.xml',
+      nachricht: 'nachricht.genuva.ersuchen',
+      fachmodul: 'genuva',
+      groesse: 10,
+      hochgeladen: 0,
+      aktualisiert: 0,
+      ...over,
+    }) as TestmessageEntry;
+
+  const bestand = signal<TestmessageEntry[]>([]);
+
+  beforeEach(async () => {
+    toasts = [];
+    patches = [];
+    localStorage.removeItem('xjp.autor');
+    bestand.set([
+      nachricht({ id: 'vonFinn', autor: 'F. Freiheit' }),
+      nachricht({ id: 'vonMax', autor: 'M. Beispiel' }),
+      nachricht({ id: 'altbestand' }),
+    ]);
+    await TestBed.configureTestingModule({
+      imports: [Testdaten],
+      providers: [
+        { provide: ProfileStoreService, useValue: { entries: () => [] } },
+        {
+          provide: TestmessageStoreService,
+          useValue: {
+            entries: () => bestand(),
+            refresh: async () => {},
+            updateMeta: async (id: string, patch: TestmessagePatch) => {
+              patches.push({ id, patch });
+            },
+          },
+        },
+        {
+          provide: ToastService,
+          useValue: {
+            show: (t: string) => toasts.push(t),
+            showError: () => {},
+            fail: () => () => {},
+          },
+        },
+      ],
+    }).compileComponents();
+    td = TestBed.createComponent(Testdaten).componentInstance as unknown as typeof td;
+  });
+
+  afterEach(() => localStorage.removeItem('xjp.autor'));
+
+  it('findet Nachrichten ueber den Autor', () => {
+    td.search.set('beispiel');
+    expect(td.treffer().map((e) => e.id)).toEqual(['vonMax']);
+  });
+
+  it('sortiert nach Autor und stellt Altbestaende ohne Autor hinten an', () => {
+    td.sortiere('autor');
+    expect(td.treffer().map((e) => e.id)).toEqual(['vonFinn', 'vonMax', 'altbestand']);
+  });
+
+  it('belegt den Dialog eines Altbestands mit der Selbstauskunft vor', () => {
+    TestBed.inject(AutorService).setze('F. Freiheit');
+    td.openEdit(nachricht({ id: 'altbestand' }), new Event('click'));
+    // Wer die Angaben pflegt, traegt sich damit gleich als Autor ein.
+    expect(td.editAutor()).toBe('F. Freiheit');
+  });
+
+  it('uebernimmt den geaenderten Autor und merkt ihn als Selbstauskunft', () => {
+    td.openEdit(nachricht({ id: 'vonFinn', autor: 'F. Freiheit' }), new Event('click'));
+    expect(td.editAutor()).toBe('F. Freiheit');
+    td.editAutor.set('M. Beispiel');
+    td.submitEdit();
+    expect(patches).toEqual([
+      { id: 'vonFinn', patch: jasmine.objectContaining({ autor: 'M. Beispiel' }) },
+    ]);
+    expect(localStorage.getItem('xjp.autor')).toBe('M. Beispiel');
+  });
+
+  it('speichert nicht ohne Autor — die Angabe ist Pflicht', () => {
+    td.openEdit(nachricht({ id: 'altbestand' }), new Event('click'));
+    td.editAutor.set('   ');
+    td.submitEdit();
+    expect(patches).toEqual([]);
+    expect(toasts.join(' ')).toContain('Autor');
   });
 });

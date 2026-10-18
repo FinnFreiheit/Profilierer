@@ -499,9 +499,11 @@ export class PersistenceService {
     // Meldung der zuvor offenen Testnachricht gilt hier nicht mehr.
     this.state.autosaveInfo.set('');
     this.state.loadProfile(doc);
-    // Bestehende Profilierungen oeffnen im freien Modus; gefuehrt ist zuschaltbar
-    // (Fortschritt wird dann aus den gespeicherten Entscheidungen berechnet).
-    this.state.guided.set(false);
+    // Bestehende Profilierungen oeffnen ohne die Hervorhebung "offen": bei
+    // ihnen ist "ohne eigene Antwort" meist gewollt (es gilt der Standard), und
+    // hunderte Kennzeichen verdeckten den Baum. Zuschaltbar im Ansicht-Menue
+    // (ADR 0023) — dasselbe Umschalten, das frueher der gefuehrte Modus war.
+    this.state.hervorhebung.update((h) => ({ ...h, offen: false }));
     const nachricht = doc.meta.nachricht;
 
     // Versions-Angleich: Wurde das Profil mit einer anderen hinterlegten
@@ -599,9 +601,10 @@ export class PersistenceService {
       // damit die Meta), die Angaben des Wizards sollen aber stehen bleiben.
       this.state.patchMeta(doc.meta);
     }
-    // Neue Profilierung startet gefuehrt (US "Profilierung gefuehrt erstellen");
-    // nach resetProfile setzen, da loadProfile guided zuruecksetzt.
-    this.state.guided.set(true);
+    // Eine neue Profilierung zeigt, was noch offen ist (US "Profilierung
+    // gefuehrt erstellen"): Hervorhebung und Kennzeichen "offen" an, damit der
+    // Durchlauf von Luecke zu Luecke sichtbar bleibt (ADR 0023).
+    this.state.hervorhebung.update((h) => ({ ...h, offen: true }));
     this.state.view.set('editor');
   }
 

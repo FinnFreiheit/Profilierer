@@ -52,6 +52,38 @@ ausgerollt (`XJW/deploy/deploy.sh` + `sudo bash pi/02-install-app.sh`).
   Deploys fassen die DB nie an.
 - Ports: 3001 nur auf `127.0.0.1` (`XJP_HOST`), XJW bleibt auf 8888.
 
+## Produktivstand lokal spiegeln
+
+Zum Nachstellen eines Befunds mit den echten Daten holt `db-spiegeln.sh` die
+Produktiv-Datenbank auf den Laptop:
+
+```bash
+npm run db:spiegeln                 # Ziel pi@pi.local (Env XJP_PI setzt es um)
+npm run db:spiegeln -- pi@raspi     # anderes Ziel
+./deploy/db-spiegeln.sh --von-datei ~/prod.db   # aus einer vorhandenen Kopie
+```
+
+Eine **Einbahnstraße**: auf dem Pi wird nur gelesen — dort entsteht kurzzeitig
+eine Sicherungskopie unter `/tmp`, die danach wieder gelöscht wird. Zurück
+geschrieben wird nie.
+
+Der Ablauf im Einzelnen:
+
+1. `sqlite3 .backup` auf dem Pi (Ersatz: das `better-sqlite3` der Installation)
+   schreibt eine in sich geschlossene Kopie, während der Dienst weiterläuft.
+   Ein bloßes `scp` der `profiles.db` gäbe im WAL-Modus den Stand **vor** dem
+   letzten Checkpoint — die jüngsten Änderungen fehlten.
+2. Die Kopie wird geholt und geprüft (`integrity_check`, Zeilenzahlen als
+   Quittung). Schlägt das fehl, bricht das Skript ab, **bevor** es lokal etwas
+   anfasst.
+3. Die lokale DB wird als `profiles.db.vor-prod-kopie-JJMMTT-hhmm` gesichert
+   (mit `-wal`/`-shm`) und dann ersetzt; die alten Journaldateien werden
+   entfernt, sonst legte SQLite deren Inhalt über den frischen Spiegel.
+
+Ein lokales Backend, das genau diese Datei offen hält, lässt das Skript
+abbrechen (`--force` übergeht das): ein Prozess mit offenem Handle schriebe
+sonst weiter in die ersetzte Datei.
+
 ## Rollback / Deinstallation
 
 ```bash

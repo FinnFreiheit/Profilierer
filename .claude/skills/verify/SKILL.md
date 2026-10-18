@@ -22,13 +22,15 @@ Rezept, um eine Änderung in der laufenden App zu beobachten (nicht nur Tests).
 - Dashboard: `.dashHead`, Button „+ Neues Profil", Karten `.dashCard` mit `.dcName` und `button.del`.
 - Nachricht wählen: `#msgBtn` (enabled = Schema geladen; 3.6.2 lädt beim Start automatisch),
   dann `.msgItem` klicken.
-- **Neue Profile starten bereits im geführten Modus** (`persistence.createNew` setzt `guided=true`) —
-  Checkbox „Geführt" im „Ansicht"-Menü (`app-menu button` mit Text „Ansicht", dann
-  `label.menuItem` mit „Geführt") nicht blind togglen, erst `checked` prüfen.
+- **Arbeitsweise:** Segment `.modusSeg` mit „Ansehen" | „Bearbeiten" — einen geführten Modus gibt
+  es seit ADR 0023 nicht mehr, Bearbeiten führt selbst. Pfeile = Spur (Profil: ← voriger, → nächster
+  offener Punkt), **Shift+Pfeil = Baum** (Eltern/Kind/Geschwister). Neue Profile schalten die
+  Hervorhebung „ohne eigene Antwort" (Ansicht › Farbig umranden, `hervorhebung.offen`) ein —
+  Kennzeichen `.t-open` —, geöffnete Bestandsprofile aus.
 - Menü-Backdrop (`div[style*="position: fixed"]` im `app-menu`) schluckt echte Klicks —
   zum Schließen den Backdrop klicken, nicht `body`.
-- Fortschritt: `#fortschritt` („X von Y entschieden" im geführten Modus, sonst „N Festlegungen").
-- Detail: `#detail h3` (selektiertes Element), `.statusBtns button.active`, `.guidedSec`, `.gKbdHint`.
+- Stand: `.stand` in der Arbeits-Zeile („X von Y eigens beantwortet", im Durchlauf „… Pflichtangaben").
+- Detail: `#detail h3` (selektiertes Element), `.antwortZeile.aktiv` (Antwort-Liste), `.guidedSec`, `.gKbdHint`.
 - `page.on('dialog', d => d.accept())` für `confirm()`-Dialoge setzen.
 
 ## Aufräumen (wichtig)
