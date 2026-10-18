@@ -13,6 +13,7 @@ import { DiffDialog } from './features/dialogs/diff-dialog';
 import { GrundlageDialog } from './features/dialogs/grundlage-dialog';
 import { Fusszeile } from './features/fusszeile/fusszeile';
 import { PrintDoc } from './features/print/print-doc';
+import { TestnachrichtDruck } from './features/print/testnachricht-druck';
 import { Toast } from './shared/toast/toast';
 import { FileDropDirective } from './shared/file-drop.directive';
 import { Dashboard } from './features/dashboard/dashboard';
@@ -93,6 +94,7 @@ const KEINE_ANTWORT = 'Keine Antwort mit dieser Wirkung konfiguriert — ⋯ ›
     GrundlageDialog,
     Fusszeile,
     PrintDoc,
+    TestnachrichtDruck,
     Toast,
     FileDropDirective,
     Dashboard,

@@ -167,8 +167,11 @@ export class TreeNode {
     this.state.setElementProfile(this.path(), { beispiel: v || undefined });
   }
 
-  protected stop(e: Event): void {
+  /** Wer ins Wertfeld klickt, arbeitet an diesem Element — die Detailkarte
+   *  geht gleich mit auf. Der Klick bleibt im Feld (kein Aufklappen). */
+  protected onValueClick(e: Event): void {
     e.stopPropagation();
+    this.state.selItem.set(this.item());
   }
 
   protected onValueKeydown(e: KeyboardEvent): void {
