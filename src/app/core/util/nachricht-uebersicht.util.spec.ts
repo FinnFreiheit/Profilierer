@@ -45,8 +45,22 @@ const XML = `<?xml version="1.0" encoding="UTF-8"?>
   </grunddaten>
   <schriftgutobjekte>
     <dokument>
+      <identifikation><id>96df769f-625f-440a-92bc-13d153823d60</id></identifikation>
       <xjustiz.fachspezifischeDaten>
         <anzeigename>Beschluss</anzeigename>
+      </xjustiz.fachspezifischeDaten>
+    </dokument>
+    <dokument>
+      <xjustiz.fachspezifischeDaten>
+        <anzeigename>Rechtskraftzeugnis</anzeigename>
+        <verweis>
+          <verweistyp listURI="urn:verweistyp"><code xmlns="">001</code></verweistyp>
+          <bezugsdokument><ref.sgo>96df769f-625f-440a-92bc-13d153823d60</ref.sgo></bezugsdokument>
+        </verweis>
+        <verweis>
+          <verweistyp listURI="urn:verweistyp"><code xmlns="">001</code></verweistyp>
+          <bezugsdokument><ref.sgo>11111111-2222-3333-4444-555555555555</ref.sgo></bezugsdokument>
+        </verweis>
       </xjustiz.fachspezifischeDaten>
     </dokument>
   </schriftgutobjekte>
@@ -97,7 +111,21 @@ describe('nachrichtUebersicht', () => {
 
   it('loest xjustiz.fachspezifischeDaten auf', () => {
     const sgo = nachrichtUebersicht(XML)!.abschnitte[2]!.zeilen.map(kurz);
-    expect(sgo).toEqual(['Dokument', '  Anzeigename: Beschluss']);
+    expect(sgo.slice(0, 2)).toEqual(['Dokument 1', '  Anzeigename: Beschluss']);
+  });
+
+  it('loest das Bezugsdokument eines Verweises auf das Dokument auf', () => {
+    const sgo = nachrichtUebersicht(XML)!.abschnitte[2]!.zeilen.map(kurz);
+    expect(sgo.slice(2)).toEqual([
+      'Dokument 2',
+      '  Anzeigename: Rechtskraftzeugnis',
+      '  Verweis 1',
+      '    Verweistyp: 001',
+      '    Bezugsdokument: Dokument 1 (Beschluss)',
+      '  Verweis 2',
+      '    Verweistyp: 001',
+      '    Bezugsdokument: 11111111-2222-3333-4444-555555555555 (nicht in dieser Nachricht)',
+    ]);
   });
 
   it('liefert null bei unlesbarem XML', () => {

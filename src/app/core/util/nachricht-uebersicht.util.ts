@@ -37,6 +37,13 @@ export interface NachrichtUebersicht {
 /** Bezeichnung zu einem Code — null, wenn die Codeliste nicht vorliegt. */
 export type CodeBezeichnung = (listURI: string, code: string) => string | null;
 
+/** Was beim Ableiten durchgereicht wird: Codelisten und die Schriftgutobjekte der Nachricht. */
+interface Kontext {
+  cb: CodeBezeichnung;
+  /** UUID (identifikation/id) → Benennung des Schriftgutobjekts. */
+  sgo: Map<string, { titel: string; anzeigename?: string }>;
+}
+
 /** Huellen ohne eigene Aussage: ihr Inhalt rueckt eine Ebene hoch. */
 const HUELLEN = new Set(['xjustiz.fachspezifischeDaten', 'informationen', 'beteiligter']);
 /** Rein technische Bloecke, die fuer den Inhalt nichts sagen. */
@@ -68,7 +75,7 @@ export function formatiereWert(v: string): string {
   return v;
 }
 
-function codeZeile(el: Element, ebene: number, cb: CodeBezeichnung): UebersichtZeile {
+function codeZeile(el: Element, ebene: number, { cb }: Kontext): UebersichtZeile {
   const code = text(el.querySelector(':scope > code') ?? el);
   const uri = el.getAttribute('listURI');
   const bez = uri ? cb(uri, code) : null;
@@ -93,7 +100,7 @@ const ANSCHRIFT_TEILE = new Set([
 ]);
 
 /** Anschrift in eine Zeile; nur fuer die gaengigen Teile, sonst normal gegliedert. */
-function anschriftZeile(el: Element, ebene: number, cb: CodeBezeichnung): UebersichtZeile | null {
+function anschriftZeile(el: Element, ebene: number, ctx: Kontext): UebersichtZeile | null {
   const k = kinder(el);
   if (!k.length || k.some((c) => !ANSCHRIFT_TEILE.has(c.localName))) return null;
   const v = (n: string) => {
@@ -105,12 +112,12 @@ function anschriftZeile(el: Element, ebene: number, cb: CodeBezeichnung): Uebers
   const zusatz: string[] = [];
   const staat = k.find((x) => x.localName === 'staat');
   if (staat) {
-    const z = codeZeile(staat, 0, cb);
+    const z = codeZeile(staat, 0, ctx);
     zusatz.push('Staat ' + z.wert + (z.zusatz ? ' ' + z.zusatz : ''));
   }
   const typ = k.find((x) => x.localName === 'anschriftstyp');
   if (typ) {
-    const z = codeZeile(typ, 0, cb);
+    const z = codeZeile(typ, 0, ctx);
     zusatz.push(z.zusatz ?? 'Typ ' + z.wert);
   }
   const wert = [strasse, ort].filter(Boolean).join(', ');
@@ -124,16 +131,64 @@ function anschriftZeile(el: Element, ebene: number, cb: CodeBezeichnung): Uebers
   };
 }
 
+/** Verweis-Blatt (`ref.sgo`, `ref.rollennummer`, …). */
+function istRef(el: Element): boolean {
+  return el.localName.startsWith('ref.') && !el.children.length;
+}
+
+/**
+ * Ein Verweis als Zeile. Ein SGO-Verweis traegt die UUID des Ziels — die ist
+ * fuer den Leser nichtssagend, darum steht dort das Dokument, wie es die
+ * Uebersicht selbst nennt („Dokument 1 · Beschluss"); ein Ziel ausserhalb der
+ * Nachricht bleibt als UUID stehen.
+ */
+function refZeile(ref: Element, name: string, ebene: number, ctx: Kontext): UebersichtZeile | null {
+  const v = text(ref);
+  if (!v) return null;
+  if (!UUID.test(v)) return { art: 'wert', ebene, name, wert: formatiereWert(v) };
+  const ziel = ctx.sgo.get(v.toLowerCase());
+  if (!ziel) return { art: 'wert', ebene, name, wert: v, zusatz: 'nicht in dieser Nachricht' };
+  return { art: 'wert', ebene, name, wert: ziel.titel, zusatz: ziel.anzeigename };
+}
+
+const SGO = new Set(['dokument', 'akte', 'teilakte']);
+
+/** Alle Schriftgutobjekte mit Kennung, benannt wie ihre Gruppe in der Uebersicht. */
+function sgoVerzeichnis(root: Element): Kontext['sgo'] {
+  const out: Kontext['sgo'] = new Map();
+  for (const el of Array.from(root.getElementsByTagName('*'))) {
+    if (!SGO.has(el.localName)) continue;
+    const ident = kinder(el).find((c) => c.localName === 'identifikation');
+    const id = ident && kinder(ident).find((c) => c.localName === 'id');
+    if (!id || !text(id)) continue;
+    const gleiche = kinder(el.parentElement!).filter((c) => c.localName === el.localName);
+    const titel =
+      pretty(el.localName) + (gleiche.length > 1 ? ' ' + (gleiche.indexOf(el) + 1) : '');
+    const fach = kinder(el).find((c) => c.localName === 'xjustiz.fachspezifischeDaten');
+    const anz = [...kinder(el), ...(fach ? kinder(fach) : [])].find(
+      (c) => c.localName === 'anzeigename',
+    );
+    out.set(text(id).toLowerCase(), { titel, anzeigename: (anz && text(anz)) || undefined });
+  }
+  return out;
+}
+
 function zeilenFuer(
   el: Element,
   ebene: number,
-  cb: CodeBezeichnung,
+  ctx: Kontext,
   nummer: number | null,
 ): UebersichtZeile[] {
   const name = el.localName;
   if (TECHNISCH.has(name)) return [];
-  if (istCode(el)) return [codeZeile(el, ebene, cb)];
+  if (istCode(el)) return [codeZeile(el, ebene, ctx)];
   const k = kinder(el);
+  // Verweis-Traeger (bezugsdokument → ref.sgo): eine Zeile unter dem Namen des Traegers.
+  const ref = k.length === 1 && istRef(k[0]!) ? k[0]! : !k.length && istRef(el) ? el : null;
+  if (ref) {
+    const z = refZeile(ref, pretty(name), ebene, ctx);
+    return z ? [z] : [];
+  }
   if (!k.length) {
     const v = text(el);
     if (!v || UUID.test(v)) return [];
@@ -144,7 +199,7 @@ function zeilenFuer(
     if (z) return [z];
   }
   if (name === 'anschrift') {
-    const z = anschriftZeile(el, ebene, cb);
+    const z = anschriftZeile(el, ebene, ctx);
     if (z) return [z];
   }
   // Huellen: Auswahl, technische Container und (nicht nummerierte) Container,
@@ -154,14 +209,14 @@ function zeilenFuer(
   const nurEinWert = !!einzig && (!einzig.children.length || istCode(einzig));
   const huelle = nummer == null && (name.startsWith('auswahl_') || HUELLEN.has(name) || nurEinWert);
   const innen = huelle ? ebene : ebene + 1;
-  const unter = kinderZeilen(el, innen, cb);
+  const unter = kinderZeilen(el, innen, ctx);
   if (!unter.length || huelle) return unter;
   const titel = pretty(name) + (nummer != null ? ' ' + nummer : '');
   return [{ art: 'gruppe', ebene, name: titel }, ...unter];
 }
 
 /** Kinder in Dokumentreihenfolge; Wiederholungen werden durchnummeriert. */
-function kinderZeilen(el: Element, ebene: number, cb: CodeBezeichnung): UebersichtZeile[] {
+function kinderZeilen(el: Element, ebene: number, ctx: Kontext): UebersichtZeile[] {
   const k = kinder(el);
   const anzahl = new Map<string, number>();
   for (const c of k) anzahl.set(c.localName, (anzahl.get(c.localName) ?? 0) + 1);
@@ -173,7 +228,7 @@ function kinderZeilen(el: Element, ebene: number, cb: CodeBezeichnung): Uebersic
       nr = (lauf.get(c.localName) ?? 0) + 1;
       lauf.set(c.localName, nr);
     }
-    out.push(...zeilenFuer(c, ebene, cb, nr));
+    out.push(...zeilenFuer(c, ebene, ctx, nr));
   }
   return out;
 }
@@ -187,13 +242,14 @@ export function nachrichtUebersicht(
   const root = doc.documentElement;
   if (!root || doc.getElementsByTagName('parsererror').length) return null;
   const kopf = kinder(root).find((c) => c.localName === 'nachrichtenkopf');
+  const ctx: Kontext = { cb, sgo: sgoVerzeichnis(root) };
   const abschnitte: UebersichtAbschnitt[] = [];
   for (const haupt of kinder(root)) {
-    const zeilen = kinderZeilen(haupt, 0, cb);
+    const zeilen = kinderZeilen(haupt, 0, ctx);
     if (!zeilen.length && !text(haupt)) continue;
     abschnitte.push({
       titel: pretty(haupt.localName),
-      zeilen: zeilen.length ? zeilen : zeilenFuer(haupt, 0, cb, null),
+      zeilen: zeilen.length ? zeilen : zeilenFuer(haupt, 0, ctx, null),
     });
   }
   return {
