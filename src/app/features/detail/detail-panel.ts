@@ -24,6 +24,7 @@ import { UiSettingsService } from '../../core/services/ui-settings.service';
 import { SearchService } from '../../core/services/search.service';
 import { ANTWORT_FEHLT, DetailAnsicht } from '../../core/ansicht/detail-ansicht';
 import { itemPath } from '../../models/node.model';
+import { AnlageKarte } from '../sendung/anlage-karte';
 import { pretty } from '../../core/util/pretty.util';
 import { hinweisFehlerText, hinweisHerkunft } from '../../core/util/hinweis.util';
 import { erwLoeschFrage, erwTypwechselFrage } from '../../core/util/erweiterung.util';
@@ -41,7 +42,7 @@ import { DatentypPicker } from '../datentyp-picker/datentyp-picker';
   selector: 'app-detail-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './detail-panel.html',
-  imports: [DatentypPicker, KeinAutofillDirective],
+  imports: [DatentypPicker, KeinAutofillDirective, AnlageKarte],
 })
 export class DetailPanel {
   private readonly state = inject(StateService);
@@ -63,6 +64,12 @@ export class DetailPanel {
    * des selektierten Elements geleert — sonst wanderte ein angefangener Text
    * mit und landete beim naechsten Blur am falschen Element.
    */
+  /** Pfad des gewaehlten Elements (Anlagen-Karte der Testsendung, S7). */
+  protected readonly selPfad = computed(() => {
+    const it = this.state.selItem();
+    return it ? itemPath(it) : null;
+  });
+
   protected readonly neuerHinweis = linkedSignal({
     source: () => {
       const it = this.state.selItem();

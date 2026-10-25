@@ -89,6 +89,7 @@
           @for (p of dok.plaetze; track $index) {
             <div
               class="sendungPlatz"
+              [attr.data-datei]="p.platz.dateiname"
               [class.leer]="!p.datei"
               [class.mitFehler]="hatFehler(p.befunde)"
             >

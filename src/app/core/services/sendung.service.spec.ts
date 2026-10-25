@@ -231,4 +231,28 @@ describe('SendungService', () => {
     expect(sendung.ruecksprung()).toBeNull();
     expect(einbinden).not.toHaveBeenCalled();
   });
+
+  it('lageNachPfad: datei-Element und seine Blaetter fuehren zum Platz', () => {
+    oeffne('t1');
+    state.elemente.set({
+      'n/dok@d1/fach/datei@f1/dateiname': { beispiel: 'kv.pdf' },
+      'n/dok@d1/fach/datei@f1/bestandteil': { beispiel: '001' },
+      'n/dok@d2/fach/datei/dateiname': { beispiel: 'bescheid.xml' },
+      'n/sonst/dateiname': { beispiel: 'kv.pdf' }, // kein datei-Element
+    });
+    expect(sendung.platzAnPfad('n/dok@d1/fach/datei@f1')?.platz.dateiname).toBe('kv.pdf');
+    expect(sendung.platzAnPfad('n/dok@d1/fach/datei@f1/bestandteil')?.platz.dateiname).toBe(
+      'kv.pdf',
+    );
+    expect(sendung.platzAnPfad('n/dok@d2/fach/datei')?.datei).toBeNull();
+    expect(sendung.platzAnPfad('n/sonst')).toBeNull();
+    expect(sendung.platzAnPfad(null)).toBeNull();
+  });
+
+  it('zeige: wechselt in die Sendung und zaehlt den Fokus hoch', () => {
+    sendung.zeige('kv.pdf');
+    sendung.zeige('kv.pdf');
+    expect(state.darstellung()).toBe('sendung');
+    expect(sendung.fokus()).toEqual({ dateiname: 'kv.pdf', n: 2 });
+  });
 });

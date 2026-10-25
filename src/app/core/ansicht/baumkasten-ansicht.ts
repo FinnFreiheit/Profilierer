@@ -9,6 +9,7 @@ import { ValueService } from '../services/value.service';
 import { XsdParserService } from '../services/xsd-parser.service';
 import { HinweisStoreService } from '../services/hinweis-store.service';
 import { UeberlagerungService } from '../services/ueberlagerung.service';
+import { SendungService } from '../services/sendung.service';
 import { unterPfad } from '../util/pfad.util';
 import { pretty } from '../util/pretty.util';
 import { datentypAnzeige } from '../util/datentyp.util';
@@ -24,6 +25,8 @@ export interface Kennzeichen {
   title?: string;
   /** Verweis-Tag: Klick springt zum Ziel. */
   ref?: boolean;
+  /** Datei-Tag der Testsendung: Klick zeigt den Platz in der Sendung. */
+  sendung?: string;
 }
 
 /** Der Wert eines Blattes, wie er im Kasten steht (Anzeige, nicht Eingabe). */
@@ -143,6 +146,7 @@ export class BaumkastenAnsicht {
   private readonly parser = inject(XsdParserService);
   private readonly hinweise = inject(HinweisStoreService);
   private readonly ueberlagerung = inject(UeberlagerungService);
+  private readonly sendung = inject(SendungService);
 
   /** „+ Vorkommen" erscheint nur, wo das Element schon benannte Vorkommen fuehrt. */
   zeigtVorkommenHinzu(it: TreeItem): boolean {
@@ -599,6 +603,28 @@ export class BaumkastenAnsicht {
           cls: 't-vsub',
           text: sub + ' Fehler',
           title: 'Schemafehler in untergeordneten Elementen',
+        });
+    }
+    // Testsendung (S7): am datei-Element, ob sein Platz eine Datei hat und was
+    // die Paketpruefung zu ihm sagt.
+    const platz = this.sendung.lageNachPfad().get(path);
+    if (platz) {
+      const name = platz.platz.dateiname;
+      const fehler = platz.befunde.filter((b) => b.schwere === 'fehler').length;
+      const titel = platz.befunde.map((b) => b.text).join('\n');
+      if (!platz.datei)
+        tags.push({
+          cls: 't-verr',
+          text: 'Datei fehlt',
+          title: (titel || 'Kein Upload, nichts erzeugbar') + '\nKlick: in der Sendung zeigen',
+          sendung: name,
+        });
+      else if (platz.befunde.length)
+        tags.push({
+          cls: fehler ? 't-verr' : 't-vsub',
+          text: `${platz.befunde.length} ${platz.befunde.length === 1 ? 'Befund' : 'Befunde'}`,
+          title: titel + '\nKlick: in der Sendung zeigen',
+          sendung: name,
         });
     }
     return { tags, dfR, dfA, valErr };

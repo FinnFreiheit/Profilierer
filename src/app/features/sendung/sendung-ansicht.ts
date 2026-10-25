@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   computed,
+  afterEveryRender,
   inject,
   signal,
   viewChild,
@@ -15,35 +16,9 @@ import {
 } from '../../core/services/sendung-bearbeitung.service';
 import { ToastService } from '../../core/services/toast.service';
 import { AnlagenQuelle, Befund, Platz } from '../../../../server/sendung/pruefung.js';
+import { QUELLE_TEXT, QUELLE_TITEL, bestandteilText } from './sendung-texte';
 import { TestmessageStoreService } from '../../core/services/testmessage-store.service';
 import { TestmessageEntry } from '../../models/testmessage.model';
-
-const BESTANDTEIL_TEXT: Record<string, string> = {
-  '001': 'Original',
-  '002': 'Repräsentat',
-  '003': 'Signatur',
-  '004': 'signierte Vorversion',
-  '006': 'Transfervermerk',
-  '010': 'Prüfvermerk',
-  '011': 'VHN',
-  '012': 'hinlaufendes eEB',
-  '013': 'ursprüngliches Format',
-};
-
-const QUELLE_TEXT: Record<AnlagenQuelle, string> = {
-  upload: 'hochgeladen',
-  platzhalter: 'Platzhalter',
-  signatur: 'Testsignatur',
-  testnachricht: 'Testnachricht',
-};
-
-const QUELLE_TITEL: Record<AnlagenQuelle, string> = {
-  upload: 'Hochgeladene Datei — geht unverändert ins Paket',
-  platzhalter: 'Wird beim Export als Platzhalter-PDF mit den Angaben aus der XML erzeugt',
-  signatur:
-    'Wird beim Export als abgesetzte Testsignatur über die beigelegte Bezugsdatei erzeugt (nicht qualifiziert)',
-  testnachricht: 'Eingebundene Testnachricht',
-};
 
 /**
  * **Sendungs-Darstellung** (Testsendung, ADR 0024): die offene Testnachricht als
@@ -63,6 +38,26 @@ export class SendungAnsicht {
   private readonly testdaten = inject(TestmessageStoreService);
   protected readonly bearb = inject(SendungBearbeitungService);
   private readonly toast = inject(ToastService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  /** Zuletzt angesprungener Fokus (sonst sprang jeder Render erneut). */
+  private zuletzt = 0;
+
+  constructor() {
+    // Sprung aus Baum oder Detailbereich: Platz in den Blick holen, kurz aufleuchten.
+    afterEveryRender(() => {
+      const f = this.sendung.fokus();
+      if (!f || f.n === this.zuletzt) return;
+      const zeile = [
+        ...this.host.nativeElement.querySelectorAll<HTMLElement>('.sendungPlatz[data-datei]'),
+      ].find((z) => z.dataset['datei'] === f.dateiname);
+      if (!zeile) return;
+      this.zuletzt = f.n;
+      zeile.scrollIntoView?.({ block: 'center' });
+      zeile.classList.remove('aufleuchten');
+      void zeile.offsetWidth;
+      zeile.classList.add('aufleuchten');
+    });
+  }
 
   // ── XML aendern (S6) ──────────────────────────────────────────────
 
@@ -210,8 +205,7 @@ export class SendungAnsicht {
   });
 
   protected bestandteil(code: string | undefined): string {
-    if (!code) return 'ohne Bestandteil';
-    return BESTANDTEIL_TEXT[code] ?? `Bestandteil ${code}`;
+    return bestandteilText(code);
   }
 
   protected quelleText(p: SendungsPlatz): string {

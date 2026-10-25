@@ -9,6 +9,7 @@ import { ValueService } from '../../core/services/value.service';
 import { ToastService } from '../../core/services/toast.service';
 import { BaumkastenAnsicht, Kennzeichen } from '../../core/ansicht/baumkasten-ansicht';
 import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
+import { SendungService } from '../../core/services/sendung.service';
 import { Wertbilanz, Wertblatt } from '../../models/ueberlagerung.model';
 import { erwLoeschFrage } from '../../core/util/erweiterung.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
@@ -39,6 +40,10 @@ export class TreeNode {
 
   protected onTag(t: Kennzeichen, e: Event): void {
     if (t.ref) this.onRefTag(e);
+    else if (t.sendung) {
+      e.stopPropagation();
+      this.sendung.zeige(t.sendung);
+    }
   }
 
   /** Die Anzeige-Ableitung; die Komponente rendert sie nur. */
@@ -52,6 +57,7 @@ export class TreeNode {
   private readonly values = inject(ValueService);
   private readonly toast = inject(ToastService);
   private readonly ueberlagerung = inject(UeberlagerungService);
+  private readonly sendung = inject(SendungService);
 
   /** Der fuer Aktionen massgebliche Knoten (Element bzw. Traeger des Vorkommens). */
   private readonly node = computed<TNode>(() => {
