@@ -5793,6 +5793,27 @@ app-sendung-ansicht {
   }
 }
 
+/* Freigabe-Stand der Sendung (S9). */
+.sendungFreigabe {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--frei-fg);
+}
+.sendungFreigabe.geaendert {
+  color: var(--warn-fg);
+}
+.sendungFreigabeLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  color: inherit;
+  text-decoration: underline;
+}
+.sendungFreigabeLink:hover {
+  background: none;
+}
+
 /* Ergebnis einer Mehrfach-Ablage (S8). */
 .sendungAblage {
   padding: 8px 16px;

@@ -1338,10 +1338,45 @@ export class Testdaten {
    * Kachel-Aktion und aus dem Abnahme-Dialog. stopPropagation, weil ein Klick
    * auf die Kachel sonst die Nachricht oeffnen wuerde.
    */
-  protected zeigeAbnahmeDiff(e: TestmessageEntry, ev: Event): void {
+  protected async zeigeAbnahmeDiff(e: TestmessageEntry, ev: Event): Promise<void> {
     ev.stopPropagation();
     this.abnahmeDlg().nativeElement.close();
+    // Seit S9 zaehlt der fachliche Stand der Testsendung: bei unveraenderter
+    // XML zeigte der XML-Vergleich nichts — dann sagen, woran es liegt.
+    if (e.abnahmeSendung) {
+      try {
+        const [jetzt, damals] = await Promise.all([
+          this.store.loadXml(e.id),
+          this.store.loadAbnahmeXml(e.id),
+        ]);
+        if (jetzt !== null && jetzt === damals) {
+          this.toast.show(
+            'Die XML ist unverändert — geändert haben sich Anlagen oder eingebundene Nachrichten der Testsendung.',
+            5000,
+          );
+          return;
+        }
+      } catch {
+        // Vergleich trotzdem oeffnen — er meldet selbst, wenn das Backend fehlt.
+      }
+    }
     this.vergleich.oeffneTestnachricht(e.id);
+  }
+
+  /** Das bei der Freigabe eingefrorene Paket (S9) — genau die Bytes von damals. */
+  protected async downloadAbnahmeSendung(e: TestmessageEntry, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    try {
+      const zip = await this.store.loadAbnahmeSendung(e.id);
+      if (!zip) {
+        this.toast.show('Kein freigegebenes Paket vorhanden.');
+        return;
+      }
+      const basis = (e.name || 'testnachricht').replace(/\.xml$/i, '');
+      this.dl.download(`${basis}_sendung.freigegeben.zip`, zip, 'application/zip');
+    } catch {
+      this.toast.show('Download fehlgeschlagen — Backend nicht erreichbar.');
+    }
   }
 
   protected openAbnahme(e: TestmessageEntry, ev: Event): void {
@@ -1356,7 +1391,9 @@ export class Testdaten {
     if (!id) return;
     try {
       await this.store.abnehmen(id, this.abnKommentar().trim() || undefined);
-      this.toast.show('Freigegeben — die aktuelle XML-Fassung ist als valide Fassung eingefroren.');
+      this.toast.show(
+        'Freigegeben — die aktuelle XML-Fassung und das Paket der Testsendung sind eingefroren.',
+      );
     } catch {
       this.toast.show(
         'Freigabe fehlgeschlagen — Backend nicht erreichbar oder Schlüssel ungültig.',
