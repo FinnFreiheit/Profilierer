@@ -44,6 +44,8 @@
              Kasten-Kaskade zum Arbeiten, das XJustiz-XML zum Zeigen. -->
         @if (darstellung() === 'xml') {
           <app-xml-ansicht></app-xml-ansicht>
+        } @else if (darstellung() === 'sendung') {
+          <app-sendung-ansicht></app-sendung-ansicht>
         } @else {
           <app-tree-canvas></app-tree-canvas>
         }

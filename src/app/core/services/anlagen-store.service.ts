@@ -37,6 +37,11 @@ export class AnlagenStoreService {
     });
   }
 
+  /** Bytes einer Anlage; fehlend → null. */
+  async laden(id: string, dateiname: string): Promise<Blob | null> {
+    return this.http.blobOderNull(this.pfad(id, dateiname));
+  }
+
   async entfernen(id: string, dateiname: string): Promise<void> {
     await this.http.json<void>(this.pfad(id, dateiname), { method: 'DELETE' });
   }

@@ -87,12 +87,51 @@ export function plaetzeLesen(doc) {
   return out;
 }
 
-// ── Pruefen ───────────────────────────────────────────────────────────
+// ── Planen ────────────────────────────────────────────────────────────
 
-const endung = (name) => {
+const endungVon = (name) => {
   const i = name.lastIndexOf('.');
   return i < 0 ? '' : name.slice(i + 1).toLowerCase();
 };
+
+/** Womit der Export einen leeren Platz selbst fuellen kann (oder null). */
+function erzeugbar(platz) {
+  if (platz.bestandteil === BESTANDTEIL.signatur)
+    return platz.bezugsdateien.length ? 'signatur' : null;
+  return endungVon(platz.dateiname) === 'pdf' ? 'platzhalter' : null;
+}
+
+/**
+ * Welche Datei auf welchem Platz liegen wird, ohne Bytes: Upload vor
+ * Platzhalter-PDF; eine Signatur wird nur erzeugt, wenn ihre Bezugsdatei in
+ * der Sendung liegt. Doppelte Namen belegen einen Platz einmal. Ergebnis in
+ * Ausgabereihenfolge (erzeugte Signaturen zuletzt, sie brauchen die Bytes
+ * ihrer Bezugsdatei).
+ *
+ * @param {Array} plaetze aus `plaetzeLesen`
+ * @param {Set<string>} uploadNamen Dateinamen der hochgeladenen Anlagen
+ * @returns {Array<{ dateiname, quelle, platz }>}
+ */
+export function dateienPlanen(plaetze, uploadNamen) {
+  const out = [];
+  const belegt = new Set();
+  for (const p of plaetze) {
+    if (belegt.has(p.dateiname)) continue;
+    const art = uploadNamen.has(p.dateiname) ? 'upload' : erzeugbar(p);
+    if (!art || art === 'signatur') continue;
+    belegt.add(p.dateiname);
+    out.push({ dateiname: p.dateiname, quelle: art, platz: p });
+  }
+  for (const p of plaetze) {
+    if (belegt.has(p.dateiname) || erzeugbar(p) !== 'signatur') continue;
+    if (!belegt.has(p.bezugsdateien[0])) continue;
+    belegt.add(p.dateiname);
+    out.push({ dateiname: p.dateiname, quelle: 'signatur', platz: p });
+  }
+  return out;
+}
+
+// ── Pruefen ───────────────────────────────────────────────────────────
 
 /** Passt der Dateianfang zur Endung? undefined = nicht beurteilbar. */
 function inhaltPasst(ext, kopf) {
@@ -139,7 +178,7 @@ export function pruefen({ plaetze, dateien }) {
 
   for (const p of plaetze) {
     const name = p.dateiname;
-    const ext = endung(name);
+    const ext = endungVon(name);
     const datei = vorhanden.get(name);
 
     if (!datei) melde('fehlt', 'fehler', name, 'Keine Datei auf diesem Platz.');

@@ -8,7 +8,8 @@
   <span class="spacer"></span>
   <app-search></app-search>
 
-  <!-- Baum oder XML: dieselbe Nachricht, zwei Formen. Das Segment steht in
+  <!-- Baum oder XML (bei einer gespeicherten Testnachricht auch die Sendung):
+       dieselbe Nachricht, mehrere Formen. Das Segment steht in
        der Ort-Zeile, weil es die Frage "was sehe ich hier" beantwortet —
        nicht "wie arbeite ich" (das ist die Zeile darunter). -->
   <div
@@ -37,5 +38,17 @@
     >
       XML
     </button>
+    @if (sendungSichtbar()) {
+      <button
+        type="button"
+        [class.active]="darstellung() === 'sendung'"
+        [attr.aria-pressed]="darstellung() === 'sendung'"
+        [disabled]="gesperrt()"
+        title="Die Testsendung: Nachricht und die Dateien ihres Schriftgutobjekts"
+        (click)="setzeDarstellung('sendung')"
+      >
+        Sendung
+      </button>
+    }
   </div>
 </div>

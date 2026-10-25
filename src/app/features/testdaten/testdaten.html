@@ -344,6 +344,13 @@
                       >{{ e.autor || 'ohne Autor' }}</span
                     >
                     <span class="spacer"></span>
+                    @if (e.anlagen) {
+                      <span
+                        class="metaPill meta-alt"
+                        title="Hochgeladene Dateien der Testsendung — zu sehen in der Ansicht „Sendung“"
+                        >{{ e.anlagen }} {{ e.anlagen === 1 ? 'Anlage' : 'Anlagen' }}</span
+                      >
+                    }
                     <span [class]="'metaPill meta-' + metaArt(e)" [title]="fussTitel(e)">{{
                       metaText(e)
                     }}</span>
@@ -426,6 +433,13 @@
       (click)="w.close(); uebersichtPdf(e, $event)"
     >
       Übersicht als PDF
+    </button>
+    <button
+      class="menuItem"
+      title="Testsendung als ZIP: xjustiz_nachricht.xml und die Dateien des Schriftgutobjekts (Platzhalter und Testsignaturen werden erzeugt)"
+      (click)="w.close(); paket(e, $event)"
+    >
+      Paket (ZIP) herunterladen
     </button>
     <button
       class="menuItem"

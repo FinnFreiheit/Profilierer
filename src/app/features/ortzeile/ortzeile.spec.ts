@@ -38,6 +38,25 @@ describe('Ortzeile — Darstellungssegment', () => {
     expect(knoepfe()[1]!.classList).toContain('active');
   });
 
+  it('zeigt „Sendung" nur bei einer gespeicherten Testnachricht', () => {
+    state.root.set({ path: 'r', name: 'r' } as never);
+    fixture.detectChanges();
+    expect(knoepfe().length).toBe(2);
+
+    state.messageEdit.set({ entryId: 't1', quellName: 'a.xml' } as never);
+    fixture.detectChanges();
+    expect(knoepfe().map((k) => k.textContent?.trim())).toEqual(['Baum', 'XML', 'Sendung']);
+    knoepfe()[2]!.click();
+    fixture.detectChanges();
+    expect(state.darstellung()).toBe('sendung');
+
+    // Nachricht zu (Profil-Einstieg): zurueck zum Baum
+    state.messageEdit.set(null);
+    fixture.detectChanges();
+    expect(state.darstellung()).toBe('baum');
+    expect(knoepfe().length).toBe(2);
+  });
+
   it('sperrt ohne Nachricht und nennt den Grund an der Gruppe', () => {
     fixture.detectChanges();
     expect(knoepfe().every((b) => b.disabled)).toBe(true);

@@ -3,6 +3,7 @@ import { MessagePicker } from '../message-picker/message-picker';
 import { Search } from '../search/search';
 import { StateService } from '../../core/services/state.service';
 import { UeberlagerungService } from '../../core/services/ueberlagerung.service';
+import { SendungService } from '../../core/services/sendung.service';
 
 /**
  * **Ort-Zeile** (Editor v4, Zeile 2 der Kopfzone): wo bin ich, wie finde ich
@@ -22,6 +23,7 @@ import { UeberlagerungService } from '../../core/services/ueberlagerung.service'
 export class Ortzeile {
   private readonly state = inject(StateService);
   private readonly ueberlagerung = inject(UeberlagerungService);
+  private readonly sendung = inject(SendungService);
 
   protected readonly darstellung = this.state.darstellung;
 
@@ -39,18 +41,26 @@ export class Ortzeile {
 
   protected readonly gesperrt = computed(() => !!this.sperrGrund());
 
+  /**
+   * Dritte Form, nur fuer eine gespeicherte Testnachricht (ADR 0024): im Profil
+   * gibt es keine Dateien, und Anlagen haengen am Testspeicher-Eintrag.
+   */
+  protected readonly sendungSichtbar = computed(() => this.sendung.moeglich());
+
   constructor() {
     // Solange gesperrt ist, gilt der Baum — sonst zeigte das Segment "XML"
     // als aktiv an, waehrend die Flaeche etwas anderes zeigt. Zurueckgesetzt
     // wird nur hier: ein blosser Wechsel des Nachrichtentyps laesst die
     // gewaehlte Darstellung ausdruecklich stehen.
     effect(() => {
-      if (this.gesperrt() && this.state.darstellung() !== 'baum')
+      const d = this.state.darstellung();
+      if (d === 'baum') return;
+      if (this.gesperrt() || (d === 'sendung' && !this.sendungSichtbar()))
         this.state.darstellung.set('baum');
     });
   }
 
-  protected setzeDarstellung(d: 'baum' | 'xml'): void {
+  protected setzeDarstellung(d: 'baum' | 'xml' | 'sendung'): void {
     if (this.gesperrt()) return;
     this.state.darstellung.set(d);
   }

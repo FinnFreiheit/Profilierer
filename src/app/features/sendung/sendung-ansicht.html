@@ -1,0 +1,173 @@
+<!--
+  Sendungs-Darstellung (ADR 0024): dieselbe Karte wie die XML-Darstellung —
+  Kopf (was ist das, was kann ich damit tun), Befunde, die Dateien nach
+  Dokument, Fuss (Bilanz und Grenzen).
+-->
+<input #dateiInput type="file" class="hidden" (change)="dateiGewaehlt($event)" />
+
+@if (sendung.moeglich()) {
+  <div class="xmlKarte sendungKarte">
+    <div class="xmlKopf">
+      <div class="xmlKopfText">
+        <div class="xmlTitel">Testsendung</div>
+        <div class="xmlUnter">
+          Die Nachricht und die Dateien, die ihr Schriftgutobjekt nennt. Leere PDF-Plätze füllt der
+          Export mit Platzhaltern, Signaturdateien mit einer Testsignatur.
+        </div>
+      </div>
+      <button
+        type="button"
+        class="primary xmlKnopf"
+        title="Nachricht und Dateien als ZIP herunterladen (gespeicherter Stand)"
+        (click)="paket()"
+      >
+        Paket (ZIP) herunterladen
+      </button>
+    </div>
+
+    <div class="sendungBefunde" [class.ok]="!sendung.befunde().length">
+      @if (sendung.befunde().length) {
+        <div class="sendungBefundKopf">
+          {{ sendung.zahlen().fehler }} Fehler · {{ sendung.zahlen().hinweise }} Hinweise
+          <span class="sendungBefundVorbehalt">— sperren nichts, Negativtests bleiben möglich</span>
+        </div>
+        <ul class="sendungBefundListe">
+          @for (b of sendung.befunde(); track $index) {
+            <li [class]="'befund b-' + b.schwere">
+              <span class="befundArt">{{ b.schwere === 'fehler' ? 'Fehler' : 'Hinweis' }}</span>
+              <code class="befundName" [title]="b.dateiname">{{ b.dateiname }}</code>
+              <span class="befundText">{{ b.text }}</span>
+            </li>
+          }
+        </ul>
+      } @else {
+        <div class="sendungBefundKopf">Keine Befunde — jeder Platz hat seine Datei.</div>
+      }
+    </div>
+
+    <div class="sendungHinweis">
+      @if (sendung.aenderbar()) {
+        Nur fiktive oder anonymisierte Dokumente hochladen — <strong>keine Echtdaten</strong>. Die
+        Ablage ist für alle sichtbar.
+      } @else {
+        Zum Hochladen oder Ersetzen in den Bearbeiten-Modus wechseln.
+      }
+    </div>
+
+    <div class="sendungInhalt">
+      <div class="sendungPlatz sendungHaupt">
+        <span class="sendungName">xjustiz_nachricht.xml</span>
+        <span class="pill bestandteilPill">Nachricht</span>
+        <span class="quellePill q-nachricht" title="Diese Testnachricht">diese Nachricht</span>
+      </div>
+
+      @for (dok of sendung.dokumente(); track dok.schluessel) {
+        <section class="sendungDok">
+          <div class="sendungDokKopf">{{ dok.titel }}</div>
+          @for (p of dok.plaetze; track $index) {
+            <div
+              class="sendungPlatz"
+              [class.leer]="!p.datei"
+              [class.mitFehler]="hatFehler(p.befunde)"
+            >
+              <span class="sendungName" [title]="p.platz.dateiname">{{ p.platz.dateiname }}</span>
+              <span class="pill bestandteilPill">{{ bestandteil(p.platz.bestandteil) }}</span>
+              <span [class]="quelleKlasse(p)" [title]="quelleTitel(p)">{{ quelleText(p) }}</span>
+              @if (p.befunde.length) {
+                <span
+                  class="befundMarke"
+                  [class.fehler]="hatFehler(p.befunde)"
+                  [title]="befundTitel(p.befunde)"
+                  >{{ p.befunde.length }}</span
+                >
+              }
+              <span class="spacer"></span>
+              @if (p.anlage) {
+                <button
+                  type="button"
+                  class="sendungKnopf"
+                  title="Hochgeladene Datei herunterladen"
+                  (click)="sendung.anlageHerunterladen(p.platz.dateiname)"
+                >
+                  Herunterladen
+                </button>
+              }
+              @if (sendung.aenderbar()) {
+                @if (p.anlage) {
+                  <button
+                    type="button"
+                    class="sendungKnopf"
+                    [disabled]="beschaeftigt(p.platz.dateiname)"
+                    title="Hochgeladene Datei entfernen — der Export erzeugt wieder, was er kann"
+                    (click)="entfernen(p.platz.dateiname)"
+                  >
+                    Entfernen
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="sendungKnopf"
+                  [disabled]="beschaeftigt(p.platz.dateiname)"
+                  [title]="'Eine Datei unter dem Namen „' + p.platz.dateiname + '“ ablegen'"
+                  (click)="waehleDatei(p.platz.dateiname)"
+                >
+                  {{ p.anlage ? 'Ersetzen…' : 'Hochladen…' }}
+                </button>
+              }
+            </div>
+          }
+        </section>
+      } @empty {
+        <div class="sendungLeer">
+          Das Schriftgutobjekt nennt keine Dateien (<code>dokument/…/datei</code>). Die Sendung
+          besteht nur aus der Nachricht.
+        </div>
+      }
+
+      @if (sendung.ohnePlatz().length) {
+        <section class="sendungDok">
+          <div class="sendungDokKopf">Ohne Platz — die XML nennt diese Dateien nicht</div>
+          @for (a of sendung.ohnePlatz(); track a.dateiname) {
+            <div class="sendungPlatz leer">
+              <span class="sendungName" [title]="a.dateiname">{{ a.dateiname }}</span>
+              <span class="quellePill q-upload">hochgeladen</span>
+              <span class="spacer"></span>
+              <button
+                type="button"
+                class="sendungKnopf"
+                (click)="sendung.anlageHerunterladen(a.dateiname)"
+              >
+                Herunterladen
+              </button>
+              @if (sendung.aenderbar()) {
+                <button
+                  type="button"
+                  class="sendungKnopf"
+                  [disabled]="beschaeftigt(a.dateiname)"
+                  (click)="entfernen(a.dateiname)"
+                >
+                  Entfernen
+                </button>
+              }
+            </div>
+          }
+        </section>
+      }
+    </div>
+
+    <div class="xmlFuss">
+      <span class="xmlBilanz">{{ bilanz() }}</span>
+      <span class="spacer"></span>
+      <span class="xmlFussHinweis">Höchstens 20 MB je Datei, 100 MB je Sendung.</span>
+    </div>
+  </div>
+} @else {
+  <div class="xmlLeer dashLeer">
+    <div class="dashLeerSymbol">✉</div>
+    <h3>Keine Testsendung</h3>
+    <p>
+      Eine Sendung gehört zu einer gespeicherten Testnachricht. Die Nachricht zuerst speichern, dann
+      erscheinen hier ihre Dateien.
+    </p>
+  </div>
+}

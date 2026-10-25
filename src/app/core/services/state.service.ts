@@ -312,8 +312,9 @@ export class StateService {
    * **nicht persistiert** und beim Wechsel des Nachrichtentyps bewusst **nicht**
    * zurueckgesetzt: wer die XML-Sicht aufhat, vergleicht meist mehrere
    * Nachrichten darin und will nicht nach jedem Wechsel neu umschalten.
+   * `sendung` (ADR 0024) gibt es nur bei einer gespeicherten Testnachricht.
    */
-  readonly darstellung = signal<'baum' | 'xml'>('baum');
+  readonly darstellung = signal<'baum' | 'xml' | 'sendung'>('baum');
   /** Blaetter linksbuendig auf die tiefste Spalte ausrichten (bündige Wertespalte). */
   readonly alignLeaves = signal(false);
   /**

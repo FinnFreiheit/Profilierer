@@ -808,6 +808,7 @@ Beauftragung des Gerichtsvollziehers mit Forderungsaufstellung und Titel.</texta
       <div class="viewToggle darstellungSeg" role="group" aria-label="Darstellung">
         <button class="active">Baum</button>
         <button>XML</button>
+        <button>Sendung</button>
       </div>
     </div>
 
@@ -1346,6 +1347,93 @@ Musterstraße 12</textarea>
           Nicht enthalten: Felder mit „Weglassen“ und Felder ohne Antwort, die der Standard nicht
           verlangt.
         </span>
+      </div>
+    </div>
+  </section>
+
+  <h3 class="sgTitel">
+    Sendungs-Darstellung — die Testnachricht mit den Dateien ihres Schriftgutobjekts
+  </h3>
+  <section
+    class="sgKarte"
+    data-ds-card="editor/sendung-karte"
+    data-ds-group="Editor"
+    data-ds-name="Sendungs-Karte"
+    data-ds-width="960"
+  >
+    <div class="xmlKarte sendungKarte">
+      <div class="xmlKopf">
+        <div class="xmlKopfText">
+          <div class="xmlTitel">Testsendung</div>
+          <div class="xmlUnter">
+            Die Nachricht und die Dateien, die ihr Schriftgutobjekt nennt. Leere PDF-Plätze füllt
+            der Export mit Platzhaltern, Signaturdateien mit einer Testsignatur.
+          </div>
+        </div>
+        <button class="primary xmlKnopf">Paket (ZIP) herunterladen</button>
+      </div>
+      <div class="sendungBefunde">
+        <div class="sendungBefundKopf">
+          1 Fehler · 1 Hinweise
+          <span class="sendungBefundVorbehalt">— sperren nichts, Negativtests bleiben möglich</span>
+        </div>
+        <ul class="sendungBefundListe">
+          <li class="befund b-fehler">
+            <span class="befundArt">Fehler</span>
+            <code class="befundName">Bescheid_a9d95f90.xml.pkcs7</code>
+            <span class="befundText">Bezugsdatei „Bescheid.xml“ gibt es in der Sendung nicht.</span>
+          </li>
+          <li class="befund b-hinweis">
+            <span class="befundArt">Hinweis</span>
+            <code class="befundName">Brief.docx</code>
+            <span class="befundText">Endung .docx gehört nicht zu den ERVV-Formaten.</span>
+          </li>
+        </ul>
+      </div>
+      <div class="sendungHinweis">
+        Nur fiktive oder anonymisierte Dokumente hochladen — <strong>keine Echtdaten</strong>.
+      </div>
+      <div class="sendungInhalt">
+        <div class="sendungPlatz sendungHaupt">
+          <span class="sendungName">xjustiz_nachricht.xml</span>
+          <span class="pill bestandteilPill">Nachricht</span>
+          <span class="quellePill q-nachricht">diese Nachricht</span>
+        </div>
+        <section class="sendungDok">
+          <div class="sendungDokKopf">Dokument 1 · Kaufvertrag</div>
+          <div class="sendungPlatz">
+            <span class="sendungName">Kaufvertrag_0a7c4217.pdf</span>
+            <span class="pill bestandteilPill">Original</span>
+            <span class="quellePill q-upload">hochgeladen</span>
+            <span class="spacer"></span>
+            <button class="sendungKnopf">Herunterladen</button>
+            <button class="sendungKnopf">Entfernen</button>
+            <button class="sendungKnopf">Ersetzen…</button>
+          </div>
+          <div class="sendungPlatz">
+            <span class="sendungName">Kaufvertrag_0a7c4217.pdf.pkcs7</span>
+            <span class="pill bestandteilPill">Signatur</span>
+            <span class="quellePill q-signatur">Testsignatur</span>
+            <span class="spacer"></span>
+            <button class="sendungKnopf">Hochladen…</button>
+          </div>
+        </section>
+        <section class="sendungDok">
+          <div class="sendungDokKopf">Dokument 4 · Bescheid</div>
+          <div class="sendungPlatz leer mitFehler">
+            <span class="sendungName">Bescheid_a9d95f90.xml</span>
+            <span class="pill bestandteilPill">Original</span>
+            <span class="quellePill q-leer">leer</span>
+            <span class="befundMarke fehler">1</span>
+            <span class="spacer"></span>
+            <button class="sendungKnopf">Hochladen…</button>
+          </div>
+        </section>
+      </div>
+      <div class="xmlFuss">
+        <span class="xmlBilanz">4 Plätze · 1 hochgeladen · 1 erzeugt · 1 leer</span>
+        <span class="spacer"></span>
+        <span class="xmlFussHinweis">Höchstens 20 MB je Datei, 100 MB je Sendung.</span>
       </div>
     </div>
   </section>
