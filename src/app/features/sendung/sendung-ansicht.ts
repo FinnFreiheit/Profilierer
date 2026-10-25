@@ -4,11 +4,14 @@ import {
   ElementRef,
   computed,
   inject,
+  signal,
   viewChild,
 } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { SendungService, SendungsPlatz } from '../../core/services/sendung.service';
-import { AnlagenQuelle, Befund } from '../../../../server/sendung/pruefung.js';
+import { AnlagenQuelle, Befund, Platz } from '../../../../server/sendung/pruefung.js';
+import { TestmessageStoreService } from '../../core/services/testmessage-store.service';
+import { TestmessageEntry } from '../../models/testmessage.model';
 
 const BESTANDTEIL_TEXT: Record<string, string> = {
   '001': 'Original',
@@ -52,10 +55,94 @@ const QUELLE_TITEL: Record<AnlagenQuelle, string> = {
 export class SendungAnsicht {
   protected readonly sendung = inject(SendungService);
   private readonly state = inject(StateService);
+  private readonly testdaten = inject(TestmessageStoreService);
 
   private readonly dateiInput = viewChild<ElementRef<HTMLInputElement>>('dateiInput');
   /** Platz, fuer den der Dateidialog gerade offen ist. */
   private ziel: string | null = null;
+
+  // ── Einbinden (S5) ────────────────────────────────────────────────
+
+  private readonly auswahlDlg = viewChild<ElementRef<HTMLDialogElement>>('auswahlDlg');
+  /** Platz, fuer den die Auswahl offen ist. */
+  protected readonly auswahlPlatz = signal<Platz | null>(null);
+  protected readonly filter = signal('');
+  protected readonly gesperrt = signal<ReadonlySet<string>>(new Set());
+  /** Angebot, den Platz nach der Konvention umzubenennen (Haken, vorbelegt). */
+  protected readonly umbenennen = signal(true);
+  protected readonly vorschlag = computed(() => {
+    const p = this.auswahlPlatz();
+    return p ? this.sendung.namensVorschlag(p) : null;
+  });
+
+  /** Kandidaten: erst das eigene Projekt, dann die uebrigen; gefiltert. */
+  protected readonly gruppen = computed(() => {
+    const id = this.sendung.entryId();
+    const projekt = this.testdaten.entries().find((e) => e.id === id)?.projektId;
+    const f = this.filter().trim().toLowerCase();
+    const passt = (e: TestmessageEntry): boolean =>
+      !f || `${e.name} ${e.nachricht ?? ''}`.toLowerCase().includes(f);
+    const alle = this.testdaten.entries().filter(passt);
+    const eigen = projekt ? alle.filter((e) => e.projektId === projekt) : [];
+    const rest = alle.filter((e) => !eigen.includes(e));
+    return [
+      { label: 'Im selben Projekt', items: eigen },
+      { label: eigen.length ? 'Weitere Testnachrichten' : 'Testnachrichten', items: rest },
+    ].filter((g) => g.items.length);
+  });
+
+  protected async waehleTestnachricht(p: Platz): Promise<void> {
+    this.auswahlPlatz.set(p);
+    this.filter.set('');
+    this.umbenennen.set(true);
+    this.gesperrt.set(new Set([this.sendung.entryId() ?? '']));
+    this.auswahlDlg()?.nativeElement.showModal();
+    this.gesperrt.set(await this.sendung.gesperrteZiele());
+  }
+
+  protected zielTitel(e: TestmessageEntry): string {
+    if (e.id === this.sendung.entryId()) return 'Die Nachricht selbst';
+    if (this.gesperrt().has(e.id))
+      return 'Bindet diese Nachricht (mittelbar) ein — ergäbe einen Zyklus';
+    return e.nachricht ?? '';
+  }
+
+  protected async einbinden(e: TestmessageEntry): Promise<void> {
+    const p = this.auswahlPlatz();
+    if (!p || this.gesperrt().has(e.id)) return;
+    this.auswahlDlg()?.nativeElement.close();
+    const neu = this.umbenennen() ? (this.vorschlag() ?? undefined) : undefined;
+    await this.sendung.einbinden(p, e.id, neu);
+  }
+
+  protected neuAnlegen(): void {
+    const p = this.auswahlPlatz();
+    if (!p) return;
+    this.auswahlDlg()?.nativeElement.close();
+    void this.sendung.neuAnlegenFuer(p, this.nachrichtName());
+  }
+
+  protected loesen(dateiname: string): void {
+    if (confirm(`Eingebundene Testnachricht von „${dateiname}" lösen?`))
+      void this.sendung.loesen(dateiname);
+  }
+
+  protected istXml(p: Platz): boolean {
+    return p.dateiname.toLowerCase().endsWith('.xml');
+  }
+
+  protected filterEingabe(ev: Event): void {
+    this.filter.set((ev.target as HTMLInputElement).value);
+  }
+
+  private nachrichtName(): string {
+    return (
+      this.state.messageEdit()?.quellName ||
+      this.state.messageCreate()?.name ||
+      this.state.msgName() ||
+      ''
+    );
+  }
 
   protected readonly bilanz = computed(() => {
     const plaetze = new Set(this.sendung.plaetze().map((p) => p.dateiname)).size;
@@ -70,10 +157,15 @@ export class SendungAnsicht {
   }
 
   protected quelleText(p: SendungsPlatz): string {
+    if (p.einbindung && !p.einbindung.vorhanden) return 'gelöscht';
     return p.datei ? QUELLE_TEXT[p.datei.quelle] : 'leer';
   }
 
   protected quelleTitel(p: SendungsPlatz): string {
+    if (p.einbindung && !p.einbindung.vorhanden)
+      return 'Die eingebundene Testnachricht wurde gelöscht';
+    if (p.einbindung && p.datei?.quelle === 'testnachricht')
+      return `Eingebunden: ${p.einbindung.zielName ?? ''} (${p.einbindung.zielNachricht ?? ''}) — lebender Verweis`;
     if (p.datei) return QUELLE_TITEL[p.datei.quelle];
     return p.platz.bestandteil === '003'
       ? 'Keine Testsignatur möglich: die Bezugsdatei fehlt in der Sendung'
@@ -82,6 +174,10 @@ export class SendungAnsicht {
 
   protected quelleKlasse(p: SendungsPlatz): string {
     return 'quellePill q-' + (p.datei?.quelle ?? 'leer');
+  }
+
+  protected unterText(q: AnlagenQuelle | null): string {
+    return q ? QUELLE_TEXT[q] : 'leer';
   }
 
   protected befundTitel(befunde: Befund[]): string {
@@ -123,11 +219,6 @@ export class SendungAnsicht {
       !confirm(`Die Sendung hat ${fehler} Fehler (siehe Befunde). Trotzdem herunterladen?`)
     )
       return;
-    const name =
-      this.state.messageEdit()?.quellName ||
-      this.state.messageCreate()?.name ||
-      this.state.msgName() ||
-      '';
-    void this.sendung.paketHerunterladen(name);
+    void this.sendung.paketHerunterladen(this.nachrichtName());
   }
 }

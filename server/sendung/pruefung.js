@@ -102,7 +102,8 @@ function erzeugbar(platz) {
 }
 
 /**
- * Welche Datei auf welchem Platz liegen wird, ohne Bytes: Upload vor
+ * Welche Datei auf welchem Platz liegen wird, ohne Bytes: Upload bzw.
+ * eingebundene Testnachricht (je Platz hoechstens eine der beiden) vor
  * Platzhalter-PDF; eine Signatur wird nur erzeugt, wenn ihre Bezugsdatei in
  * der Sendung liegt. Doppelte Namen belegen einen Platz einmal. Ergebnis in
  * Ausgabereihenfolge (erzeugte Signaturen zuletzt, sie brauchen die Bytes
@@ -110,14 +111,19 @@ function erzeugbar(platz) {
  *
  * @param {Array} plaetze aus `plaetzeLesen`
  * @param {Set<string>} uploadNamen Dateinamen der hochgeladenen Anlagen
+ * @param {Set<string>} [einbNamen] Dateinamen mit eingebundener Testnachricht
  * @returns {Array<{ dateiname, quelle, platz }>}
  */
-export function dateienPlanen(plaetze, uploadNamen) {
+export function dateienPlanen(plaetze, uploadNamen, einbNamen = new Set()) {
   const out = [];
   const belegt = new Set();
   for (const p of plaetze) {
     if (belegt.has(p.dateiname)) continue;
-    const art = uploadNamen.has(p.dateiname) ? 'upload' : erzeugbar(p);
+    const art = uploadNamen.has(p.dateiname)
+      ? 'upload'
+      : einbNamen.has(p.dateiname)
+        ? 'testnachricht'
+        : erzeugbar(p);
     if (!art || art === 'signatur') continue;
     belegt.add(p.dateiname);
     out.push({ dateiname: p.dateiname, quelle: art, platz: p });

@@ -235,14 +235,22 @@ export function testmessagesRouter(db, auth) {
 
   // ── Testsendung (ADR 0024) ───────────────────────────────────────────
 
-  // Plan und Befunde ohne Bau (Sendungs-Ansicht, Kachel): je Datei die Quelle.
+  const laden = (id) => db.sendungQuelle(id);
+
+  // Plan und Befunde ohne Bau (Sendungs-Ansicht, Kachel): je Datei die Quelle,
+  // eingebundene Nachrichten rekursiv (`herkunft`).
   r.get('/testmessages/:id/sendung/pruefung', (req, res) => {
-    const xml = db.tmLoadXml(req.params.id);
-    if (xml == null) return res.status(404).json({ error: 'nicht gefunden' });
-    const plan = planen(xml, db.anlAlleLaden(req.params.id));
+    const quelle = laden(req.params.id);
+    if (!quelle) return res.status(404).json({ error: 'nicht gefunden' });
+    const plan = planen(quelle, laden);
     res.json({
       plaetze: plan.plaetze,
-      dateien: plan.dateien.map((d) => ({ dateiname: d.dateiname, quelle: d.quelle })),
+      dateien: plan.dateien.map((d) => ({
+        dateiname: d.dateiname,
+        quelle: d.quelle,
+        herkunft: d.herkunft,
+        zielId: d.zielId,
+      })),
       befunde: plan.befunde,
     });
   });
@@ -251,13 +259,11 @@ export function testmessagesRouter(db, auth) {
   // Rueckfrage "trotzdem herunterladen" stellt der Client.
   r.get('/testmessages/:id/sendung', async (req, res, next) => {
     try {
-      const id = req.params.id;
-      const xml = db.tmLoadXml(id);
-      if (xml == null) return res.status(404).json({ error: 'nicht gefunden' });
-      const name = db.tmEintrag(id)?.name || 'testnachricht';
-      const { zip, plan } = await bauen({ xml, name, anlagen: db.anlAlleLaden(id) });
+      const quelle = laden(req.params.id);
+      if (!quelle) return res.status(404).json({ error: 'nicht gefunden' });
+      const { zip, plan } = await bauen(quelle, laden);
       const { fehler, hinweise } = zaehle(plan.befunde);
-      const basis = name.replace(/\.xml$/i, '');
+      const basis = quelle.name.replace(/\.xml$/i, '');
       res
         .set('x-sendung-fehler', String(fehler))
         .set('x-sendung-hinweise', String(hinweise))
@@ -267,6 +273,44 @@ export function testmessagesRouter(db, auth) {
     } catch (e) {
       next(e);
     }
+  });
+
+  // ── Eingebundene Testnachrichten (Testsendung S5) ────────────────────
+
+  r.get('/testmessages/:id/einbindungen', (req, res) => {
+    const liste = db.einbList(req.params.id);
+    if (liste == null) return res.status(404).json({ error: 'nicht gefunden' });
+    res.json(liste);
+  });
+
+  // Welche Ziele einen Zyklus schloessen (Auswahl graut sie aus).
+  r.get('/testmessages/:id/vorfahren', (req, res) => {
+    res.json(db.tmVorfahren(req.params.id));
+  });
+
+  r.put('/testmessages/:id/einbindungen/:dateiname', schutz, (req, res) => {
+    const { zielId, autor } = req.body ?? {};
+    if (typeof zielId !== 'string' || !zielId)
+      return res.status(400).json({ error: 'zielId fehlt' });
+    const out = db.einbSetzen(req.params.id, {
+      dateiname: req.params.dateiname,
+      zielId,
+      autor: typeof autor === 'string' ? autor : undefined,
+    });
+    if (out.fehler === 'unbekannt') return res.status(404).json({ error: 'nicht gefunden' });
+    if (out.fehler === 'ziel-unbekannt')
+      return res.status(400).json({ error: 'Testnachricht zum Einbinden nicht gefunden' });
+    if (out.fehler === 'zyklus')
+      return res
+        .status(409)
+        .json({ error: 'Zyklus — die gewählte Nachricht bindet diese (mittelbar) ein' });
+    res.status(201).json(out.einbindung);
+  });
+
+  r.delete('/testmessages/:id/einbindungen/:dateiname', schutz, (req, res) => {
+    if (!db.einbEntfernen(req.params.id, req.params.dateiname))
+      return res.status(404).json({ error: 'keine Einbindung' });
+    res.status(204).end();
   });
 
   // ── Abnahme (BLK-AG) ─────────────────────────────────────────────────

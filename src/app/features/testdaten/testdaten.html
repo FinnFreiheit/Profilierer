@@ -521,8 +521,14 @@
   </div>
 </dialog>
 
-<dialog #createDlg id="createDlg">
+<dialog #createDlg id="createDlg" (close)="createGeschlossen()">
   <h3 style="margin-top: 0">Neue Testnachricht erstellen</h3>
+  @if (sendung.ruecksprung(); as r) {
+    <p class="sendungRueckHinweis">
+      Wird nach dem ersten Speichern als <code>{{ r.dateiname }}</code> in „{{ r.quelleName }}“
+      eingebunden.
+    </p>
+  }
   @if (!createQuelle()) {
     <p class="dashSub" style="margin-top: 0">
       Woraus soll die Testnachricht entstehen? Beide Wege führen in denselben

@@ -3,7 +3,13 @@ import { SendungService, paketName } from './sendung.service';
 import { StateService } from './state.service';
 import { ExportService } from './export.service';
 import { AnlagenStoreService } from './anlagen-store.service';
-import { AnlageEntry, MessageEditSession } from '../../models/testmessage.model';
+import {
+  AnlageEntry,
+  EinbindungEntry,
+  MessageCreateSession,
+  MessageEditSession,
+} from '../../models/testmessage.model';
+import { BackendClient } from './backend-client.service';
 
 const datei = (name: string, bestandteil: string, bezug?: string): string =>
   `<datei><dateiname>${name}</dateiname><bestandteil><code>${bestandteil}</code></bestandteil>${
@@ -30,9 +36,15 @@ describe('SendungService', () => {
   let state: StateService;
   let sendung: SendungService;
   let liste: jasmine.Spy;
+  let einbindungen: jasmine.Spy;
+  let einbinden: jasmine.Spy;
+  let jsonOderNull: jasmine.Spy;
 
   beforeEach(() => {
     liste = jasmine.createSpy('liste').and.resolveTo([]);
+    einbindungen = jasmine.createSpy('einbindungen').and.resolveTo([]);
+    einbinden = jasmine.createSpy('einbinden').and.resolveTo({});
+    jsonOderNull = jasmine.createSpy('jsonOderNull').and.resolveTo(null);
     TestBed.configureTestingModule({
       providers: [
         {
@@ -41,7 +53,19 @@ describe('SendungService', () => {
         },
         {
           provide: AnlagenStoreService,
-          useValue: { liste, ablegen: jasmine.createSpy().and.resolveTo(anlage('x')) },
+          useValue: {
+            liste,
+            einbindungen,
+            einbinden,
+            vorfahren: jasmine.createSpy().and.resolveTo([]),
+            ablegen: jasmine.createSpy().and.resolveTo(anlage('x')),
+          },
+        },
+        {
+          provide: BackendClient,
+          useValue: {
+            fuer: () => ({ jsonOderNull, json: jsonOderNull, blobOderNull: jsonOderNull }),
+          },
         },
       ],
     });
@@ -79,7 +103,7 @@ describe('SendungService', () => {
     expect(liste).toHaveBeenCalledWith('t1');
     const bescheid = sendung.dokumente()[1]!.plaetze[0]!;
     expect(bescheid.datei?.quelle).toBe('upload');
-    expect(sendung.ohnePlatz().map((a) => a.dateiname)).toEqual(['alt.pdf']);
+    expect(sendung.ohnePlatz().anlagen.map((a) => a.dateiname)).toEqual(['alt.pdf']);
     expect(sendung.befunde().map((b) => b.regel)).toEqual(['ohne-platz']);
   });
 
@@ -96,5 +120,115 @@ describe('SendungService', () => {
     expect(paketName('Antrag_Notar.xml')).toBe('Antrag_Notar_sendung.zip');
     expect(paketName('a/b:c')).toBe('a_b_c_sendung.zip');
     expect(paketName('')).toBe('testnachricht_sendung.zip');
+  });
+
+  const einb = (over: Partial<EinbindungEntry> = {}): EinbindungEntry => ({
+    dateiname: 'bescheid.xml',
+    zielId: 'b1',
+    zielName: 'Bescheid',
+    vorhanden: true,
+    eingebunden: 0,
+    ...over,
+  });
+
+  const geladen = async (): Promise<void> => {
+    TestBed.tick();
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+    await new Promise((r) => setTimeout(r));
+  };
+
+  it('eingebundene Nachricht: Platz belegt, ihre Plaetze eingerueckt und mitgeprueft', async () => {
+    einbindungen.and.resolveTo([einb()]);
+    jsonOderNull.and.resolveTo({
+      plaetze: [
+        { dateiname: 'kv.pdf', bestandteil: '001', bezugsdateien: [], herkunft: 'Bescheid' },
+      ],
+      dateien: [{ dateiname: 'kv.pdf', quelle: 'platzhalter' }],
+      befunde: [],
+    });
+    oeffne('t1');
+    await geladen();
+    const platz = sendung.dokumente()[1]!.plaetze[0]!;
+    expect(platz.datei?.quelle).toBe('testnachricht');
+    expect(platz.unter.map((u) => u.platz.dateiname)).toEqual(['kv.pdf']);
+    // kv.pdf gibt es jetzt zweimal in der flachen Sendung
+    expect(sendung.befunde().some((b) => b.regel === 'doppelt' && b.dateiname === 'kv.pdf')).toBe(
+      true,
+    );
+  });
+
+  it('geloeschte Quelle: Platz leer, Befund einbindung-fehlt', async () => {
+    einbindungen.and.resolveTo([einb({ vorhanden: false })]);
+    oeffne('t1');
+    await geladen();
+    const platz = sendung.dokumente()[1]!.plaetze[0]!;
+    expect(platz.datei).toBeNull();
+    expect(platz.befunde.map((b) => b.regel).sort()).toEqual(['einbindung-fehlt', 'fehlt']);
+  });
+
+  it('namensVorschlag nach Konvention aus der Dokument-id', () => {
+    oeffne('t1');
+    const bescheid = sendung.plaetze().find((p) => p.dateiname === 'bescheid.xml')!;
+    expect(sendung.namensVorschlag(bescheid)).toBe('xjustiz_nachricht_d2.xml');
+    expect(
+      sendung.namensVorschlag({ ...bescheid, dateiname: 'xjustiz_nachricht_d2.xml' }),
+    ).toBeNull();
+    expect(sendung.namensVorschlag({ ...bescheid, dateiname: 'xjustiz_nachricht_UUID.xml' })).toBe(
+      'xjustiz_nachricht_d2.xml',
+    );
+  });
+
+  it('einbinden mit Umbenennen setzt die Blattwerte und bindet unter dem neuen Namen ein', async () => {
+    oeffne('t1');
+    const spy = spyOn(state, 'setElementProfile');
+    const exp = TestBed.inject(ExportService) as unknown as {
+      buildBeispielXmlMitPfaden: () => unknown;
+    };
+    exp.buildBeispielXmlMitPfaden = () => ({
+      xml: [
+        '<x>',
+        '<tns:dateiname>bescheid.xml</tns:dateiname>',
+        '<tns:dateiname>bescheid.xml.pkcs7</tns:dateiname>',
+        '<tns:dateiname.bezugsdatei>bescheid.xml</tns:dateiname.bezugsdatei>',
+        '<tns:dateiname>kv.pdf</tns:dateiname>',
+      ].join('\n'),
+      zeilenPfade: new Map([
+        [2, 'p/datei/dateiname'],
+        [3, 'p/datei#2/dateiname'],
+        [4, 'p/datei#2/bezug'],
+        [5, 'p/kv/dateiname'],
+      ]),
+    });
+    const platz = { dateiname: 'bescheid.xml', bestandteil: '001', bezugsdateien: [] };
+    await sendung.einbinden(platz, 'b1', 'xjustiz_nachricht_d2.xml');
+    expect(spy.calls.allArgs()).toEqual([
+      ['p/datei/dateiname', { beispiel: 'xjustiz_nachricht_d2.xml' }],
+      ['p/datei#2/dateiname', { beispiel: 'xjustiz_nachricht_d2.xml.pkcs7' }],
+      ['p/datei#2/bezug', { beispiel: 'xjustiz_nachricht_d2.xml' }],
+    ]);
+    expect(einbinden).toHaveBeenCalledWith('t1', 'xjustiz_nachricht_d2.xml', 'b1');
+  });
+
+  it('Ruecksprung: neue Nachricht wird nach dem ersten Speichern eingebunden', async () => {
+    spyOn(window, 'confirm').and.returnValue(false);
+    sendung.ruecksprung.set({ quelleId: 't1', quelleName: 'Antrag', dateiname: 'bescheid.xml' });
+    state.messageCreate.set({ msgName: 'n', entryId: null, name: null });
+    TestBed.tick();
+    expect(einbinden).not.toHaveBeenCalled();
+    state.messageCreate.set({ msgName: 'n', entryId: 'neu', name: 'B' } as MessageCreateSession);
+    TestBed.tick();
+    await Promise.resolve();
+    expect(einbinden).toHaveBeenCalledWith('t1', 'bescheid.xml', 'neu');
+    expect(sendung.ruecksprung()).toBeNull();
+  });
+
+  it('Ruecksprung verfaellt, wenn das Anlegen ohne Speichern endet', () => {
+    sendung.ruecksprung.set({ quelleId: 't1', quelleName: 'Antrag', dateiname: 'bescheid.xml' });
+    state.messageCreate.set({ msgName: 'n', entryId: null, name: null });
+    TestBed.tick();
+    state.messageCreate.set(null);
+    TestBed.tick();
+    expect(sendung.ruecksprung()).toBeNull();
+    expect(einbinden).not.toHaveBeenCalled();
   });
 });

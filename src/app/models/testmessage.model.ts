@@ -101,6 +101,18 @@ export interface AnlageEntry {
   hochgeladen: number;
 }
 
+/** Eingebundene Testnachricht auf einem Platz der Sendung (Testsendung S5). */
+export interface EinbindungEntry {
+  dateiname: string;
+  zielId: string;
+  zielName?: string;
+  zielNachricht?: string;
+  /** false: die Ziel-Nachricht wurde inzwischen geloescht. */
+  vorhanden: boolean;
+  autor?: string;
+  eingebunden: number;
+}
+
 /**
  * Gespeicherter Entscheidungsstand einer gefuehrt erstellten Testnachricht:
  * das Profil-Modell (Blattwerte in `beispiel`, aufgenommen/weggelassen als

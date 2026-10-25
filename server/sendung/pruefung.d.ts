@@ -12,6 +12,8 @@ export interface PlatzDokument {
 
 export interface Platz {
   dateiname: string;
+  /** Name der eingebundenen Testnachricht, aus der der Platz stammt (fehlt = Hauptnachricht). */
+  herkunft?: string;
   bestandteil?: string;
   bezugsdateien: string[];
   dokument?: PlatzDokument;
@@ -40,6 +42,10 @@ export interface GeplanteDatei {
   platz: Platz;
 }
 
-export declare function dateienPlanen(plaetze: Platz[], uploadNamen: Set<string>): GeplanteDatei[];
+export declare function dateienPlanen(
+  plaetze: Platz[],
+  uploadNamen: Set<string>,
+  einbNamen?: Set<string>,
+): GeplanteDatei[];
 export declare function pruefen(p: { plaetze: Platz[]; dateien: SendungsDatei[] }): Befund[];
 export declare function zaehle(befunde: Befund[]): { fehler: number; hinweise: number };

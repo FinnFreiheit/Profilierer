@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { AnlageEntry } from '../../models/testmessage.model';
+import { AnlageEntry, EinbindungEntry } from '../../models/testmessage.model';
 import { BackendClient } from './backend-client.service';
 import { AutorService } from './autor.service';
 
@@ -44,5 +44,33 @@ export class AnlagenStoreService {
 
   async entfernen(id: string, dateiname: string): Promise<void> {
     await this.http.json<void>(this.pfad(id, dateiname), { method: 'DELETE' });
+  }
+
+  // ── Eingebundene Testnachrichten (S5) ──────────────────────────────
+
+  private einbPfad(id: string, dateiname?: string): string {
+    const basis = `/testmessages/${encodeURIComponent(id)}/einbindungen`;
+    return dateiname === undefined ? basis : `${basis}/${encodeURIComponent(dateiname)}`;
+  }
+
+  async einbindungen(id: string): Promise<EinbindungEntry[]> {
+    return (await this.http.jsonOderNull<EinbindungEntry[]>(this.einbPfad(id))) ?? [];
+  }
+
+  /** Testnachricht `zielId` auf den Platz legen; 409 = Zyklus. */
+  async einbinden(id: string, dateiname: string, zielId: string): Promise<EinbindungEntry> {
+    return this.http.json<EinbindungEntry>(this.einbPfad(id, dateiname), {
+      method: 'PUT',
+      body: JSON.stringify({ zielId, autor: this.autoren.sicherstellen() }),
+    });
+  }
+
+  async loesen(id: string, dateiname: string): Promise<void> {
+    await this.http.json<void>(this.einbPfad(id, dateiname), { method: 'DELETE' });
+  }
+
+  /** Ids, deren Einbinden in `id` einen Zyklus schloesse (inkl. `id`). */
+  async vorfahren(id: string): Promise<string[]> {
+    return this.http.json<string[]>(`/testmessages/${encodeURIComponent(id)}/vorfahren`);
   }
 }
