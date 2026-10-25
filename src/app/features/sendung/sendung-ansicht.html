@@ -4,6 +4,7 @@
   Dokument, Fuss (Bilanz und Grenzen).
 -->
 <input #dateiInput type="file" class="hidden" (change)="dateiGewaehlt($event)" />
+<input #neuInput type="file" class="hidden" (change)="neuesDokument($event)" />
 
 @if (sendung.moeglich()) {
   <div class="xmlKarte sendungKarte">
@@ -15,6 +16,20 @@
           Export mit Platzhaltern, Signaturdateien mit einer Testsignatur.
         </div>
       </div>
+      @if (sendung.aenderbar()) {
+        <button
+          type="button"
+          class="xmlKnopf"
+          [disabled]="!!dokumentSperre()"
+          [title]="
+            dokumentSperre() ||
+            'Eine Datei als neues Dokument ins Schriftgutobjekt aufnehmen (Name nach Dokumentname_UUID)'
+          "
+          (click)="neuesDokumentWaehlen()"
+        >
+          Datei als neues Dokument…
+        </button>
+      }
       <button
         type="button"
         class="primary xmlKnopf"
@@ -36,7 +51,14 @@
             <li [class]="'befund b-' + b.schwere">
               <span class="befundArt">{{ b.schwere === 'fehler' ? 'Fehler' : 'Hinweis' }}</span>
               <code class="befundName" [title]="b.dateiname">{{ b.dateiname }}</code>
-              <span class="befundText">{{ b.text }}</span>
+              <span class="befundText"
+                >{{ b.text }}
+                @if (behebung(b); as fix) {
+                  <button type="button" class="befundFix" [title]="fix.titel" (click)="beheben(b)">
+                    {{ fix.label }}
+                  </button>
+                }
+              </span>
             </li>
           }
         </ul>
@@ -90,6 +112,22 @@
                   (click)="sendung.anlageHerunterladen(p.platz.dateiname)"
                 >
                   Herunterladen
+                </button>
+              }
+              @if (signaturLage().has(p.platz.dateiname)) {
+                <button
+                  type="button"
+                  class="sendungKnopf"
+                  [disabled]="!!signaturLage().get(p.platz.dateiname)"
+                  [title]="
+                    signaturLage().get(p.platz.dateiname) ||
+                    'Signaturdatei ' +
+                      p.platz.dateiname +
+                      '.pkcs7 in die XML aufnehmen — der Export erzeugt die Testsignatur'
+                  "
+                  (click)="signaturHinzu(p)"
+                >
+                  + Signatur
                 </button>
               }
               @if (sendung.aenderbar() && p.einbindung) {

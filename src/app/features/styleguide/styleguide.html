@@ -1370,6 +1370,7 @@ Musterstraße 12</textarea>
             der Export mit Platzhaltern, Signaturdateien mit einer Testsignatur.
           </div>
         </div>
+        <button class="xmlKnopf">Datei als neues Dokument…</button>
         <button class="primary xmlKnopf">Paket (ZIP) herunterladen</button>
       </div>
       <div class="sendungBefunde">
@@ -1381,7 +1382,10 @@ Musterstraße 12</textarea>
           <li class="befund b-fehler">
             <span class="befundArt">Fehler</span>
             <code class="befundName">Bescheid_a9d95f90.xml.pkcs7</code>
-            <span class="befundText">Bezugsdatei „Bescheid.xml“ gibt es in der Sendung nicht.</span>
+            <span class="befundText"
+              >Bezugsdatei „Bescheid.xml“ gibt es in der Sendung nicht.
+              <button class="befundFix">Bezug setzen</button></span
+            >
           </li>
           <li class="befund b-hinweis">
             <span class="befundArt">Hinweis</span>
@@ -1426,6 +1430,8 @@ Musterstraße 12</textarea>
             <span class="quellePill q-leer">leer</span>
             <span class="befundMarke fehler">1</span>
             <span class="spacer"></span>
+            <button class="sendungKnopf">+ Signatur</button>
+            <button class="sendungKnopf">Testnachricht…</button>
             <button class="sendungKnopf">Hochladen…</button>
           </div>
         </section>
