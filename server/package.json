@@ -9,8 +9,12 @@
     "test": "node --test"
   },
   "dependencies": {
+    "@xmldom/xmldom": "^0.9.12",
     "better-sqlite3": "^13.0.3",
     "express": "^4.21.2",
-    "http-proxy-middleware": "^3.0.3"
+    "http-proxy-middleware": "^3.0.3",
+    "jszip": "^3.10.2",
+    "node-forge": "^1.4.0",
+    "pdf-lib": "^1.17.1"
   }
 }

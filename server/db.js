@@ -16,6 +16,10 @@ const AUTO_DECKEL = 10;
  */
 const SCHEMA_HINWEISE = 1;
 
+/** Grenzen der Testsendung (ADR 0024): je Anlage und fuer alle Anlagen einer Nachricht. */
+export const ANLAGE_MAX = 20 * 1024 * 1024;
+export const SENDUNG_MAX = 100 * 1024 * 1024;
+
 /**
  * Hash ueber den gespeicherten doc-String — Grundlage fuer "geaendert seit vX"
  * und die Entprellung der Automatik-Versionen. Bewusst ueber die Serialisierung
@@ -130,6 +134,7 @@ const TM_COLS = `t.id, t.name, t.autor, t.nachricht, t.fachmodul, t.xjustiz_vers
               t.abnahme_ts, t.abnahme_kommentar, (t.abnahme_xml IS NOT NULL) AS abgenommen,
               (t.abnahme_xml IS NOT NULL AND t.xml != t.abnahme_xml) AS geaendert_seit_abnahme,
               t.profil_id, t.profil_name, t.fassung,
+              (SELECT COUNT(*) FROM testmessage_anlagen a WHERE a.testmessage_id = t.id) AS n_anlagen,
               COALESCE(t.projekt_id, p.projekt_id) AS projekt_id,
               (t.vorgabe_hash IS NOT NULL AND p.fach_hash IS NOT NULL
                AND p.fach_hash != t.vorgabe_hash) AS profil_weiterentwickelt`;
@@ -208,6 +213,23 @@ export function openDb(path) {
       aktualisiert INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_testmessages_fachmodul ON testmessages(fachmodul);
+
+    -- Anlagen einer Testnachricht (Testsendung, ADR 0024): hochgeladene Dateien,
+    -- je Testnachricht ueber den exakten dateiname an ein datei-Element der XML
+    -- gebunden. Platzhalter und erzeugte Signaturen liegen hier nicht -- sie
+    -- entstehen beim Export. Ohne Fremdschluessel wie ueberall; tmDelete raeumt
+    -- die Anlagen mit ab.
+    CREATE TABLE IF NOT EXISTS testmessage_anlagen (
+      testmessage_id TEXT NOT NULL,
+      dateiname TEXT NOT NULL,
+      mime TEXT,
+      groesse INTEGER NOT NULL,
+      sha256 TEXT NOT NULL,
+      daten BLOB NOT NULL,
+      autor TEXT,
+      hochgeladen INTEGER,
+      PRIMARY KEY (testmessage_id, dateiname)
+    );
 
     -- Projekte (#134): der Behaelter ueber den Profilierungen. Ein Vorhaben wie
     -- GenUVA buendelt mehrere Kommunikationsszenarien auf derselben Nachricht;
@@ -695,6 +717,38 @@ export function openDb(path) {
        WHERE id = @id`,
     ),
     tmDel: db.prepare('DELETE FROM testmessages WHERE id = ?'),
+
+    // ── Anlagen (Testsendung) ───────────────────────────────────────────
+    anlList: db.prepare(
+      `SELECT dateiname, mime, groesse, sha256, autor, hochgeladen FROM testmessage_anlagen
+       WHERE testmessage_id = ? ORDER BY dateiname`,
+    ),
+    anlAlle: db.prepare('SELECT * FROM testmessage_anlagen WHERE testmessage_id = ?'),
+    anlGet: db.prepare(
+      'SELECT * FROM testmessage_anlagen WHERE testmessage_id = ? AND dateiname = ?',
+    ),
+    anlSumme: db.prepare(
+      `SELECT COALESCE(SUM(groesse), 0) AS summe FROM testmessage_anlagen
+       WHERE testmessage_id = ? AND dateiname != ?`,
+    ),
+    anlPut: db.prepare(
+      `INSERT INTO testmessage_anlagen
+         (testmessage_id, dateiname, mime, groesse, sha256, daten, autor, hochgeladen)
+       VALUES (@id, @dateiname, @mime, @groesse, @sha256, @daten, @autor, @ts)
+       ON CONFLICT (testmessage_id, dateiname) DO UPDATE SET
+         mime = excluded.mime, groesse = excluded.groesse, sha256 = excluded.sha256,
+         daten = excluded.daten, autor = excluded.autor, hochgeladen = excluded.hochgeladen`,
+    ),
+    anlDel: db.prepare(
+      'DELETE FROM testmessage_anlagen WHERE testmessage_id = ? AND dateiname = ?',
+    ),
+    anlDelAlle: db.prepare('DELETE FROM testmessage_anlagen WHERE testmessage_id = ?'),
+    anlKopieren: db.prepare(
+      `INSERT INTO testmessage_anlagen
+         (testmessage_id, dateiname, mime, groesse, sha256, daten, autor, hochgeladen)
+       SELECT @neu, dateiname, mime, groesse, sha256, daten, autor, hochgeladen
+       FROM testmessage_anlagen WHERE testmessage_id = @alt`,
+    ),
     // ── Projekte (#134) ──────────────────────────────────────────────────
     // Die Zahlen kommen als korrelierte Unterabfragen mit: `n_profile` zaehlt
     // die zugeordneten Profilierungen, `n_tm` die Testnachrichten mit eigener
@@ -829,6 +883,20 @@ export function openDb(path) {
       // Profilierung (COALESCE in TM_COLS). Die Kachel unterscheidet nicht,
       // woher sie kommt — im Projekt liegt die Nachricht so oder so.
       projektId: r.projekt_id ?? undefined,
+      // Hochgeladene Anlagen der Testsendung (Kachel-Hinweis); 0 faellt weg.
+      anlagen: r.n_anlagen || undefined,
+    };
+  }
+
+  /** Eine testmessage_anlagen-Zeile ohne Blob als API-Objekt. */
+  function anlZeile(r) {
+    return {
+      dateiname: r.dateiname,
+      mime: r.mime ?? undefined,
+      groesse: r.groesse,
+      sha256: r.sha256,
+      autor: r.autor ?? undefined,
+      hochgeladen: r.hochgeladen,
     };
   }
 
@@ -1699,6 +1767,12 @@ export function openDb(path) {
       return rows.map(tmEntry);
     },
 
+    /** Index-Zeile einer Testnachricht oder null. */
+    tmEintrag(id) {
+      const r = stmt.tmGet.get(id);
+      return r ? tmEntry(r) : null;
+    },
+
     /** Roh-XML zu einer id oder null. */
     tmLoadXml(id) {
       const row = stmt.tmGetXml.get(id);
@@ -1882,6 +1956,8 @@ export function openDb(path) {
         ...bindung,
         ts: stamp,
       });
+      // Die Variante bekommt die Anlagen mit: die Sendung gehoert zur Nachricht.
+      stmt.anlKopieren.run({ neu: neueId, alt: id });
       return { id: neueId, entry: tmEntry(stmt.tmGet.get(neueId)) };
     },
 
@@ -1992,7 +2068,56 @@ export function openDb(path) {
 
     /** Löschen. Gibt true, wenn eine Zeile entfernt wurde. */
     tmDelete(id) {
+      stmt.anlDelAlle.run(id);
       return stmt.tmDel.run(id).changes > 0;
+    },
+
+    // ── Anlagen (Testsendung, ADR 0024) ─────────────────────────────────
+
+    /** Anlagen einer Testnachricht ohne Blob (null: Testnachricht unbekannt). */
+    anlList(id) {
+      if (!stmt.tmGetXml.get(id)) return null;
+      return stmt.anlList.all(id).map(anlZeile);
+    },
+
+    /** Alle Anlagen samt Bytes (Bau der Sendung). */
+    anlAlleLaden(id) {
+      return stmt.anlAlle.all(id).map((r) => ({ ...anlZeile(r), daten: r.daten }));
+    },
+
+    /** Eine Anlage samt Bytes (`daten` als Buffer) oder null. */
+    anlLaden(id, dateiname) {
+      const r = stmt.anlGet.get(id, dateiname);
+      return r ? { ...anlZeile(r), daten: r.daten } : null;
+    },
+
+    /**
+     * Anlage ablegen bzw. ersetzen. Grenzen: ANLAGE_MAX je Datei, SENDUNG_MAX
+     * fuer alle Anlagen einer Nachricht (die ersetzte Datei zaehlt nicht mit).
+     * Ergebnis: { anlage } oder { fehler: 'unbekannt' | 'datei-zu-gross' |
+     * 'sendung-zu-gross' }.
+     */
+    anlAblegen(id, { dateiname, mime, daten, autor }, ts) {
+      if (!stmt.tmGetXml.get(id)) return { fehler: 'unbekannt' };
+      if (daten.length > ANLAGE_MAX) return { fehler: 'datei-zu-gross' };
+      if (stmt.anlSumme.get(id, dateiname).summe + daten.length > SENDUNG_MAX)
+        return { fehler: 'sendung-zu-gross' };
+      stmt.anlPut.run({
+        id,
+        dateiname,
+        mime: mime || null,
+        groesse: daten.length,
+        sha256: createHash('sha256').update(daten).digest('hex'),
+        daten,
+        autor: autor || null,
+        ts: ts ?? Date.now(),
+      });
+      return { anlage: anlZeile(stmt.anlGet.get(id, dateiname)) };
+    },
+
+    /** Anlage entfernen. Gibt true, wenn eine Zeile entfernt wurde. */
+    anlEntfernen(id, dateiname) {
+      return stmt.anlDel.run(id, dateiname).changes > 0;
     },
 
     // ── Abnahme (BLK-AG) ────────────────────────────────────────────────

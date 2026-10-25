@@ -1,4 +1,7 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
+import { ANLAGE_MAX } from '../db.js';
+import { bauen, planen } from '../sendung/bau.js';
+import { zaehle } from '../sendung/pruefung.js';
 
 /**
  * REST-API des zentralen Testdaten-Speichers. Spiegelt den Vertrag des
@@ -177,6 +180,93 @@ export function testmessagesRouter(db, auth) {
   r.delete('/testmessages/:id', schutz, (req, res) => {
     db.tmDelete(req.params.id);
     res.status(204).end();
+  });
+
+  // ── Anlagen (Testsendung, ADR 0024) ──────────────────────────────────
+  //
+  // Schluessel ist der exakte `dateiname` aus dem datei-Element der XML; er
+  // steht URL-kodiert im Pfad. Der Upload kommt roh (kein JSON, kein
+  // multipart), der Autor als URL-kodierter Header `x-autor`.
+
+  r.get('/testmessages/:id/anlagen', (req, res) => {
+    const liste = db.anlList(req.params.id);
+    if (liste == null) return res.status(404).json({ error: 'nicht gefunden' });
+    res.json(liste);
+  });
+
+  r.get('/testmessages/:id/anlagen/:dateiname', (req, res) => {
+    const a = db.anlLaden(req.params.id, req.params.dateiname);
+    if (!a) return res.status(404).json({ error: 'keine Anlage' });
+    res
+      .type(a.mime || 'application/octet-stream')
+      .attachment(a.dateiname)
+      .send(a.daten);
+  });
+
+  // Ablegen oder ersetzen. Die 413 der Einzelgrenze wirft schon der
+  // Body-Parser (express.raw), die der Summe die Ablage.
+  r.put(
+    '/testmessages/:id/anlagen/:dateiname',
+    schutz,
+    express.raw({ type: () => true, limit: ANLAGE_MAX }),
+    (req, res) => {
+      const daten = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+      if (!daten.length) return res.status(400).json({ error: 'leere Datei' });
+      const out = db.anlAblegen(req.params.id, {
+        dateiname: req.params.dateiname,
+        mime: req.get('content-type'),
+        daten,
+        autor: decodeURIComponent(req.get('x-autor') ?? ''),
+      });
+      if (out.fehler === 'unbekannt') return res.status(404).json({ error: 'nicht gefunden' });
+      if (out.fehler === 'datei-zu-gross')
+        return res.status(413).json({ error: 'Datei größer als 20 MB' });
+      if (out.fehler === 'sendung-zu-gross')
+        return res.status(413).json({ error: 'Anlagen der Sendung zusammen größer als 100 MB' });
+      res.status(201).json(out.anlage);
+    },
+  );
+
+  r.delete('/testmessages/:id/anlagen/:dateiname', schutz, (req, res) => {
+    if (!db.anlEntfernen(req.params.id, req.params.dateiname))
+      return res.status(404).json({ error: 'keine Anlage' });
+    res.status(204).end();
+  });
+
+  // ── Testsendung (ADR 0024) ───────────────────────────────────────────
+
+  // Plan und Befunde ohne Bau (Sendungs-Ansicht, Kachel): je Datei die Quelle.
+  r.get('/testmessages/:id/sendung/pruefung', (req, res) => {
+    const xml = db.tmLoadXml(req.params.id);
+    if (xml == null) return res.status(404).json({ error: 'nicht gefunden' });
+    const plan = planen(xml, db.anlAlleLaden(req.params.id));
+    res.json({
+      plaetze: plan.plaetze,
+      dateien: plan.dateien.map((d) => ({ dateiname: d.dateiname, quelle: d.quelle })),
+      befunde: plan.befunde,
+    });
+  });
+
+  // Das Paket (ZIP). Befunde sperren nicht — die Zahlen stehen im Header, die
+  // Rueckfrage "trotzdem herunterladen" stellt der Client.
+  r.get('/testmessages/:id/sendung', async (req, res, next) => {
+    try {
+      const id = req.params.id;
+      const xml = db.tmLoadXml(id);
+      if (xml == null) return res.status(404).json({ error: 'nicht gefunden' });
+      const name = db.tmEintrag(id)?.name || 'testnachricht';
+      const { zip, plan } = await bauen({ xml, name, anlagen: db.anlAlleLaden(id) });
+      const { fehler, hinweise } = zaehle(plan.befunde);
+      const basis = name.replace(/\.xml$/i, '');
+      res
+        .set('x-sendung-fehler', String(fehler))
+        .set('x-sendung-hinweise', String(hinweise))
+        .type('application/zip')
+        .attachment(`${basis}_sendung.zip`)
+        .send(zip);
+    } catch (e) {
+      next(e);
+    }
   });
 
   // ── Abnahme (BLK-AG) ─────────────────────────────────────────────────
