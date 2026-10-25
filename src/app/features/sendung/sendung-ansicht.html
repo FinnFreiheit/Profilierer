@@ -92,6 +92,28 @@
                   Herunterladen
                 </button>
               }
+              @if (sendung.aenderbar() && p.einbindung) {
+                <button
+                  type="button"
+                  class="sendungKnopf"
+                  [disabled]="beschaeftigt(p.platz.dateiname)"
+                  title="Einbindung lösen — der Platz ist danach wieder leer"
+                  (click)="loesen(p.platz.dateiname)"
+                >
+                  Lösen
+                </button>
+              }
+              @if (sendung.aenderbar() && (istXml(p.platz) || p.einbindung)) {
+                <button
+                  type="button"
+                  class="sendungKnopf"
+                  [disabled]="beschaeftigt(p.platz.dateiname)"
+                  title="Eine Testnachricht aus der Ablage auf diesen Platz legen (lebender Verweis)"
+                  (click)="waehleTestnachricht(p.platz)"
+                >
+                  {{ p.einbindung ? 'Andere Testnachricht…' : 'Testnachricht…' }}
+                </button>
+              }
               @if (sendung.aenderbar()) {
                 @if (p.anlage) {
                   <button
@@ -115,6 +137,34 @@
                 </button>
               }
             </div>
+            @if (p.einbindung && p.datei?.quelle === 'testnachricht') {
+              <div class="sendungEingebunden">
+                <span class="sendungEingebundenName" [title]="p.einbindung.zielNachricht ?? ''"
+                  >↳ {{ p.einbindung.zielName || '(ohne Namen)' }}</span
+                >
+                @for (u of p.unter; track $index) {
+                  <div class="sendungPlatz sendungUnter" [class.leer]="!u.quelle">
+                    <span class="sendungName" [title]="u.platz.dateiname">{{
+                      u.platz.dateiname
+                    }}</span>
+                    <span class="pill bestandteilPill">{{ bestandteil(u.platz.bestandteil) }}</span>
+                    <span [class]="'quellePill q-' + (u.quelle ?? 'leer')">{{
+                      unterText(u.quelle)
+                    }}</span>
+                    @if (u.befunde.length) {
+                      <span
+                        class="befundMarke"
+                        [class.fehler]="hatFehler(u.befunde)"
+                        [title]="befundTitel(u.befunde)"
+                        >{{ u.befunde.length }}</span
+                      >
+                    }
+                  </div>
+                } @empty {
+                  <div class="sendungUnterLeer">nennt selbst keine Dateien</div>
+                }
+              </div>
+            }
           }
         </section>
       } @empty {
@@ -124,10 +174,27 @@
         </div>
       }
 
-      @if (sendung.ohnePlatz().length) {
+      @if (sendung.ohnePlatz().anlagen.length || sendung.ohnePlatz().einbindungen.length) {
         <section class="sendungDok">
           <div class="sendungDokKopf">Ohne Platz — die XML nennt diese Dateien nicht</div>
-          @for (a of sendung.ohnePlatz(); track a.dateiname) {
+          @for (e of sendung.ohnePlatz().einbindungen; track e.dateiname) {
+            <div class="sendungPlatz leer">
+              <span class="sendungName" [title]="e.dateiname">{{ e.dateiname }}</span>
+              <span class="quellePill q-testnachricht">{{ e.zielName || 'Testnachricht' }}</span>
+              <span class="spacer"></span>
+              @if (sendung.aenderbar()) {
+                <button
+                  type="button"
+                  class="sendungKnopf"
+                  [disabled]="beschaeftigt(e.dateiname)"
+                  (click)="loesen(e.dateiname)"
+                >
+                  Lösen
+                </button>
+              }
+            </div>
+          }
+          @for (a of sendung.ohnePlatz().anlagen; track a.dateiname) {
             <div class="sendungPlatz leer">
               <span class="sendungName" [title]="a.dateiname">{{ a.dateiname }}</span>
               <span class="quellePill q-upload">hochgeladen</span>
@@ -161,7 +228,61 @@
       <span class="xmlFussHinweis">Höchstens 20 MB je Datei, 100 MB je Sendung.</span>
     </div>
   </div>
-} @else {
+}
+
+<dialog #auswahlDlg class="sendungAuswahl">
+  <h3 style="margin-top: 0">Testnachricht einbinden</h3>
+  <p class="dashSub" style="margin-top: 0">
+    Auf den Platz <code>{{ auswahlPlatz()?.dateiname }}</code
+    >. Ein lebender Verweis: Änderungen an der gewählten Nachricht kommen beim nächsten Export mit.
+  </p>
+  @if (vorschlag(); as v) {
+    <label class="sendungUmbenennen">
+      <input type="checkbox" [checked]="umbenennen()" (change)="umbenennen.set(!umbenennen())" />
+      Dateinamen auf <code>{{ v }}</code> umstellen — die Signaturdatei zieht mit
+    </label>
+  }
+  <input
+    type="search"
+    class="sendungAuswahlSuche"
+    placeholder="Name oder Nachricht suchen…"
+    aria-label="Testnachricht suchen"
+    [value]="filter()"
+    (input)="filterEingabe($event)"
+  />
+  <div class="sendungAuswahlListe">
+    @for (g of gruppen(); track g.label) {
+      <div class="sendungAuswahlGruppe">{{ g.label }}</div>
+      @for (e of g.items; track e.id) {
+        <button
+          type="button"
+          class="sendungAuswahlEintrag"
+          [disabled]="gesperrt().has(e.id)"
+          [title]="zielTitel(e)"
+          (click)="einbinden(e)"
+        >
+          <b>{{ e.name || '(ohne Namen)' }}</b>
+          <span class="sendungAuswahlNachricht">{{ e.nachricht }}</span>
+        </button>
+      }
+    } @empty {
+      <div class="sendungLeer">Keine Testnachricht gefunden.</div>
+    }
+  </div>
+  <div class="sendungAuswahlFuss">
+    <button
+      type="button"
+      title="Neue Testnachricht anlegen — nach dem ersten Speichern wird sie hier eingebunden"
+      (click)="neuAnlegen()"
+    >
+      Neue Testnachricht anlegen…
+    </button>
+    <span class="spacer"></span>
+    <button type="button" (click)="auswahlDlg.close()">Abbrechen</button>
+  </div>
+</dialog>
+
+@if (!sendung.moeglich()) {
   <div class="xmlLeer dashLeer">
     <div class="dashLeerSymbol">✉</div>
     <h3>Keine Testsendung</h3>

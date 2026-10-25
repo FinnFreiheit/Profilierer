@@ -15,53 +15,116 @@ import { HAUPTNAME, dateienPlanen, plaetzeLesen, pruefen } from './pruefung.js';
  */
 
 /**
- * Plan der Sendung ohne Bytes zu erzeugen: Plaetze, Quelle je Datei, Befunde.
- * Reicht fuer die Pruefung; `bauen` fuellt danach die erzeugten Dateien.
+ * Eine Nachricht, wie der Bau sie braucht (db.sendungQuelle): XML, Anzeigename,
+ * hochgeladene Anlagen samt Bytes und die Einbindungen ihrer Plaetze.
  *
- * @param {string} xml
- * @param {Array<{dateiname: string, daten: Buffer}>} anlagen hochgeladene Dateien
+ * @typedef {{ id?: string, xml: string, name: string,
+ *   anlagen: Array<{ dateiname: string, daten: Buffer }>,
+ *   einbindungen?: Array<{ dateiname: string, zielId: string }> }} SendungQuelle
  */
-export function planen(xml, anlagen) {
-  const plaetze = plaetzeLesen(new DOMParser().parseFromString(xml, 'application/xml'));
-  const uploads = new Map(anlagen.map((a) => [a.dateiname, a.daten]));
-  const dateien = dateienPlanen(plaetze, new Set(uploads.keys())).map((d) => ({
-    ...d,
-    kopf: uploads.get(d.dateiname)?.subarray(0, 16),
-  }));
-  // Uploads ohne Platz gehen in die Pruefung (Hinweis), nicht ins ZIP.
-  const ohnePlatz = anlagen
-    .filter((a) => !plaetze.some((p) => p.dateiname === a.dateiname))
-    .map((a) => ({ dateiname: a.dateiname, quelle: 'upload', kopf: a.daten.subarray(0, 16) }));
-  const befunde = pruefen({ plaetze, dateien: [...dateien, ...ohnePlatz] });
+
+const befund = (regel, dateiname, text) => ({ regel, schwere: 'fehler', dateiname, text });
+
+/**
+ * Plan der Sendung ohne Bytes zu erzeugen: Plaetze, Quelle je Datei, Befunde.
+ * Eingebundene Testnachrichten werden rekursiv aufgeloest — ihre Plaetze und
+ * Dateien kommen flach dazu (im Umschlag gibt es keine Ordner), `herkunft`
+ * nennt die Nachricht, aus der sie stammen.
+ *
+ * @param {SendungQuelle} quelle
+ * @param {(id: string) => SendungQuelle | null} [laden] Lader eingebundener Nachrichten
+ */
+export function planen(quelle, laden = () => null) {
+  const plaetze = [];
+  const dateien = [];
+  const ohnePlatz = [];
+  const extra = [];
+
+  const ebene = (q, besucht, herkunft) => {
+    const eigene = plaetzeLesen(new DOMParser().parseFromString(q.xml, 'application/xml')).map(
+      (p) => (herkunft ? { ...p, herkunft } : p),
+    );
+    const uploads = new Map(q.anlagen.map((a) => [a.dateiname, a.daten]));
+    const ziele = new Map();
+    for (const e of q.einbindungen ?? []) {
+      if (besucht.has(e.zielId)) {
+        extra.push(
+          befund('zyklus', e.dateiname, 'Die eingebundene Nachricht bindet diese wieder ein.'),
+        );
+        continue;
+      }
+      const ziel = laden(e.zielId);
+      if (ziel) ziele.set(e.dateiname, ziel);
+      else
+        extra.push(
+          befund(
+            'einbindung-fehlt',
+            e.dateiname,
+            'Die eingebundene Testnachricht gibt es nicht mehr.',
+          ),
+        );
+    }
+    plaetze.push(...eigene);
+    const geplant = dateienPlanen(eigene, new Set(uploads.keys()), new Set(ziele.keys()));
+    for (const d of geplant) {
+      const ziel = ziele.get(d.dateiname);
+      const daten =
+        d.quelle === 'upload'
+          ? uploads.get(d.dateiname)
+          : d.quelle === 'testnachricht'
+            ? Buffer.from(ziel.xml)
+            : undefined;
+      dateien.push({
+        ...d,
+        herkunft,
+        nachricht: q.name,
+        daten,
+        kopf: daten?.subarray(0, 16),
+        zielId: ziel?.id,
+      });
+    }
+    const namen = new Set(eigene.map((p) => p.dateiname));
+    for (const a of q.anlagen)
+      if (!namen.has(a.dateiname))
+        ohnePlatz.push({ dateiname: a.dateiname, quelle: 'upload', kopf: a.daten.subarray(0, 16) });
+    for (const n of ziele.keys())
+      if (!namen.has(n)) ohnePlatz.push({ dateiname: n, quelle: 'testnachricht' });
+    for (const d of geplant)
+      if (d.quelle === 'testnachricht') {
+        const ziel = ziele.get(d.dateiname);
+        ebene(ziel, new Set([...besucht, ziel.id]), ziel.name);
+      }
+  };
+
+  ebene(quelle, new Set(quelle.id ? [quelle.id] : []), undefined);
+  const befunde = [...extra, ...pruefen({ plaetze, dateien: [...dateien, ...ohnePlatz] })];
   return { plaetze, dateien, befunde };
 }
 
 /**
  * Baut das ZIP.
  *
- * @param {object} p
- * @param {string} p.xml       Haupt-XML
- * @param {string} p.name      Anzeigename der Testnachricht (Aufdruck der Platzhalter)
- * @param {Array} p.anlagen    hochgeladene Dateien `{ dateiname, daten }`
+ * @param {SendungQuelle} quelle
+ * @param {(id: string) => SendungQuelle | null} [laden]
  * @returns {Promise<{ zip: Buffer, plan: ReturnType<typeof planen> }>}
  */
-export async function bauen({ xml, name, anlagen }) {
-  const plan = planen(xml, anlagen);
-  const uploads = new Map(anlagen.map((a) => [a.dateiname, a.daten]));
+export async function bauen(quelle, laden) {
+  const plan = planen(quelle, laden);
   const bytes = new Map();
   let signierer = null;
   for (const d of plan.dateien) {
-    if (d.quelle === 'upload') bytes.set(d.dateiname, uploads.get(d.dateiname));
+    if (bytes.has(d.dateiname)) continue; // doppelter Name: Befund, erste gewinnt
+    if (d.daten) bytes.set(d.dateiname, d.daten);
     else if (d.quelle === 'platzhalter')
-      bytes.set(d.dateiname, await platzhalterPdf(d.platz, name));
+      bytes.set(d.dateiname, await platzhalterPdf(d.platz, d.nachricht));
     else {
       signierer ??= neuerSignierer();
       bytes.set(d.dateiname, signierer(bytes.get(d.platz.bezugsdateien[0])));
     }
   }
   const zip = new JSZip();
-  zip.file(HAUPTNAME, xml);
-  for (const d of plan.dateien) zip.file(d.dateiname, bytes.get(d.dateiname));
+  zip.file(HAUPTNAME, quelle.xml);
+  for (const [name, b] of bytes) zip.file(name, b);
   return {
     zip: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }),
     plan,

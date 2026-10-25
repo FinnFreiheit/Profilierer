@@ -9,6 +9,7 @@ import {
   inject,
   signal,
   viewChild,
+  untracked,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { TestmessageStoreService } from '../../core/services/testmessage-store.service';
@@ -202,7 +203,7 @@ export class Testdaten {
   private readonly excel = inject(PruefberichtExcelService);
   private readonly ui = inject(UiSettingsService);
   private readonly druck = inject(TestnachrichtDruckService);
-  private readonly sendung = inject(SendungService);
+  protected readonly sendung = inject(SendungService);
   private readonly autoren = inject(AutorService);
 
   /**
@@ -224,6 +225,16 @@ export class Testdaten {
   private readonly varianteDlg = viewChild.required<ElementRef<HTMLDialogElement>>('varianteDlg');
 
   constructor() {
+    // Aus der Sendung heraus angefordert (Testsendung S5): den Anlegedialog
+    // oeffnen; nach dem ersten Speichern bindet der SendungService die neue
+    // Nachricht ein.
+    effect(() => {
+      if (!this.sendung.anlegenAngefordert()) return;
+      untracked(() => {
+        this.sendung.anlegenAngefordert.set(false);
+        this.openCreate();
+      });
+    });
     // Index beim Betreten der Ansicht auffrischen: das Kennzeichen "Profil
     // weiterentwickelt" haengt am serverseitigen Vergleich und veraltet, sobald
     // im Editor an einer gebundenen Profilierung gearbeitet wurde.
@@ -764,6 +775,15 @@ export class Testdaten {
       .refresh()
       .catch(this.toast.fail('Profile konnten nicht geladen werden — Backend nicht erreichbar.'));
     this.createDlg().nativeElement.showModal();
+  }
+
+  /**
+   * Dialog zu, ohne dass eine Erstellung begonnen hat: ein aus der Sendung
+   * angeforderter Rueckweg verfaellt — sonst bekaeme die naechste, unabhaengig
+   * angelegte Nachricht die Einbindung.
+   */
+  protected createGeschlossen(): void {
+    if (!this.state.messageCreate()) this.sendung.ruecksprung.set(null);
   }
 
   /** Schritt 0: "aus Schema" oder "aus Profilierung". */

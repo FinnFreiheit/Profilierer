@@ -134,7 +134,9 @@ const TM_COLS = `t.id, t.name, t.autor, t.nachricht, t.fachmodul, t.xjustiz_vers
               t.abnahme_ts, t.abnahme_kommentar, (t.abnahme_xml IS NOT NULL) AS abgenommen,
               (t.abnahme_xml IS NOT NULL AND t.xml != t.abnahme_xml) AS geaendert_seit_abnahme,
               t.profil_id, t.profil_name, t.fassung,
-              (SELECT COUNT(*) FROM testmessage_anlagen a WHERE a.testmessage_id = t.id) AS n_anlagen,
+              (SELECT COUNT(*) FROM testmessage_anlagen a WHERE a.testmessage_id = t.id)
+                + (SELECT COUNT(*) FROM testmessage_einbindungen e WHERE e.testmessage_id = t.id)
+                AS n_anlagen,
               COALESCE(t.projekt_id, p.projekt_id) AS projekt_id,
               (t.vorgabe_hash IS NOT NULL AND p.fach_hash IS NOT NULL
                AND p.fach_hash != t.vorgabe_hash) AS profil_weiterentwickelt`;
@@ -228,6 +230,20 @@ export function openDb(path) {
       daten BLOB NOT NULL,
       autor TEXT,
       hochgeladen INTEGER,
+      PRIMARY KEY (testmessage_id, dateiname)
+    );
+
+    -- Eingebundene Testnachrichten (Testsendung S5): ein Platz der Sendung wird
+    -- von einer anderen Testnachricht gefuellt -- lebender Verweis, kein
+    -- Kopieren. Je Platz eine Quelle: Einbinden ersetzt einen Upload unter
+    -- demselben Namen und umgekehrt. Wird die Ziel-Nachricht geloescht, bleibt
+    -- die Zeile stehen; der Platz meldet dann den Befund.
+    CREATE TABLE IF NOT EXISTS testmessage_einbindungen (
+      testmessage_id TEXT NOT NULL,
+      dateiname TEXT NOT NULL,
+      ziel_id TEXT NOT NULL,
+      autor TEXT,
+      eingebunden INTEGER,
       PRIMARY KEY (testmessage_id, dateiname)
     );
 
@@ -743,6 +759,35 @@ export function openDb(path) {
       'DELETE FROM testmessage_anlagen WHERE testmessage_id = ? AND dateiname = ?',
     ),
     anlDelAlle: db.prepare('DELETE FROM testmessage_anlagen WHERE testmessage_id = ?'),
+    einbList: db.prepare(
+      `SELECT e.dateiname, e.ziel_id, e.autor, e.eingebunden, z.name AS ziel_name,
+              z.nachricht AS ziel_nachricht, (z.id IS NOT NULL) AS vorhanden
+       FROM testmessage_einbindungen e LEFT JOIN testmessages z ON z.id = e.ziel_id
+       WHERE e.testmessage_id = ? ORDER BY e.dateiname`,
+    ),
+    einbPut: db.prepare(
+      `INSERT INTO testmessage_einbindungen (testmessage_id, dateiname, ziel_id, autor, eingebunden)
+       VALUES (@id, @dateiname, @zielId, @autor, @ts)
+       ON CONFLICT (testmessage_id, dateiname) DO UPDATE SET
+         ziel_id = excluded.ziel_id, autor = excluded.autor, eingebunden = excluded.eingebunden`,
+    ),
+    einbDel: db.prepare(
+      'DELETE FROM testmessage_einbindungen WHERE testmessage_id = ? AND dateiname = ?',
+    ),
+    einbDelAlle: db.prepare('DELETE FROM testmessage_einbindungen WHERE testmessage_id = ?'),
+    einbKopieren: db.prepare(
+      `INSERT INTO testmessage_einbindungen (testmessage_id, dateiname, ziel_id, autor, eingebunden)
+       SELECT @neu, dateiname, ziel_id, autor, eingebunden
+       FROM testmessage_einbindungen WHERE testmessage_id = @alt`,
+    ),
+    // Alle Nachrichten, die `id` (transitiv) einbinden, und `id` selbst: genau
+    // die Ziele, die beim Einbinden in `id` einen Zyklus schlossen.
+    tmVorfahren: db.prepare(
+      `WITH RECURSIVE vor(id) AS (
+         SELECT ?
+         UNION SELECT e.testmessage_id FROM testmessage_einbindungen e JOIN vor ON e.ziel_id = vor.id
+       ) SELECT id FROM vor`,
+    ),
     anlKopieren: db.prepare(
       `INSERT INTO testmessage_anlagen
          (testmessage_id, dateiname, mime, groesse, sha256, daten, autor, hochgeladen)
@@ -883,7 +928,8 @@ export function openDb(path) {
       // Profilierung (COALESCE in TM_COLS). Die Kachel unterscheidet nicht,
       // woher sie kommt — im Projekt liegt die Nachricht so oder so.
       projektId: r.projekt_id ?? undefined,
-      // Hochgeladene Anlagen der Testsendung (Kachel-Hinweis); 0 faellt weg.
+      // Anlagen der Testsendung (Uploads und eingebundene Nachrichten) fuer den
+      // Kachel-Hinweis; 0 faellt weg.
       anlagen: r.n_anlagen || undefined,
     };
   }
@@ -1958,6 +2004,7 @@ export function openDb(path) {
       });
       // Die Variante bekommt die Anlagen mit: die Sendung gehoert zur Nachricht.
       stmt.anlKopieren.run({ neu: neueId, alt: id });
+      stmt.einbKopieren.run({ neu: neueId, alt: id });
       return { id: neueId, entry: tmEntry(stmt.tmGet.get(neueId)) };
     },
 
@@ -2069,6 +2116,7 @@ export function openDb(path) {
     /** Löschen. Gibt true, wenn eine Zeile entfernt wurde. */
     tmDelete(id) {
       stmt.anlDelAlle.run(id);
+      stmt.einbDelAlle.run(id);
       return stmt.tmDel.run(id).changes > 0;
     },
 
@@ -2102,6 +2150,7 @@ export function openDb(path) {
       if (daten.length > ANLAGE_MAX) return { fehler: 'datei-zu-gross' };
       if (stmt.anlSumme.get(id, dateiname).summe + daten.length > SENDUNG_MAX)
         return { fehler: 'sendung-zu-gross' };
+      stmt.einbDel.run(id, dateiname); // je Platz eine Quelle
       stmt.anlPut.run({
         id,
         dateiname,
@@ -2113,6 +2162,67 @@ export function openDb(path) {
         ts: ts ?? Date.now(),
       });
       return { anlage: anlZeile(stmt.anlGet.get(id, dateiname)) };
+    },
+
+    // ── Eingebundene Testnachrichten (Testsendung S5) ──────────────────
+
+    /** Einbindungen einer Nachricht samt Ziel-Angaben (null: unbekannt). */
+    einbList(id) {
+      if (!stmt.tmGetXml.get(id)) return null;
+      return stmt.einbList.all(id).map((r) => ({
+        dateiname: r.dateiname,
+        zielId: r.ziel_id,
+        zielName: r.ziel_name ?? undefined,
+        zielNachricht: r.ziel_nachricht ?? undefined,
+        vorhanden: !!r.vorhanden,
+        autor: r.autor ?? undefined,
+        eingebunden: r.eingebunden,
+      }));
+    },
+
+    /** Ids, die beim Einbinden in `id` einen Zyklus schlossen (inkl. `id`). */
+    tmVorfahren(id) {
+      return stmt.tmVorfahren.all(id).map((r) => r.id);
+    },
+
+    /**
+     * Testnachricht `zielId` auf den Platz `dateiname` von `id` legen.
+     * Ersetzt einen Upload unter demselben Namen. Ergebnis: { einbindung } oder
+     * { fehler: 'unbekannt' | 'ziel-unbekannt' | 'zyklus' }.
+     */
+    einbSetzen(id, { dateiname, zielId, autor }, ts) {
+      if (!stmt.tmGetXml.get(id)) return { fehler: 'unbekannt' };
+      if (!stmt.tmGetXml.get(zielId)) return { fehler: 'ziel-unbekannt' };
+      if (this.tmVorfahren(id).includes(zielId)) return { fehler: 'zyklus' };
+      db.transaction(() => {
+        stmt.anlDel.run(id, dateiname);
+        stmt.einbPut.run({ id, dateiname, zielId, autor: autor || null, ts: ts ?? Date.now() });
+      })();
+      return { einbindung: this.einbList(id).find((e) => e.dateiname === dateiname) };
+    },
+
+    /** Einbindung loesen. Gibt true, wenn eine Zeile entfernt wurde. */
+    einbEntfernen(id, dateiname) {
+      return stmt.einbDel.run(id, dateiname).changes > 0;
+    },
+
+    /**
+     * Alles, was der Bau einer Sendung je Nachricht braucht — der Lader der
+     * Rekursion (sendung/bau.js). null: Nachricht unbekannt.
+     */
+    sendungQuelle(id) {
+      const xml = this.tmLoadXml(id);
+      if (xml == null) return null;
+      return {
+        id,
+        xml,
+        name: this.tmEintrag(id)?.name || 'testnachricht',
+        anlagen: this.anlAlleLaden(id),
+        einbindungen: stmt.einbList.all(id).map((r) => ({
+          dateiname: r.dateiname,
+          zielId: r.ziel_id,
+        })),
+      };
     },
 
     /** Anlage entfernen. Gibt true, wenn eine Zeile entfernt wurde. */
