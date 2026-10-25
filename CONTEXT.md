@@ -53,3 +53,17 @@ gebraucht hat. Architektur-Entscheidungen dazu in `docs/adr/`.
   samt Doku, Kardinalität, Codelisten-Bindung und Rekursionsschutz. Keine Kopie
   der Typstruktur ins Profil (ADR 0017). Gegenprobe für den Defektfall:
   `TreeService.erwTypFehlt` — der Typ, den das aktive Schema nicht kennt.
+- **Testsendung** — eine Testnachricht mit ihren **Anlagen**: was beim
+  Empfänger ankommt (`xjustiz_nachricht.xml` plus die Dateien, die das
+  Schriftgutobjekt nennt). Keine eigene Entität; „Paket" heißt nur das
+  ZIP-Artefakt (ADR 0024).
+- **Platz** — die Stelle der Sendung, die ein `dokument/…/datei`-Element
+  vorgibt (Dateiname, Bestandteil, ggf. Bezugsdatei). Die XML führt: Plätze
+  entstehen nur aus der XML.
+- **Anlage** — die Datei auf einem Platz, gebunden über den exakten
+  `dateiname`. **Quelle der Anlage**: Upload (gespeichert), eingebundene
+  Testnachricht (lebender Verweis), Platzhalter-PDF oder erzeugte Signatur
+  (beide beim Export erzeugt).
+- **Paketprüfung** (`server/sendung/pruefung.js`) — zustandslose Regeln über
+  Plätze und Anlagen (Vollständigkeit, Bezugsdatei, Namensregeln, Original
+  höchstens einmal, Dateiart). Warnt, sperrt nicht.

@@ -29,6 +29,7 @@ Architecture Decision Records halten wesentliche Richtungsentscheidungen mit Beg
 | [0021](0021-nutzungszahlen-als-aggregat.md)           | Nutzungszahlen als anonyme Aggregate, nicht als Ereignisprotokoll | Angenommen                    |
 | [0022](0022-design-system-spiegel.md)                 | Design-System als generierter Spiegel des Codes                   | Angenommen                    |
 | [0023](0023-ein-bearbeiten-modus-mit-fuehrung.md)     | Ein Bearbeiten-Modus mit Führung (löst die Drei-Modi-Wahl ab)     | Angenommen                    |
+| [0024](0024-testsendung-testnachricht-mit-anlagen.md) | Testsendung: Testnachricht mit Anlagen, die XML führt             | Angenommen                    |
 
 ## Vorlage
 
