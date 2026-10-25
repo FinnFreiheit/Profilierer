@@ -80,6 +80,21 @@ export class SendungAnsicht {
 
   protected readonly dokumentSperre = computed(() => this.bearb.dokumentSperre());
 
+  /** Nicht zuordenbare Datei der Mehrfach-Ablage als neues Dokument aufnehmen (S8 + S6). */
+  protected async alsNeuesDokument(datei: File): Promise<void> {
+    const name = await this.bearb.alsDokumentAblegen(datei);
+    if (!name) return;
+    this.sendung.ablageErgebnis.update((e) =>
+      e
+        ? {
+            ...e,
+            ohnePlatz: e.ohnePlatz.filter((d) => d !== datei),
+            abgelegt: [...e.abgelegt, name],
+          }
+        : e,
+    );
+  }
+
   protected behebung(b: Befund): Behebung | null {
     return this.behebungen().get(b) ?? null;
   }

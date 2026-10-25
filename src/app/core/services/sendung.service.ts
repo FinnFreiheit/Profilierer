@@ -57,6 +57,15 @@ export interface Ruecksprung {
   dateiname: string;
 }
 
+/** Ergebnis einer Mehrfach-Ablage (S8): was lag, was keinen Platz fand. */
+export interface AblageErgebnis {
+  abgelegt: string[];
+  /** Ohne passenden Platz — als Datei behalten, damit die Ansicht sie anbieten kann. */
+  ohnePlatz: File[];
+  /** Nicht ersetzt, weil die Rueckfrage verneint wurde. */
+  uebersprungen: string[];
+}
+
 /** Namenskonvention eingebundener XJustiz-Nachrichten (Doku zu `dateiname`). */
 const EINGEBUNDEN = /^xjustiz_nachricht_[0-9A-Za-z_-]+\.xml$/;
 /** Platzhalter statt echter UUID (`xjustiz_nachricht_UUID.xml`). */
@@ -375,6 +384,65 @@ export class SendungService {
         this.toast.showError(e, 'Entfernen fehlgeschlagen.');
       }
     });
+  }
+
+  /** Letzte Mehrfach-Ablage (Hinweis in der Ansicht; null = keiner). */
+  readonly ablageErgebnis = signal<AblageErgebnis | null>(null);
+
+  /**
+   * Mehrere Dateien auf einmal ablegen (S8): jede auf den Platz mit exakt
+   * ihrem Namen. Liegt dort schon ein Upload oder eine eingebundene Nachricht,
+   * wird vorher einmal fuer alle nachgefragt. Was keinen Platz findet, wird
+   * nicht verworfen, sondern im Ergebnis gelistet.
+   */
+  async mehrereAblegen(dateien: File[]): Promise<void> {
+    const id = this.entryId();
+    if (!id) return;
+    if (!this.aenderbar()) {
+      this.toast.show('Zum Ablegen in den Bearbeiten-Modus wechseln.');
+      return;
+    }
+    const plaetze = new Set(this.plaetze().map((p) => p.dateiname));
+    const belegt = new Set([
+      ...this.anlagen().map((a) => a.dateiname),
+      ...this.einbindungen().map((e) => e.dateiname),
+    ]);
+    const passend = dateien.filter((d) => plaetze.has(d.name));
+    const ohnePlatz = dateien.filter((d) => !plaetze.has(d.name));
+    const ersetzt = passend.filter((d) => belegt.has(d.name));
+    let ziel = passend;
+    let uebersprungen: string[] = [];
+    if (
+      ersetzt.length &&
+      !confirm(
+        `${ersetzt.length} ${ersetzt.length === 1 ? 'Datei ersetzt' : 'Dateien ersetzen'} einen vorhandenen Upload bzw. eine eingebundene Nachricht:\n` +
+          ersetzt.map((d) => '• ' + d.name).join('\n') +
+          '\n\nErsetzen? (Abbrechen legt nur die übrigen ab.)',
+      )
+    ) {
+      uebersprungen = ersetzt.map((d) => d.name);
+      ziel = passend.filter((d) => !belegt.has(d.name));
+    }
+    const abgelegt: string[] = [];
+    this.beschaeftigt.update((s) => new Set([...s, ...ziel.map((d) => d.name)]));
+    try {
+      for (const d of ziel) {
+        try {
+          await this.store.ablegen(id, d.name, d);
+          abgelegt.push(d.name);
+        } catch (e) {
+          this.toast.show(`${d.name}: ${uploadFehler(e)}`);
+        }
+      }
+      await this.neuLaden(id);
+    } finally {
+      this.beschaeftigt.update((s) => {
+        const n = new Set(s);
+        for (const d of ziel) n.delete(d.name);
+        return n;
+      });
+    }
+    this.ablageErgebnis.set({ abgelegt, ohnePlatz, uebersprungen });
   }
 
   /** Ids, die als Ziel einen Zyklus schloessen (Auswahl graut sie aus). */

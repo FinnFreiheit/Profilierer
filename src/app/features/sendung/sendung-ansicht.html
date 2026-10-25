@@ -70,11 +70,53 @@
     <div class="sendungHinweis">
       @if (sendung.aenderbar()) {
         Nur fiktive oder anonymisierte Dokumente hochladen — <strong>keine Echtdaten</strong>. Die
-        Ablage ist für alle sichtbar.
+        Ablage ist für alle sichtbar. Mehrere Dateien lassen sich auf einmal hierher ziehen — sie
+        landen auf dem Platz mit genau ihrem Namen.
       } @else {
         Zum Hochladen oder Ersetzen in den Bearbeiten-Modus wechseln.
       }
     </div>
+
+    @if (sendung.ablageErgebnis(); as e) {
+      <div class="sendungAblage">
+        <div class="sendungAblageKopf">
+          <span
+            >{{ e.abgelegt.length }} abgelegt
+            @if (e.uebersprungen.length) {
+              · {{ e.uebersprungen.length }} nicht ersetzt
+            }
+            @if (e.ohnePlatz.length) {
+              · {{ e.ohnePlatz.length }} ohne passenden Platz
+            }
+          </span>
+          <span class="spacer"></span>
+          <button
+            type="button"
+            class="sendungKnopf"
+            title="Hinweis schließen"
+            (click)="sendung.ablageErgebnis.set(null)"
+          >
+            Schließen
+          </button>
+        </div>
+        @for (d of e.ohnePlatz; track d) {
+          <div class="sendungAblageZeile">
+            <code class="sendungName" [title]="d.name">{{ d.name }}</code>
+            <span class="sendungAblageGrund">kein Platz mit diesem Namen</span>
+            <span class="spacer"></span>
+            <button
+              type="button"
+              class="sendungKnopf"
+              [disabled]="!!dokumentSperre()"
+              [title]="dokumentSperre() || 'Als neues Dokument ins Schriftgutobjekt aufnehmen'"
+              (click)="alsNeuesDokument(d)"
+            >
+              Als neues Dokument
+            </button>
+          </div>
+        }
+      </div>
+    }
 
     <div class="sendungInhalt">
       <div class="sendungPlatz sendungHaupt">
