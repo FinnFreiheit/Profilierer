@@ -198,5 +198,13 @@
     "viewport": {
       "width": 960
     }
+  },
+  {
+    "name": "Sendungs-Karte",
+    "path": "editor/sendung-karte.html",
+    "group": "Editor",
+    "viewport": {
+      "width": 960
+    }
   }
 ]

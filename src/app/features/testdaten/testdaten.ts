@@ -1,4 +1,5 @@
 import { TestnachrichtDruckService } from '../../core/services/testnachricht-druck.service';
+import { SendungService } from '../../core/services/sendung.service';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -201,6 +202,7 @@ export class Testdaten {
   private readonly excel = inject(PruefberichtExcelService);
   private readonly ui = inject(UiSettingsService);
   private readonly druck = inject(TestnachrichtDruckService);
+  private readonly sendung = inject(SendungService);
   private readonly autoren = inject(AutorService);
 
   /**
@@ -1279,6 +1281,12 @@ export class Testdaten {
     } catch {
       this.toast.show('Übersicht fehlgeschlagen — Backend nicht erreichbar.');
     }
+  }
+
+  /** Testsendung als ZIP (ADR 0024) — Befunde fragen nach, sperren nicht. */
+  protected paket(e: TestmessageEntry, ev: Event): void {
+    ev.stopPropagation();
+    void this.sendung.paketAusAblage(e.id, e.name || (e.nachricht ?? ''));
   }
 
   protected remove(e: TestmessageEntry, ev: Event): void {

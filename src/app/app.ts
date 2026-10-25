@@ -4,6 +4,7 @@ import { Ortzeile } from './features/ortzeile/ortzeile';
 import { Werkzeugleiste } from './features/werkzeugleiste/werkzeugleiste';
 import { TreeCanvas } from './features/tree/tree-canvas';
 import { XmlAnsicht } from './features/xml-ansicht/xml-ansicht';
+import { SendungAnsicht } from './features/sendung/sendung-ansicht';
 import { DetailPanel } from './features/detail/detail-panel';
 import { StatusDialog } from './features/dialogs/status-dialog';
 import { MetaDialog } from './features/dialogs/meta-dialog';
@@ -85,6 +86,7 @@ const KEINE_ANTWORT = 'Keine Antwort mit dieser Wirkung konfiguriert — ⋯ ›
     Werkzeugleiste,
     TreeCanvas,
     XmlAnsicht,
+    SendungAnsicht,
     DetailPanel,
     StatusDialog,
     MetaDialog,

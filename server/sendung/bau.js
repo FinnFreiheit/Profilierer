@@ -3,7 +3,7 @@ import { DOMParser } from '@xmldom/xmldom';
 import JSZip from 'jszip';
 import forge from 'node-forge';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { BESTANDTEIL, HAUPTNAME, plaetzeLesen, pruefen } from './pruefung.js';
+import { HAUPTNAME, dateienPlanen, plaetzeLesen, pruefen } from './pruefung.js';
 
 /**
  * Bau der Testsendung (ADR 0024): aus der XML einer Testnachricht und ihren
@@ -14,15 +14,6 @@ import { BESTANDTEIL, HAUPTNAME, plaetzeLesen, pruefen } from './pruefung.js';
  * Was sich nicht erzeugen laesst, bleibt leer und steht in den Befunden.
  */
 
-const endung = (name) => name.slice(name.lastIndexOf('.') + 1).toLowerCase();
-
-/** Ein Platz, den der Bau selbst fuellen kann — und womit. */
-function erzeugbar(platz) {
-  if (platz.bestandteil === BESTANDTEIL.signatur)
-    return platz.bezugsdateien.length ? 'signatur' : null;
-  return endung(platz.dateiname) === 'pdf' ? 'platzhalter' : null;
-}
-
 /**
  * Plan der Sendung ohne Bytes zu erzeugen: Plaetze, Quelle je Datei, Befunde.
  * Reicht fuer die Pruefung; `bauen` fuellt danach die erzeugten Dateien.
@@ -32,29 +23,11 @@ function erzeugbar(platz) {
  */
 export function planen(xml, anlagen) {
   const plaetze = plaetzeLesen(new DOMParser().parseFromString(xml, 'application/xml'));
-  const uploads = new Map(anlagen.map((a) => [a.dateiname, a]));
-  const dateien = [];
-  const gesehen = new Set();
-  // Erst alles ausser erzeugten Signaturen: eine Signatur braucht ihre Bezugsdatei.
-  for (const p of plaetze) {
-    if (gesehen.has(p.dateiname)) continue;
-    const up = uploads.get(p.dateiname);
-    const art = up ? 'upload' : erzeugbar(p);
-    if (!art || art === 'signatur') continue;
-    gesehen.add(p.dateiname);
-    dateien.push({
-      dateiname: p.dateiname,
-      quelle: art,
-      kopf: up?.daten.subarray(0, 16),
-      platz: p,
-    });
-  }
-  for (const p of plaetze) {
-    if (gesehen.has(p.dateiname) || erzeugbar(p) !== 'signatur') continue;
-    if (!gesehen.has(p.bezugsdateien[0])) continue; // ohne Bezugsdatei nichts zu signieren
-    gesehen.add(p.dateiname);
-    dateien.push({ dateiname: p.dateiname, quelle: 'signatur', platz: p });
-  }
+  const uploads = new Map(anlagen.map((a) => [a.dateiname, a.daten]));
+  const dateien = dateienPlanen(plaetze, new Set(uploads.keys())).map((d) => ({
+    ...d,
+    kopf: uploads.get(d.dateiname)?.subarray(0, 16),
+  }));
   // Uploads ohne Platz gehen in die Pruefung (Hinweis), nicht ins ZIP.
   const ohnePlatz = anlagen
     .filter((a) => !plaetze.some((p) => p.dateiname === a.dateiname))

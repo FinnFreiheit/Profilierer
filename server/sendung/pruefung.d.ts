@@ -34,5 +34,12 @@ export interface Befund {
 }
 
 export declare function plaetzeLesen(doc: Document): Platz[];
+export interface GeplanteDatei {
+  dateiname: string;
+  quelle: AnlagenQuelle;
+  platz: Platz;
+}
+
+export declare function dateienPlanen(plaetze: Platz[], uploadNamen: Set<string>): GeplanteDatei[];
 export declare function pruefen(p: { plaetze: Platz[]; dateien: SendungsDatei[] }): Befund[];
 export declare function zaehle(befunde: Befund[]): { fehler: number; hinweise: number };

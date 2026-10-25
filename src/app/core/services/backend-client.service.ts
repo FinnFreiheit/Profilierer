@@ -37,6 +37,8 @@ export interface BackendZugriff {
   jsonOderNull<T>(pfad: string, init?: RequestInit): Promise<T | null>;
   /** Antwort als Text (Roh-XML); 404 → `null`. */
   textOderNull(pfad: string): Promise<string | null>;
+  /** Antwort als Binaerdaten (ZIP, Anlage); 404 → `null`. */
+  blobOderNull(pfad: string): Promise<Blob | null>;
 }
 
 /** Ein an eine Quelle gebundener Zugriff (Fehlertexte nennen sie). */
@@ -92,6 +94,13 @@ class Zugriff implements BackendZugriff {
     if (r.status === 404) return null;
     this.pruefe(r, pfad);
     return await r.text();
+  }
+
+  async blobOderNull(pfad: string): Promise<Blob | null> {
+    const r = await this.anfrage(pfad);
+    if (r.status === 404) return null;
+    this.pruefe(r, pfad);
+    return await r.blob();
   }
 }
 
