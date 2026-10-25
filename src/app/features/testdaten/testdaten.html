@@ -456,6 +456,15 @@
       >
         Freigabe-XML
       </button>
+      @if (e.abnahmeSendung) {
+        <button
+          class="menuItem"
+          title="Das bei der Freigabe eingefrorene Paket der Testsendung — genau die Bytes von damals"
+          (click)="w.close(); downloadAbnahmeSendung(e, $event)"
+        >
+          Freigabe-Paket (ZIP)
+        </button>
+      }
       @if (e.geaendertSeitAbnahme) {
         <button
           class="menuItem"

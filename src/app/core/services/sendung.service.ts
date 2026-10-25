@@ -109,6 +109,12 @@ export class SendungService {
   /** Gibt es eine Sendung zu zeigen? (gespeicherte Testnachricht, kein Typ) */
   readonly moeglich = computed(() => !!this.entryId() && !this.state.istTypAnsicht());
 
+  /** Index-Zeile der offenen Nachricht (Freigabe-Stand, S9). */
+  readonly eintrag = computed(() => {
+    const id = this.entryId();
+    return id ? (this.testdaten.entries().find((e) => e.id === id) ?? null) : null;
+  });
+
   /** Anlagen duerfen nur im Bearbeiten-Modus geaendert werden. */
   readonly aenderbar = computed(() => !this.state.readOnly());
 
@@ -325,6 +331,9 @@ export class SendungService {
       this.testdaten.entries.update((es) =>
         es.map((e) => (e.id === id ? { ...e, anlagen: n || undefined } : e)),
       );
+      // "Geaendert seit Freigabe" rechnet der Server fachlich (S9) — nach einer
+      // Aenderung an Anlagen den Index nachziehen, sonst laege der Hinweis falsch.
+      if (this.eintrag()?.abgenommen) void this.testdaten.refresh().catch(() => undefined);
       await this.unterPlaeneLaden(id, einbindungen);
     } catch (e) {
       this.toast.showError(e, 'Anlagen nicht ladbar — Backend nicht erreichbar.');
@@ -636,6 +645,26 @@ export class SendungService {
       await this.ladeZip(id, name);
     } catch (e) {
       this.toast.showError(e, 'Paket nicht erzeugbar — Backend nicht erreichbar.');
+    }
+  }
+
+  /** Das bei der Freigabe eingefrorene Paket (S9). */
+  async freigabePaket(name: string): Promise<void> {
+    const id = this.entryId();
+    if (!id) return;
+    try {
+      const zip = await this.http.blobOderNull(
+        `/testmessages/${encodeURIComponent(id)}/abnahme/sendung`,
+      );
+      if (zip)
+        this.dl.download(
+          paketName(name).replace(/\.zip$/, '.freigegeben.zip'),
+          zip,
+          'application/zip',
+        );
+      else this.toast.show('Kein freigegebenes Paket vorhanden.');
+    } catch (e) {
+      this.toast.showError(e, 'Download fehlgeschlagen — Backend nicht erreichbar.');
     }
   }
 

@@ -60,8 +60,13 @@ export interface TestmessageEntry {
   /** ms-Timestamp der Abnahme. */
   abnahmeZeit?: number;
   abnahmeKommentar?: string;
-  /** Aktuelle XML weicht von der eingefrorenen Abnahme-Fassung ab (Warn-Badge). */
+  /**
+   * Aktueller Stand weicht von der Abnahme ab (Warn-Badge). Seit der Abnahme
+   * der Testsendung (S9) fachlich: XML, Anlagen und eingebundene Nachrichten.
+   */
   geaendertSeitAbnahme?: boolean;
+  /** Zur Abnahme liegt das eingefrorene Paket (ZIP) der Testsendung vor. */
+  abnahmeSendung?: boolean;
 
   // ── Profil-Bindung (US "Testnachricht aus einer Profilierung") ──────
   /**

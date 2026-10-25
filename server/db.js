@@ -133,6 +133,7 @@ const TM_COLS = `t.id, t.name, t.autor, t.nachricht, t.fachmodul, t.xjustiz_vers
               (t.entscheidungen IS NOT NULL) AS gefuehrt,
               t.abnahme_ts, t.abnahme_kommentar, (t.abnahme_xml IS NOT NULL) AS abgenommen,
               (t.abnahme_xml IS NOT NULL AND t.xml != t.abnahme_xml) AS geaendert_seit_abnahme,
+              t.abnahme_fp, (t.abnahme_zip IS NOT NULL) AS abnahme_sendung,
               t.profil_id, t.profil_name, t.fassung,
               (SELECT COUNT(*) FROM testmessage_anlagen a WHERE a.testmessage_id = t.id)
                 + (SELECT COUNT(*) FROM testmessage_einbindungen e WHERE e.testmessage_id = t.id)
@@ -367,6 +368,10 @@ export function openDb(path) {
     // Leichtgewichtiger Abnahme-Stand (BLK-AG): eingefrorene XML-Fassung,
     // Zeitstempel, optionaler Kommentar — bewusst ohne Versionsapparat.
     if (!cols.has('abnahme_xml')) db.exec('ALTER TABLE testmessages ADD COLUMN abnahme_xml TEXT');
+    // Abnahme der Testsendung (S9): das fertige ZIP, wie es abgenommen wurde,
+    // und der fachliche Fingerabdruck fuer "geaendert seit Abnahme".
+    if (!cols.has('abnahme_zip')) db.exec('ALTER TABLE testmessages ADD COLUMN abnahme_zip BLOB');
+    if (!cols.has('abnahme_fp')) db.exec('ALTER TABLE testmessages ADD COLUMN abnahme_fp TEXT');
     if (!cols.has('abnahme_ts')) db.exec('ALTER TABLE testmessages ADD COLUMN abnahme_ts INTEGER');
     if (!cols.has('abnahme_kommentar'))
       db.exec('ALTER TABLE testmessages ADD COLUMN abnahme_kommentar TEXT');
@@ -842,14 +847,17 @@ export function openDb(path) {
     ),
     tmAbn: db.prepare('SELECT abnahme_xml FROM testmessages WHERE id = ?'),
     tmAbnSet: db.prepare(
-      `UPDATE testmessages SET abnahme_xml = xml, abnahme_ts = @ts, abnahme_kommentar = @kommentar
+      `UPDATE testmessages SET abnahme_xml = xml, abnahme_ts = @ts, abnahme_kommentar = @kommentar,
+         abnahme_zip = @zip, abnahme_fp = @fp
        WHERE id = @id`,
     ),
+    tmAbnZip: db.prepare('SELECT abnahme_zip FROM testmessages WHERE id = ?'),
     tmVorgabeClear: db.prepare(
       'UPDATE testmessages SET vorgabe = NULL, vorgabe_hash = NULL WHERE id = ?',
     ),
     tmAbnClear: db.prepare(
-      `UPDATE testmessages SET abnahme_xml = NULL, abnahme_ts = NULL, abnahme_kommentar = NULL
+      `UPDATE testmessages SET abnahme_xml = NULL, abnahme_ts = NULL, abnahme_kommentar = NULL,
+         abnahme_zip = NULL, abnahme_fp = NULL
        WHERE id = ?`,
     ),
   };
@@ -915,7 +923,14 @@ export function openDb(path) {
       abgenommen: !!r.abgenommen || undefined,
       abnahmeZeit: r.abgenommen ? (r.abnahme_ts ?? undefined) : undefined,
       abnahmeKommentar: r.abgenommen ? (r.abnahme_kommentar ?? undefined) : undefined,
-      geaendertSeitAbnahme: !!r.geaendert_seit_abnahme || undefined,
+      // Mit Fingerabdruck (Abnahme der Testsendung, S9) zaehlt der fachliche
+      // Stand samt Anlagen und eingebundenen Nachrichten; Altbestand vergleicht
+      // weiter nur die XML.
+      geaendertSeitAbnahme:
+        (r.abgenommen && r.abnahme_fp
+          ? fingerabdruck(r.id) !== r.abnahme_fp
+          : !!r.geaendert_seit_abnahme) || undefined,
+      abnahmeSendung: (r.abgenommen && !!r.abnahme_sendung) || undefined,
       // Herkunft der Profil-Bindung — im schlanken Index mit, damit Kachel und
       // Sprung ins Profil ohne Zusatz-Request rendern.
       profilId: r.profil_id ?? undefined,
@@ -932,6 +947,27 @@ export function openDb(path) {
       // Kachel-Hinweis; 0 faellt weg.
       anlagen: r.n_anlagen || undefined,
     };
+  }
+
+  /**
+   * Fachlicher Fingerabdruck einer Testsendung (S9): die XML, die Hashes der
+   * hochgeladenen Anlagen und — rekursiv — die Abdruecke eingebundener
+   * Nachrichten. Platzhalter und Testsignaturen stehen nicht darin: sie folgen
+   * aus der XML und sehen bei jedem Export anders aus.
+   */
+  function fingerabdruck(id, besucht = new Set()) {
+    const xml = stmt.tmGetXml.get(id)?.xml;
+    if (xml == null) return 'fehlt';
+    if (besucht.has(id)) return 'zyklus';
+    const weiter = new Set([...besucht, id]);
+    const inhalt = {
+      xml: docHash(xml),
+      anlagen: stmt.anlList.all(id).map((a) => [a.dateiname, a.sha256]),
+      einbindungen: stmt.einbList
+        .all(id)
+        .map((e) => [e.dateiname, fingerabdruck(e.ziel_id, weiter)]),
+    };
+    return docHash(JSON.stringify(inhalt));
   }
 
   /** Eine testmessage_anlagen-Zeile ohne Blob als API-Objekt. */
@@ -2239,10 +2275,18 @@ export function openDb(path) {
 
     /**
      * Abnehmen: friert die aktuelle XML-Fassung mit Zeitstempel und optionalem
-     * Kommentar ein; Neuabnahme ersetzt den Abnahme-Stand. Gibt entry oder null.
+     * Kommentar ein; Neuabnahme ersetzt den Abnahme-Stand. Mit `zip` (S9) auch
+     * das Paket, wie es abgenommen wurde, samt fachlichem Fingerabdruck. Gibt
+     * entry oder null.
      */
-    tmAbnahmeSetzen(id, { kommentar } = {}, ts) {
-      const r = stmt.tmAbnSet.run({ id, ts: ts ?? Date.now(), kommentar: kommentar || null });
+    tmAbnahmeSetzen(id, { kommentar, zip } = {}, ts) {
+      const r = stmt.tmAbnSet.run({
+        id,
+        ts: ts ?? Date.now(),
+        kommentar: kommentar || null,
+        zip: zip ?? null,
+        fp: fingerabdruck(id),
+      });
       if (!r.changes) return null;
       return tmEntry(stmt.tmGet.get(id));
     },
@@ -2252,6 +2296,11 @@ export function openDb(path) {
       const r = stmt.tmAbnClear.run(id);
       if (!r.changes) return null;
       return tmEntry(stmt.tmGet.get(id));
+    },
+
+    /** Eingefrorenes Paket der Abnahme (Buffer) oder null. */
+    tmLoadAbnahmeSendung(id) {
+      return stmt.tmAbnZip.get(id)?.abnahme_zip ?? null;
     },
 
     /** Eingefrorene Abnahme-Fassung (XML) oder null. */

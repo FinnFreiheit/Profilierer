@@ -233,6 +233,11 @@ export class TestmessageStoreService {
     return this.http.textOderNull(`/testmessages/${encodeURIComponent(id)}/abnahme/xml`);
   }
 
+  /** Das bei der Abnahme eingefrorene Paket der Testsendung (S9); 404 → null. */
+  async loadAbnahmeSendung(id: string): Promise<Blob | null> {
+    return this.http.blobOderNull(`/testmessages/${encodeURIComponent(id)}/abnahme/sendung`);
+  }
+
   // ── Index-Signal pflegen ────────────────────────────────────────────
 
   /** Eintrag ersetzen/voranstellen und nach aktualisiert absteigend sortieren. */

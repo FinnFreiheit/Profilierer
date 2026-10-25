@@ -15,6 +15,25 @@
           Die Nachricht und die Dateien, die ihr Schriftgutobjekt nennt. Leere PDF-Plätze füllt der
           Export mit Platzhaltern, Signaturdateien mit einer Testsignatur.
         </div>
+        @if (freigabe(); as f) {
+          <div class="sendungFreigabe" [class.geaendert]="f.geaendert">
+            Freigegeben {{ f.am ? 'am ' + f.am : '' }}
+            @if (f.geaendert) {
+              · seit der Freigabe geändert (XML, Anlagen oder eingebundene Nachrichten)
+            }
+            @if (f.paket) {
+              ·
+              <button
+                type="button"
+                class="sendungFreigabeLink"
+                title="Das bei der Freigabe eingefrorene Paket — genau die Bytes von damals"
+                (click)="freigabePaket()"
+              >
+                Freigabe-Paket herunterladen
+              </button>
+            }
+          </div>
+        }
       </div>
       @if (sendung.aenderbar()) {
         <button

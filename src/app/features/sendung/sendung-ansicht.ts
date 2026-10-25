@@ -80,6 +80,24 @@ export class SendungAnsicht {
 
   protected readonly dokumentSperre = computed(() => this.bearb.dokumentSperre());
 
+  /** Freigabe-Stand der Sendung (S9) als eine Zeile — null ohne Freigabe. */
+  protected readonly freigabe = computed(() => {
+    const e = this.sendung.eintrag();
+    if (!e?.abgenommen) return null;
+    const am = e.abnahmeZeit
+      ? new Date(e.abnahmeZeit).toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        })
+      : '';
+    return { am, geaendert: !!e.geaendertSeitAbnahme, paket: !!e.abnahmeSendung };
+  });
+
+  protected freigabePaket(): void {
+    void this.sendung.freigabePaket(this.nachrichtName());
+  }
+
   /** Nicht zuordenbare Datei der Mehrfach-Ablage als neues Dokument aufnehmen (S8 + S6). */
   protected async alsNeuesDokument(datei: File): Promise<void> {
     const name = await this.bearb.alsDokumentAblegen(datei);

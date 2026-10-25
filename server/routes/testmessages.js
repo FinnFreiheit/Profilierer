@@ -322,11 +322,30 @@ export function testmessagesRouter(db, auth) {
     res.type('application/xml').send(xml);
   });
 
-  // Abnehmen: friert die aktuelle XML-Fassung ein; Neuabnahme ersetzt sie.
-  r.post('/testmessages/:id/abnahme', nurAg, (req, res) => {
-    const entry = db.tmAbnahmeSetzen(req.params.id, { kommentar: req.body?.kommentar });
+  // Abnehmen: friert die aktuelle XML-Fassung ein und mit ihr das Paket der
+  // Testsendung (S9), so wie es in diesem Moment gebaut wird; Neuabnahme
+  // ersetzt beides. Scheitert der Bau, wird ohne Paket abgenommen — die
+  // XML-Abnahme soll nicht an einer Anlage haengen.
+  r.post('/testmessages/:id/abnahme', nurAg, async (req, res) => {
+    const quelle = laden(req.params.id);
+    if (!quelle) return res.status(404).json({ error: 'nicht gefunden' });
+    let zip;
+    try {
+      zip = (await bauen(quelle, laden)).zip;
+    } catch (e) {
+      console.error('[xjp] Paket zur Abnahme nicht gebaut:', e);
+    }
+    const entry = db.tmAbnahmeSetzen(req.params.id, { kommentar: req.body?.kommentar, zip });
     if (!entry) return res.status(404).json({ error: 'nicht gefunden' });
     res.status(201).json({ entry });
+  });
+
+  // Das abgenommene Paket — genau die Bytes von damals.
+  r.get('/testmessages/:id/abnahme/sendung', (req, res) => {
+    const zip = db.tmLoadAbnahmeSendung(req.params.id);
+    if (!zip) return res.status(404).json({ error: 'kein abgenommenes Paket' });
+    const name = (db.tmEintrag(req.params.id)?.name || 'testnachricht').replace(/\.xml$/i, '');
+    res.type('application/zip').attachment(`${name}_sendung.freigegeben.zip`).send(zip);
   });
 
   // Kennzeichen samt eingefrorener Fassung entfernen.
