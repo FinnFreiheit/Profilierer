@@ -5776,6 +5776,53 @@ app-sendung-ansicht {
   font-size: 12px;
   padding: 3px 9px;
 }
+/* Sprung aus Baum oder Detailbereich (S7): der Platz leuchtet kurz auf. */
+.sendungPlatz.aufleuchten {
+  animation: sendungAufleuchten 1.6s ease-out;
+}
+@keyframes sendungAufleuchten {
+  from {
+    background: var(--signal-soft);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+/* Anlagen-Karte im Detailbereich (S7). */
+.anlageZeile {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.anlageZeile .sendungName {
+  font-size: 12px;
+  word-break: break-all;
+  white-space: normal;
+}
+.anlageZiel {
+  font-size: 12px;
+  color: var(--verweis-fg);
+}
+.anlageBefund {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.anlageBefund.b-fehler {
+  color: var(--fehler-fg);
+}
+.anlageBefund.b-hinweis {
+  color: var(--warn-fg);
+}
+.anlageAktionen {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
 .sendungLeer {
   padding: 12px 16px;
   font-size: 12.5px;

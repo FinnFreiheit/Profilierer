@@ -1,0 +1,41 @@
+<!-- Datei der Testsendung zum gewaehlten datei-Element (S7). -->
+@if (sp(); as p) {
+  <div class="dsec anlageKarte">
+    <span class="dLabel">Datei der Testsendung</span>
+    <div class="anlageZeile">
+      <code class="sendungName" [title]="p.platz.dateiname">{{ p.platz.dateiname }}</code>
+    </div>
+    <div class="anlageZeile">
+      <span class="pill bestandteilPill">{{ bestandteil() }}</span>
+      <span [class]="quelleKlasse()">{{ quelle() }}</span>
+      @if (p.einbindung?.zielName; as ziel) {
+        <span class="anlageZiel" [title]="p.einbindung?.zielNachricht ?? ''">{{ ziel }}</span>
+      }
+    </div>
+    @for (b of p.befunde; track $index) {
+      <div [class]="'anlageBefund b-' + b.schwere">{{ b.text }}</div>
+    }
+    <div class="anlageAktionen">
+      @if (sendung.aenderbar() && !p.einbindung) {
+        <button
+          type="button"
+          class="sendungKnopf"
+          [disabled]="sendung.beschaeftigt().has(p.platz.dateiname)"
+          [title]="'Eine Datei unter dem Namen „' + p.platz.dateiname + '“ ablegen'"
+          (click)="waehle()"
+        >
+          {{ p.anlage ? 'Ersetzen…' : 'Hochladen…' }}
+        </button>
+      }
+      <button
+        type="button"
+        class="sendungKnopf"
+        title="Zur Ansicht „Sendung“ wechseln und diesen Platz zeigen"
+        (click)="zeige()"
+      >
+        In der Sendung zeigen
+      </button>
+    </div>
+    <input #dateiInput type="file" class="hidden" (change)="gewaehlt($event)" />
+  </div>
+}

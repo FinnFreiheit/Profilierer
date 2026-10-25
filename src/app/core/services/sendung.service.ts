@@ -20,6 +20,7 @@ import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
 import { TestmessageStoreService } from './testmessage-store.service';
 import { TestmessageEditService } from './testmessage-edit.service';
+import { blattName } from '../util/pfad.util';
 
 /** Ein Dokument des SGO mit seinen Plaetzen (Gliederung der Ansicht). */
 export interface SendungsDokument {
@@ -76,12 +77,20 @@ export class SendungService {
   private readonly exporter = inject(ExportService);
   private readonly store = inject(AnlagenStoreService);
   private readonly http = inject(BackendClient).fuer('Sendung-Backend');
-  private readonly autosave = inject(TestmessageAutosaveService);
   private readonly dl = inject(DownloadService);
   private readonly toast = inject(ToastService);
-  private readonly testdaten = inject(TestmessageStoreService);
-  /** Lazy: der Edit-Service zieht den halben Editor nach (nur fuer den Ruecksprung). */
+  /**
+   * Lazy geholt: Testdaten-Index, Autosave und Edit-Service laden bzw. sichern
+   * beim Erzeugen selbst — der Detailbereich (Anlagen-Karte) soll sie nicht
+   * schon dadurch anstossen, dass er die Sendung kennt.
+   */
   private readonly injector = inject(Injector);
+  private get testdaten(): TestmessageStoreService {
+    return this.injector.get(TestmessageStoreService);
+  }
+  private get autosave(): TestmessageAutosaveService {
+    return this.injector.get(TestmessageAutosaveService);
+  }
 
   /** Testspeicher-Eintrag der offenen Nachricht (null = keine gespeicherte). */
   readonly entryId = computed(
@@ -223,6 +232,42 @@ export class SendungService {
     });
     return out;
   });
+
+  /**
+   * Pfad des `datei`-Elements im Modell → sein Platz (S7: Detailbereich und
+   * Kennzeichen im Baum). Zugeordnet ueber den eingetragenen `dateiname`.
+   */
+  readonly lageNachPfad = computed(() => {
+    const m = new Map<string, SendungsPlatz>();
+    if (!this.moeglich()) return m;
+    const nachName = new Map<string, SendungsPlatz>();
+    for (const d of this.dokumente())
+      for (const p of d.plaetze)
+        if (!nachName.has(p.platz.dateiname)) nachName.set(p.platz.dateiname, p);
+    for (const [k, v] of Object.entries(this.state.elemente())) {
+      if (!k.endsWith('/dateiname')) continue;
+      const datei = k.slice(0, -'/dateiname'.length);
+      const sp = blattName(datei) === 'datei' ? nachName.get(v.beispiel?.trim() ?? '') : undefined;
+      if (sp) m.set(datei, sp);
+    }
+    return m;
+  });
+
+  /** Platz zu einem gewaehlten Pfad: das `datei`-Element selbst oder eines seiner Blaetter. */
+  platzAnPfad(pfad: string | null): SendungsPlatz | null {
+    if (!pfad) return null;
+    const m = this.lageNachPfad();
+    return m.get(pfad) ?? m.get(pfad.slice(0, pfad.lastIndexOf('/'))) ?? null;
+  }
+
+  /** Angeforderter Sprung in der Sendungs-Ansicht (Zaehler macht Wiederholungen sichtbar). */
+  readonly fokus = signal<{ dateiname: string; n: number } | null>(null);
+
+  /** In die Sendungs-Ansicht wechseln und den Platz hervorheben. */
+  zeige(dateiname: string): void {
+    this.state.darstellung.set('sendung');
+    this.fokus.set({ dateiname, n: (this.fokus()?.n ?? 0) + 1 });
+  }
 
   constructor() {
     // Anlagen nachladen, sobald eine andere Nachricht offen ist.
