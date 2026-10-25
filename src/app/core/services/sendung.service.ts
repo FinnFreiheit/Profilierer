@@ -105,10 +105,14 @@ export class SendungService {
   /** Laufender Rueckweg nach dem Anlegen (null = keiner). */
   readonly ruecksprung = signal<Ruecksprung | null>(null);
 
+  /** Die live angezeigte XML samt Zeile→Pfad (null = keine Sendung). */
+  readonly xml = computed(() =>
+    this.moeglich() ? this.exporter.buildBeispielXmlMitPfaden({ instanz: true }) : null,
+  );
+
   /** Plaetze aus der live angezeigten XML. */
   readonly plaetze = computed<Platz[]>(() => {
-    if (!this.moeglich()) return [];
-    const xml = this.exporter.buildBeispielXmlMitPfaden({ instanz: true })?.xml;
+    const xml = this.xml()?.xml;
     if (!xml) return [];
     return plaetzeLesen(new DOMParser().parseFromString(xml, 'application/xml'));
   });
@@ -409,6 +413,36 @@ export class SendungService {
       n++;
     });
     return n > 0;
+  }
+
+  /**
+   * Platz umbenennen (Schnellbehebung, S6): die XML wie `umbenennen`, dazu
+   * ziehen Uploads und Einbindungen unter dem alten Namen (und davon
+   * abgeleitete Signaturnamen) auf den neuen um — sonst laege die Datei danach
+   * ohne Platz da.
+   */
+  async platzUmbenennen(alt: string, neu: string): Promise<void> {
+    const id = this.entryId();
+    if (!id || !this.aenderbar() || !this.umbenennen(alt, neu)) return;
+    const betroffen = (n: string): boolean => n === alt || n.startsWith(alt + '.');
+    const ziel = (n: string): string => neu + n.slice(alt.length);
+    await this.mitSperre(alt, async () => {
+      try {
+        for (const a of this.anlagen().filter((x) => betroffen(x.dateiname))) {
+          const blob = await this.store.laden(id, a.dateiname);
+          if (!blob) continue;
+          await this.store.ablegen(id, ziel(a.dateiname), blob);
+          await this.store.entfernen(id, a.dateiname);
+        }
+        for (const e of this.einbindungen().filter((x) => betroffen(x.dateiname))) {
+          await this.store.einbinden(id, ziel(e.dateiname), e.zielId);
+          await this.store.loesen(id, e.dateiname);
+        }
+        await this.neuLaden(id);
+      } catch (e) {
+        this.toast.showError(e, 'Umbenennen der Anlagen fehlgeschlagen.');
+      }
+    });
   }
 
   /** "Neue Testnachricht anlegen" fuer einen Platz: zur Testdaten-Seite, Dialog auf. */

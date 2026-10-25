@@ -9,6 +9,11 @@ import {
 } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { SendungService, SendungsPlatz } from '../../core/services/sendung.service';
+import {
+  Behebung,
+  SendungBearbeitungService,
+} from '../../core/services/sendung-bearbeitung.service';
+import { ToastService } from '../../core/services/toast.service';
 import { AnlagenQuelle, Befund, Platz } from '../../../../server/sendung/pruefung.js';
 import { TestmessageStoreService } from '../../core/services/testmessage-store.service';
 import { TestmessageEntry } from '../../models/testmessage.model';
@@ -56,6 +61,59 @@ export class SendungAnsicht {
   protected readonly sendung = inject(SendungService);
   private readonly state = inject(StateService);
   private readonly testdaten = inject(TestmessageStoreService);
+  protected readonly bearb = inject(SendungBearbeitungService);
+  private readonly toast = inject(ToastService);
+
+  // ── XML aendern (S6) ──────────────────────────────────────────────
+
+  private readonly neuInput = viewChild<ElementRef<HTMLInputElement>>('neuInput');
+
+  /** Je Befund die Schnellbehebung (einmal je Aenderung, nicht je Zeile und Render). */
+  protected readonly behebungen = computed(
+    () => new Map(this.sendung.befunde().map((b) => [b, this.bearb.behebung(b)])),
+  );
+
+  /** Je Platz der Sperrgrund fuer „+ Signatur" (undefined = nicht angeboten). */
+  protected readonly signaturLage = computed(() => {
+    const m = new Map<string, string | null>();
+    if (!this.sendung.aenderbar()) return m;
+    for (const d of this.sendung.dokumente())
+      for (const p of d.plaetze)
+        if (this.bearb.signaturMoeglich(p)) m.set(p.platz.dateiname, this.bearb.signaturSperre(p));
+    return m;
+  });
+
+  protected readonly dokumentSperre = computed(() => this.bearb.dokumentSperre());
+
+  protected behebung(b: Befund): Behebung | null {
+    return this.behebungen().get(b) ?? null;
+  }
+
+  protected beheben(b: Befund): void {
+    void this.behebung(b)?.ausfuehren();
+  }
+
+  protected signaturHinzu(p: SendungsPlatz): void {
+    this.bearb.signaturHinzufuegen(p);
+  }
+
+  protected neuesDokumentWaehlen(): void {
+    const input = this.neuInput()?.nativeElement;
+    if (!input) return;
+    input.value = '';
+    input.click();
+  }
+
+  protected async neuesDokument(ev: Event): Promise<void> {
+    const datei = (ev.target as HTMLInputElement).files?.[0];
+    if (!datei) return;
+    const name = await this.bearb.alsDokumentAblegen(datei);
+    if (name)
+      this.toast.show(
+        `Neues Dokument mit „${name}" angelegt — Dokumentklasse und -typ im Baum ergänzen.`,
+        5000,
+      );
+  }
 
   private readonly dateiInput = viewChild<ElementRef<HTMLInputElement>>('dateiInput');
   /** Platz, fuer den der Dateidialog gerade offen ist. */
