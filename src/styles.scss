@@ -5618,6 +5618,10 @@ app-sendung-ansicht {
   display: block;
   padding: 18px 20px 26px;
 }
+/* Zwei Knoepfe im Kopf: lieber umbrechen als den Erklaertext zur Spalte quetschen. */
+.sendungKarte .xmlKopfText {
+  min-width: 260px;
+}
 
 .sendungBefunde {
   padding: 11px 16px;
@@ -5787,6 +5791,30 @@ app-sendung-ansicht {
   to {
     background: transparent;
   }
+}
+
+/* Ergebnis einer Mehrfach-Ablage (S8). */
+.sendungAblage {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-hauch);
+  font-size: 12.5px;
+}
+.sendungAblageKopf,
+.sendungAblageZeile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sendungAblageKopf {
+  font-weight: 620;
+}
+.sendungAblageZeile {
+  min-height: 30px;
+}
+.sendungAblageGrund {
+  flex: none;
+  color: var(--muted);
 }
 
 /* Anlagen-Karte im Detailbereich (S7). */

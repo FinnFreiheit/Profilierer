@@ -5,6 +5,7 @@ import { Werkzeugleiste } from './features/werkzeugleiste/werkzeugleiste';
 import { TreeCanvas } from './features/tree/tree-canvas';
 import { XmlAnsicht } from './features/xml-ansicht/xml-ansicht';
 import { SendungAnsicht } from './features/sendung/sendung-ansicht';
+import { SendungService } from './core/services/sendung.service';
 import { DetailPanel } from './features/detail/detail-panel';
 import { StatusDialog } from './features/dialogs/status-dialog';
 import { MetaDialog } from './features/dialogs/meta-dialog';
@@ -123,6 +124,7 @@ export class App implements OnInit {
   protected readonly excel = inject(ExcelExportService);
   protected readonly diff = inject(DiffService);
   private readonly nav = inject(NavService);
+  private readonly sendung = inject(SendungService);
   private readonly instanceImport = inject(InstanceImportService);
   private readonly testmessageCreate = inject(TestmessageCreateService);
   private readonly testmessageEdit = inject(TestmessageEditService);
@@ -717,6 +719,11 @@ export class App implements OnInit {
 
   /** Drag&Drop-Routing (Z.2436-2440), erweitert um XJustiz-Nachrichten (XML). */
   async onDropped(files: File[]): Promise<void> {
+    // In der Sendungs-Ansicht sind abgelegte Dateien Anlagen (Testsendung S8).
+    if (this.state.darstellung() === 'sendung' && this.sendung.moeglich()) {
+      await this.sendung.mehrereAblegen(files);
+      return;
+    }
     if (files.length === 1 && files[0]!.name.endsWith('.json')) {
       this.persistence.loadProfileFile(files[0]!);
       return;

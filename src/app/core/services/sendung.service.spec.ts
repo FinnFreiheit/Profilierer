@@ -58,7 +58,7 @@ describe('SendungService', () => {
             einbindungen,
             einbinden,
             vorfahren: jasmine.createSpy().and.resolveTo([]),
-            ablegen: jasmine.createSpy().and.resolveTo(anlage('x')),
+            ablegen: jasmine.createSpy('ablegen').and.resolveTo(anlage('x')),
           },
         },
         {
@@ -254,5 +254,41 @@ describe('SendungService', () => {
     sendung.zeige('kv.pdf');
     expect(state.darstellung()).toBe('sendung');
     expect(sendung.fokus()).toEqual({ dateiname: 'kv.pdf', n: 2 });
+  });
+
+  describe('mehrereAblegen', () => {
+    const datei = (name: string): File => new File(['x'], name);
+    let ablegen: jasmine.Spy;
+    beforeEach(async () => {
+      ablegen = TestBed.inject(AnlagenStoreService).ablegen as jasmine.Spy;
+      liste.and.resolveTo([anlage('kv.pdf')]);
+      oeffne('t1');
+      await geladen();
+    });
+
+    it('legt nach exaktem Namen ab und listet Dateien ohne Platz', async () => {
+      spyOn(window, 'confirm').and.returnValue(true);
+      await sendung.mehrereAblegen([datei('bescheid.xml'), datei('Bescheid.XML'), datei('kv.pdf')]);
+      expect(ablegen.calls.allArgs().map((a) => a[1])).toEqual(['bescheid.xml', 'kv.pdf']);
+      const e = sendung.ablageErgebnis()!;
+      expect(e.abgelegt).toEqual(['bescheid.xml', 'kv.pdf']);
+      expect(e.ohnePlatz.map((d) => d.name)).toEqual(['Bescheid.XML']);
+    });
+
+    it('fragt vor dem Ersetzen; verneint bleiben die belegten liegen', async () => {
+      const frage = spyOn(window, 'confirm').and.returnValue(false);
+      await sendung.mehrereAblegen([datei('kv.pdf'), datei('bescheid.xml')]);
+      expect(frage).toHaveBeenCalledTimes(1);
+      expect(frage.calls.mostRecent().args[0]).toContain('kv.pdf');
+      expect(ablegen.calls.allArgs().map((a) => a[1])).toEqual(['bescheid.xml']);
+      expect(sendung.ablageErgebnis()!.uebersprungen).toEqual(['kv.pdf']);
+    });
+
+    it('im Ansehen-Modus nichts ablegen', async () => {
+      state.readOnly.set(true);
+      await sendung.mehrereAblegen([datei('bescheid.xml')]);
+      expect(ablegen).not.toHaveBeenCalled();
+      expect(sendung.ablageErgebnis()).toBeNull();
+    });
   });
 });
