@@ -84,6 +84,21 @@ export interface TestmessageEntry {
    * verdraengte die Badges mit Aussage.
    */
   profilWeiterentwickelt?: boolean;
+  /** Anzahl hochgeladener Anlagen der Testsendung (ADR 0024); fehlt bei 0. */
+  anlagen?: number;
+}
+
+/**
+ * Hochgeladene Anlage einer Testsendung (ADR 0024), ueber den exakten
+ * `dateiname` an ein `datei`-Element der XML gebunden; ohne die Bytes.
+ */
+export interface AnlageEntry {
+  dateiname: string;
+  mime?: string;
+  groesse: number;
+  sha256: string;
+  autor?: string;
+  hochgeladen: number;
 }
 
 /**
