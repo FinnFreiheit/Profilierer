@@ -275,13 +275,16 @@ export class SendungService {
     return m.get(pfad) ?? m.get(pfad.slice(0, pfad.lastIndexOf('/'))) ?? null;
   }
 
-  /** Angeforderter Sprung in der Sendungs-Ansicht (Zaehler macht Wiederholungen sichtbar). */
-  readonly fokus = signal<{ dateiname: string; n: number } | null>(null);
+  /**
+   * Angeforderter Sprung in der Sendungs-Ansicht (Zaehler macht Wiederholungen
+   * sichtbar). `auswahl`: dort gleich die Auswahl einer Testnachricht oeffnen.
+   */
+  readonly fokus = signal<{ dateiname: string; n: number; auswahl?: boolean } | null>(null);
 
   /** In die Sendungs-Ansicht wechseln und den Platz hervorheben. */
-  zeige(dateiname: string): void {
+  zeige(dateiname: string, opts: { auswahl?: boolean } = {}): void {
     this.state.darstellung.set('sendung');
-    this.fokus.set({ dateiname, n: (this.fokus()?.n ?? 0) + 1 });
+    this.fokus.set({ dateiname, n: (this.fokus()?.n ?? 0) + 1, auswahl: opts.auswahl });
   }
 
   constructor() {

@@ -253,7 +253,9 @@ describe('SendungService', () => {
     sendung.zeige('kv.pdf');
     sendung.zeige('kv.pdf');
     expect(state.darstellung()).toBe('sendung');
-    expect(sendung.fokus()).toEqual({ dateiname: 'kv.pdf', n: 2 });
+    expect(sendung.fokus()).toEqual({ dateiname: 'kv.pdf', n: 2, auswahl: undefined });
+    sendung.zeige('bescheid.xml', { auswahl: true });
+    expect(sendung.fokus()).toEqual({ dateiname: 'bescheid.xml', n: 3, auswahl: true });
   });
 
   describe('mehrereAblegen', () => {

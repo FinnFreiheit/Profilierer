@@ -27,6 +27,16 @@
           {{ p.anlage ? 'Ersetzen…' : 'Hochladen…' }}
         </button>
       }
+      @if (sendung.aenderbar() && einbindbar()) {
+        <button
+          type="button"
+          class="sendungKnopf"
+          title="Eine bestehende Testnachricht aus der Ablage auf diesen Platz legen (lebender Verweis)"
+          (click)="testnachrichtWaehlen()"
+        >
+          {{ p.einbindung ? 'Andere Testnachricht…' : 'Testnachricht…' }}
+        </button>
+      }
       <button
         type="button"
         class="sendungKnopf"

@@ -56,6 +56,11 @@ export class SendungAnsicht {
       zeile.classList.remove('aufleuchten');
       void zeile.offsetWidth;
       zeile.classList.add('aufleuchten');
+      // Aus der Anlagen-Karte: die Auswahl fuer diesen Platz gleich oeffnen.
+      const platz = f.auswahl
+        ? this.sendung.plaetze().find((p) => p.dateiname === f.dateiname && !p.herkunft)
+        : undefined;
+      if (platz && this.sendung.aenderbar()) void this.waehleTestnachricht(platz);
     });
   }
 
