@@ -262,6 +262,17 @@ export class SendungAnsicht {
       : 'Für diese Dateiart erzeugt der Export nichts — bitte eine Datei hochladen';
   }
 
+  /** Erzeugbar und noch nicht festgehalten (Platzhalter bzw. Testsignatur). */
+  protected erzeugbar(p: SendungsPlatz): boolean {
+    return p.datei?.quelle === 'platzhalter' || p.datei?.quelle === 'signatur';
+  }
+
+  protected erzeugenTitel(p: SendungsPlatz): string {
+    return p.datei?.quelle === 'signatur'
+      ? 'Testsignatur jetzt erzeugen und festhalten — ist die Bezugsdatei nur ein Platzhalter, wird sie mit festgehalten'
+      : 'Generisches PDF jetzt erzeugen und festhalten (Angaben aus der XML)';
+  }
+
   protected quelleKlasse(p: SendungsPlatz): string {
     return 'quellePill q-' + (p.datei?.quelle ?? 'leer');
   }

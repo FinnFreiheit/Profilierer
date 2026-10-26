@@ -385,6 +385,34 @@ export class SendungService {
     });
   }
 
+  /**
+   * Platzhalter-PDF bzw. Testsignatur festhalten: einmal erzeugen und wie
+   * einen Upload ablegen. Vorher den Autosave leeren — gebaut wird aus der
+   * gespeicherten XML.
+   */
+  async erzeugen(dateiname: string): Promise<void> {
+    const id = this.entryId();
+    if (!id || !this.aenderbar()) return;
+    await this.mitSperre(dateiname, async () => {
+      try {
+        await this.autosave.flush();
+        const erzeugt = await this.store.erzeugen(id, dateiname);
+        await this.neuLaden(id);
+        this.toast.show(
+          erzeugt.length > 1
+            ? `Erzeugt und festgehalten: ${erzeugt.join(', ')}`
+            : `Erzeugt und festgehalten: ${erzeugt[0] ?? dateiname}`,
+        );
+      } catch (e) {
+        this.toast.show(
+          (e as { status?: number })?.status === 409
+            ? 'Auf diesem Platz ist nichts zu erzeugen.'
+            : uploadFehler(e),
+        );
+      }
+    });
+  }
+
   async entfernen(dateiname: string): Promise<void> {
     const id = this.entryId();
     if (!id || !this.aenderbar()) return;

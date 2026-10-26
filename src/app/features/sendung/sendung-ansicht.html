@@ -176,6 +176,17 @@
                   Herunterladen
                 </button>
               }
+              @if (sendung.aenderbar() && erzeugbar(p)) {
+                <button
+                  type="button"
+                  class="sendungKnopf"
+                  [disabled]="beschaeftigt(p.platz.dateiname)"
+                  [title]="erzeugenTitel(p)"
+                  (click)="sendung.erzeugen(p.platz.dateiname)"
+                >
+                  Erzeugen
+                </button>
+              }
               @if (signaturLage().has(p.platz.dateiname)) {
                 <button
                   type="button"
