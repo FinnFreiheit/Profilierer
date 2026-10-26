@@ -275,13 +275,16 @@ export class SendungService {
     return m.get(pfad) ?? m.get(pfad.slice(0, pfad.lastIndexOf('/'))) ?? null;
   }
 
-  /** Angeforderter Sprung in der Sendungs-Ansicht (Zaehler macht Wiederholungen sichtbar). */
-  readonly fokus = signal<{ dateiname: string; n: number } | null>(null);
+  /**
+   * Angeforderter Sprung in der Sendungs-Ansicht (Zaehler macht Wiederholungen
+   * sichtbar). `auswahl`: dort gleich die Auswahl einer Testnachricht oeffnen.
+   */
+  readonly fokus = signal<{ dateiname: string; n: number; auswahl?: boolean } | null>(null);
 
   /** In die Sendungs-Ansicht wechseln und den Platz hervorheben. */
-  zeige(dateiname: string): void {
+  zeige(dateiname: string, opts: { auswahl?: boolean } = {}): void {
     this.state.darstellung.set('sendung');
-    this.fokus.set({ dateiname, n: (this.fokus()?.n ?? 0) + 1 });
+    this.fokus.set({ dateiname, n: (this.fokus()?.n ?? 0) + 1, auswahl: opts.auswahl });
   }
 
   constructor() {
@@ -378,6 +381,34 @@ export class SendungService {
         await this.neuLaden(id);
       } catch (e) {
         this.toast.show(uploadFehler(e));
+      }
+    });
+  }
+
+  /**
+   * Platzhalter-PDF bzw. Testsignatur festhalten: einmal erzeugen und wie
+   * einen Upload ablegen. Vorher den Autosave leeren — gebaut wird aus der
+   * gespeicherten XML.
+   */
+  async erzeugen(dateiname: string): Promise<void> {
+    const id = this.entryId();
+    if (!id || !this.aenderbar()) return;
+    await this.mitSperre(dateiname, async () => {
+      try {
+        await this.autosave.flush();
+        const erzeugt = await this.store.erzeugen(id, dateiname);
+        await this.neuLaden(id);
+        this.toast.show(
+          erzeugt.length > 1
+            ? `Erzeugt und festgehalten: ${erzeugt.join(', ')}`
+            : `Erzeugt und festgehalten: ${erzeugt[0] ?? dateiname}`,
+        );
+      } catch (e) {
+        this.toast.show(
+          (e as { status?: number })?.status === 409
+            ? 'Auf diesem Platz ist nichts zu erzeugen.'
+            : uploadFehler(e),
+        );
       }
     });
   }

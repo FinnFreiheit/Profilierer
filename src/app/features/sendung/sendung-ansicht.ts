@@ -56,6 +56,11 @@ export class SendungAnsicht {
       zeile.classList.remove('aufleuchten');
       void zeile.offsetWidth;
       zeile.classList.add('aufleuchten');
+      // Aus der Anlagen-Karte: die Auswahl fuer diesen Platz gleich oeffnen.
+      const platz = f.auswahl
+        ? this.sendung.plaetze().find((p) => p.dateiname === f.dateiname && !p.herkunft)
+        : undefined;
+      if (platz && this.sendung.aenderbar()) void this.waehleTestnachricht(platz);
     });
   }
 
@@ -255,6 +260,17 @@ export class SendungAnsicht {
     return p.platz.bestandteil === '003'
       ? 'Keine Testsignatur möglich: die Bezugsdatei fehlt in der Sendung'
       : 'Für diese Dateiart erzeugt der Export nichts — bitte eine Datei hochladen';
+  }
+
+  /** Erzeugbar und noch nicht festgehalten (Platzhalter bzw. Testsignatur). */
+  protected erzeugbar(p: SendungsPlatz): boolean {
+    return p.datei?.quelle === 'platzhalter' || p.datei?.quelle === 'signatur';
+  }
+
+  protected erzeugenTitel(p: SendungsPlatz): string {
+    return p.datei?.quelle === 'signatur'
+      ? 'Testsignatur jetzt erzeugen und festhalten — ist die Bezugsdatei nur ein Platzhalter, wird sie mit festgehalten'
+      : 'Generisches PDF jetzt erzeugen und festhalten (Angaben aus der XML)';
   }
 
   protected quelleKlasse(p: SendungsPlatz): string {

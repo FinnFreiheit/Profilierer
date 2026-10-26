@@ -10,6 +10,7 @@ import {
   MessageEditSession,
 } from '../../models/testmessage.model';
 import { BackendClient } from './backend-client.service';
+import { TestmessageAutosaveService } from './testmessage-autosave.service';
 
 const datei = (name: string, bestandteil: string, bezug?: string): string =>
   `<datei><dateiname>${name}</dateiname><bestandteil><code>${bestandteil}</code></bestandteil>${
@@ -58,6 +59,7 @@ describe('SendungService', () => {
             einbindungen,
             einbinden,
             vorfahren: jasmine.createSpy().and.resolveTo([]),
+            erzeugen: jasmine.createSpy('erzeugen').and.resolveTo(['kv.pdf', 'kv.pdf.pkcs7']),
             ablegen: jasmine.createSpy('ablegen').and.resolveTo(anlage('x')),
           },
         },
@@ -253,7 +255,9 @@ describe('SendungService', () => {
     sendung.zeige('kv.pdf');
     sendung.zeige('kv.pdf');
     expect(state.darstellung()).toBe('sendung');
-    expect(sendung.fokus()).toEqual({ dateiname: 'kv.pdf', n: 2 });
+    expect(sendung.fokus()).toEqual({ dateiname: 'kv.pdf', n: 2, auswahl: undefined });
+    sendung.zeige('bescheid.xml', { auswahl: true });
+    expect(sendung.fokus()).toEqual({ dateiname: 'bescheid.xml', n: 3, auswahl: true });
   });
 
   describe('mehrereAblegen', () => {
@@ -290,5 +294,25 @@ describe('SendungService', () => {
       expect(ablegen).not.toHaveBeenCalled();
       expect(sendung.ablageErgebnis()).toBeNull();
     });
+  });
+
+  it('erzeugen: leert den Autosave, legt ab und laedt die Anlagen neu', async () => {
+    oeffne('t1');
+    await geladen();
+    const store = TestBed.inject(AnlagenStoreService);
+    const autosave = TestBed.inject(TestmessageAutosaveService);
+    const flush = spyOn(autosave, 'flush').and.resolveTo();
+    liste.calls.reset();
+    await sendung.erzeugen('kv.pdf.pkcs7');
+    expect(flush).toHaveBeenCalled();
+    expect(store.erzeugen).toHaveBeenCalledWith('t1', 'kv.pdf.pkcs7');
+    expect(liste).toHaveBeenCalledWith('t1');
+  });
+
+  it('erzeugen: im Ansehen-Modus nicht', async () => {
+    oeffne('t1');
+    state.readOnly.set(true);
+    await sendung.erzeugen('kv.pdf');
+    expect(TestBed.inject(AnlagenStoreService).erzeugen).not.toHaveBeenCalled();
   });
 });

@@ -27,6 +27,29 @@
           {{ p.anlage ? 'Ersetzen…' : 'Hochladen…' }}
         </button>
       }
+      @if (
+        sendung.aenderbar() && (p.datei?.quelle === 'platzhalter' || p.datei?.quelle === 'signatur')
+      ) {
+        <button
+          type="button"
+          class="sendungKnopf"
+          [disabled]="sendung.beschaeftigt().has(p.platz.dateiname)"
+          title="Die generische Datei jetzt erzeugen und festhalten"
+          (click)="sendung.erzeugen(p.platz.dateiname)"
+        >
+          Erzeugen
+        </button>
+      }
+      @if (sendung.aenderbar() && einbindbar()) {
+        <button
+          type="button"
+          class="sendungKnopf"
+          title="Eine bestehende Testnachricht aus der Ablage auf diesen Platz legen (lebender Verweis)"
+          (click)="testnachrichtWaehlen()"
+        >
+          {{ p.einbindung ? 'Andere Testnachricht…' : 'Testnachricht…' }}
+        </button>
+      }
       <button
         type="button"
         class="sendungKnopf"
