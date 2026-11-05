@@ -1,6 +1,6 @@
 import express, { Router } from 'express';
 import { ANLAGE_MAX } from '../db.js';
-import { bauen, planen } from '../sendung/bau.js';
+import { bauen, erzeugen, planen } from '../sendung/bau.js';
 import { zaehle } from '../sendung/pruefung.js';
 
 /**
@@ -226,6 +226,27 @@ export function testmessagesRouter(db, auth) {
       res.status(201).json(out.anlage);
     },
   );
+
+  // Generische Datei festhalten (Platzhalter-PDF bzw. Testsignatur): einmal
+  // erzeugen und wie einen Upload ablegen. Steht vor `laden` im Router, nutzt
+  // die Sendungsquelle aber genauso.
+  r.post('/testmessages/:id/anlagen/:dateiname/erzeugen', schutz, async (req, res, next) => {
+    try {
+      const quelle = db.sendungQuelle(req.params.id);
+      if (!quelle) return res.status(404).json({ error: 'nicht gefunden' });
+      const dateien = await erzeugen(quelle, (x) => db.sendungQuelle(x), req.params.dateiname);
+      if (!dateien)
+        return res.status(409).json({ error: 'Auf diesem Platz ist nichts zu erzeugen' });
+      const autor = decodeURIComponent(req.get('x-autor') ?? '');
+      for (const d of dateien) {
+        const out = db.anlAblegen(req.params.id, { ...d, autor });
+        if (out.fehler) return res.status(413).json({ error: 'Grenze der Sendung erreicht' });
+      }
+      res.status(201).json({ erzeugt: dateien.map((d) => d.dateiname) });
+    } catch (e) {
+      next(e);
+    }
+  });
 
   r.delete('/testmessages/:id/anlagen/:dateiname', schutz, (req, res) => {
     if (!db.anlEntfernen(req.params.id, req.params.dateiname))

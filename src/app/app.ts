@@ -57,6 +57,7 @@ import { vereineVersionen } from './core/util/schema-quellen.util';
 import { ansichtAusUrl } from './core/util/ansicht-url.util';
 import { DispositionService } from './core/services/disposition.service';
 import { NachrichtSpeichernDialog } from './features/dialogs/nachricht-speichern-dialog';
+import { AnlageVorschau } from './features/sendung/anlage-vorschau';
 import { itemPath } from './models/node.model';
 import { STANDARD_TASTE, wirkungFuerTaste } from './core/profile-defaults';
 
@@ -113,6 +114,7 @@ const KEINE_ANTWORT = 'Keine Antwort mit dieser Wirkung konfiguriert — ⋯ ›
     EinordnenDialog,
     ErweiterungDialog,
     NachrichtSpeichernDialog,
+    AnlageVorschau,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',

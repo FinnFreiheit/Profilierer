@@ -17,21 +17,10 @@ import { TeilenService } from '../../core/services/teilen.service';
 import { itemPath } from '../../models/node.model';
 import {
   XmlToken,
-  XmlTokenArt,
+  MARKEN_KLASSE,
   kommentarOffen,
   tokenisiereXmlZeile,
 } from '../../core/util/xml-hervorhebung.util';
-
-/** Marken-Art → Klasse der Zeile; die Farbe steht in `styles.scss`. */
-const MARKEN_KLASSE: Record<XmlTokenArt, string> = {
-  dekl: 'xmlDekl',
-  kommentar: 'xmlKommentar',
-  tag: 'xmlTag',
-  attr: 'xmlAttr',
-  attrwert: 'xmlAttrWert',
-  wert: 'xmlWert',
-  text: 'xmlText',
-};
 
 /** Eine Zeile der XML-Karte: Nummer, zugehoeriger Pfad im Baum, Marken. */
 export interface XmlZeile {

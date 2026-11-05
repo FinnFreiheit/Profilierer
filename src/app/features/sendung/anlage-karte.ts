@@ -8,6 +8,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { SendungService } from '../../core/services/sendung.service';
+import { AnlagenVorschauService } from '../../core/services/anlagen-vorschau.service';
 import { QUELLE_TEXT, bestandteilText } from './sendung-texte';
 
 /**
@@ -22,6 +23,7 @@ import { QUELLE_TEXT, bestandteilText } from './sendung-texte';
 })
 export class AnlageKarte {
   protected readonly sendung = inject(SendungService);
+  protected readonly vorschau = inject(AnlagenVorschauService);
 
   /** Pfad des gewaehlten Elements (das `datei`-Element oder eines seiner Blaetter). */
   readonly pfad = input<string | null>(null);
@@ -61,5 +63,17 @@ export class AnlageKarte {
   protected zeige(): void {
     const p = this.sp();
     if (p) this.sendung.zeige(p.platz.dateiname);
+  }
+
+  /** XML-Platz (oder schon eingebunden): eine Testnachricht darauf legen. */
+  protected einbindbar(): boolean {
+    const p = this.sp();
+    return !!p && (!!p.einbindung || p.platz.dateiname.toLowerCase().endsWith('.xml'));
+  }
+
+  /** In die Sendung wechseln und dort die Auswahl fuer diesen Platz oeffnen. */
+  protected testnachrichtWaehlen(): void {
+    const p = this.sp();
+    if (p) this.sendung.zeige(p.platz.dateiname, { auswahl: true });
   }
 }

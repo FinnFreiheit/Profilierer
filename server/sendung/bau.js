@@ -131,6 +131,45 @@ export async function bauen(quelle, laden) {
   };
 }
 
+/**
+ * Eine erzeugbare Datei der Hauptnachricht festhalten: das Platzhalter-PDF
+ * bzw. die Testsignatur, so wie der Export sie bauen wuerde. Fuer eine
+ * Signatur, deren Bezugsdatei selbst nur ein Platzhalter ist, kommt das PDF mit
+ * — sonst passte die gespeicherte Signatur nicht zum PDF, das der naechste
+ * Export neu erzeugt. Ergebnis: die zu speichernden Dateien, null = auf diesem
+ * Platz ist nichts zu erzeugen.
+ *
+ * @param {SendungQuelle} quelle
+ * @param {(id: string) => SendungQuelle | null} laden
+ * @param {string} dateiname
+ * @returns {Promise<Array<{ dateiname: string, mime: string, daten: Buffer }> | null>}
+ */
+export async function erzeugen(quelle, laden, dateiname) {
+  const plan = planen(quelle, laden);
+  const oben = (n) => plan.dateien.find((d) => d.dateiname === n && !d.herkunft);
+  const d = oben(dateiname);
+  if (d?.quelle === 'platzhalter')
+    return [
+      { dateiname, mime: 'application/pdf', daten: await platzhalterPdf(d.platz, quelle.name) },
+    ];
+  if (d?.quelle !== 'signatur') return null;
+  const bezug = oben(d.platz.bezugsdateien[0]);
+  if (!bezug) return null;
+  const out = [];
+  let inhalt = bezug.daten;
+  if (!inhalt && bezug.quelle === 'platzhalter') {
+    inhalt = await platzhalterPdf(bezug.platz, quelle.name);
+    out.push({ dateiname: bezug.dateiname, mime: 'application/pdf', daten: inhalt });
+  }
+  if (!inhalt) return null;
+  out.push({
+    dateiname,
+    mime: 'application/pkcs7-signature',
+    daten: neuerSignierer()(inhalt),
+  });
+  return out;
+}
+
 // ── Platzhalter-PDF ───────────────────────────────────────────────────
 
 /** WinAnsi-taugliche Zeichen (Standardschrift); der Rest wird zu „?". */

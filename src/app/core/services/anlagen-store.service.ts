@@ -37,6 +37,21 @@ export class AnlagenStoreService {
     });
   }
 
+  /**
+   * Generische Datei festhalten (Platzhalter-PDF bzw. Testsignatur, ggf. samt
+   * Platzhalter-PDF der Bezugsdatei). Gibt die abgelegten Dateinamen.
+   */
+  async erzeugen(id: string, dateiname: string): Promise<string[]> {
+    const out = await this.http.json<{ erzeugt: string[] }>(
+      `${this.pfad(id, dateiname)}/erzeugen`,
+      {
+        method: 'POST',
+        headers: { 'x-autor': encodeURIComponent(this.autoren.sicherstellen()) },
+      },
+    );
+    return out.erzeugt;
+  }
+
   /** Bytes einer Anlage; fehlend → null. */
   async laden(id: string, dateiname: string): Promise<Blob | null> {
     return this.http.blobOderNull(this.pfad(id, dateiname));

@@ -1158,6 +1158,16 @@ app-crumbs {
   padding: 2px 7px;
   white-space: nowrap;
 }
+/* Testsendung: beigefügte Datei bzw. Bilanz des Dokuments in der Titelzeile —
+   bleibt im Mini-Kasten sichtbar. Farben wie in der Sendung (.q-*, .t-verr);
+   Klick zeigt den Platz in der Sendung. */
+.bt .anlageTag {
+  flex: none;
+  cursor: pointer;
+  margin-left: 2px;
+  border: none;
+  font-family: inherit;
+}
 .tag.t-choice {
   background: var(--auswahl-bg);
   color: var(--auswahl-fg);
@@ -5870,6 +5880,75 @@ app-sendung-ansicht {
   gap: 6px;
   flex-wrap: wrap;
   margin-top: 6px;
+}
+
+/* Vorschau einer Datei der Testsendung — gross, damit ein PDF lesbar ist. */
+dialog.vorschauDlg {
+  width: min(1100px, 94vw);
+  max-width: none;
+  height: 90vh;
+  padding: 0;
+}
+dialog.vorschauDlg[open] {
+  display: flex;
+  flex-direction: column;
+}
+.vorschauKopf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.vorschauKopfText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.vorschauName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+.vorschauDaten {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.vorschauKopf a.sendungKnopf {
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--rund-bedienung);
+}
+.vorschauInhalt {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.vorschauPdf {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.vorschauBild {
+  display: block;
+  max-width: 100%;
+  margin: 12px auto;
+}
+.vorschauText {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+.vorschauBinaer {
+  padding: 16px;
+  color: var(--muted);
 }
 
 .sendungLeer {

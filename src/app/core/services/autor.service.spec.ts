@@ -53,6 +53,12 @@ describe('AutorService', () => {
     expect(frage).toHaveBeenCalledTimes(1);
   });
 
+  it('ohne prompt() (eingebettete Browser) gibt leer zurueck statt zu werfen', () => {
+    const a = dienst();
+    spyOn(window, 'prompt').and.throwError('prompt() is not supported.');
+    expect(a.sicherstellen()).toBe('');
+  });
+
   it('abgebrochene Abfrage gibt leer zurueck — der Aufrufer bricht dann ab', () => {
     const a = dienst();
     spyOn(window, 'prompt').and.returnValue(null);

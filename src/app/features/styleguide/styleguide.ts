@@ -219,6 +219,11 @@ const TAG_VARIANTEN: readonly string[] = [
   't-ext',
   't-typ',
   't-typerr',
+  // Testsendung: beigefuegte Datei in der Titelzeile (`anlageTag`).
+  'q-upload',
+  'q-testnachricht',
+  'q-platzhalter',
+  'q-signatur',
 ];
 
 /** Eine Marke einer XML-Zeile — Klassennamen wie `MARKEN_KLASSE` in `xml-ansicht.ts`. */

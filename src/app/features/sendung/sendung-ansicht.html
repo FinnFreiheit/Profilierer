@@ -92,7 +92,7 @@
         Ablage ist für alle sichtbar. Mehrere Dateien lassen sich auf einmal hierher ziehen — sie
         landen auf dem Platz mit genau ihrem Namen.
       } @else {
-        Zum Hochladen oder Ersetzen in den Bearbeiten-Modus wechseln.
+        Zum Hochladen, Ersetzen oder Einbinden einer Testnachricht in den Bearbeiten-Modus wechseln.
       }
     </div>
 
@@ -170,10 +170,29 @@
                 <button
                   type="button"
                   class="sendungKnopf"
+                  title="Die Datei hier ansehen, ohne sie herunterzuladen"
+                  (click)="vorschau.oeffne(p.platz.dateiname)"
+                >
+                  Ansehen
+                </button>
+                <button
+                  type="button"
+                  class="sendungKnopf"
                   title="Hochgeladene Datei herunterladen"
                   (click)="sendung.anlageHerunterladen(p.platz.dateiname)"
                 >
                   Herunterladen
+                </button>
+              }
+              @if (sendung.aenderbar() && erzeugbar(p)) {
+                <button
+                  type="button"
+                  class="sendungKnopf"
+                  [disabled]="beschaeftigt(p.platz.dateiname)"
+                  [title]="erzeugenTitel(p)"
+                  (click)="sendung.erzeugen(p.platz.dateiname)"
+                >
+                  Erzeugen
                 </button>
               }
               @if (signaturLage().has(p.platz.dateiname)) {

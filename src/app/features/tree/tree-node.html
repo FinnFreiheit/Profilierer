@@ -25,6 +25,16 @@
 
   <div class="bt">
     <span class="bname">{{ v.title }}</span>
+    @if (v.anlage; as a) {
+      <button
+        type="button"
+        class="tag anlageTag {{ a.cls }}"
+        [title]="a.title || ''"
+        (click)="onTag(a, $event)"
+      >
+        {{ a.text }}
+      </button>
+    }
     @if (v.mv; as mv) {
       <span class="mv" [class.ghost]="mv.ghost" [attr.title]="mv.title">{{ mv.text }}</span>
     }
