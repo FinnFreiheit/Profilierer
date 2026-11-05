@@ -37,7 +37,14 @@ export class AutorService {
   sicherstellen(): string {
     const bekannt = this.name();
     if (bekannt) return bekannt;
-    const eingabe = prompt('Ihr Name — er erscheint als Autor an dem, was Sie anlegen:') ?? '';
+    // Eingebettete Browser (z. B. das Browser-Pane der Claude-App) werfen bei
+    // prompt() — das darf keinen Upload kippen; ohne Antwort bleibt der Name leer.
+    let eingabe = '';
+    try {
+      eingabe = prompt('Ihr Name — er erscheint als Autor an dem, was Sie anlegen:') ?? '';
+    } catch {
+      return '';
+    }
     this.setze(eingabe);
     return this.name();
   }

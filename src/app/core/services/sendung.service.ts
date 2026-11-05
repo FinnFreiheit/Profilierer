@@ -20,7 +20,7 @@ import { DownloadService } from './download.service';
 import { ToastService } from './toast.service';
 import { TestmessageStoreService } from './testmessage-store.service';
 import { TestmessageEditService } from './testmessage-edit.service';
-import { blattName } from '../util/pfad.util';
+import { blattName, vorfahren } from '../util/pfad.util';
 
 /** Ein Dokument des SGO mit seinen Plaetzen (Gliederung der Ansicht). */
 export interface SendungsDokument {
@@ -268,6 +268,25 @@ export class SendungService {
     return m;
   });
 
+  /**
+   * Pfad des `dokument`-Kastens → die Plaetze seiner `datei`-Elemente (in
+   * Reihenfolge der Elemente). Traeger ist der naechste Vorfahr namens
+   * `dokument` — bei Vorkommen der Kasten mit `@id`, nicht der Sammelkasten.
+   */
+  readonly lageNachDokument = computed(() => {
+    const m = new Map<string, SendungsPlatz[]>();
+    for (const [datei, sp] of this.lageNachPfad()) {
+      const dok = vorfahren(datei)
+        .filter((p) => blattName(p) === 'dokument')
+        .at(-1);
+      if (!dok) continue;
+      const liste = m.get(dok);
+      if (liste) liste.push(sp);
+      else m.set(dok, [sp]);
+    }
+    return m;
+  });
+
   /** Platz zu einem gewaehlten Pfad: das `datei`-Element selbst oder eines seiner Blaetter. */
   platzAnPfad(pfad: string | null): SendungsPlatz | null {
     if (!pfad) return null;
@@ -372,16 +391,35 @@ export class SendungService {
   }
 
   /** Datei auf einen Platz legen (ersetzt einen vorhandenen Upload). */
+  /**
+   * Eine Datei auf einen Platz legen. Sie landet immer unter dem Namen des
+   * Platzes — beim Ersetzen sieht die Zeile danach aus wie vorher. Darum sagt
+   * die Meldung, was passiert ist: woher die Datei kam, und ob eine
+   * festgehaltene Signatur noch ueber die alte Fassung gerechnet ist.
+   */
   async ablegen(dateiname: string, datei: Blob): Promise<void> {
     const id = this.entryId();
     if (!id || !this.aenderbar()) return;
+    const ersetzt = this.anlagen().some((a) => a.dateiname === dateiname);
     await this.mitSperre(dateiname, async () => {
       try {
         await this.store.ablegen(id, dateiname, datei);
         await this.neuLaden(id);
       } catch (e) {
         this.toast.show(uploadFehler(e));
+        return;
       }
+      const quelle = datei instanceof File && datei.name !== dateiname ? datei.name : null;
+      let text = `„${dateiname}" ${ersetzt ? 'ersetzt' : 'hochgeladen'}`;
+      if (quelle) text += ` — Inhalt aus „${quelle}", der Name des Platzes bleibt`;
+      text += '.';
+      const hochgeladen = new Set(this.anlagen().map((a) => a.dateiname));
+      const signaturen = this.plaetze()
+        .filter((p) => p.bezugsdateien.includes(dateiname) && hochgeladen.has(p.dateiname))
+        .map((p) => p.dateiname);
+      if (ersetzt && signaturen.length)
+        text += ` Die festgehaltene Signatur „${signaturen.join('", „')}" passt nicht mehr — neu erzeugen oder entfernen.`;
+      this.toast.show(text);
     });
   }
 

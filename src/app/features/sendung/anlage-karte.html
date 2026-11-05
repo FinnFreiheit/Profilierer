@@ -16,6 +16,16 @@
       <div [class]="'anlageBefund b-' + b.schwere">{{ b.text }}</div>
     }
     <div class="anlageAktionen">
+      @if (p.anlage) {
+        <button
+          type="button"
+          class="sendungKnopf"
+          title="Die Datei hier ansehen, ohne sie herunterzuladen"
+          (click)="vorschau.oeffne(p.platz.dateiname)"
+        >
+          Ansehen
+        </button>
+      }
       @if (sendung.aenderbar() && !p.einbindung) {
         <button
           type="button"

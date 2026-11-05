@@ -8,6 +8,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { SendungService } from '../../core/services/sendung.service';
+import { AnlagenVorschauService } from '../../core/services/anlagen-vorschau.service';
 import { QUELLE_TEXT, bestandteilText } from './sendung-texte';
 
 /**
@@ -22,6 +23,7 @@ import { QUELLE_TEXT, bestandteilText } from './sendung-texte';
 })
 export class AnlageKarte {
   protected readonly sendung = inject(SendungService);
+  protected readonly vorschau = inject(AnlagenVorschauService);
 
   /** Pfad des gewaehlten Elements (das `datei`-Element oder eines seiner Blaetter). */
   readonly pfad = input<string | null>(null);

@@ -1,5 +1,7 @@
 import { TestBed } from '@angular/core/testing';
-import { BaumkastenAnsicht, Kennzeichen } from './baumkasten-ansicht';
+import { BaumkastenAnsicht, Kennzeichen, dokumentBilanz } from './baumkasten-ansicht';
+import { SendungsPlatz } from '../services/sendung.service';
+import { AnlagenQuelle } from '../../../../server/sendung/pruefung.js';
 import { StateService } from '../services/state.service';
 import { TreeService } from '../services/tree.service';
 import { XsdParserService } from '../services/xsd-parser.service';
@@ -375,6 +377,49 @@ describe('BaumkastenAnsicht', () => {
       expect(kennzeichen('datum', 't-open')).toBeDefined();
       // Ein freies Feld ist im Durchlauf nie offen.
       expect(kennzeichen('frei', 't-open')).toBeUndefined();
+    });
+  });
+
+  describe('Bilanz eines dokument-Kastens (Testsendung)', () => {
+    const platz = (dateiname: string, bestandteil: string, quelle: AnlagenQuelle | null) =>
+      ({
+        platz: { dateiname, bestandteil },
+        datei: quelle ? { dateiname, quelle } : null,
+        befunde: [],
+      }) as unknown as SendungsPlatz;
+
+    it('alle Inhalte hochgeladen: beigefügt, die Testsignatur zählt nicht mit', () => {
+      const k = dokumentBilanz([
+        platz('a.pdf', '001', 'upload'),
+        platz('a.pdf.pkcs7', '003', 'signatur'),
+      ]);
+      expect(k.cls).toBe('q-upload');
+      expect(k.text).toBe('beigefügt');
+    });
+
+    it('nur Platzhalter bzw. teilweise beigefügt; Klick führt zum offenen Platz', () => {
+      expect(dokumentBilanz([platz('a.pdf', '001', 'platzhalter')]).text).toBe('nur Platzhalter');
+      const k = dokumentBilanz([
+        platz('a.pdf', '001', 'upload'),
+        platz('a.xml', '002', 'platzhalter'),
+      ]);
+      expect(k.text).toBe('1/2 beigefügt');
+      expect(k.sendung).toBe('a.xml');
+    });
+
+    it('eine fehlende Datei geht vor', () => {
+      const k = dokumentBilanz([platz('a.pdf', '001', 'upload'), platz('a.xml', '001', null)]);
+      expect(k.cls).toBe('t-verr');
+      expect(k.text).toBe('Datei fehlt');
+    });
+
+    it('auch eine fehlende Signaturdatei zählt als fehlend', () => {
+      const k = dokumentBilanz([
+        platz('a.pdf', '001', 'upload'),
+        platz('a.pdf.pkcs7', '003', null),
+      ]);
+      expect(k.cls).toBe('t-verr');
+      expect(k.sendung).toBe('a.pdf.pkcs7');
     });
   });
 });

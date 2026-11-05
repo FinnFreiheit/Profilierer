@@ -1,0 +1,56 @@
+<dialog #dlg class="vorschauDlg" (close)="vorschau.schliesse()">
+  @if (v(); as v) {
+    <div class="vorschauKopf">
+      <div class="vorschauKopfText">
+        <code class="vorschauName" [title]="v.dateiname">{{ v.dateiname }}</code>
+        <span class="vorschauDaten">{{ kenndaten() }}</span>
+      </div>
+      @if (v.art === 'pdf' || v.art === 'bild') {
+        <a
+          class="sendungKnopf"
+          [href]="sichereUrl()"
+          target="_blank"
+          rel="noopener"
+          title="Die Datei in einem neuen Browser-Tab öffnen"
+          >Neuer Tab</a
+        >
+      }
+      <button type="button" class="sendungKnopf" (click)="herunterladen()">Herunterladen</button>
+      <button type="button" class="primary" (click)="vorschau.schliesse()">Schließen</button>
+    </div>
+    <div class="vorschauInhalt">
+      @switch (v.art) {
+        @case ('pdf') {
+          <iframe class="vorschauPdf" [src]="sichereUrl()" [title]="v.dateiname"></iframe>
+        }
+        @case ('bild') {
+          <img class="vorschauBild" [src]="sichereUrl()" [alt]="v.dateiname" />
+        }
+        @case ('xml') {
+          <div class="xmlZeilen">
+            @for (z of zeilen(); track z.nr) {
+              <div class="xmlZeile">
+                <span class="xmlNr">{{ z.nr }}</span>
+                <span class="xmlCode">
+                  @for (t of z.tokens; track $index) {
+                    <span [class]="markenKlasse(t)">{{ t.text }}</span>
+                  }
+                </span>
+              </div>
+            }
+          </div>
+        }
+        @case ('text') {
+          <pre class="vorschauText">{{ v.text }}</pre>
+        }
+        @default {
+          <p class="vorschauBinaer">
+            Binärdatei ohne Ansicht im Browser{{
+              v.dateiname.endsWith('.pkcs7') ? ' (Signatur, PKCS#7)' : ''
+            }}. Prüfwert und Größe stehen oben; zum Prüfen herunterladen.
+          </p>
+        }
+      }
+    </div>
+  }
+</dialog>

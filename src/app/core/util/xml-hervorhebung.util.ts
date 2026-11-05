@@ -25,6 +25,17 @@ export interface XmlToken {
   text: string;
 }
 
+/** Marken-Art → Klasse der Zeile; die Farbe steht in `styles.scss`. */
+export const MARKEN_KLASSE: Record<XmlTokenArt, string> = {
+  dekl: 'xmlDekl',
+  kommentar: 'xmlKommentar',
+  tag: 'xmlTag',
+  attr: 'xmlAttr',
+  attrwert: 'xmlAttrWert',
+  wert: 'xmlWert',
+  text: 'xmlText',
+};
+
 /** Ein Tag (oeffnend, schliessend oder leer) — Attributwerte sind maskiert. */
 const TAG_RE = /<\/?[A-Za-z_][\w.\-:]*(?:\s[^<>]*?)?\/?>/g;
 /** Attribut innerhalb eines Tags: Name, Gleichheitszeichen, Wert in Anfuehrung. */

@@ -11,6 +11,7 @@ import {
 } from '../../models/testmessage.model';
 import { BackendClient } from './backend-client.service';
 import { TestmessageAutosaveService } from './testmessage-autosave.service';
+import { ToastService } from './toast.service';
 
 const datei = (name: string, bestandteil: string, bezug?: string): string =>
   `<datei><dateiname>${name}</dateiname><bestandteil><code>${bestandteil}</code></bestandteil>${
@@ -251,6 +252,22 @@ describe('SendungService', () => {
     expect(sendung.platzAnPfad(null)).toBeNull();
   });
 
+  it('lageNachDokument: sammelt die Plaetze je dokument-Kasten', () => {
+    oeffne('t1');
+    state.elemente.set({
+      'n/sgo/dokument@d1/fach/datei@f1/dateiname': { beispiel: 'kv.pdf' },
+      'n/sgo/dokument@d1/fach/datei@f2/dateiname': { beispiel: 'kv.pdf.pkcs7' },
+      'n/sgo/dokument@d2/fach/datei/dateiname': { beispiel: 'bescheid.xml' },
+    });
+    const m = sendung.lageNachDokument();
+    expect(m.get('n/sgo/dokument@d1')?.map((p) => p.platz.dateiname)).toEqual([
+      'kv.pdf',
+      'kv.pdf.pkcs7',
+    ]);
+    expect(m.get('n/sgo/dokument@d2')?.map((p) => p.platz.dateiname)).toEqual(['bescheid.xml']);
+    expect(m.has('n/sgo/dokument')).toBe(false);
+  });
+
   it('zeige: wechselt in die Sendung und zaehlt den Fokus hoch', () => {
     sendung.zeige('kv.pdf');
     sendung.zeige('kv.pdf');
@@ -286,6 +303,22 @@ describe('SendungService', () => {
       expect(frage.calls.mostRecent().args[0]).toContain('kv.pdf');
       expect(ablegen.calls.allArgs().map((a) => a[1])).toEqual(['bescheid.xml']);
       expect(sendung.ablageErgebnis()!.uebersprungen).toEqual(['kv.pdf']);
+    });
+
+    it('Ersetzen meldet sich: Platzname, Herkunft und veraltete Signatur', async () => {
+      const toast = spyOn(TestBed.inject(ToastService), 'show');
+      liste.and.resolveTo([anlage('kv.pdf'), anlage('kv.pdf.pkcs7')]);
+      await sendung.ablegen('kv.pdf', datei('beschluss.pdf'));
+      const text = toast.calls.mostRecent().args[0];
+      expect(text).toContain('„kv.pdf" ersetzt');
+      expect(text).toContain('beschluss.pdf');
+      expect(text).toContain('kv.pdf.pkcs7');
+    });
+
+    it('Hochladen auf einen leeren Platz: schlichte Meldung', async () => {
+      const toast = spyOn(TestBed.inject(ToastService), 'show');
+      await sendung.ablegen('bescheid.xml', datei('bescheid.xml'));
+      expect(toast).toHaveBeenCalledWith('„bescheid.xml" hochgeladen.');
     });
 
     it('im Ansehen-Modus nichts ablegen', async () => {

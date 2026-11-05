@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { SendungService, SendungsPlatz } from '../../core/services/sendung.service';
+import { AnlagenVorschauService } from '../../core/services/anlagen-vorschau.service';
 import {
   Behebung,
   SendungBearbeitungService,
@@ -34,6 +35,7 @@ import { TestmessageEntry } from '../../models/testmessage.model';
 })
 export class SendungAnsicht {
   protected readonly sendung = inject(SendungService);
+  protected readonly vorschau = inject(AnlagenVorschauService);
   private readonly state = inject(StateService);
   private readonly testdaten = inject(TestmessageStoreService);
   protected readonly bearb = inject(SendungBearbeitungService);

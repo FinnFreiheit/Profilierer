@@ -170,6 +170,14 @@
                 <button
                   type="button"
                   class="sendungKnopf"
+                  title="Die Datei hier ansehen, ohne sie herunterzuladen"
+                  (click)="vorschau.oeffne(p.platz.dateiname)"
+                >
+                  Ansehen
+                </button>
+                <button
+                  type="button"
+                  class="sendungKnopf"
                   title="Hochgeladene Datei herunterladen"
                   (click)="sendung.anlageHerunterladen(p.platz.dateiname)"
                 >

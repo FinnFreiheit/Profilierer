@@ -9,7 +9,8 @@ import { ValueService } from '../services/value.service';
 import { XsdParserService } from '../services/xsd-parser.service';
 import { HinweisStoreService } from '../services/hinweis-store.service';
 import { UeberlagerungService } from '../services/ueberlagerung.service';
-import { SendungService } from '../services/sendung.service';
+import { SendungService, SendungsPlatz } from '../services/sendung.service';
+import { AnlagenQuelle } from '../../../../server/sendung/pruefung.js';
 import { unterPfad } from '../util/pfad.util';
 import { pretty } from '../util/pretty.util';
 import { datentypAnzeige } from '../util/datentyp.util';
@@ -17,6 +18,58 @@ import { diffWorte } from '../util/diff-richtung.util';
 import { erwTypFehltText } from '../util/erweiterung.util';
 import { REF_LABELS, refKindOf } from '../refs';
 import { sperrGrundText } from './sperrgrund';
+
+/**
+ * Was auf dem Platz eines `datei`-Elements liegt — kurz fuer das Kennzeichen
+ * im Baum. Farben wie in der Sendungs-Ansicht (`.q-*`).
+ */
+const ANLAGE_KURZ: Record<AnlagenQuelle, string> = {
+  upload: 'beigefügt',
+  testnachricht: 'Testnachricht',
+  platzhalter: 'Platzhalter',
+  signatur: 'Testsignatur',
+};
+const ANLAGE_TITEL: Record<AnlagenQuelle, string> = {
+  upload: 'Hochgeladene Datei — geht unverändert ins Paket',
+  testnachricht: 'Eingebundene Testnachricht',
+  platzhalter: 'Noch nichts hochgeladen — der Export legt ein Platzhalter-PDF bei',
+  signatur: 'Der Export erzeugt eine Testsignatur (nicht qualifiziert)',
+};
+
+/**
+ * Bilanz eines `dokument`-Kastens: sind seine Inhalte (alles ausser
+ * Signaturdateien, Bestandteil 003) echt beigefuegt — hochgeladen oder als
+ * Testnachricht eingebunden — oder nur Platzhalter? Fehlt eine Datei, sagt
+ * der Kasten das zuerst.
+ */
+export function dokumentBilanz(plaetze: SendungsPlatz[]): Kennzeichen {
+  const inhalte = plaetze.filter((p) => p.platz.bestandteil !== '003');
+  const basis = inhalte.length ? inhalte : plaetze;
+  const echt = (p: SendungsPlatz): boolean =>
+    p.datei?.quelle === 'upload' || p.datei?.quelle === 'testnachricht';
+  // Fehlen zaehlt ueber alle Plaetze — auch eine fehlende Signaturdatei.
+  const fehlend = plaetze.filter((p) => !p.datei);
+  const beigefuegt = basis.filter(echt).length;
+  const zeilen = plaetze.map(
+    (p) => `${p.platz.dateiname} — ${p.datei ? ANLAGE_KURZ[p.datei.quelle] : 'fehlt'}`,
+  );
+  const title = zeilen.join('\n') + '\nKlick: in der Sendung zeigen';
+  if (fehlend.length)
+    return {
+      cls: 't-verr',
+      text: fehlend.length === 1 ? 'Datei fehlt' : `${fehlend.length} Dateien fehlen`,
+      title,
+      sendung: fehlend[0]!.platz.dateiname,
+    };
+  const sendung = (basis.find((p) => !echt(p)) ?? basis[0])!.platz.dateiname;
+  if (beigefuegt === basis.length) return { cls: 'q-upload', text: 'beigefügt', title, sendung };
+  return {
+    cls: 'q-platzhalter',
+    text: beigefuegt ? `${beigefuegt}/${basis.length} beigefügt` : 'nur Platzhalter',
+    title,
+    sendung,
+  };
+}
 
 /** Ein Kennzeichen am Kasten (Tag-Katalog). */
 export interface Kennzeichen {
@@ -90,6 +143,8 @@ export interface Kastenansicht {
   roVal: { value: string; label: string | null } | null;
   datalist: { id: string; options: EnumWert[] } | null;
   kennzeichen: Kennzeichen[];
+  /** Testsendung: beigefuegte Datei bzw. Bilanz des Dokuments (Titelzeile). */
+  anlage: Kennzeichen | null;
   /** Diff: entfaellt in der Vergleichsversion / anderweitig geaendert. */
   dfR: boolean;
   dfA: boolean;
@@ -356,6 +411,7 @@ export class BaumkastenAnsicht {
       refkind: rk,
       refziel: pe.refZiel ?? null,
       ...wert,
+      anlage: this.anlage(path),
       kennzeichen: this.kennzeichen(it, n, path, {
         isValueBox,
         rk,
@@ -605,29 +661,50 @@ export class BaumkastenAnsicht {
           title: 'Schemafehler in untergeordneten Elementen',
         });
     }
-    // Testsendung (S7): am datei-Element, ob sein Platz eine Datei hat und was
-    // die Paketpruefung zu ihm sagt.
+    // Testsendung (S7): Befunde der Paketpruefung am datei-Element. Was auf
+    // dem Platz liegt, steht in der Titelzeile (`anlage`).
+    const platz = this.sendung.lageNachPfad().get(path);
+    if (platz?.datei && platz.befunde.length) {
+      const fehler = platz.befunde.filter((b) => b.schwere === 'fehler').length;
+      tags.push({
+        cls: fehler ? 't-verr' : 't-vsub',
+        text: `${platz.befunde.length} ${platz.befunde.length === 1 ? 'Befund' : 'Befunde'}`,
+        title: platz.befunde.map((b) => b.text).join('\n') + '\nKlick: in der Sendung zeigen',
+        sendung: platz.platz.dateiname,
+      });
+    }
+    return { tags, dfR, dfA, valErr };
+  }
+
+  /**
+   * Testsendung (S7): was ein Kasten ueber beigefuegte Dateien sagt — am
+   * datei-Element die Quelle seines Platzes, am dokument-Element die Bilanz
+   * seiner Dateien. Steht in der Titelzeile und bleibt so auch im Mini-Kasten
+   * und bei zugeklapptem Ast sichtbar.
+   */
+  private anlage(path: string): Kennzeichen | null {
     const platz = this.sendung.lageNachPfad().get(path);
     if (platz) {
       const name = platz.platz.dateiname;
-      const fehler = platz.befunde.filter((b) => b.schwere === 'fehler').length;
-      const titel = platz.befunde.map((b) => b.text).join('\n');
       if (!platz.datei)
-        tags.push({
+        return {
           cls: 't-verr',
           text: 'Datei fehlt',
-          title: (titel || 'Kein Upload, nichts erzeugbar') + '\nKlick: in der Sendung zeigen',
+          title:
+            (platz.befunde.map((b) => b.text).join('\n') || 'Kein Upload, nichts erzeugbar') +
+            '\nKlick: in der Sendung zeigen',
           sendung: name,
-        });
-      else if (platz.befunde.length)
-        tags.push({
-          cls: fehler ? 't-verr' : 't-vsub',
-          text: `${platz.befunde.length} ${platz.befunde.length === 1 ? 'Befund' : 'Befunde'}`,
-          title: titel + '\nKlick: in der Sendung zeigen',
-          sendung: name,
-        });
+        };
+      const q = platz.datei.quelle;
+      return {
+        cls: 'q-' + q,
+        text: ANLAGE_KURZ[q],
+        title: `${name}\n${ANLAGE_TITEL[q]}\nKlick: in der Sendung zeigen`,
+        sendung: name,
+      };
     }
-    return { tags, dfR, dfA, valErr };
+    const dok = this.sendung.lageNachDokument().get(path);
+    return dok?.length ? dokumentBilanz(dok) : null;
   }
 
   /** Der Kennzeichen-Katalog des Kastens (Z.1270-1313). */
