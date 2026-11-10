@@ -647,8 +647,9 @@
 
 <dialog #editDlg id="noteDlg">
   <h3 style="margin-top: 0">Metadaten bearbeiten</h3>
-  <label style="display: block; margin-bottom: 4px">Name</label>
+  <label for="testnachrichtName" style="display: block; margin-bottom: 4px">Name</label>
   <input
+    id="testnachrichtName"
     type="text"
     style="width: 100%; box-sizing: border-box"
     placeholder="Anzeigename der Testnachricht"
@@ -664,8 +665,9 @@
     [value]="editAutor()"
     (input)="editAutor.set($any($event.target).value)"
   />
-  <label style="display: block; margin: 12px 0 4px">Beschreibung</label>
+  <label for="testnachrichtNotiz" style="display: block; margin: 12px 0 4px">Beschreibung</label>
   <textarea
+    id="testnachrichtNotiz"
     style="width: 100%; min-height: 100px; box-sizing: border-box"
     placeholder="Kurze Beschreibung (optional)"
     [value]="editNote()"

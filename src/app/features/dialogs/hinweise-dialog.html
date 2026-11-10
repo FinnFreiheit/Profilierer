@@ -13,7 +13,9 @@
         class="vfItem klickbar hwItem"
         [class.hwErledigt]="e.erledigt"
         title="Zum Element springen"
+        tabindex="0"
         (click)="springe(e.pfad)"
+        (keydown.enter)="$event.target === $event.currentTarget && springe(e.pfad)"
       >
         @if (e.geparkt) {
           <!-- Geparkte Punkte tragen keine Erledigt-Checkbox: sie verlassen den

@@ -55,10 +55,11 @@ export default tseslint.config(
       prettier,
     ],
     rules: {
-      // Altlast: 68 Treffer im Bestand (Klick-Handler auf div/span ohne
-      // Tastatur-Aequivalent, Labels ohne Formularbezug). Bewusst 'warn', damit
-      // CI nicht ab Tag eins rot ist — die Behebung ist eigene Arbeit, nicht
-      // Teil des Lint-Setups. Auf 'error' hochziehen, sobald aufgeraeumt.
+      // Altlast: von einst 68 Treffern (Klick-Handler auf div/span ohne
+      // Tastatur-Aequivalent, Labels ohne Formularbezug) stehen noch vier am
+      // Baumkasten — der Baum wird ueber die Editor-Tastatur bedient, nicht
+      // ueber Tab (ADR 0025). Bewusst 'warn'; auf 'error' hochziehen, sobald
+      // die Baumansicht eine eigene Loesung hat.
       '@angular-eslint/template/click-events-have-key-events': 'warn',
       '@angular-eslint/template/interactive-supports-focus': 'warn',
       '@angular-eslint/template/label-has-associated-control': 'warn',

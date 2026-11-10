@@ -24,7 +24,10 @@
           [class.klickbar]="e.pfad"
           [class.vfErw]="e.erweiterung"
           [title]="e.pfad ? 'Zum betroffenen Element springen' : ''"
+          [attr.role]="e.pfad ? 'button' : null"
+          [attr.tabindex]="e.pfad ? 0 : null"
           (click)="springe(e)"
+          (keydown.enter)="springe(e)"
         >
           @if (e.erweiterung) {
             <span class="tag t-ext">bekannte Schema-Erweiterung</span>

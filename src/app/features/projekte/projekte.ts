@@ -44,6 +44,7 @@ import {
 import { zustandKlasse, zustandLabel } from '../../core/util/profil-zustand.util';
 import { fachmodulOf } from '../../core/util/fachmodul.util';
 import { datumKurz } from '../../core/util/datum.util';
+import { BarrierefreiService } from '../../core/services/barrierefrei.service';
 
 /**
  * Die Achsen der Filterspalte der Uebersicht. Muster und Bezeichner folgen der
@@ -127,6 +128,7 @@ export class Projekte {
   private readonly vergleich = inject(VergleichService);
   protected readonly ueberlagerung = inject(UeberlagerungService);
   private readonly einordnen = inject(EinordnenService);
+  private readonly barrierefrei = inject(BarrierefreiService);
   private readonly persistence = inject(PersistenceService);
   private readonly edit = inject(TestmessageEditService);
   private readonly testnachrichtStart = inject(TestnachrichtStartService);
@@ -371,7 +373,7 @@ export class Projekte {
     const wirt = this.host.nativeElement as HTMLElement;
     wirt
       .querySelector('#szenario-' + CSS.escape(id))
-      ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      ?.scrollIntoView({ block: 'start', behavior: this.barrierefrei.scrollVerhalten() });
   }
 
   // ── Navigation ───────────────────────────────────────────────────────

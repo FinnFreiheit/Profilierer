@@ -216,7 +216,10 @@
         class="box addBox"
         [title]="addAuspSperre() || ''"
         [style.opacity]="addAuspSperre() ? 0.5 : null"
+        role="button"
+        tabindex="0"
         (click)="onAddAusp()"
+        (keydown.enter)="onAddAusp(); $event.stopPropagation()"
       >
         {{ msgMode() ? '+ Vorkommen' : '+ Ausprägung' }}
       </div>
@@ -225,7 +228,10 @@
       <div
         class="box addBox addExt"
         title="Schema-Erweiterung: fehlendes Element festhalten, das nachbeauftragt werden soll"
+        role="button"
+        tabindex="0"
         (click)="onAddErweiterung()"
+        (keydown.enter)="onAddErweiterung(); $event.stopPropagation()"
       >
         + Element (Erweiterung)
       </div>

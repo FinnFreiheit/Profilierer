@@ -4,32 +4,33 @@ Architecture Decision Records halten wesentliche Richtungsentscheidungen mit Beg
 
 ## Index
 
-| Nr.                                                   | Titel                                                             | Status                        |
-| ----------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------- |
-| [0001](0001-angular-migration.md)                     | Migration von Single-File-HTML zu Angular 20                      | Angenommen                    |
-| [0002](0002-signals-store.md)                         | Signals-Store statt globalem Zustand                              | Angenommen                    |
-| [0003](0003-svg-verbindungslinien.md)                 | SVG-Verbindungslinien deklarativ mit DOM-Messung                  | Angenommen                    |
-| [0004](0004-dev-proxy-xrepository.md)                 | Angular-Dev-Proxy für XRepository statt Python-Helfer             | Angenommen                    |
-| [0005](0005-node24-headless-tests.md)                 | Node 24 via nvm + Chrome-for-Testing für Headless-Tests           | Teilweise abgelöst durch 0011 |
-| [0006](0006-lazy-xlsx-jszip.md)                       | SheetJS/JSZip als npm-Pakete, dynamisch geladen                   | Teilweise abgelöst durch 0008 |
-| [0007](0007-datenbank-backend.md)                     | Profil-Persistenz über ein self-hosted Node/SQLite-Backend        | Angenommen                    |
-| [0008](0008-exceljs-excel-export.md)                  | ExcelJS statt SheetJS für den Excel-Export                        | Angenommen                    |
-| [0009](0009-xsd-validierung-xmllint-wasm.md)          | XSD-Validierung im Browser mit xmllint-wasm                       | Angenommen                    |
-| [0010](0010-schema-erweiterungen-profil-overlay.md)   | Schema-Erweiterungen als Profil-Overlay statt Schema-Manipulation | Angenommen                    |
-| [0011](0011-lint-format-ci.md)                        | Node-Pinning, ESLint/Prettier und CI als Qualitäts-Tor            | Angenommen                    |
-| [0012](0012-abnahme-rollenkonzept.md)                 | Abnahme durch die BLK-AG — Zwei-Rollen-Konzept (ergänzt 0007)     | Angenommen                    |
-| [0013](0013-vergleich-seit-abnahme.md)                | „Seit Abnahme geändert" sichtbar — struktureller Vergleich        | Angenommen                    |
-| [0014](0014-hinweise-eigene-ressource.md)             | Hinweise als eigene Ressource neben der Profilierung              | Angenommen                    |
-| [0015](0015-vorkommen-zaehlkonvention.md)             | Vorkommen zählen statt Mindestanzahl 1 zu materialisieren         | Angenommen                    |
-| [0016](0016-wert-entscheidet-im-instanz-durchlauf.md) | Im Instanz-Durchlauf entscheidet der Wert (ergänzt 0015)          | Angenommen                    |
-| [0017](0017-erweiterungstyp-lebende-referenz.md)      | Erweiterungs-Datentyp als lebende Referenz (ergänzt 0010)         | Angenommen                    |
-| [0018](0018-enthalten-eine-regel.md)                  | „Ist in der Nachricht enthalten" ist eine Regel (ergänzt 0015)    | Angenommen                    |
-| [0019](0019-projekt-als-behaelter.md)                 | Projekt als Behälter; die Profilierung trägt die Zuordnung        | Angenommen                    |
-| [0020](0020-schemaquellen-im-backend.md)              | Von xjustiz.de geholte Schemaversionen liegen im Backend          | Angenommen                    |
-| [0021](0021-nutzungszahlen-als-aggregat.md)           | Nutzungszahlen als anonyme Aggregate, nicht als Ereignisprotokoll | Angenommen                    |
-| [0022](0022-design-system-spiegel.md)                 | Design-System als generierter Spiegel des Codes                   | Angenommen                    |
-| [0023](0023-ein-bearbeiten-modus-mit-fuehrung.md)     | Ein Bearbeiten-Modus mit Führung (löst die Drei-Modi-Wahl ab)     | Angenommen                    |
-| [0024](0024-testsendung-testnachricht-mit-anlagen.md) | Testsendung: Testnachricht mit Anlagen, die XML führt             | Angenommen                    |
+| Nr.                                                        | Titel                                                             | Status                        |
+| ---------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------- |
+| [0001](0001-angular-migration.md)                          | Migration von Single-File-HTML zu Angular 20                      | Angenommen                    |
+| [0002](0002-signals-store.md)                              | Signals-Store statt globalem Zustand                              | Angenommen                    |
+| [0003](0003-svg-verbindungslinien.md)                      | SVG-Verbindungslinien deklarativ mit DOM-Messung                  | Angenommen                    |
+| [0004](0004-dev-proxy-xrepository.md)                      | Angular-Dev-Proxy für XRepository statt Python-Helfer             | Angenommen                    |
+| [0005](0005-node24-headless-tests.md)                      | Node 24 via nvm + Chrome-for-Testing für Headless-Tests           | Teilweise abgelöst durch 0011 |
+| [0006](0006-lazy-xlsx-jszip.md)                            | SheetJS/JSZip als npm-Pakete, dynamisch geladen                   | Teilweise abgelöst durch 0008 |
+| [0007](0007-datenbank-backend.md)                          | Profil-Persistenz über ein self-hosted Node/SQLite-Backend        | Angenommen                    |
+| [0008](0008-exceljs-excel-export.md)                       | ExcelJS statt SheetJS für den Excel-Export                        | Angenommen                    |
+| [0009](0009-xsd-validierung-xmllint-wasm.md)               | XSD-Validierung im Browser mit xmllint-wasm                       | Angenommen                    |
+| [0010](0010-schema-erweiterungen-profil-overlay.md)        | Schema-Erweiterungen als Profil-Overlay statt Schema-Manipulation | Angenommen                    |
+| [0011](0011-lint-format-ci.md)                             | Node-Pinning, ESLint/Prettier und CI als Qualitäts-Tor            | Angenommen                    |
+| [0012](0012-abnahme-rollenkonzept.md)                      | Abnahme durch die BLK-AG — Zwei-Rollen-Konzept (ergänzt 0007)     | Angenommen                    |
+| [0013](0013-vergleich-seit-abnahme.md)                     | „Seit Abnahme geändert" sichtbar — struktureller Vergleich        | Angenommen                    |
+| [0014](0014-hinweise-eigene-ressource.md)                  | Hinweise als eigene Ressource neben der Profilierung              | Angenommen                    |
+| [0015](0015-vorkommen-zaehlkonvention.md)                  | Vorkommen zählen statt Mindestanzahl 1 zu materialisieren         | Angenommen                    |
+| [0016](0016-wert-entscheidet-im-instanz-durchlauf.md)      | Im Instanz-Durchlauf entscheidet der Wert (ergänzt 0015)          | Angenommen                    |
+| [0017](0017-erweiterungstyp-lebende-referenz.md)           | Erweiterungs-Datentyp als lebende Referenz (ergänzt 0010)         | Angenommen                    |
+| [0018](0018-enthalten-eine-regel.md)                       | „Ist in der Nachricht enthalten" ist eine Regel (ergänzt 0015)    | Angenommen                    |
+| [0019](0019-projekt-als-behaelter.md)                      | Projekt als Behälter; die Profilierung trägt die Zuordnung        | Angenommen                    |
+| [0020](0020-schemaquellen-im-backend.md)                   | Von xjustiz.de geholte Schemaversionen liegen im Backend          | Angenommen                    |
+| [0021](0021-nutzungszahlen-als-aggregat.md)                | Nutzungszahlen als anonyme Aggregate, nicht als Ereignisprotokoll | Angenommen                    |
+| [0022](0022-design-system-spiegel.md)                      | Design-System als generierter Spiegel des Codes                   | Angenommen                    |
+| [0023](0023-ein-bearbeiten-modus-mit-fuehrung.md)          | Ein Bearbeiten-Modus mit Führung (löst die Drei-Modi-Wahl ab)     | Angenommen                    |
+| [0024](0024-testsendung-testnachricht-mit-anlagen.md)      | Testsendung: Testnachricht mit Anlagen, die XML führt             | Angenommen                    |
+| [0025](0025-barrierefreie-darstellung-als-wahlschalter.md) | Barrierefreie Darstellung als Wahlschalter                        | Angenommen                    |
 
 ## Vorlage
 

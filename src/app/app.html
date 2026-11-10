@@ -1,6 +1,9 @@
 <!-- Shell: Dashboard (Bibliothek) als Startseite, sonst der Baum-Editor.
      Die Nebenansichten (Anleitung, Kennzahlen, Styleguide) stehen in `@defer`:
      ihr Code wird erst geladen, wenn jemand sie aufruft. -->
+@if (barrierefrei.aktiv()) {
+  <button type="button" class="bfSprung primary" (click)="zumInhalt()">Zum Inhalt springen</button>
+}
 @if (view() === 'editor') {
   <input
     #xsdBInput

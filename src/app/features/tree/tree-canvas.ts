@@ -18,6 +18,7 @@ import { itemPath } from '../../models/node.model';
 import { istErweiterungsPfad, unterPfad } from '../../core/util/pfad.util';
 import { FokusAnker, Lage } from '../../core/util/fokus-anker.util';
 import { REF_TARGETS } from '../../core/refs';
+import { BarrierefreiService } from '../../core/services/barrierefrei.service';
 
 interface PathSpec {
   d: string;
@@ -65,6 +66,7 @@ const SPRUNG_FENSTER = 900;
   templateUrl: './tree-canvas.html',
 })
 export class TreeCanvas {
+  private readonly barrierefrei = inject(BarrierefreiService);
   private readonly tree = inject(TreeService);
   private readonly state = inject(StateService);
   private readonly nav = inject(NavService);
@@ -148,7 +150,11 @@ export class TreeCanvas {
         // solange die weiche Bewegung laeuft, korrigiert er nicht dagegen.
         this.anker.loesen();
         this.springtBis = performance.now() + SPRUNG_FENSTER;
-        b.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+        b.scrollIntoView({
+          block: 'center',
+          inline: 'nearest',
+          behavior: this.barrierefrei.scrollVerhalten(),
+        });
         b.classList.add('flash');
         setTimeout(() => b.classList.remove('flash'), 1400);
       });

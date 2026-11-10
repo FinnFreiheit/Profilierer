@@ -6030,3 +6030,133 @@ dialog.vorschauDlg[open] {
   color: var(--verweis-fg);
   font-size: 12.5px;
 }
+
+/* ------------------------------------------------------------------
+   Barrierefreie Darstellung (Wahlschalter, BarrierefreiService)
+
+   Der Schalter selbst gehoert zur normalen Oberflaeche. Alles darunter
+   gilt nur, solange `<html>` die Klasse `barrierefrei` traegt — ohne sie
+   bleibt die Darstellung unveraendert. Die Schicht aendert keine
+   Anordnung, sondern nur, wie deutlich etwas zu sehen ist:
+
+   - Kontraste: Text mindestens 4,5:1 (die Signalpaare 7:1), Rahmen von
+     Bedienelementen mindestens 3:1 (WCAG 1.4.3 / 1.4.11)
+   - Fokus: ein dunkler Rahmen statt des Orange (2,0:1 auf Weiss)
+   - Verweise unterstrichen, Klickflaechen mindestens 24 px (WCAG 2.5.8)
+   - keine Uebergaenge und Animationen
+   ------------------------------------------------------------------ */
+.bfSchalter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.bfSchalter:hover {
+  border-color: var(--border);
+  color: var(--text);
+  background: var(--panel);
+}
+.bfSpur {
+  display: inline-block;
+  width: 26px;
+  height: 14px;
+  padding: 2px;
+  border-radius: var(--rund-pill);
+  background: var(--border-stark);
+}
+.bfKnopf {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--panel);
+  transition: transform 0.12s ease-out;
+}
+.bfSchalter.an {
+  color: var(--text);
+}
+.bfSchalter.an .bfSpur {
+  background: var(--accent);
+}
+.bfSchalter.an .bfKnopf {
+  transform: translateX(12px);
+}
+/* In der Kopfzone des Editors gibt die Beschriftung zuerst nach; der Name
+   bleibt ueber `aria-label` und den Tooltip erhalten. */
+@media (max-width: 1280px) {
+  .kopfleiste .bfText {
+    display: none;
+  }
+}
+/* Sprungmarke: nur in der barrierefreien Darstellung im DOM, und sichtbar
+   erst, wenn die Tastatur sie erreicht. */
+.bfSprung {
+  position: fixed;
+  top: 6px;
+  left: 6px;
+  z-index: 1000;
+  transform: translateY(-200%);
+}
+.bfSprung:focus {
+  transform: none;
+}
+
+html.barrierefrei {
+  --muted: #3f4757;
+  --muted-schwach: #565f70;
+  --border: #7a8496;
+  --border-stark: #4d586c;
+  --trenner: #b9bfcb;
+  --signal: #b35900;
+  --frei-fg: #0e4f2d;
+  --warn-fg: #6b4800;
+  --erweiterung-fg: #43389c;
+  --fehler-fg: #8c2222;
+  --auswahl-fg: #5c3883;
+  --verweis-fg: #782741;
+  --schema-pflicht: #2e8a6b;
+  --xml-wert: #0a5441;
+}
+/* Fest verdrahtete Farben ausserhalb der Tokens. */
+html.barrierefrei .clRow code,
+html.barrierefrei .codeval {
+  color: #8a5200;
+}
+/* Ein Fokusrahmen fuer alles, was die Tastatur erreicht — dunkel auf hellem
+   Grund, mit Abstand, damit er auch um gefuellte Knoepfe herum lesbar ist. */
+html.barrierefrei :focus-visible,
+html.barrierefrei .suchFeld:focus-within,
+html.barrierefrei .dashSucheFeld:focus-within {
+  outline: 3px solid var(--preussischblau) !important;
+  outline-offset: 2px !important;
+}
+/* Die Suchfelder zeigen den Rahmen an ihrer Huelle, nicht am Eingabefeld. */
+html.barrierefrei .suchFeld input:focus-visible,
+html.barrierefrei .dashSucheFeld input:focus-visible {
+  outline: none !important;
+}
+html.barrierefrei a,
+html.barrierefrei .crumb:not(.cur) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+html.barrierefrei button,
+html.barrierefrei [role='button'],
+html.barrierefrei select,
+html.barrierefrei input[type='checkbox'],
+html.barrierefrei input[type='radio'] {
+  min-width: 24px;
+  min-height: 24px;
+}
+html.barrierefrei *,
+html.barrierefrei *::before,
+html.barrierefrei *::after {
+  transition: none !important;
+  animation: none !important;
+  scroll-behavior: auto !important;
+}

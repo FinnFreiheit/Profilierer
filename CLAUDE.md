@@ -32,6 +32,7 @@ xjustiz-profilierer/
 │   │   │                      UeberlagerungService (alle Testnachrichten eines Szenarios im Baum),
 │   │   │                      XmlValidationService, ValidationReportService,
 │   │   │                      DownloadService, ToastService, SearchService, TeilenService,
+│   │                      BarrierefreiService (Wahlschalter der barrierefreien Darstellung, ADR 0025),
 │   │   │                      BackendClient (der eine Weg ans Backend)
 │   │   ├── ansicht/           Anzeige-Ableitungen (BaumkastenAnsicht, DetailAnsicht, StandAnsicht, sperrgrund)
 │   │   ├── util/              xml.util, pretty.util, testmessage.util, pattern-sample.util,
@@ -46,7 +47,7 @@ xjustiz-profilierer/
 │   │                          Dashboard, Testdaten, Projekte, Kennzahlen,
 │   │                          Howto (bebilderte Anleitung, Bilder in public/howto/)
 │   ├── shared/                Bibliothek (gemeinsamer Rahmen der fuenf Uebersichten, dazu FilterSpalte,
-│   │                          AktivChips, SammlungWerkzeuge), SchemaSuche,
+│   │                          AktivChips, SammlungWerkzeuge), SchemaSuche, BarrierefreiSchalter,
 │   │                          Menu (richtung/breite/ausrichtung), Toast, FileDropDirective
 │   ├── app.ts / app.html      Shell (Komposition + Tastatur-Nav + Drop-Routing)
 │   └── styles.scss            globale Styles (aus der Single-File-Version portiert)
@@ -78,7 +79,7 @@ Node ≥ 22.12 nötig (Angular 20). Die Anforderung steht in `.nvmrc` (24) und i
 - **Produktivdaten lokal:** `npm run db:spiegeln` holt die DB vom Pi (`pi@pi.local`, Env `XJP_PI`) und ersetzt die lokale — mit Sicherung `profiles.db.vor-prod-kopie-JJMMTT-hhmm`, nur lesend auf dem Server. Vorher das lokale Backend stoppen. Siehe [deploy/README.md](deploy/README.md).
 - **Unit-Tests (headless):** `npm run test:ci` — nutzt das per puppeteer installierte Chrome-for-Testing (kein System-Chrome nötig). Einmalig: `npx puppeteer browsers install chrome`. Backend-Tests separat: `npm run test:server` (node --test, In-Memory-SQLite).
 - **Prüfkette vor dem Commit:** `npm run check` — Lint, Formatprüfung, Frontend-Tests, Backend-Tests, Build. Genau das fährt auch CI (`.github/workflows/ci.yml`, bei Push auf `main` und bei jedem PR). Einzeln: `npm run lint`, `npm run lint:fix`, `npm run format`, `npm run format:check`.
-- **Lint/Format:** ESLint 9 Flat Config (`eslint.config.mjs`, angular-eslint 20), Formatierung ausschließlich Prettier. Die drei Barrierefreiheits-Regeln für Templates stehen bewusst auf `warn` — 68 Altlast-Treffer im Bestand, siehe [ADR 0011](docs/adr/0011-lint-format-ci.md). Neue Warnungen dort nicht vermehren.
+- **Lint/Format:** ESLint 9 Flat Config (`eslint.config.mjs`, angular-eslint 20), Formatierung ausschließlich Prettier. Die drei Barrierefreiheits-Regeln für Templates stehen bewusst auf `warn` — von der Altlast stehen noch vier Treffer am Baumkasten, siehe [ADR 0011](docs/adr/0011-lint-format-ci.md) und [ADR 0025](docs/adr/0025-barrierefreie-darstellung-als-wahlschalter.md). Neue Warnungen dort nicht vermehren.
 - **E2E-Prüfung:** Puppeteer-Skript, das XSDs per Drag&Drop-Event lädt (`uploadFile` befüllt `webkitdirectory`-Inputs nicht).
 - **Hinterlegte Schemata:** 3.6.2 und 4.0.0 liegen unter `public/schemas/<version>/`; die App lädt 3.6.2 automatisch beim Start (`BundledSchemaService`, Umschalter im Grundlage-Dialog (⋯-Menü der Kopfzeile), Diff-Vergleich per Klick) — Ordner-Upload nur noch für Fremdschemata. Nach dem Ändern der XSDs `npm run schemas:manifest` ausführen. **Aktualisieren aus der Quelle:** `npm run schemas:fetch` holt die veröffentlichten ZIPs von xjustiz.de, entpackt sie nach `public/schemas/` und baut das Manifest neu (`-- --dry` zeigt nur den Abgleich). Zur Laufzeit macht „Grundlage… → Von xjustiz.de aktualisieren" dasselbe im Browser (`RemoteSchemaService`, Proxy `/xjustiz-api`) — die abgerufenen Versionen ersetzen die hinterlegten Einträge.
 - **Styleguide / Design-System:** `http://localhost:4200/?ansicht=styleguide` zeigt die UI-Bausteine mit dem echten Stylesheet (kein Reiter, Entwicklerwerkzeug). `npm run build && npm run design:bundle` exportiert sie als Karten nach `design-system/`; der Sync ins Claude-Design-Projekt „XJustiz Pfadfinder" läuft über das DesignSync-Tool in Claude Code (`design-system/README.md`). Fluss ist Code → Claude Design; Änderungen aus Claude Design werden per Diff nach `styles.scss` portiert. Siehe [ADR 0022](docs/adr/0022-design-system-spiegel.md).
