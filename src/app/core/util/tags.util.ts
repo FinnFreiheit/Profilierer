@@ -83,11 +83,16 @@ export function hatAlleTags(
   return gewaehlt.every((t) => vorhanden.has(t.toLocaleLowerCase('de')));
 }
 
+/** Steht das Schlagwort in der Liste? Gross-/Kleinschreibung bleibt aussen vor. */
+export function hatTag(tags: readonly string[] | undefined, tag: string): boolean {
+  const schluessel = tag.toLocaleLowerCase('de');
+  return (tags ?? []).some((t) => t.toLocaleLowerCase('de') === schluessel);
+}
+
 /** Ein Schlagwort in der Auswahl an-/abwaehlen (fuer die Filterleiste). */
 export function schalteTag(gewaehlt: readonly string[], tag: string): string[] {
   const schluessel = tag.toLocaleLowerCase('de');
-  const drin = gewaehlt.some((t) => t.toLocaleLowerCase('de') === schluessel);
-  return drin
+  return hatTag(gewaehlt, tag)
     ? gewaehlt.filter((t) => t.toLocaleLowerCase('de') !== schluessel)
     : [...gewaehlt, tag];
 }

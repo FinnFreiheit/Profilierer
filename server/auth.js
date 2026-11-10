@@ -25,5 +25,25 @@ export function agAuth(agKey) {
   /** Traegt der Request den gueltigen AG-Schluessel (Header x-ag-key)? */
   const istAg = (req) => pruefe(req.get('x-ag-key') ?? '');
 
-  return { konfiguriert, pruefe, istAg };
+  /** Middleware: AG-exklusive Endpunkte (Abnahme setzen/entfernen, Kennzahlen). */
+  const nurAg = (req, res, next) => {
+    if (!konfiguriert)
+      return res.status(403).json({ error: 'AG-Rolle auf dieser Instanz nicht konfiguriert' });
+    if (!istAg(req)) return res.status(403).json({ error: 'gueltiger AG-Schluessel erforderlich' });
+    next();
+  };
+
+  /**
+   * Middleware-Fabrik des Abnahme-Schutzes: Schreiboperationen auf ein
+   * abgenommenes Objekt (`istAbgenommen(id)`) nur mit gueltigem AG-Schluessel.
+   */
+  const schutz = (istAbgenommen) => (req, res, next) => {
+    if (istAbgenommen(req.params.id) && !istAg(req))
+      return res
+        .status(403)
+        .json({ error: 'von der BLK-AG abgenommen — Aenderung nur mit AG-Schluessel' });
+    next();
+  };
+
+  return { konfiguriert, pruefe, istAg, nurAg, schutz };
 }

@@ -27,12 +27,22 @@ import { nachrichtTeile } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { NeuesProfilWizard } from '../dialogs/neues-profil-wizard';
 import { Bibliothek } from '../../shared/bibliothek/bibliothek';
+import { FilterSpalte } from '../../shared/bibliothek/filter-spalte';
+import { AktivChips } from '../../shared/bibliothek/aktiv-chips';
+import { SammlungWerkzeuge } from '../../shared/bibliothek/sammlung-werkzeuge';
+import {
+  AktivChip as Chip,
+  FilterAchse as Achse,
+  filterAchse,
+  umschalten,
+} from '../../shared/bibliothek/filter.model';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
 import { ProjektStoreService } from '../../core/services/projekt-store.service';
 import { EinordnenService } from '../../core/services/einordnen.service';
 import {
   hatAlleTags,
   normalisiereTags,
+  hatTag,
   schalteTag,
   tagOptionen,
   tagsAlsText,
@@ -44,35 +54,13 @@ import {
   zustandLabel,
   zustandVon,
 } from '../../core/util/profil-zustand.util';
-import { datumKurz } from '../../core/util/datum.util';
+import { datumKurz, datumZeitKurz } from '../../core/util/datum.util';
 
 /** Die Achsen der Filterspalte. `hinweise` hat nur einen Wert (#43). */
 type AchsenKey = 'modul' | 'projekt' | 'tag' | 'zustand' | 'hinweise' | 'version';
 
-interface FilterWert {
-  id: string;
-  label: string;
-  /** Treffer, wenn nur dieser Wert (zusaetzlich) gesetzt waere. */
-  n: number;
-  aktiv: boolean;
-}
-
-interface FilterAchse {
-  key: AchsenKey;
-  label: string;
-  /** Werte in Mono setzen (Fachmodul-Kuerzel, Versionsnummern). */
-  mono: boolean;
-  werte: FilterWert[];
-  aktiv: boolean;
-}
-
-/** Ein gesetzter Filter als Chip ueber der Sammlung. */
-interface AktivChip {
-  achse: string;
-  label: string;
-  key: AchsenKey | 'suche';
-  id: string;
-}
+type FilterAchse = Achse<AchsenKey>;
+type AktivChip = Chip<AchsenKey>;
 
 /** Gliederung der Sammlung; `keine` = eine Gruppe ohne Kopf. */
 type Gliederung = 'keine' | 'modul' | 'projekt' | 'zustand' | 'version';
@@ -126,6 +114,9 @@ interface Meta {
   imports: [
     NgTemplateOutlet,
     Bibliothek,
+    FilterSpalte,
+    AktivChips,
+    SammlungWerkzeuge,
     Menu,
     KeinAutofillDirective,
     NeuesProfilWizard,
@@ -339,22 +330,16 @@ export class Dashboard {
       werte: readonly { id: string; label: string }[],
       gewaehlt: readonly string[],
       trifft: (e: LibraryEntry, id: string) => boolean,
-    ): FilterAchse => {
-      const basis = alle.filter((e) => this.passt(e, key === 'tag' ? undefined : key));
-      return {
+    ): FilterAchse =>
+      filterAchse({
         key,
         label,
         mono,
-        aktiv: gewaehlt.length > 0,
-        werte: werte.map((w) => ({
-          id: w.id,
-          label: w.label,
-          n: basis.filter((e) => trifft(e, w.id)).length,
-          aktiv: gewaehlt.includes(w.id),
-        })),
-      };
-    };
-    const tagSchluessel = (t: string): string => t.toLocaleLowerCase('de');
+        basis: alle.filter((e) => this.passt(e, key === 'tag' ? undefined : key)),
+        werte,
+        gewaehlt,
+        trifft,
+      });
     return [
       achse(
         'modul',
@@ -381,7 +366,7 @@ export class Dashboard {
         false,
         this.verfuegbareTags().map((t) => ({ id: t.tag, label: t.tag })),
         this.gewaehlteTags(),
-        (e, id) => (e.tags ?? []).some((t) => tagSchluessel(t) === tagSchluessel(id)),
+        (e, id) => hatTag(e.tags, id),
       ),
       achse(
         'zustand',
@@ -453,14 +438,12 @@ export class Dashboard {
       this.gewaehlteTags.set(schalteTag(this.gewaehlteTags(), id));
       return;
     }
-    const sig = key === 'modul' ? this.fModul : key === 'projekt' ? this.fProjekt : this.fVersion;
     if (key === 'zustand') {
-      this.fZustand.update((cur) =>
-        cur.includes(id as Zustand) ? cur.filter((x) => x !== id) : [...cur, id as Zustand],
-      );
+      this.fZustand.update((cur) => umschalten(cur, id as Zustand));
       return;
     }
-    sig.update((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+    const sig = key === 'modul' ? this.fModul : key === 'projekt' ? this.fProjekt : this.fVersion;
+    sig.update((cur) => umschalten(cur, id));
   }
 
   /** Eine Achse leeren (× am Achsenkopf). */
@@ -491,8 +474,7 @@ export class Dashboard {
 
   /** Ist das Schlagwort gerade als Filter gesetzt (Kachel-Chip hervorheben)? */
   protected tagAktiv(tag: string): boolean {
-    const schluessel = tag.toLocaleLowerCase('de');
-    return this.gewaehlteTags().some((t) => t.toLocaleLowerCase('de') === schluessel);
+    return hatTag(this.gewaehlteTags(), tag);
   }
 
   /**
@@ -779,9 +761,7 @@ export class Dashboard {
 
   /** Anzeigedatum der Abnahme (fuer Badge-Tooltip). */
   protected abnDatum(e: LibraryEntry): string {
-    return e.abnahmeZeit
-      ? new Date(e.abnahmeZeit).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })
-      : '';
+    return datumZeitKurz(e.abnahmeZeit);
   }
 
   protected async exportEntry(id: string, e: Event): Promise<void> {
@@ -859,12 +839,6 @@ export class Dashboard {
     const { nEntschieden: x, nPunkte: y } = e;
     if (typeof x !== 'number' || typeof y !== 'number' || y <= 0) return null;
     return Math.min(1, Math.max(0, x / y));
-  }
-
-  /** Ausgeschriebener Prozentwert (Tooltip der Kennzahl-Pille). */
-  protected anteilText(e: LibraryEntry): string {
-    const a = this.anteil(e);
-    return a === null ? '' : `${Math.round(a * 100)} % entschieden`;
   }
 
   /** Zeitstempel fuer die Sortierung: fachliches Speicherdatum, sonst letzte Sicherung. */

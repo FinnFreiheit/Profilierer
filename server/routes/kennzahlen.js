@@ -12,13 +12,7 @@ import { Router } from 'express';
 export function kennzahlenRouter(db, auth) {
   const r = Router();
 
-  const nurAg = (req, res, next) => {
-    if (!auth.konfiguriert)
-      return res.status(403).json({ error: 'AG-Rolle auf dieser Instanz nicht konfiguriert' });
-    if (!auth.istAg(req))
-      return res.status(403).json({ error: 'gueltiger AG-Schluessel erforderlich' });
-    next();
-  };
+  const { nurAg } = auth;
 
   r.get('/kennzahlen', nurAg, (req, res) => {
     const tage = Number.parseInt(req.query.tage ?? '', 10);

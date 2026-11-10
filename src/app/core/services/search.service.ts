@@ -69,11 +69,6 @@ export class SearchService {
     return out;
   });
 
-  /** buildSearchIndex (Z.695-711) — direkter Aufbau ohne Memo (Tests/Sonderfaelle). */
-  buildIndex(): SearchEntry[] {
-    return this.index();
-  }
-
   /** runSearch (Z.712-724): rankt und begrenzt auf 40 Treffer, inkl. Inhaltssuche. */
   run(query: string): SearchEntry[] {
     const q = query.trim().toLowerCase();

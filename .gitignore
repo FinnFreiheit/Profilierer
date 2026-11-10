@@ -27,6 +27,8 @@ XJustiz_*_XSD/
 /out-tsc
 /.angular/cache
 /coverage
+# Desktop-Paket (Electron-Build samt .dmg) — Erzeugnis, kein Quellcode
+/desktop/build
 npm-debug.log
 .sass-cache/
 

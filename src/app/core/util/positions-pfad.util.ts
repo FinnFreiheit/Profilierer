@@ -72,34 +72,3 @@ export function konkreterPfad(position: string, listen: Vorkommenlisten): string
   }
   return pfad;
 }
-
-/**
- * Der Traeger-Positionspfad einer Stelle (`…/beteiligung[2]` → `…/beteiligung`)
- * samt Stellenzahl — null, wenn das letzte Segment keine Stelle traegt.
- */
-export function stellenTeile(position: string): { listenPfad: string; n: number } | null {
-  const treffer = /^(.*)\[(\d+)\]$/.exec(position);
-  if (!treffer) return null;
-  return { listenPfad: treffer[1]!, n: Number(treffer[2]) };
-}
-
-/**
- * Alle Praefixe eines Positionspfads (jedes Segment und vor jeder Stelle
- * zusaetzlich der Traeger), inklusive des Pfads selbst — das Gegenstueck zu
- * `segmentKette` im Positionsraum.
- */
-export function positionsKette(position: string): string[] {
-  const out: string[] = [];
-  let cur = '';
-  for (const segment of position.split('/')) {
-    const treffer = /^(.*)(\[(?:\d+|\?)\])$/.exec(segment);
-    const name = treffer ? treffer[1]! : segment;
-    cur = cur ? cur + '/' + name : name;
-    out.push(cur);
-    if (treffer) {
-      cur += treffer[2]!;
-      out.push(cur);
-    }
-  }
-  return out;
-}

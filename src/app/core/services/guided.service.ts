@@ -572,13 +572,14 @@ export class GuidedService {
 
   /**
    * Eine Station uebergehen (Taste ↓, „Weiter ›"): zur naechsten blaettern,
-   * sofern die aktuelle das zulaesst. `false` mit Grund in `ueberspringSperre`,
-   * wenn eine Pflichtangabe festhaelt.
+   * sofern die aktuelle das zulaesst. Rueckgabe ist der Grund der Sperre, der
+   * anzuzeigen ist — `null`, wenn geblaettert wurde. Zwei Aufrufer, eine Regel
+   * (wie `naechstesOffenesMitSperre`).
    */
-  ueberspringen(): boolean {
-    if (this.ueberspringSperre()) return false;
-    this.gotoNext();
-    return true;
+  ueberspringen(): string | null {
+    const grund = this.ueberspringSperre();
+    if (!grund) this.gotoNext();
+    return grund;
   }
 
   /**
@@ -646,11 +647,6 @@ export class GuidedService {
     }
     return [...set].sort((a, b) => a.localeCompare(b, 'de'));
   });
-
-  /** Ist der Pfad ein Entscheidungspunkt des Durchlaufs? */
-  istPunkt(path: string): boolean {
-    return this.walk().punkte.some((p) => p.path === path);
-  }
 
   /** Der Entscheidungspunkt zu einem Pfad (null, wenn keiner). */
   punktAt(path: string): DecisionPoint | null {

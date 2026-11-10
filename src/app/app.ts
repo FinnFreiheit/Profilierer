@@ -497,9 +497,8 @@ export class App implements OnInit {
       // naechste Station gibt: der Ruecksprung der Baum-Navigation warf den
       // Durchlauf sonst an den Anfang zurueck.
       if (e.key === 'ArrowDown') {
-        const grund = this.guided.ueberspringSperre();
+        const grund = this.guided.ueberspringen();
         if (grund) this.toast.show(grund);
-        else this.guided.gotoNext();
         e.preventDefault();
         return;
       }

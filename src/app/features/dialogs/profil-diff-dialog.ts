@@ -68,7 +68,6 @@ export class ProfilDiffDialog {
 
   protected readonly farben = DIFF_FARBEN;
   protected readonly sym = DIFF_SYM;
-  protected readonly bereichLabel = BEREICH_LABEL;
 
   protected readonly laedt = signal(false);
   protected readonly fehler = signal('');

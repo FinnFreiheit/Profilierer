@@ -45,7 +45,8 @@ xjustiz-profilierer/
 │   │                          Dialoge (Status/Meta/Diff/Grundlage), Print, Styleguide,
 │   │                          Dashboard, Testdaten, Projekte, Kennzahlen,
 │   │                          Howto (bebilderte Anleitung, Bilder in public/howto/)
-│   ├── shared/                Bibliothek (gemeinsamer Rahmen der fuenf Uebersichten), SchemaSuche,
+│   ├── shared/                Bibliothek (gemeinsamer Rahmen der fuenf Uebersichten, dazu FilterSpalte,
+│   │                          AktivChips, SammlungWerkzeuge), SchemaSuche,
 │   │                          Menu (richtung/breite/ausrichtung), Toast, FileDropDirective
 │   ├── app.ts / app.html      Shell (Komposition + Tastatur-Nav + Drop-Routing)
 │   └── styles.scss            globale Styles (aus der Single-File-Version portiert)

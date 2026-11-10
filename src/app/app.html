@@ -1,4 +1,6 @@
-<!-- Shell: Dashboard (Bibliothek) als Startseite, sonst der Baum-Editor. -->
+<!-- Shell: Dashboard (Bibliothek) als Startseite, sonst der Baum-Editor.
+     Die Nebenansichten (Anleitung, Kennzahlen, Styleguide) stehen in `@defer`:
+     ihr Code wird erst geladen, wenn jemand sie aufruft. -->
 @if (view() === 'editor') {
   <input
     #xsdBInput
@@ -107,13 +109,19 @@
 } @else if (view() === 'testdaten') {
   <app-testdaten></app-testdaten>
 } @else if (view() === 'howto') {
-  <app-howto></app-howto>
+  @defer (on immediate) {
+    <app-howto></app-howto>
+  }
 } @else if (view() === 'projekte') {
   <app-projekte></app-projekte>
 } @else if (view() === 'kennzahlen') {
-  <app-kennzahlen></app-kennzahlen>
+  @defer (on immediate) {
+    <app-kennzahlen></app-kennzahlen>
+  }
 } @else if (view() === 'styleguide') {
-  <app-styleguide></app-styleguide>
+  @defer (on immediate) {
+    <app-styleguide></app-styleguide>
+  }
 } @else {
   <app-dashboard></app-dashboard>
 }

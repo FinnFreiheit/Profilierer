@@ -11,6 +11,7 @@ export default tseslint.config(
     // Generiertes und Fremdmaterial gehoert nicht in den Lint-Lauf.
     ignores: [
       'dist/**',
+      'desktop/build/**',
       '.angular/**',
       'node_modules/**',
       'legacy/**',

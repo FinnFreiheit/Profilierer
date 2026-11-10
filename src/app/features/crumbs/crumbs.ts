@@ -218,11 +218,6 @@ export class Crumbs {
     return `Übersprungen: ${items.map((it) => this.label(it)).join(' › ')}`;
   }
 
-  protected istLetztes(g: Pfadglied): boolean {
-    const glieder = this.glieder();
-    return glieder[glieder.length - 1] === g;
-  }
-
   protected pick(it: TreeItem): void {
     this.nav.selectItem(it);
   }

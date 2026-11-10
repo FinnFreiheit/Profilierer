@@ -14,7 +14,6 @@ describe('Dashboard — Fortschritt auf der Kachel', () => {
   let dash: {
     anteil: (e: LibraryEntry) => number | null;
     fortschritt: (e: LibraryEntry) => string;
-    anteilText: (e: LibraryEntry) => string;
   };
 
   const eintrag = (over: Partial<LibraryEntry> = {}): LibraryEntry =>
@@ -31,7 +30,6 @@ describe('Dashboard — Fortschritt auf der Kachel', () => {
     expect(dash.fortschritt(eintrag({ nEntschieden: 12, nPunkte: 40 }))).toBe(
       '12 von 40 entschieden',
     );
-    expect(dash.anteilText(eintrag({ nEntschieden: 12, nPunkte: 40 }))).toBe('30 % entschieden');
   });
 
   it('liefert 0 statt null, wenn noch nichts entschieden ist', () => {

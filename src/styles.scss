@@ -1069,11 +1069,6 @@ app-crumbs {
   color: var(--accent);
   border-color: var(--accent);
 }
-.box .bt .arrow {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 11px;
-}
 .box .tech {
   font-family: var(--mono);
   font-size: 11px;
@@ -2570,9 +2565,6 @@ app-tag-eingabe input {
   color: var(--text);
   font-weight: 600;
 }
-.dcTrenner {
-  color: var(--muted);
-}
 
 .pillMuted {
   background: var(--bg);
@@ -4029,13 +4021,6 @@ app-styleguide {
 .sgWert,
 .sgRolle {
   color: var(--muted);
-}
-.sgTypo h2,
-.sgTypo h3 {
-  margin: 10px 0 4px;
-}
-.sgMono {
-  font-family: var(--mono);
 }
 /* Das Menue liegt in der App fixiert unter seinem Knopf; im Styleguide steht
    es im Fluss, damit es als Baustein sichtbar ist. */

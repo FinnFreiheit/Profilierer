@@ -821,14 +821,14 @@ describe('GuidedService', () => {
       // Offener Pflichtwert: die Spur bleibt stehen und nennt den Grund.
       nav.jumpTo(`${M}/kopf`);
       expect(svc.ueberspringSperre()).toContain('Pflichtangabe');
-      expect(svc.ueberspringen()).toBeFalse();
+      expect(svc.ueberspringen()).toContain('Pflichtangabe');
       const sel1 = state.selItem();
       expect(sel1 && itemPath(sel1)).toBe(`${M}/kopf`);
 
       // Mit typkonformem Wert gibt sie den Weg frei.
       state.setElementProfile(`${M}/kopf`, { beispiel: 'Kopfwert' });
       expect(svc.ueberspringSperre()).toBeNull();
-      expect(svc.ueberspringen()).toBeTrue();
+      expect(svc.ueberspringen()).toBeNull();
 
       // Offene Pflicht-Auswahl haelt ebenso fest.
       nav.jumpTo(`${M}/_auswahl`);
@@ -840,7 +840,7 @@ describe('GuidedService', () => {
       // Ein freies Feld haelt nie fest.
       nav.jumpTo(`${M}/az`);
       expect(svc.ueberspringSperre()).toBeNull();
-      expect(svc.ueberspringen()).toBeTrue();
+      expect(svc.ueberspringen()).toBeNull();
     });
 
     it('nummeriert die Zweige der Auswahl und waehlt sie per Ziffer', () => {

@@ -3,8 +3,8 @@ import { StateService } from '../../core/services/state.service';
 import { SearchService, ZentralTreffer } from '../../core/services/search.service';
 import { NavService } from '../../core/services/nav.service';
 import { PersistenceService } from '../../core/services/persistence.service';
-import { firstLine } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
+import { SchemaTreffer } from '../../shared/schema-suche/schema-treffer';
 
 const LEER: ZentralTreffer = { baum: [], nachrichten: [], typen: [] };
 
@@ -20,7 +20,7 @@ const LEER: ZentralTreffer = { baum: [], nachrichten: [], typen: [] };
   selector: 'app-search',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './search.html',
-  imports: [KeinAutofillDirective],
+  imports: [KeinAutofillDirective, SchemaTreffer],
 })
 export class Search {
   private readonly state = inject(StateService);
@@ -119,14 +119,7 @@ export class Search {
     this.nav.oeffneTypAnsicht(name);
   }
 
-  /** Art-Kennzeichen eines Datentyp-Treffers. */
-  protected typArt(name: string): string {
-    return name.startsWith('Code.') ? 'Codeliste' : 'Datentyp';
-  }
-
   protected close(): void {
     this.focused.set(false);
   }
-
-  protected readonly firstLine = firstLine;
 }
