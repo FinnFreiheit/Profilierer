@@ -6,60 +6,16 @@
   wird in Kachel und Listenzeile eingesetzt.
 -->
 <app-bibliothek aktiv="dashboard">
-  <!-- Filterspalte: Achsen kombinieren mit UND, Werte einer Achse mit ODER.
-       Die Zaehler sagen, wie viele Treffer der Klick braechte. -->
-  <div filter>
-    <div class="fKopf">
-      <span class="fAchseTitel">Eingrenzen</span>
-      @if (hatFilter()) {
-        <button class="fReset" title="Alle Eingrenzungen entfernen" (click)="resetAlles()">
-          alle
-        </button>
-      }
-    </div>
-    <button
-      class="fAlle"
-      [class.aktiv]="!hatFilter()"
-      title="Eingrenzung aufheben"
-      (click)="resetAlles()"
-    >
-      <span class="fMarke"></span>
-      <span class="fLabel">Alle Profilierungen</span>
-      <span class="fZahl">{{ store.entries().length }}</span>
-    </button>
-    <div class="fAchsen">
-      @for (a of achsen(); track a.key) {
-        <div class="fAchse">
-          <div class="fAchseKopf">
-            <span class="fAchseTitel">{{ a.label }}</span>
-            @if (a.aktiv) {
-              <button
-                class="fAchseReset"
-                title="Diese Achse zurücksetzen"
-                (click)="leereAchse(a.key)"
-              >
-                ×
-              </button>
-            }
-          </div>
-          @for (w of a.werte; track w.id) {
-            <button
-              class="fWert"
-              [class.aktiv]="w.aktiv"
-              [attr.aria-pressed]="w.aktiv"
-              [class.leer]="!w.n && !w.aktiv"
-              [title]="w.label + ' — ' + w.n + ' Einträge'"
-              (click)="schalte(a.key, w.id)"
-            >
-              <span class="fBox">{{ w.aktiv ? '✓' : '' }}</span>
-              <span class="fLabel" [class.mono]="a.mono">{{ w.label }}</span>
-              <span class="fZahl">{{ w.n }}</span>
-            </button>
-          }
-        </div>
-      }
-    </div>
-  </div>
+  <app-filter-spalte
+    filter
+    [achsen]="achsen()"
+    [hatFilter]="hatFilter()"
+    alleLabel="Alle Profilierungen"
+    [gesamt]="store.entries().length"
+    (schalte)="schalte($event.key, $event.id)"
+    (leere)="leereAchse($event)"
+    (zuruecksetzen)="resetAlles()"
+  ></app-filter-spalte>
 
   <div class="dashKopf">
     <div class="dashKopfText">
@@ -86,58 +42,17 @@
     </div>
   </div>
 
-  <div class="dashWerkzeuge">
-    <label class="dashSucheFeld">
-      <span aria-hidden="true">⌕</span>
-      <input
-        type="search"
-        placeholder="Suchen — Name, Nachricht, Autor…"
-        [value]="search()"
-        (input)="search.set($any($event.target).value)"
-      />
-    </label>
-    <span class="dashTreffer">{{ trefferText() }}</span>
-    <span class="spacer"></span>
-    <select
-      class="dashGliederung"
-      title="Gliederung der Sammlung"
-      [value]="gliederung()"
-      (change)="gliederung.set($any($event.target).value)"
-    >
-      @for (g of gliederungen; track g.id) {
-        <!-- `selected` an der Option, nicht nur `value` am Feld: die Optionen
-             entstehen erst nach dem Binden, sonst stuende immer die erste. -->
-        <option [value]="g.id" [selected]="g.id === gliederung()">{{ g.label }}</option>
-      }
-    </select>
-    <div class="ansichtToggle">
-      <button
-        [class.aktiv]="ansicht() !== 'liste'"
-        title="Kacheln mit mehr Kontext je Eintrag"
-        (click)="ansicht.set('kacheln')"
-      >
-        Kacheln
-      </button>
-      <button
-        [class.aktiv]="ansicht() === 'liste'"
-        title="Kompakte Liste — viele Einträge auf einen Blick"
-        (click)="ansicht.set('liste')"
-      >
-        Liste
-      </button>
-    </div>
-  </div>
+  <app-sammlung-werkzeuge
+    [(suche)]="search"
+    platzhalter="Suchen — Name, Nachricht, Autor…"
+    [trefferText]="trefferText()"
+    [gliederungen]="gliederungen"
+    [(gliederung)]="gliederung"
+    [(ansicht)]="ansicht"
+  ></app-sammlung-werkzeuge>
 
   @if (hatFilter()) {
-    <div class="aktivChips">
-      @for (c of aktiveChips(); track c.key + ':' + c.id) {
-        <button class="aktivChip" title="Diese Eingrenzung entfernen" (click)="entferneChip(c)">
-          <span class="aktivChipAchse">{{ c.achse }}</span
-          >{{ c.label }}
-          <span class="aktivChipX" aria-hidden="true">✕</span>
-        </button>
-      }
-    </div>
+    <app-aktiv-chips [chips]="aktiveChips()" (entferne)="entferneChip($event)"></app-aktiv-chips>
   }
 
   @if (!store.entries().length) {

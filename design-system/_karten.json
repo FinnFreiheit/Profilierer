@@ -56,6 +56,14 @@
     }
   },
   {
+    "name": "Wahlschalter Barrierefrei",
+    "path": "bausteine/barrierefrei-schalter.html",
+    "group": "Bausteine",
+    "viewport": {
+      "width": 720
+    }
+  },
+  {
     "name": "Chips",
     "path": "bausteine/chips.html",
     "group": "Bausteine",

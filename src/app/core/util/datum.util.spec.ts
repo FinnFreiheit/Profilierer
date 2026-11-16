@@ -1,4 +1,4 @@
-import { datumKurz } from './datum.util';
+import { datumKurz, datumZeitKurz } from './datum.util';
 
 /**
  * Das Kachel-Datum stand dreifach in den Ansichten (Profile, Testdaten,
@@ -21,5 +21,17 @@ describe('datumKurz', () => {
     expect(datumKurz('')).toBe('');
     expect(datumKurz('kein Datum')).toBe('');
     expect(datumKurz(Number.NaN)).toBe('');
+  });
+});
+
+describe('datumZeitKurz', () => {
+  it('nennt Datum und Uhrzeit, bleibt ohne Angabe leer', () => {
+    const d = new Date(2026, 7, 12, 14, 5);
+    expect(datumZeitKurz(d.getTime())).toBe(
+      d.toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }),
+    );
+    expect(datumZeitKurz(d.getTime())).toContain('14:05');
+    expect(datumZeitKurz(undefined)).toBe('');
+    expect(datumZeitKurz(0)).toBe('');
   });
 });

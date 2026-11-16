@@ -68,6 +68,19 @@ describe('Menu — Backdrop-Klick', () => {
     fixture.detectChanges();
   });
 
+  it('Escape schliesst das Menue und wandert nicht weiter', () => {
+    const knopf = el.querySelector<HTMLButtonElement>('app-menu > button')!;
+    expect(knopf.getAttribute('aria-expanded')).toBe('true');
+
+    knopf.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(el.querySelector('.menuPanel')).toBeNull();
+    expect(knopf.getAttribute('aria-expanded')).toBe('false');
+    // Die Taste gehoert sonst dem Wirt (im Editor: Auswahl aufheben).
+    expect(fixture.componentInstance.geoeffnet()).toBe(0);
+  });
+
   it('schliesst das Menue, ohne die Kachel darunter zu oeffnen', () => {
     expect(el.querySelector('.menuPanel')).toBeTruthy();
     // Der Klick auf den Knopf selbst darf die Kachel schon nicht oeffnen.

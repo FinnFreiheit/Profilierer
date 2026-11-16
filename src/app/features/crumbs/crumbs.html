@@ -22,7 +22,11 @@
         class="crumb"
         [class.cur]="last"
         [title]="titleOf(it, last)"
+        [attr.role]="last ? null : 'button'"
+        [attr.tabindex]="last ? null : 0"
+        [attr.aria-current]="last ? 'location' : null"
         (click)="last ? null : pick(it)"
+        (keydown.enter)="last ? null : pick(it); $event.stopPropagation()"
       >
         {{ label(it) }}
       </span>

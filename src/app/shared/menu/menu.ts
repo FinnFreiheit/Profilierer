@@ -122,4 +122,14 @@ export class Menu {
   close(): void {
     this.open.set(false);
   }
+
+  /**
+   * Escape schliesst das offene Menue — und nur das: die Taste gehoert sonst
+   * dem Baum-Editor (Auswahl aufheben), deshalb wandert sie nicht weiter.
+   */
+  protected schliesseMitEscape(e: Event): void {
+    if (!this.open()) return;
+    e.stopPropagation();
+    this.close();
+  }
 }

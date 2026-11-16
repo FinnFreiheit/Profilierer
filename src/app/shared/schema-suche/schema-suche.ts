@@ -3,8 +3,8 @@ import { StateService } from '../../core/services/state.service';
 import { SearchService } from '../../core/services/search.service';
 import { NavService } from '../../core/services/nav.service';
 import { PersistenceService } from '../../core/services/persistence.service';
-import { firstLine } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../kein-autofill.directive';
+import { SchemaTreffer as TrefferListe } from './schema-treffer';
 
 /** Ein Treffer der Dashboard-Suche, flach ueber beide Sektionen — fuer ↑/↓. */
 interface SchemaTreffer {
@@ -24,14 +24,15 @@ interface SchemaTreffer {
  *
  * Bewusst eine eigene, schlanke Komponente statt eines Schalters an der
  * Werkzeugleisten-Suche: Panel-Positionierung (dort am Eingabefeld ausgerichtet),
- * Trefferdarstellung und Treffer-Verhalten (hier immer Schema-Ansicht) sind
- * verschieden — geteilt wird die Logik im Dienst, nicht die Huelle.
+ * Tastaturbedienung und Treffer-Verhalten (hier immer Schema-Ansicht) sind
+ * verschieden — geteilt werden die Logik im Dienst und die Trefferzeilen
+ * (`app-schema-treffer`), nicht die Huelle.
  */
 @Component({
   selector: 'app-schema-suche',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './schema-suche.html',
-  imports: [KeinAutofillDirective],
+  imports: [KeinAutofillDirective, TrefferListe],
 })
 export class SchemaSuche {
   private readonly state = inject(StateService);
@@ -60,11 +61,6 @@ export class SchemaSuche {
   ]);
 
   protected readonly open = computed(() => this.focused() && this.query().trim().length > 0);
-
-  /** Ist die Zeile die, die Enter nimmt? `versatz` ist der Beginn der Sektion. */
-  protected istAktiv(versatz: number, i: number): boolean {
-    return this.aktiv() === versatz + i;
-  }
 
   protected onInput(e: Event): void {
     this.query.set((e.target as HTMLInputElement).value);
@@ -109,13 +105,7 @@ export class SchemaSuche {
     this.nav.loadMessage(name);
   }
 
-  protected typArt(name: string): string {
-    return name.startsWith('Code.') ? 'Codeliste' : 'Datentyp';
-  }
-
   protected close(): void {
     this.focused.set(false);
   }
-
-  protected readonly firstLine = firstLine;
 }

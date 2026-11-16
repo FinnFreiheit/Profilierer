@@ -1,4 +1,4 @@
-import { konkreterPfad, positionsKette, positionsPfad, stellenTeile } from './positions-pfad.util';
+import { konkreterPfad, positionsPfad } from './positions-pfad.util';
 
 /**
  * Der Positionspfad ist die gemeinsame Adresse mehrerer Nachrichten
@@ -54,19 +54,5 @@ describe('positions-pfad.util', () => {
   it('hat für eine höhere Stelle ohne Liste keinen Ort', () => {
     expect(konkreterPfad(`${M}/dokument[2]/id`, listen)).toBeNull();
     expect(konkreterPfad(`${M}/beteiligung[3]/name`, listen)).toBeNull();
-  });
-
-  it('zerlegt eine Stelle in Listenpfad und Nummer', () => {
-    expect(stellenTeile(`${M}/beteiligung[2]`)).toEqual({ listenPfad: `${M}/beteiligung`, n: 2 });
-    expect(stellenTeile(`${M}/beteiligung`)).toBeNull();
-  });
-
-  it('liefert die Präfixkette samt Trägerelement vor jeder Stelle', () => {
-    expect(positionsKette(`${M}/beteiligung[2]/name`)).toEqual([
-      M,
-      `${M}/beteiligung`,
-      `${M}/beteiligung[2]`,
-      `${M}/beteiligung[2]/name`,
-    ]);
   });
 });

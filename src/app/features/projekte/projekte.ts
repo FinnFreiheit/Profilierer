@@ -22,12 +22,21 @@ import { LibraryEntry } from '../../models/profile.model';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { Projekt } from '../../models/projekt.model';
 import { Bibliothek } from '../../shared/bibliothek/bibliothek';
+import { FilterSpalte } from '../../shared/bibliothek/filter-spalte';
+import { AktivChips } from '../../shared/bibliothek/aktiv-chips';
+import { SammlungWerkzeuge } from '../../shared/bibliothek/sammlung-werkzeuge';
+import {
+  AktivChip as Chip,
+  FilterAchse as Achse,
+  umschalten,
+} from '../../shared/bibliothek/filter.model';
 import { Menu } from '../../shared/menu/menu';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { TagEingabe } from '../../shared/tag-eingabe/tag-eingabe';
 import {
   hatAlleTags,
   normalisiereTags,
+  hatTag,
   schalteTag,
   tagOptionen,
   tagsAlsText,
@@ -35,6 +44,7 @@ import {
 import { zustandKlasse, zustandLabel } from '../../core/util/profil-zustand.util';
 import { fachmodulOf } from '../../core/util/fachmodul.util';
 import { datumKurz } from '../../core/util/datum.util';
+import { BarrierefreiService } from '../../core/services/barrierefrei.service';
 
 /**
  * Die Achsen der Filterspalte der Uebersicht. Muster und Bezeichner folgen der
@@ -56,28 +66,8 @@ const INHALT_LABEL: Record<InhaltKey, string> = {
 };
 const INHALT_ORDER: readonly InhaltKey[] = ['mitSzenarien', 'ohneSzenarien', 'mitTestnachrichten'];
 
-interface FilterWert {
-  id: string;
-  label: string;
-  /** Treffer, wenn nur dieser Wert (zusaetzlich) gesetzt waere. */
-  n: number;
-  aktiv: boolean;
-}
-
-interface FilterAchse {
-  key: AchsenKey;
-  label: string;
-  werte: FilterWert[];
-  aktiv: boolean;
-}
-
-/** Ein gesetzter Filter als Chip ueber der Sammlung. */
-interface AktivChip {
-  achse: string;
-  label: string;
-  key: AchsenKey | 'suche';
-  id: string;
-}
+type FilterAchse = Achse<AchsenKey>;
+type AktivChip = Chip<AchsenKey>;
 
 /**
  * Eine Zeile der Projektseite: eine Profilierung = ein Kommunikationsszenario,
@@ -118,7 +108,15 @@ interface Sprung {
 @Component({
   selector: 'app-projekte',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Bibliothek, Menu, KeinAutofillDirective, TagEingabe],
+  imports: [
+    Bibliothek,
+    FilterSpalte,
+    AktivChips,
+    SammlungWerkzeuge,
+    Menu,
+    KeinAutofillDirective,
+    TagEingabe,
+  ],
   templateUrl: './projekte.html',
 })
 export class Projekte {
@@ -130,6 +128,7 @@ export class Projekte {
   private readonly vergleich = inject(VergleichService);
   protected readonly ueberlagerung = inject(UeberlagerungService);
   private readonly einordnen = inject(EinordnenService);
+  private readonly barrierefrei = inject(BarrierefreiService);
   private readonly persistence = inject(PersistenceService);
   private readonly edit = inject(TestmessageEditService);
   private readonly testnachrichtStart = inject(TestnachrichtStartService);
@@ -211,7 +210,6 @@ export class Projekte {
     const alle = this.store.entries();
     const inhaltBasis = alle.filter((p) => this.passt(p, 'inhalt'));
     const tagBasis = alle.filter((p) => this.passt(p));
-    const schluessel = (t: string): string => t.toLocaleLowerCase('de');
     return [
       {
         key: 'tag' as const,
@@ -220,8 +218,7 @@ export class Projekte {
         werte: this.verfuegbareTags().map((t) => ({
           id: t.tag,
           label: t.tag,
-          n: tagBasis.filter((p) => (p.tags ?? []).some((x) => schluessel(x) === schluessel(t.tag)))
-            .length,
+          n: tagBasis.filter((p) => hatTag(p.tags, t.tag)).length,
           aktiv: this.tagAktiv(t.tag),
         })),
       },
@@ -266,9 +263,7 @@ export class Projekte {
       this.gewaehlteTags.set(schalteTag(this.gewaehlteTags(), id));
       return;
     }
-    this.fInhalt.update((cur) =>
-      cur.includes(id as InhaltKey) ? cur.filter((x) => x !== id) : [...cur, id as InhaltKey],
-    );
+    this.fInhalt.update((cur) => umschalten(cur, id as InhaltKey));
   }
 
   /** Eine Achse leeren (× am Achsenkopf). */
@@ -291,8 +286,7 @@ export class Projekte {
 
   /** Ist das Schlagwort gerade als Filter gesetzt (Kachel-Chip hervorheben)? */
   protected tagAktiv(tag: string): boolean {
-    const schluessel = tag.toLocaleLowerCase('de');
-    return this.gewaehlteTags().some((t) => t.toLocaleLowerCase('de') === schluessel);
+    return hatTag(this.gewaehlteTags(), tag);
   }
 
   /**
@@ -379,7 +373,7 @@ export class Projekte {
     const wirt = this.host.nativeElement as HTMLElement;
     wirt
       .querySelector('#szenario-' + CSS.escape(id))
-      ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      ?.scrollIntoView({ block: 'start', behavior: this.barrierefrei.scrollVerhalten() });
   }
 
   // ── Navigation ───────────────────────────────────────────────────────

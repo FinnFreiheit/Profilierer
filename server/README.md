@@ -19,6 +19,7 @@ Entwicklung (ng serve + Backend parallel): im Root `npm run dev`.
 | Variable     | Default                   | Zweck                                                                                                                      |
 | ------------ | ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `XJP_PORT`   | `3001`                    | HTTP-Port                                                                                                                  |
+| `XJP_HOST`   | _(alle Schnittstellen)_   | Bind-Adresse; hinter einem Reverse-Proxy `127.0.0.1`                                                                       |
 | `XJP_DB`     | `server/data/profiles.db` | SQLite-Datei (WAL-Modus)                                                                                                   |
 | `XJP_AG_KEY` | _(leer)_                  | Gemeinsamer Schlüssel der AG-Rolle (Abnahme, [ADR 0012](../docs/adr/0012-abnahme-rollenkonzept.md)); leer = keine AG-Rolle |
 
@@ -145,6 +146,8 @@ cd server && node --test
 
 ## Hinweis: SQLite-Treiber
 
-`better-sqlite3` bringt ein natives Binary mit. Blockiert die Umgebung dessen
-Install-Skript, greift Node 24s eingebautes `node:sqlite` als Fallback
-(gleiche synchrone API-Idee, `DatabaseSync`).
+`better-sqlite3` bringt ein natives Binary mit; einen Ersatzweg ohne dieses
+Modul gibt es im Code nicht (`db.js` importiert es direkt). Blockiert die
+Umgebung dessen Install-Skript oder fehlt ein Prebuilt für die Plattform, muss
+es dort übersetzt werden (`build-essential`, `python3`). Betrieb im Ganzen:
+[Betriebshandbuch](../docs/betriebshandbuch.md).

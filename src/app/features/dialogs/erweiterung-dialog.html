@@ -5,26 +5,30 @@
     wird überall als Erweiterung gekennzeichnet.
   </p>
   <div class="metaGrid">
-    <label>Elementname</label>
+    <label for="erwDlgName">Elementname</label>
     <input
+      id="erwDlgName"
       type="text"
       placeholder="z. B. zusatzAngabe"
       [value]="eName()"
       (input)="eName.set($any($event.target).value)"
     />
-    <label>Beschreibung</label>
+    <label for="erwDlgBeschreibung">Beschreibung</label>
     <textarea
+      id="erwDlgBeschreibung"
       placeholder="Fachliche Bedeutung / Begründung der Nachbeauftragung"
       [value]="eBeschr()"
       (input)="eBeschr.set($any($event.target).value)"
     ></textarea>
-    <label>Kardinalität</label>
+    <label for="erwDlgMin">Kardinalität</label>
     <div class="erwKard">
       <input
+        id="erwDlgMin"
         type="text"
         [value]="eMin()"
         (input)="eMin.set($any($event.target).value)"
         title="min"
+        aria-label="Kardinalität: mindestens"
       />
       <span>..</span>
       <input
@@ -32,10 +36,11 @@
         [value]="eMax()"
         (input)="eMax.set($any($event.target).value)"
         title="max — * oder unbounded für beliebig viele"
+        aria-label="Kardinalität: höchstens"
       />
     </div>
-    <label>Datentyp</label>
-    <app-datentyp-picker [wert]="eTyp()" (gewaehlt)="eTyp.set($event)" />
+    <span>Datentyp</span>
+    <app-datentyp-picker beschriftung="Datentyp" [wert]="eTyp()" (gewaehlt)="eTyp.set($event)" />
   </div>
   @if (nameProblem(); as np) {
     @if (eName().trim()) {

@@ -14,42 +14,13 @@
   />
   @if (open()) {
     <div class="srPanel open">
-      @if (nachrichten().length) {
-        <div class="srGroup">Nachrichten</div>
-        @for (m of nachrichten(); track m.name; let i = $index) {
-          <div
-            class="srItem"
-            [class.hot]="istAktiv(0, i)"
-            (mousedown)="oeffne('nachricht', m.name)"
-          >
-            <div class="sl">
-              {{ m.name }}
-              <span class="srArt">Nachricht</span>
-            </div>
-            @if (m.doc) {
-              <div class="sd">{{ firstLine(m.doc) }}</div>
-            }
-          </div>
-        }
-      }
-      @if (typen().length) {
-        <div class="srGroup">Datentypen</div>
-        @for (t of typen(); track t.name; let i = $index) {
-          <div
-            class="srItem"
-            [class.hot]="istAktiv(nachrichten().length, i)"
-            (mousedown)="oeffne('typ', t.name)"
-          >
-            <div class="sl">
-              {{ t.label }}
-              <span class="srArt">{{ typArt(t.name) }}</span>
-            </div>
-            @if (t.info) {
-              <div class="sd">{{ t.info }}</div>
-            }
-          </div>
-        }
-      }
+      <app-schema-treffer
+        [nachrichten]="nachrichten()"
+        [typen]="typen()"
+        [aktiv]="aktiv()"
+        (nachricht)="oeffne('nachricht', $event)"
+        (typ)="oeffne('typ', $event)"
+      ></app-schema-treffer>
       @if (!alle().length) {
         <div style="padding: 12px 14px; color: var(--muted); font-size: 12.5px">keine Treffer</div>
       }

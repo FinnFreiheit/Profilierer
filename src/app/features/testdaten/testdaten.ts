@@ -31,6 +31,15 @@ import { VergleichService } from '../../core/services/vergleich.service';
 import { EinordnenService } from '../../core/services/einordnen.service';
 import { TeilenService } from '../../core/services/teilen.service';
 import { Bibliothek } from '../../shared/bibliothek/bibliothek';
+import { FilterSpalte } from '../../shared/bibliothek/filter-spalte';
+import { AktivChips } from '../../shared/bibliothek/aktiv-chips';
+import { SammlungWerkzeuge } from '../../shared/bibliothek/sammlung-werkzeuge';
+import {
+  AktivChip as Chip,
+  FilterAchse as Achse,
+  filterAchse,
+  umschalten,
+} from '../../shared/bibliothek/filter.model';
 import { Menu } from '../../shared/menu/menu';
 import { TestmessageEntry } from '../../models/testmessage.model';
 import { LibraryEntry, ProfilVersion } from '../../models/profile.model';
@@ -44,7 +53,7 @@ import { MessageRef } from '../../models/xsd-index.model';
 import { parseTestmessage } from '../../core/util/testmessage.util';
 import { nachrichtTeile } from '../../core/util/pretty.util';
 import { ERW_SPERRE_GRUND, sperrtPruefartefakte } from '../../core/util/erweiterung-sperre';
-import { datumKurz } from '../../core/util/datum.util';
+import { datumKurz, datumZeitKurz } from '../../core/util/datum.util';
 import { firstLine } from '../../core/util/pretty.util';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { FileDropDirective } from '../../shared/file-drop.directive';
@@ -54,6 +63,7 @@ import { UiSettingsService } from '../../core/services/ui-settings.service';
 import {
   hatAlleTags,
   normalisiereTags,
+  hatTag,
   schalteTag,
   tagOptionen,
   tagsAlsText,
@@ -115,30 +125,8 @@ const GLIEDERUNGEN: readonly { id: Gliederung; label: string }[] = [
 
 type SortKey = 'name' | 'modul' | 'profil' | 'autor' | 'datum';
 
-interface FilterWert {
-  id: string;
-  label: string;
-  /** Treffer, wenn nur dieser Wert (zusaetzlich) gesetzt waere. */
-  n: number;
-  aktiv: boolean;
-}
-
-interface FilterAchse {
-  key: AchsenKey;
-  label: string;
-  /** Werte in Mono setzen (Fachmodul-Kuerzel, Nachrichtennamen). */
-  mono: boolean;
-  werte: FilterWert[];
-  aktiv: boolean;
-}
-
-/** Ein gesetzter Filter als Chip ueber der Sammlung. */
-interface AktivChip {
-  achse: string;
-  label: string;
-  key: AchsenKey | 'suche';
-  id: string;
-}
+type FilterAchse = Achse<AchsenKey>;
+type AktivChip = Chip<AchsenKey>;
 
 /**
  * Ein Abschnitt der Sammlung — je nach Gliederung Fachmodul, Nachricht,
@@ -175,6 +163,9 @@ interface Gruppe {
   imports: [
     NgTemplateOutlet,
     Bibliothek,
+    FilterSpalte,
+    AktivChips,
+    SammlungWerkzeuge,
     Menu,
     KeinAutofillDirective,
     FileDropDirective,
@@ -234,6 +225,19 @@ export class Testdaten {
         this.sendung.anlegenAngefordert.set(false);
         this.openCreate();
       });
+    });
+    // Einstieg von der Profil-Kachel (Issue #35): dieselbe Sitzung wie hier —
+    // der Dialog oeffnet direkt in Schritt 2 (Fassungswahl) fuer die
+    // uebergebene Profilierung. Die Anfrage kann gestellt worden sein, bevor
+    // diese Ansicht existierte, darum ein Signal statt eines Aufrufs; sie
+    // wirkt genau einmal.
+    effect(() => {
+      const profil = this.start.anfrage();
+      if (!profil) return;
+      this.start.anfrage.set(null);
+      this.openCreate();
+      this.createQuelle.set('profil');
+      void this.chooseProfil(profil);
     });
     // Index beim Betreten der Ansicht auffrischen: das Kennzeichen "Profil
     // weiterentwickelt" haengt am serverseitigen Vergleich und veraltet, sobald
@@ -524,22 +528,16 @@ export class Testdaten {
       werte: readonly { id: string; label: string }[],
       gewaehlt: readonly string[],
       trifft: (e: TestmessageEntry, id: string) => boolean,
-    ): FilterAchse => {
-      const basis = alle.filter((e) => this.passt(e, key === 'tag' ? undefined : key));
-      return {
+    ): FilterAchse =>
+      filterAchse({
         key,
         label,
         mono,
-        aktiv: gewaehlt.length > 0,
-        werte: werte.map((w) => ({
-          id: w.id,
-          label: w.label,
-          n: basis.filter((e) => trifft(e, w.id)).length,
-          aktiv: gewaehlt.includes(w.id),
-        })),
-      };
-    };
-    const tagSchluessel = (t: string): string => t.toLocaleLowerCase('de');
+        basis: alle.filter((e) => this.passt(e, key === 'tag' ? undefined : key)),
+        werte,
+        gewaehlt,
+        trifft,
+      });
     return [
       achse(
         'modul',
@@ -582,7 +580,7 @@ export class Testdaten {
         false,
         this.verfuegbareTags().map((t) => ({ id: t.tag, label: t.tag })),
         this.gewaehlteTags(),
-        (e, id) => (e.tags ?? []).some((t) => tagSchluessel(t) === tagSchluessel(id)),
+        (e, id) => hatTag(e.tags, id),
       ),
     ].filter((a) => a.werte.length > 0);
   });
@@ -631,13 +629,11 @@ export class Testdaten {
       return;
     }
     if (key === 'zustand') {
-      this.fZustand.update((cur) =>
-        cur.includes(id as Kennzeichen) ? cur.filter((x) => x !== id) : [...cur, id as Kennzeichen],
-      );
+      this.fZustand.update((cur) => umschalten(cur, id as Kennzeichen));
       return;
     }
     const sig = key === 'modul' ? this.fModul : key === 'projekt' ? this.fProjekt : this.fProfil;
-    sig.update((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+    sig.update((cur) => umschalten(cur, id));
   }
 
   /** Eine Achse leeren (× am Achsenkopf). */
@@ -679,8 +675,7 @@ export class Testdaten {
 
   /** Ist das Schlagwort gerade als Filter gesetzt (Kachel-Chip hervorheben)? */
   protected tagAktiv(tag: string): boolean {
-    const schluessel = tag.toLocaleLowerCase('de');
-    return this.gewaehlteTags().some((t) => t.toLocaleLowerCase('de') === schluessel);
+    return hatTag(this.gewaehlteTags(), tag);
   }
 
   /**
@@ -747,21 +742,6 @@ export class Testdaten {
     return idx.messages.filter(
       (m) => !f || m.name.toLowerCase().includes(f) || m.doc.toLowerCase().includes(f),
     );
-  });
-
-  /**
-   * Einstieg von der Profil-Kachel (Issue #35): dieselbe Sitzung wie hier —
-   * der Dialog oeffnet direkt in Schritt 2 (Fassungswahl) fuer die uebergebene
-   * Profilierung. Die Anfrage kann gestellt worden sein, bevor diese Ansicht
-   * existierte, darum ein Signal statt eines Aufrufs; sie wirkt genau einmal.
-   */
-  private readonly startAnfrage = effect(() => {
-    const profil = this.start.anfrage();
-    if (!profil) return;
-    this.start.anfrage.set(null);
-    this.openCreate();
-    this.createQuelle.set('profil');
-    void this.chooseProfil(profil);
   });
 
   protected openCreate(): void {
@@ -1434,9 +1414,7 @@ export class Testdaten {
 
   /** Anzeigedatum der Abnahme (fuer Badge-Tooltip und Dialog). */
   protected abnDatum(e: TestmessageEntry): string {
-    return e.abnahmeZeit
-      ? new Date(e.abnahmeZeit).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })
-      : '';
+    return datumZeitKurz(e.abnahmeZeit);
   }
 
   // ── Profil-Herkunft (gebundene Testnachricht) ───────────────────────

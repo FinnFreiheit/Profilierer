@@ -81,10 +81,4 @@ export class SchemaStoreService {
   hatDateien(id: string): boolean {
     return !!this.entries().find((e) => e.id === id)?.files.length;
   }
-
-  /** Gespeicherte Version samt Dateien entfernen. */
-  async entferne(id: string): Promise<void> {
-    await this.http.json<void>(`/schemas/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    this.entries.update((liste) => liste.filter((x) => x.id !== id));
-  }
 }

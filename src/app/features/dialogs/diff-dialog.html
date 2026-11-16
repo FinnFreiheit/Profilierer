@@ -95,7 +95,10 @@
             align-items: baseline;
           "
           [style.cursor]="r.art !== 'neu' ? 'pointer' : 'default'"
+          [attr.role]="r.art !== 'neu' ? 'button' : null"
+          [attr.tabindex]="r.art !== 'neu' ? 0 : null"
           (click)="onRow(r)"
+          (keydown.enter)="onRow(r)"
         >
           <span
             style="flex: none; width: 16px; text-align: center; font-weight: 700"

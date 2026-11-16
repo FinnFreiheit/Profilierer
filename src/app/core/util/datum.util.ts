@@ -13,3 +13,9 @@ export function datumKurz(wert: number | string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
+
+/** Datum mit Uhrzeit in Kurzform („12.08.26, 14:05") — Freigaben und Versionen. */
+export function datumZeitKurz(wert: number | string | null | undefined): string {
+  if (!wert) return '';
+  return new Date(wert).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
+}

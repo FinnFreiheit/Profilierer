@@ -97,21 +97,29 @@
                   Nachzubeauftragendes Element — nicht im XJustiz-Schema enthalten.
                 </div>
                 <div class="metaGrid">
-                  <label>Elementname</label>
-                  <input type="text" [value]="erw.name" (change)="setErwField('name', $event)" />
-                  <span class="dLabel">Beschreibung</span>
+                  <label for="erwName">Elementname</label>
+                  <input
+                    id="erwName"
+                    type="text"
+                    [value]="erw.name"
+                    (change)="setErwField('name', $event)"
+                  />
+                  <label class="dLabel" for="erwBeschreibung">Beschreibung</label>
                   <textarea
+                    id="erwBeschreibung"
                     placeholder="Fachliche Bedeutung / Begründung der Nachbeauftragung"
                     [value]="erw.beschreibung"
                     (change)="setErwField('beschreibung', $event)"
                   ></textarea>
-                  <label>Kardinalität</label>
+                  <label for="erwMin">Kardinalität</label>
                   <div class="erwKard">
                     <input
+                      id="erwMin"
                       type="text"
                       [value]="erw.min"
                       (change)="setErwField('min', $event)"
                       title="min"
+                      aria-label="Kardinalität: mindestens"
                     />
                     <span>..</span>
                     <input
@@ -119,10 +127,15 @@
                       [value]="erw.max === 'unbounded' ? '*' : erw.max"
                       (change)="setErwField('max', $event)"
                       title="max — * für beliebig viele"
+                      aria-label="Kardinalität: höchstens"
                     />
                   </div>
-                  <label>Datentyp</label>
-                  <app-datentyp-picker [wert]="erw.typ" (gewaehlt)="onErwTyp($event)" />
+                  <span>Datentyp</span>
+                  <app-datentyp-picker
+                    beschriftung="Datentyp"
+                    [wert]="erw.typ"
+                    (gewaehlt)="onErwTyp($event)"
+                  />
                 </div>
                 <div style="display: flex; gap: 6px; margin-top: 8px">
                   @if (erw.kannUnterelement) {
@@ -616,8 +629,20 @@
               @if (cl.eff) {
                 @if (!roEff() && !msgMode()) {
                   <div class="clTools">
-                    <a (click)="clAll()">alle</a>
-                    <a (click)="clNone()">keine</a>
+                    <a
+                      role="button"
+                      tabindex="0"
+                      (click)="clAll()"
+                      (keydown.enter)="clAll(); $event.stopPropagation()"
+                      >alle</a
+                    >
+                    <a
+                      role="button"
+                      tabindex="0"
+                      (click)="clNone()"
+                      (keydown.enter)="clNone(); $event.stopPropagation()"
+                      >keine</a
+                    >
                     <span style="color: var(--muted)">
                       {{
                         cl.restricted
@@ -687,7 +712,10 @@
                         class="clRow clPick"
                         [class.belegt]="w.belegt"
                         [title]="w.belegt ? 'Aktuell belegter Wert' : 'Als Wert übernehmen'"
+                        role="button"
+                        tabindex="0"
                         (click)="setWertAusListe(w.value)"
+                        (keydown.enter)="setWertAusListe(w.value); $event.stopPropagation()"
                       >
                         <code>{{ w.value }}</code
                         ><span>{{ w.label }}</span>

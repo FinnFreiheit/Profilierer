@@ -45,6 +45,8 @@ export class DatentypPicker {
 
   /** Der gespeicherte Typ-Anteil der Erweiterung. */
   readonly wert = input.required<DatentypWahl>();
+  /** Name des Feldes fuer Hilfsmittel — der Knopf selbst zeigt nur den Wert. */
+  readonly beschriftung = input('');
   /** Neue Wahl; Container meldet beide Felder leer. */
   readonly gewaehlt = output<DatentypWahl>();
 

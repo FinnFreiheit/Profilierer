@@ -1,5 +1,13 @@
 <div class="typWahl">
-  <button type="button" class="typKnopf" (click)="toggle(btn)" #btn>{{ anzeige() }} ▾</button>
+  <button
+    type="button"
+    class="typKnopf"
+    [attr.aria-label]="beschriftung() ? beschriftung() + ': ' + anzeige() : null"
+    (click)="toggle(btn)"
+    #btn
+  >
+    {{ anzeige() }} ▾
+  </button>
   @if (info()) {
     <span class="typInfo">{{ info() }}</span>
   }

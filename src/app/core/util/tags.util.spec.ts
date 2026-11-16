@@ -2,6 +2,7 @@ import {
   TAG_MAX_ANZAHL,
   TAG_MAX_LAENGE,
   hatAlleTags,
+  hatTag,
   normalisiereTags,
   schalteTag,
   tagOptionen,
@@ -77,5 +78,13 @@ describe('tags.util', () => {
   it('schalteTag waehlt an und wieder ab', () => {
     expect(schalteTag([], 'Pilot')).toEqual(['Pilot']);
     expect(schalteTag(['Pilot', 'eNoVA'], 'pilot')).toEqual(['eNoVA']);
+  });
+
+  describe('hatTag', () => {
+    it('findet ein Schlagwort unabhaengig von der Schreibung', () => {
+      expect(hatTag(['GenUVA', 'Notar'], 'genuva')).toBeTrue();
+      expect(hatTag(['GenUVA'], 'Gericht')).toBeFalse();
+      expect(hatTag(undefined, 'x')).toBeFalse();
+    });
   });
 });

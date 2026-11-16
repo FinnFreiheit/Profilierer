@@ -1,6 +1,6 @@
 # Betrieb / Deployment
 
-Wie die App gebaut und betrieben wird. Seit [ADR 0007](adr/0007-datenbank-backend.md) gibt es ein Backend (`server/`), das im Produktivbetrieb zugleich SPA, API und XRepository-Proxy same-origin ausliefert.
+Wie die App gebaut und betrieben wird — aus Sicht der Entwicklung. Für die Stelle, die die Anwendung installiert und betreibt, gibt es das eigenständige [Betriebshandbuch](betriebshandbuch.md). Seit [ADR 0007](adr/0007-datenbank-backend.md) gibt es ein Backend (`server/`), das im Produktivbetrieb zugleich SPA, API und XRepository-Proxy same-origin ausliefert.
 
 ## Build
 
@@ -12,7 +12,7 @@ npm run build # → dist/xjustiz-profilierer/
 
 Ergebnis ist eine statische Single-Page-App (Angular `@angular/build:application`).
 
-**Bundle:** Initial ~230–280 kB; SheetJS (Excel) und JSZip (Codelisten-ZIP) sind **Lazy-Chunks** und werden erst beim jeweiligen Export/Import geladen ([ADR 0006](adr/0006-lazy-xlsx-jszip.md)).
+**Bundle:** Initial rund 960 kB (Stand 26.11.10, über dem Warn-Budget von 800 kB); SheetJS (Excel) und JSZip (Codelisten-ZIP) sind **Lazy-Chunks** und werden erst beim jeweiligen Export/Import geladen ([ADR 0006](adr/0006-lazy-xlsx-jszip.md)).
 
 ## Backend + Produktivbetrieb
 

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { StateService } from '../../core/services/state.service';
 import { RolleService } from '../../core/services/rolle.service';
+import { BarrierefreiSchalter } from '../barrierefrei-schalter/barrierefrei-schalter';
 import { BetaBadge } from '../beta-badge/beta-badge';
 import { RolleBadge } from '../rolle-badge/rolle-badge';
 import { SchemaSuche } from '../schema-suche/schema-suche';
@@ -34,7 +35,7 @@ interface Reiter {
 @Component({
   selector: 'app-bibliothek',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BetaBadge, RolleBadge, SchemaSuche],
+  imports: [BarrierefreiSchalter, BetaBadge, RolleBadge, SchemaSuche],
   templateUrl: './bibliothek.html',
   host: { class: 'dashV4' },
 })

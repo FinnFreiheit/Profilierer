@@ -1,0 +1,48 @@
+<!-- Filterspalte: Achsen kombinieren mit UND, Werte einer Achse mit ODER.
+     Die Zaehler sagen, wie viele Treffer der Klick braechte. -->
+<div class="fKopf">
+  <span class="fAchseTitel">Eingrenzen</span>
+  @if (hatFilter()) {
+    <button class="fReset" title="Alle Eingrenzungen entfernen" (click)="zuruecksetzen.emit()">
+      alle
+    </button>
+  }
+</div>
+<button
+  class="fAlle"
+  [class.aktiv]="!hatFilter()"
+  title="Eingrenzung aufheben"
+  (click)="zuruecksetzen.emit()"
+>
+  <span class="fMarke"></span>
+  <span class="fLabel">{{ alleLabel() }}</span>
+  <span class="fZahl">{{ gesamt() }}</span>
+</button>
+<div class="fAchsen">
+  @for (a of achsen(); track a.key) {
+    <div class="fAchse">
+      <div class="fAchseKopf">
+        <span class="fAchseTitel">{{ a.label }}</span>
+        @if (a.aktiv) {
+          <button class="fAchseReset" title="Diese Achse zurücksetzen" (click)="leere.emit(a.key)">
+            ×
+          </button>
+        }
+      </div>
+      @for (w of a.werte; track w.id) {
+        <button
+          class="fWert"
+          [class.aktiv]="w.aktiv"
+          [attr.aria-pressed]="w.aktiv"
+          [class.leer]="!w.n && !w.aktiv"
+          [title]="w.label + ' — ' + w.n + ' ' + einheit()"
+          (click)="schalte.emit({ key: a.key, id: w.id })"
+        >
+          <span class="fBox">{{ w.aktiv ? '✓' : '' }}</span>
+          <span class="fLabel" [class.mono]="a.mono">{{ w.label }}</span>
+          <span class="fZahl">{{ w.n }}</span>
+        </button>
+      }
+    </div>
+  }
+</div>

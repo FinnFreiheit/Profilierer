@@ -14,22 +14,10 @@ export function testmessagesRouter(db, auth) {
   const r = Router();
 
   // Schreiboperationen auf abgenommene Testnachrichten nur mit AG-Schluessel.
-  const schutz = (req, res, next) => {
-    if (db.tmAbgenommen(req.params.id) && !auth.istAg(req))
-      return res
-        .status(403)
-        .json({ error: 'von der BLK-AG abgenommen — Aenderung nur mit AG-Schluessel' });
-    next();
-  };
+  const schutz = auth.schutz((id) => db.tmAbgenommen(id));
 
   // AG-exklusive Endpunkte (Abnahme setzen/entfernen).
-  const nurAg = (req, res, next) => {
-    if (!auth.konfiguriert)
-      return res.status(403).json({ error: 'AG-Rolle auf dieser Instanz nicht konfiguriert' });
-    if (!auth.istAg(req))
-      return res.status(403).json({ error: 'gueltiger AG-Schluessel erforderlich' });
-    next();
-  };
+  const { nurAg } = auth;
 
   // Index: schlanke Liste ohne xml, sortiert. `?profil=<id>` grenzt auf die an
   // eine Profilierung gebundenen Nachrichten ein.

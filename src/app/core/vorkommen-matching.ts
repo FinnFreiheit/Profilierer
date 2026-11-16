@@ -195,9 +195,7 @@ export function kennzeichenZuordnung(
     );
     const kosten = vorkommen.map((v, vi) =>
       ausps.map((a, ai) =>
-        kanten[vi]![ai]
-          ? verstossZahl(vorgabe, sicht, neu, listPfad, v.id, qList, a.id, umgebung)
-          : 0,
+        kanten[vi]![ai] ? verstossZahl(vorgabe, neu, listPfad, v.id, qList, a.id, umgebung) : 0,
       ),
     );
 
@@ -341,7 +339,6 @@ function kennzeichenText(modell: InstanzModell, vorkommenPfad: string, k: Kennze
  */
 function verstossZahl(
   vorgabe: ProfileDoc,
-  sicht: VorgabeSicht,
   modell: InstanzModell,
   listPfad: string,
   vorkommenId: string,

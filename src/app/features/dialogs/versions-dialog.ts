@@ -13,6 +13,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { VergleichService } from '../../core/services/vergleich.service';
 import { KeinAutofillDirective } from '../../shared/kein-autofill.directive';
 import { ProfilVersion } from '../../models/profile.model';
+import { datumZeitKurz } from '../../core/util/datum.util';
 
 /**
  * Versionen des aktiven Profils (US "Profilierung versionieren"): Liste der
@@ -136,6 +137,6 @@ export class VersionsDialog {
   }
 
   protected datum(v: ProfilVersion): string {
-    return new Date(v.erstellt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
+    return datumZeitKurz(v.erstellt);
   }
 }

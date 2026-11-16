@@ -1,4 +1,5 @@
 dist
+desktop/build
 .angular
 node_modules
 server/node_modules

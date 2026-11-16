@@ -538,11 +538,6 @@ export class DetailPanel {
     return it ? itemPath(it) : '';
   }
 
-  private parentPath(): string {
-    const it = this.state.selItem();
-    return it && it.kind === 'ausp' ? it.parentNode.path : '';
-  }
-
   // ── Aktionen ────────────────────────────────────────────────────────
 
   /** Titel der Platzhalter-Zeile (Antwort zu dieser Wirkung nicht angelegt). */
@@ -1065,13 +1060,8 @@ export class DetailPanel {
    * nicht fest (`GuidedService.verweisOhneZiel`).
    */
   private zumNaechstenOffenen(): void {
-    const grund = this.guided.ueberspringSperre();
-    if (grund) {
-      this.toast.show(grund);
-      return;
-    }
-    if (!this.guided.gotoNextOpen())
-      this.toast.show('Keine offene Angabe mehr in dieser Nachricht.');
+    const meldung = this.guided.naechstesOffenesMitSperre();
+    if (meldung) this.toast.show(meldung);
   }
 
   /** Per Ziffer waehlbare Optionen der Station (Auswahl-Zweige, Verweisziele). */
@@ -1116,12 +1106,8 @@ export class DetailPanel {
    */
   protected guidedNext(): void {
     this.uebernimmOffenenWert();
-    const grund = this.guided.ueberspringSperre();
-    if (grund) {
-      this.toast.show(grund);
-      return;
-    }
-    this.guided.gotoNext();
+    const grund = this.guided.ueberspringen();
+    if (grund) this.toast.show(grund);
   }
 
   protected guidedNextOpen(): void {

@@ -2,7 +2,10 @@
   [disabled]="disabled()"
   [title]="titel()"
   [class]="btnClass()"
+  [attr.aria-expanded]="open()"
+  aria-haspopup="true"
   (click)="toggle(btn); $event.stopPropagation()"
+  (keydown.escape)="schliesseMitEscape($event)"
   #btn
 >
   <span class="lbl-lang">{{ label() }}</span>
@@ -21,6 +24,7 @@
   <div
     class="menuBackdrop"
     style="position: fixed; inset: 0; z-index: 39"
+    aria-hidden="true"
     (click)="close(); $event.stopPropagation()"
   ></div>
   <div
@@ -30,7 +34,9 @@
     [style.top.px]="richtung() === 'unten' ? pos().top : null"
     [style.bottom.px]="richtung() === 'oben' ? pos().bottom : null"
     [style.max-width.px]="pos().breite"
+    tabindex="-1"
     (click)="$event.stopPropagation()"
+    (keydown.escape)="schliesseMitEscape($event); btn.focus()"
   >
     <ng-content></ng-content>
   </div>

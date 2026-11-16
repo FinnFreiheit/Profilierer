@@ -13,6 +13,7 @@ Zentraler Einstieg in die Entwickler- und Architekturdokumentation. Der **XJusti
 | [Glossar](glossary.md)                                        | Baum-/Darstellungsbegriffe (Knoten, Kante, Blatt, Wurzel, Wert …) und ERV-/XJustiz-Fachbegriffe (XJustiz, Codeliste, Schematron, Ausprägung …) |
 | [Tests](testing.md)                                           | Unit-Tests headless fahren, E2E-Muster, Testdaten                                                                                              |
 | [Betrieb / Deployment](deployment.md)                         | Build, Hosting, die offene Prod-Proxy-Frage                                                                                                    |
+| [Betriebshandbuch](betriebshandbuch.md)                       | Für den Betreiber: Installation, Konfiguration, Zugriffsschutz, Sicherung, Update, Überwachung, Übergabe-Checkliste                            |
 | [Beitragen](contributing.md)                                  | Setup, Konventionen, Commit-/Branch-Stil                                                                                                       |
 | [Workflow](workflow.md)                                       | Spickzettel: mein Anteil im Zyklus Grilling → Spec → Tickets → AFK-Loop → Ernte                                                                |
 | [Architektur-Entscheidungen (ADRs)](adr/README.md)            | Warum wurde etwas so entschieden (Migration, Store, SVG-Linien, Proxy …)                                                                       |

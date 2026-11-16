@@ -41,58 +41,16 @@
         </div>
       </div>
     } @else {
-      <!-- Filterspalte: Achsen kombinieren mit UND, Werte einer Achse mit ODER.
-         Die Zaehler sagen, wie viele Treffer der Klick braechte. -->
-      <div class="fKopf">
-        <span class="fAchseTitel">Eingrenzen</span>
-        @if (hatFilter()) {
-          <button class="fReset" title="Alle Eingrenzungen entfernen" (click)="resetAlles()">
-            alle
-          </button>
-        }
-      </div>
-      <button
-        class="fAlle"
-        [class.aktiv]="!hatFilter()"
-        title="Eingrenzung aufheben"
-        (click)="resetAlles()"
-      >
-        <span class="fMarke"></span>
-        <span class="fLabel">Alle Projekte</span>
-        <span class="fZahl">{{ store.entries().length }}</span>
-      </button>
-      <div class="fAchsen">
-        @for (a of achsen(); track a.key) {
-          <div class="fAchse">
-            <div class="fAchseKopf">
-              <span class="fAchseTitel">{{ a.label }}</span>
-              @if (a.aktiv) {
-                <button
-                  class="fAchseReset"
-                  title="Diese Achse zurücksetzen"
-                  (click)="leereAchse(a.key)"
-                >
-                  ×
-                </button>
-              }
-            </div>
-            @for (w of a.werte; track w.id) {
-              <button
-                class="fWert"
-                [class.aktiv]="w.aktiv"
-                [attr.aria-pressed]="w.aktiv"
-                [class.leer]="!w.n && !w.aktiv"
-                [title]="w.label + ' — ' + w.n + ' Projekte'"
-                (click)="schalte(a.key, w.id)"
-              >
-                <span class="fBox">{{ w.aktiv ? '✓' : '' }}</span>
-                <span class="fLabel">{{ w.label }}</span>
-                <span class="fZahl">{{ w.n }}</span>
-              </button>
-            }
-          </div>
-        }
-      </div>
+      <app-filter-spalte
+        [achsen]="achsen()"
+        [hatFilter]="hatFilter()"
+        alleLabel="Alle Projekte"
+        [gesamt]="store.entries().length"
+        einheit="Projekte"
+        (schalte)="schalte($event.key, $event.id)"
+        (leere)="leereAchse($event)"
+        (zuruecksetzen)="resetAlles()"
+      ></app-filter-spalte>
     }
   </div>
 
@@ -289,29 +247,14 @@
       </div>
     </div>
 
-    <div class="dashWerkzeuge">
-      <label class="dashSucheFeld">
-        <span aria-hidden="true">⌕</span>
-        <input
-          type="search"
-          placeholder="Suchen — Name, Beschreibung, Schlagwort…"
-          [value]="search()"
-          (input)="search.set($any($event.target).value)"
-        />
-      </label>
-      <span class="dashTreffer">{{ trefferText() }}</span>
-    </div>
+    <app-sammlung-werkzeuge
+      [(suche)]="search"
+      platzhalter="Suchen — Name, Beschreibung, Schlagwort…"
+      [trefferText]="trefferText()"
+    ></app-sammlung-werkzeuge>
 
     @if (hatFilter()) {
-      <div class="aktivChips">
-        @for (c of aktiveChips(); track c.key + ':' + c.id) {
-          <button class="aktivChip" title="Diese Eingrenzung entfernen" (click)="entferneChip(c)">
-            <span class="aktivChipAchse">{{ c.achse }}</span
-            >{{ c.label }}
-            <span class="aktivChipX" aria-hidden="true">✕</span>
-          </button>
-        }
-      </div>
+      <app-aktiv-chips [chips]="aktiveChips()" (entferne)="entferneChip($event)"></app-aktiv-chips>
     }
 
     @if (!store.entries().length) {

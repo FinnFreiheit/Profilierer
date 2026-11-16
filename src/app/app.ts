@@ -60,6 +60,7 @@ import { NachrichtSpeichernDialog } from './features/dialogs/nachricht-speichern
 import { AnlageVorschau } from './features/sendung/anlage-vorschau';
 import { itemPath } from './models/node.model';
 import { STANDARD_TASTE, wirkungFuerTaste } from './core/profile-defaults';
+import { BarrierefreiService } from './core/services/barrierefrei.service';
 
 /**
  * Ist das Ziel ein **Zweig-Radio** der gefuehrten Auswahl? Solche Knoepfe geben
@@ -132,6 +133,8 @@ export class App implements OnInit {
   private readonly testmessageEdit = inject(TestmessageEditService);
   private readonly testmessages = inject(TestmessageStoreService);
   private readonly toast = inject(ToastService);
+  /** Hier injiziert, damit die Klasse am `<html>` schon vor der ersten Kopfzeile steht. */
+  protected readonly barrierefrei = inject(BarrierefreiService);
   private readonly state = inject(StateService);
   private readonly guided = inject(GuidedService);
   private readonly disposition = inject(DispositionService);
@@ -497,9 +500,8 @@ export class App implements OnInit {
       // naechste Station gibt: der Ruecksprung der Baum-Navigation warf den
       // Durchlauf sonst an den Anfang zurueck.
       if (e.key === 'ArrowDown') {
-        const grund = this.guided.ueberspringSperre();
+        const grund = this.guided.ueberspringen();
         if (grund) this.toast.show(grund);
-        else this.guided.gotoNext();
         e.preventDefault();
         return;
       }
@@ -600,6 +602,18 @@ export class App implements OnInit {
   private zumNaechstenOffenen(): void {
     const meldung = this.guided.naechstesOffenesMitSperre();
     if (meldung) this.toast.show(meldung);
+  }
+
+  /**
+   * Sprungmarke der barrierefreien Darstellung: an Kopfzeile und Filterspalte
+   * vorbei in den Inhalt. Ein Skript statt eines `#`-Verweises, weil der
+   * `<base href>` einen Anker-Link zur Navigation machen wuerde.
+   */
+  protected zumInhalt(): void {
+    const ziel = document.querySelector<HTMLElement>('main, #main');
+    if (!ziel) return;
+    ziel.tabIndex = -1;
+    ziel.focus();
   }
 
   async onXsdFiles(files: FileList | File[]): Promise<void> {
